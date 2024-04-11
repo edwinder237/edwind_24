@@ -61,7 +61,10 @@ export default function Layout({ variant = "main", children }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AuthGuard>
       <MainLayout>{children}</MainLayout>
+      </AuthGuard>
+      
     </QueryClientProvider>
   );
 }
