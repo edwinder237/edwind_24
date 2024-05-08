@@ -191,7 +191,7 @@ export function getSingleProject(id) {
   return async () => {
     try {
       const response = await axios.post(dataRoutes.fetchSingleProject, { id });
-      console.log(response.data)
+      console.log(response)
       dispatch(slice.actions.getSingleProjectSuccess(response.data.project));
     } catch (error) {
       console.log(error)

@@ -50,14 +50,14 @@ function AgendaContainer() {
 
     switch (eventType) {
       case "course":
-        const course = courses.find((course) => course.id == courseId);
+        const course = courses.find((course) => course?.id == courseId);
         setScheduleState({
           ...scheduleState,
           participants: selectedEventAttendees,
-          courseTitle: `${course.duration}min | ${eventTitle} | ${course.title}`,
+          courseTitle: `${course?.duration}min | ${eventTitle} | ${course?.title}`,
           groupName: [],
           instructorNotes: [],
-          modules: course.modules,
+          modules: course?.modules,
         });
 
         //console.log('Selected Event',event);

@@ -24,7 +24,7 @@ function ProjectDefault() {
 
   useEffect(() => {
     if (projectId) {
-      const singleProject = dispatch(getSingleProject(21));
+      const singleProject = dispatch(getSingleProject(parseInt(id)));
       Promise.all([singleProject]).then(() => setLoading(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

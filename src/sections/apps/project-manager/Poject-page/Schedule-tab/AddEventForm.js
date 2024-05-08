@@ -215,6 +215,7 @@ const AddEventFrom = ({ event, range, onCancel, events }) => {
           allDay: values.allDay,
           start: values.start,
           end: values.end,
+          projectId:3
         };
         if (event) {
           console.log("updating", event);

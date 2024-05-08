@@ -7,6 +7,9 @@ export default async function handler(req, res) {
     const projects = await prisma.projects.findMany({
       orderBy: {
         createdAt: 'desc', // 'asc' for ascending, 'desc' for descending
+      },
+      include:{
+        user:true
       }
     });
 

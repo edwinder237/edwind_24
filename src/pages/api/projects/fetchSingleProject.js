@@ -4,10 +4,11 @@ const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
   const { id } = req.body;
+  console.log(id)
   try {
     const project = await prisma.projects.findUnique({
       where: {
-        id: 21,
+        id: parseInt(id),
       },
       include: {
         participants: {
@@ -45,6 +46,10 @@ export default async function handler(req, res) {
         },
       },
     });
+
+    if (!project) {
+      return res.status(404).json({ Project: null, error: `Project with ID ${id} not found` });
+    }
 
     res.status(200).json({ project });
     console.log(`${project.title} project fetched successfully`);

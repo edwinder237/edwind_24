@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "store";
 import { getProjectCurriculums } from "store/reducers/projects";
 
+
 //Breadcrumbs imports
 import Link from "next/link";
 
@@ -19,12 +20,14 @@ import {
 import { useTheme } from "@mui/material/styles";
 
 // project import
+import { openSnackbar } from "store/reducers/snackbar";
 import Loader from "components/Loader";
 import HeaderCountCard from "components/cards/statistics/HeaderCountCard";
 import LabelledTasks from "./Header/LabelledTasks";
 import TabSettings from "./Settings-tab/TabSettings";
 import SearchContainer from "./Curriculum-tab/SearchContainer";
 import AgendaContainer from "./Schedule-tab";
+import ProjectNotFound from "pages/maintenance/project-notFound";
 
 // assets
 import {
@@ -71,7 +74,7 @@ function a11yProps(index) {
 }
 
 const ProjectPage = () => {
-  console.log('Project Page')
+  console.log('Project Page',Project)
   const dispatch = useDispatch();
   const { singleProject: Project,project_participants } = 
   useSelector((state) => state.projects);
@@ -235,7 +238,7 @@ const ProjectPage = () => {
         </Grid>
       </Grid>
     );
-  } else return <Loader />;
+  } else return <ProjectNotFound/>;
 };
 
 export default ProjectPage;

@@ -64,7 +64,7 @@ const ProjectCard = ({ Project, projectId }) => {
     setOpen(false);
   };
 
-  //console.log(success);
+  console.log(Project);
 
   const handleAlertClose = (action) => {
     setOpenAlert(!openAlert);
@@ -162,6 +162,7 @@ const ProjectCard = ({ Project, projectId }) => {
   }
 
   const tags = Project?.tags && JSON.parse(Project.tags);
+  const creator = Project?.user?.name;
 
   const instructors = ["marc", "Matthew", "Jamal"];
 
@@ -310,7 +311,7 @@ const ProjectCard = ({ Project, projectId }) => {
             sx={{ mt: "auto", mb: 0, pt: 2.25 }}
           >
             <Typography variant="caption" color="secondary">
-              Created: {formatedCreationDate}
+              Created: {formatedCreationDate}  by: {creator}
             </Typography>
             <Stack direction="row" spacing={1}>
               <Button variant="outlined" size="small" onClick={handleClickOpen}>

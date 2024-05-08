@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { connect } from "net";
 
 
 
@@ -8,17 +9,17 @@ export default async function handler(req, res) {
     try {
 
       const { newEvent,events } = req.body;
-
-      const id = events[0].projectId;
-
-
-      delete newEvent.id;
+      
+      //const id = events[0].projectId;
+      
+     // delete newEvent.id;
+     console.log(newEvent)
       const event = {
         title: newEvent.title,
         description: newEvent.description,
-        eventType: "course",
-        projectId: id, // Replace with the actual project ID
-        courseId: 1, // Replace with the actual course ID
+        eventType: "other",
+       // projectId: 3, 
+       // courseId: 1, 
         start: newEvent.start, // Replace with the actual start date and time
         end: newEvent.end, // Replace with the actual end date and time
         allDay: newEvent.allDay, // Replace with the actual value
@@ -28,10 +29,14 @@ export default async function handler(req, res) {
         borderColor: "#000000", // Replace with the actual border color value
         editable: true, // Replace with the actual value
         eventStatus: "Active", // Replace with the actual status
-        extendedProps: { location: "Conference Room A", priority: "High" } // Replace with the actual extendedProps
+        extendedProps: { location: "Conference Room A", priority: "High" }, // Replace with the actual extendedProps
+        project: {connect: {id:3}},
+        //course: {connect:{id:1}}
       };
+      console.log(event)
        await prisma.events.create({
-        data: event
+        data: event,
+
       });
       
   

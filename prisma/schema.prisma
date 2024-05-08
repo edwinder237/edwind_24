@@ -137,7 +137,7 @@ model course_roles {
 model projects {
   id                  Int                    @id @default(autoincrement())
   cuid                String
-  sub_organizationId  Int
+  sub_organizationId  Int                    
   sub_organization    sub_organizations      @relation(fields: [sub_organizationId], references: [id])
   createdAt           DateTime               @default(now())
   lastUpdated         DateTime               @default(now())

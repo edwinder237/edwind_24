@@ -116,6 +116,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     }
   };
 
+
   const formik = useFormik({
     initialValues: getInitialValues(),
     validationSchema: ProjectSchema,
@@ -126,6 +127,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           sortorder: 1,
           cuid: createId(),
           sub_organizationId: parseInt(sub_orgId),
+          createdBy: token.id,
           createdAt: today,
           published: values.shared,
           title: values.title,

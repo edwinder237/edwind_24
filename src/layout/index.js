@@ -14,10 +14,9 @@ import GuestGuard from "utils/route-guard/GuestGuard";
 const Header = lazy(() => import("./Header"));
 const FooterBlock = lazy(() => import("./FooterBlock"));
 
-
 // ==============================|| REACT QUERY ||============================== //
 // Create a client
-const queryClient = new QueryClient()
+const queryClient = new QueryClient();
 
 // ==============================|| Loader ||============================== //
 
@@ -62,9 +61,8 @@ export default function Layout({ variant = "main", children }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthGuard>
-      <MainLayout>{children}</MainLayout>
+        <MainLayout>{children}</MainLayout>
       </AuthGuard>
-      
     </QueryClientProvider>
   );
 }
