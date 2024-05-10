@@ -64,7 +64,7 @@ const ProjectCard = ({ Project, projectId }) => {
     setOpen(false);
   };
 
-  console.log(Project);
+  //console.log(Project);
 
   const handleAlertClose = (action) => {
     setOpenAlert(!openAlert);
