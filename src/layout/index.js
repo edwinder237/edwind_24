@@ -8,8 +8,8 @@ import LinearProgress from "@mui/material/LinearProgress";
 
 // project import
 import MainLayout from "./MainLayout";
-import AuthGuard from "utils/route-guard/AuthGuard";
-import GuestGuard from "utils/route-guard/GuestGuard";
+//import AuthGuard from "utils/route-guard/AuthGuard";
+//import GuestGuard from "utils/route-guard/GuestGuard";
 
 const Header = lazy(() => import("./Header"));
 const FooterBlock = lazy(() => import("./FooterBlock"));
@@ -55,18 +55,18 @@ export default function Layout({ variant = "main", children }) {
   }
 
   if (variant === "auth") {
-    return <GuestGuard>{children}</GuestGuard>;
+    //return <GuestGuard>{children}</GuestGuard>;
   }
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthGuard>
+      
         <MainLayout>{children}</MainLayout>
-      </AuthGuard>
+      
     </QueryClientProvider>
   );
 }
-// wrap auth arround mainlyout
+// wrap auth arround mainlyout <AuthGuard>
 
 Layout.propTypes = {
   variant: PropTypes.string,
