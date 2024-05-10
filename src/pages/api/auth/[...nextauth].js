@@ -74,7 +74,6 @@ export default NextAuth({
   callbacks: {
     jwt: ({ token, user, account }) => {
       if (user) {
-        console.log('from auth',user)
         token.id = user.id;
         token.provider = account?.provider;
         token.userProps = { sub_org: user.subOrganizationId, sub_org_name: user.subOrganizationName };
