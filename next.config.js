@@ -20,7 +20,7 @@ module.exports = withTM({
     return [
       {
         source: '/',
-        destination: '/projects',
+        destination: '/prompt',
         permanent: true
       }
     ];

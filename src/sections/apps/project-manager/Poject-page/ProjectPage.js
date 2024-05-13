@@ -176,6 +176,9 @@ const ProjectPage = () => {
             <Tabs
               value={tabValue}
               onChange={handleChange}
+              variant="scrollable"
+              scrollButtons
+  allowScrollButtonsMobile
               aria-label="navigation tabs"
             >
               <Tab label="Overview" {...a11yProps(0)} />

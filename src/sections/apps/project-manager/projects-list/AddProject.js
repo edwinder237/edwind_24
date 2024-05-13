@@ -78,10 +78,10 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   const dispatch = useDispatch();
   const isCreating = !project;
   const { data } = useSession();
-  const { user, token } = data;
-  const { userProps } = token;
-  const sub_orgId = userProps.sub_org;
-  const sub_org_name = userProps.sub_org_name;
+  //const { user, token } = data;
+  //const { userProps } = token;
+  //const sub_orgId = userProps.sub_org;
+  //const sub_org_name = userProps.sub_org_name;
   const today = new Date();
   const { projects,isAdding } = useSelector((state) => state.projects);
 
@@ -126,8 +126,8 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
         const newProject = {
           sortorder: 1,
           cuid: createId(),
-          sub_organizationId: parseInt(sub_orgId),
-          createdBy: token.id,
+          sub_organizationId: 1,
+          createdBy: 'clun74oh10003wszp0rpz6fzy',
           createdAt: today,
           published: values.shared,
           title: values.title,
@@ -261,7 +261,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                               {projectTitle} | {projectType}
                             </Typography>
                             <Typography variant="body2" sx={{ mb: 2 }}>
-                              {sub_org_name} | Created by {user.name}
+                              Edwind | Created by Marc Nelson
                             </Typography>
                           </Grid>
                         </Grid>

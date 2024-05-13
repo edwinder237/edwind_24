@@ -7,7 +7,7 @@ import {
 const TransferLists = ({ learners, enrolled,handleSelectedEnrollee }) => {
   const [targetKeys, setTargetKeys] = useState([]);
   
-  const learnersList = learners.map((person, i) => ({
+  const learnersList = learners?.map((person, i) => ({
     key: i.toString(),
     title: `${person.firstName} ${person.lastName}`,
     description: person.derpartement,
@@ -29,7 +29,7 @@ const TransferLists = ({ learners, enrolled,handleSelectedEnrollee }) => {
 
   useEffect(() => {
     // Populate initial data
-    const tempTargetKeys = learnersList.filter(person => person.chosen).map(person => person.key);
+    const tempTargetKeys = learnersList?.filter(person => person.chosen).map(person => person.key);
     setTargetKeys(tempTargetKeys);
   }, []);
 
