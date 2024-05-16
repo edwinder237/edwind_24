@@ -24,7 +24,6 @@ import { PopupTransition } from "components/@extended/Transitions";
 import EmptyUserCard from "components/cards/skeleton/EmptyUserCard";
 import CurriculumCard from "./curriculum/curriculumCard";
 import AddProject from "./AddProject";
-import RightDrawer from "./drawer/Drawer";
 
 import { GlobalFilter } from "utils/react-table";
 import usePagination from "hooks/usePagination";
@@ -108,7 +107,6 @@ const SearchContainer = () => {
 if(projects)
   return (
     <Fragment>
-      <RightDrawer/>
       <Box sx={{ position: "relative", marginBottom: 3 }}>
         <Stack direction="row" alignItems="center">
           <Stack

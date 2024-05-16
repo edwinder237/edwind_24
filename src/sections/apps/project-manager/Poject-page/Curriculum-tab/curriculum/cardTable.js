@@ -13,13 +13,14 @@ import {
 } from "@mui/material";
 
 // project imports
-import MainCard from "components/MainCard";
 import Avatar from "components/@extended/Avatar";
 
 import SimpleBar from "components/third-party/SimpleBar";
 import { FileTextFilled } from "@ant-design/icons";
 
 // ===========================|| DATA WIDGET - PRODUCT SALES ||=========================== //
+
+
 
 const CardTable = ({ data }) => (
   <>
@@ -32,15 +33,15 @@ const CardTable = ({ data }) => (
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ pl: 3 }}>Course title</TableCell>
-              <TableCell align="right" sx={{ pr: 3 }}>
-                Events
+              <TableCell sx={{ pl: 3 }}>Group Name</TableCell>
+              <TableCell align="center" sx={{ pr: 3 }}>
+                HC
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {data?.map((course, index) => (
-              <TableRow hover key={index}>
+            
+              <TableRow >
                 <TableCell sx={{}}>
                   <Grid
                     container
@@ -60,22 +61,14 @@ const CardTable = ({ data }) => (
                     </Grid>
                     <Grid item xs zeroMinWidth sx={{ flexGrow: 1 }}>
                       <Typography align="left" variant="body1">
-                        {course.course?.title}
+                        my title
                       </Typography>
                       <Typography
                         align="left"
                         variant="caption"
                         color="secondary"
                       >
-                        {course.course?.course_roles
-                          .map((role) => role.role)
-                          .map((i) => (
-                            <Chip
-                              variant="outlined"
-                              size="small"
-                              label={i.title}
-                            />
-                          ))}
+role
                       </Typography>
                     </Grid>
                   </Grid>
@@ -84,7 +77,6 @@ const CardTable = ({ data }) => (
                   <span>5</span>
                 </TableCell>
               </TableRow>
-            ))}
           </TableBody>
         </Table>
       </TableContainer>
@@ -93,3 +85,5 @@ const CardTable = ({ data }) => (
 );
 
 export default CardTable;
+           
+            //{data?.map((course, index) => (    ))}

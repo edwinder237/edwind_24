@@ -186,7 +186,7 @@ const AddGroup = ({ customer, onCancel,project_parentGroup,handleAddParticipant,
     onCancel();
   };
 
-console.log(selectedParticipants)
+//console.log(selectedParticipants)
   
   const formik = useFormik({
     initialValues: getInitialValues(customer),
@@ -200,6 +200,7 @@ console.log(selectedParticipants)
     }),
     onSubmit: (values, { setSubmitting }) => {
       try {
+        console.log(values)
         const newGroup = {
           groupName: values.groupName,
           employees: selectedParticipants.map((person)=>({...person.metaData})),
