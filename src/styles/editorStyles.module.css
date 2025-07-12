@@ -1,0 +1,13 @@
+/* editorStyles.module.css */
+.rdw-option-wrapper {
+  color: red; /* Change button text color */
+  background-color: aqua;
+}
+
+.rdw-option-wrapper:hover {
+  background-color: blue; /* Change button background color on hover */
+}
+
+.rdw-option-active {
+  background-color: green; /* Change button background color when active */
+}
