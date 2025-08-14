@@ -2,19 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "utils/axios";
 
 // material-ui
-import {
-  Typography,
-  List,
-  ListItem,
-  IconButton,
-  MoreOutlined,
-  ListItemAvatar,
-  ListItemText,
-  Box,
-  Grid,
-  Tab,
-  Tabs,
-} from "@mui/material";
+import { Box, Grid, Tab, Tabs } from "@mui/material";
 
 // project imports
 import Layout from "layout";

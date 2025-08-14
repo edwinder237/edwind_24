@@ -26,7 +26,11 @@ export default async function handler(req, res) {
       role: 'User',
       id: user.id,
       firstName: user.firstName,
-      lastName: user.lastName
+      lastName: user.lastName,
+      // Mock organization data for demonstration
+      // In a real implementation, you would fetch this from your database based on user
+      organizationName: 'EDWIND Learning Solutions',
+      subOrganizationName: 'Training Division'
     };
 
     res.status(200).json(transformedUser);

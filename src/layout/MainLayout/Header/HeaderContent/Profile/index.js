@@ -17,47 +17,24 @@ import {
   Paper,
   Popper,
   Stack,
-  Tab,
-  Tabs,
-  Tooltip,
-  Typography
+  Typography,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 
 // project import
-import SettingTab from './SettingTab';
 import useUser from 'hooks/useUser';
 import Avatar from 'components/@extended/Avatar';
 import MainCard from 'components/MainCard';
 import Transitions from 'components/@extended/Transitions';
-import IconButton from 'components/@extended/IconButton';
-import ProfileTab from './ProfileTab';
+import useConfig from 'hooks/useConfig';
 
 // assets
-import { LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-
-const avatar1 = 'assets/images/users/avatar-1.png';
-
-// tab panel wrapper
-function TabPanel({ children, value, index, ...other }) {
-  return (
-    <div role="tabpanel" hidden={value !== index} id={`profile-tabpanel-${index}`} aria-labelledby={`profile-tab-${index}`} {...other}>
-      {value === index && children}
-    </div>
-  );
-}
-
-TabPanel.propTypes = {
-  children: PropTypes.node,
-  index: PropTypes.any.isRequired,
-  value: PropTypes.any.isRequired
-};
-
-function a11yProps(index) {
-  return {
-    id: `profile-tab-${index}`,
-    'aria-controls': `profile-tabpanel-${index}`
-  };
-}
+import { LogoutOutlined, UserOutlined, WalletOutlined, QuestionCircleOutlined, CommentOutlined, SettingOutlined } from '@ant-design/icons';
 
 // ==============================|| HEADER CONTENT - PROFILE ||============================== //
 
@@ -65,10 +42,22 @@ const Profile = () => {
   const theme = useTheme();
   const user = useUser();
   const router = useRouter();
+  const { mode, onChangeMode } = useConfig();
 
   const handleLogout = () => {
     // Redirect to logout endpoint
     window.location.href = '/api/auth/logout';
+  };
+
+  // Generate initials from user name
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const anchorRef = useRef(null);
@@ -84,10 +73,25 @@ const Profile = () => {
     setOpen(false);
   };
 
-  const [value, setValue] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
-  const handleChange = (event, newValue) => {
-    setValue(newValue);
+  const handleListItemClick = (event, index) => {
+    setSelectedIndex(index);
+  };
+
+  const handleViewProfile = () => {
+    router.push('/apps/profiles/user/personal');
+    setOpen(false);
+  };
+
+  const handleOrganizationSettings = () => {
+    router.push('/organization-settings');
+    setOpen(false);
+  };
+
+  const handleThemeToggle = () => {
+    const newMode = mode === 'dark' ? 'light' : 'dark';
+    onChangeMode(newMode);
   };
 
   const iconBackColorOpen = theme.palette.mode === 'dark' ? 'grey.200' : 'grey.300';
@@ -113,7 +117,16 @@ const Profile = () => {
       >
         {user && (
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ p: 0.25, px: 0.75 }}>
-            <Avatar alt={user.name} src={user.avatar} sx={{ width: 30, height: 30 }} />
+            <Avatar 
+              sx={{ 
+                width: 30, 
+                height: 30, 
+                bgcolor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText
+              }}
+            >
+              {getInitials(user.name)}
+            </Avatar>
             <Typography variant="subtitle1"> {capitalize(user.name)}</Typography>
           </Stack>
         )}
@@ -152,62 +165,93 @@ const Profile = () => {
               <ClickAwayListener onClickAway={handleClose}>
                 <MainCard elevation={0} border={false} content={false}>
                   <CardContent sx={{ px: 2.5, pt: 3 }}>
-                    <Grid container justifyContent="space-between" alignItems="center">
+                    <Grid container justifyContent="flex-start" alignItems="center">
                       <Grid item>
                         <Stack direction="row" spacing={1.25} alignItems="center">
-                          <Avatar alt="profile user" src={user?.avatar || avatar1} sx={{ width: 32, height: 32 }} />
+                          <Avatar 
+                            sx={{ 
+                              width: 32, 
+                              height: 32, 
+                              bgcolor: theme.palette.primary.main,
+                              color: theme.palette.primary.contrastText
+                            }}
+                          >
+                            {getInitials(user?.name)}
+                          </Avatar>
                           <Stack>
-                            <Typography variant="h6">{user?.name}</Typography>
                             <Typography variant="body2" color="textSecondary">
                               {user?.role || 'User'}
                             </Typography>
+                            {user?.organizationName && (
+                              <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.75rem' }}>
+                                {user.organizationName}
+                              </Typography>
+                            )}
+                            {user?.subOrganizationName && (
+                              <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
+                                {user.subOrganizationName}
+                              </Typography>
+                            )}
                           </Stack>
                         </Stack>
-                      </Grid>
-                      <Grid item>
-                        <Tooltip title="Logout">
-                          <IconButton size="large" sx={{ color: 'text.primary' }} onClick={handleLogout}>
-                            <LogoutOutlined />
-                          </IconButton>
-                        </Tooltip>
                       </Grid>
                     </Grid>
                   </CardContent>
 
-                  <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <Tabs variant="fullWidth" value={value} onChange={handleChange} aria-label="profile tabs">
-                      <Tab
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'row',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          textTransform: 'capitalize'
-                        }}
-                        icon={<UserOutlined style={{ marginBottom: 0, marginRight: '10px' }} />}
-                        label="Profile"
-                        {...a11yProps(0)}
+                  {/* Dark Mode Toggle */}
+                  <Box sx={{ px: 2.5, pb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">
+                        Dark Mode
+                      </Typography>
+                      <Switch
+                        checked={mode === 'dark'}
+                        onChange={handleThemeToggle}
+                        size="small"
+                        color="primary"
                       />
-                      <Tab
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'row',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          textTransform: 'capitalize'
-                        }}
-                        icon={<SettingOutlined style={{ marginBottom: 0, marginRight: '10px' }} />}
-                        label="Setting"
-                        {...a11yProps(1)}
-                      />
-                    </Tabs>
+                    </Box>
                   </Box>
-                  <TabPanel value={value} index={0} dir={theme.direction}>
-                    <ProfileTab handleLogout={handleLogout} />
-                  </TabPanel>
-                  <TabPanel value={value} index={1} dir={theme.direction}>
-                    <SettingTab />
-                  </TabPanel>
+
+                  {/* Combined Menu */}
+                  <List component="nav" sx={{ p: 0, '& .MuiListItemIcon-root': { minWidth: 32 } }}>
+                    <ListItemButton selected={selectedIndex === 0} onClick={handleViewProfile}>
+                      <ListItemIcon>
+                        <UserOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="View Profile" />
+                    </ListItemButton>
+                    <ListItemButton selected={selectedIndex === 1} onClick={handleOrganizationSettings}>
+                      <ListItemIcon>
+                        <SettingOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Organization Settings" />
+                    </ListItemButton>
+                    <ListItemButton selected={selectedIndex === 2} onClick={(event) => handleListItemClick(event, 2)}>
+                      <ListItemIcon>
+                        <WalletOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Billing" />
+                    </ListItemButton>
+                    <ListItemButton selected={selectedIndex === 3} onClick={(event) => handleListItemClick(event, 3)}>
+                      <ListItemIcon>
+                        <QuestionCircleOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Support" />
+                    </ListItemButton>
+                    <ListItemButton selected={selectedIndex === 4} onClick={(event) => handleListItemClick(event, 4)}>
+                      <ListItemIcon>
+                        <CommentOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Feedback" />
+                    </ListItemButton>
+                    <ListItemButton selected={selectedIndex === 5} onClick={handleLogout}>
+                      <ListItemIcon>
+                        <LogoutOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Logout" />
+                    </ListItemButton>
+                  </List>
                 </MainCard>
               </ClickAwayListener>
             </Paper>

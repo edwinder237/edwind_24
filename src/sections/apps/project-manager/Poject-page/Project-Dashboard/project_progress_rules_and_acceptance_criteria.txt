@@ -1,0 +1,45 @@
+
+Acceptance Criteria for App Component
+
+1. Component Context Management
+- The component must retain relevant context between user interactions.
+- Context should include:
+  - Current project data.
+  - User session state (selected project, view mode, etc.).
+  - Partial form inputs or in-progress edits.
+- When context changes, the component should:
+  - Merge new updates with existing state.
+  - Avoid discarding unrelated state unless explicitly reset.
+
+2. Project Status Calculation
+- Project status must be calculated based on three metrics:
+  1. Learning Progress (0–100%)
+  2. Technical Setup Progress (0–100%)
+  3. Attendance Rate (0–100%)
+- Calculation Rule:
+  Each metric contributes equally (1/3) to the overall project progress.
+  projectProgress = (learningProgress + technicalSetupProgress + attendanceRate) / 3
+- Example:
+  - Technical Setup = 100%
+  - Learning Progress = 0%
+  - Attendance Rate = 0%
+  - Project Progress = (100 + 0 + 0) / 3 = 33.33%
+- The result should be rounded to the nearest whole number for display but stored as a float for precision.
+
+3. Progress Display
+- Display the calculated project progress as:
+  - Percentage (e.g., "33% complete").
+  - Progress bar with proportional fill.
+- If all three metrics are 0%, display "0% complete".
+- If all three metrics are 100%, display "100% complete".
+
+4. Error Handling
+- If any metric is null or undefined, treat it as 0% in calculations.
+- Ensure division by 3 is always valid (no missing metrics array length logic).
+
+5. Test Cases
+- Case 1: All metrics 0 → progress = 0%.
+- Case 2: All metrics 100 → progress = 100%.
+- Case 3: Mixed values → ensure equal weighting is applied.
+- Case 4: Missing metric(s) → treat as 0%.
+- Case 5: Rounding behavior → 33.33% should display as 33%.

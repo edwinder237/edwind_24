@@ -4,19 +4,31 @@ import { createSlice } from "@reduxjs/toolkit";
 // project imports
 import axios from "utils/axios";
 import { dispatch } from "../index";
+import { openSnackbar } from "./snackbar";
+
+// Utility function to extract error message
+const getErrorMessage = (error, defaultMessage = 'An error occurred') => {
+  return error?.response?.data?.message || error?.message || defaultMessage;
+};
 
 const initialState = {
   error: null,
   response: null,
   courses: [],
+  curriculums: [],
   columnsOrder: [],
   comments: [],
   modules: [],
   activities: [],
   profiles: [],
   selectedItem: false,
+  selectedActivity: null,
   userStory: [],
   userStoryOrder: [],
+  checklistItems: [],
+  checklistLoading: false,
+  modulesOrderLoading: false,
+  activitiesOrderLoading: false,
 };
 
 // ==============================|| SLICE - KANBAN ||============================== //
@@ -52,6 +64,21 @@ const slice = createSlice({
       state.modules = action.payload.modules;
     },
 
+    // DUPLICATE MODULE
+    duplicateModuleSuccess(state, action) {
+      state.modules = action.payload.modules;
+    },
+
+    // UPDATE MODULE LEVEL
+    updateModuleLevelSuccess(state, action) {
+      const updatedModule = action.payload.module;
+      state.modules = state.modules.map(module => 
+        module.id === updatedModule.id 
+          ? { ...module, ...updatedModule }
+          : module
+      );
+    },
+
     // UPDATE MODULES ORDER
     updateModulesOrderSuccess(state, action) {
       state.modules = action.payload.newModulesOrder;
@@ -59,14 +86,12 @@ const slice = createSlice({
 
     // UPDATE ACTIVITIES ORDER
     updateActivitiesOrderSuccess(state, action) {
-      console.log(state.modules);
       const index = action.payload.index;
       state.modules[index].activities = action.payload.newActivitiesOrder;
     },
 
     // UPDATE MODULES CONTENT
     updateModuleContentSuccess(state, action) {
-      console.log(action.payload.content);
       state.modules = action.payload.content;
     },
 
@@ -96,6 +121,46 @@ const slice = createSlice({
     // SELECT ITEM
     selectItemSuccess(state, action) {
       state.selectedItem = action.payload.selectedItem;
+    },
+
+    // SELECT ACTIVITY
+    selectActivitySuccess(state, action) {
+      state.selectedActivity = action.payload.selectedActivity;
+    },
+
+    // UPDATE ACTIVITY
+    updateActivitySuccess(state, action) {
+      const updatedActivity = action.payload;
+      
+      // Update the activity in the modules array
+      state.modules = state.modules.map(module => ({
+        ...module,
+        activities: module.activities?.map(activity => 
+          activity.id === updatedActivity.id 
+            ? { ...activity, ...updatedActivity }
+            : activity
+        ) || []
+      }));
+      
+      // Update selectedActivity if it's the same one
+      if (state.selectedActivity && state.selectedActivity.id === updatedActivity.id) {
+        state.selectedActivity = {
+          ...state.selectedActivity,
+          data: { ...state.selectedActivity.data, ...updatedActivity }
+        };
+      }
+    },
+
+    // UPDATE MODULE DURATION
+    updateModuleDurationSuccess(state, action) {
+      const { moduleId, customDuration } = action.payload;
+      
+      // Update the module in the modules array
+      state.modules = state.modules.map(module => 
+        module.id === moduleId 
+          ? { ...module, customDuration }
+          : module
+      );
     },
 
     // ADD ITEM COMMENT
@@ -176,6 +241,134 @@ const slice = createSlice({
     getUserStoryOrderSuccess(state, action) {
       state.userStoryOrder = action.payload;
     },
+
+    // CURRICULUM ACTIONS
+    getCurriculumsSuccess(state, action) {
+      state.curriculums = action.payload;
+    },
+
+    addCurriculumSuccess(state, action) {
+      state.curriculums.push(action.payload);
+    },
+
+    deleteCurriculumSuccess(state, action) {
+      state.curriculums = state.curriculums.filter(
+        curriculum => curriculum.id !== action.payload
+      );
+    },
+
+
+    updateCurriculumSuccess(state, action) {
+      const index = state.curriculums.findIndex(
+        curriculum => curriculum.id === action.payload.id
+      );
+      if (index !== -1) {
+        state.curriculums[index] = action.payload;
+      }
+    },
+
+    // COURSE ACTIONS
+    addCourseSuccess(state, action) {
+      state.courses.push(action.payload);
+    },
+
+    updateCourseSuccess(state, action) {
+      const index = state.courses.findIndex(
+        course => course.id === action.payload.id
+      );
+      if (index !== -1) {
+        state.courses[index] = action.payload;
+      }
+    },
+
+    deleteCourseSuccess(state, action) {
+      state.courses = state.courses.filter(
+        course => course.id !== action.payload
+      );
+    },
+
+    deactivateCourseSuccess(state, action) {
+      const index = state.courses.findIndex(
+        course => course.id === action.payload.id
+      );
+      if (index !== -1) {
+        state.courses[index] = action.payload;
+      }
+    },
+
+    activateCourseSuccess(state, action) {
+      const index = state.courses.findIndex(
+        course => course.id === action.payload.id
+      );
+      if (index !== -1) {
+        state.courses[index] = action.payload;
+      }
+    },
+
+    // ACTIVITY ACTIONS
+    addActivitySuccess(state, action) {
+      const { moduleId, activity } = action.payload;
+      const moduleIndex = state.modules.findIndex(m => m.id === moduleId);
+      if (moduleIndex !== -1) {
+        if (!state.modules[moduleIndex].activities) {
+          state.modules[moduleIndex].activities = [];
+        }
+        state.modules[moduleIndex].activities.push(activity);
+      }
+    },
+
+    deleteActivitySuccess(state, action) {
+      const { activityId } = action.payload;
+      state.modules = state.modules.map(module => ({
+        ...module,
+        activities: (module.activities || []).filter(activity => activity.id !== activityId)
+      }));
+    },
+
+    // CHECKLIST ACTIONS
+    getChecklistItemsStart(state) {
+      state.checklistLoading = true;
+      state.error = null;
+    },
+
+    getChecklistItemsSuccess(state, action) {
+      state.checklistLoading = false;
+      state.checklistItems = action.payload;
+      state.error = null;
+    },
+
+    getChecklistItemsFailure(state, action) {
+      state.checklistLoading = false;
+      state.error = action.payload;
+    },
+
+    addChecklistItemSuccess(state, action) {
+      state.checklistItems.push(action.payload);
+    },
+
+    updateChecklistItemSuccess(state, action) {
+      const index = state.checklistItems.findIndex(
+        item => item.id === action.payload.id
+      );
+      if (index !== -1) {
+        state.checklistItems[index] = action.payload;
+      }
+    },
+
+    deleteChecklistItemSuccess(state, action) {
+      state.checklistItems = state.checklistItems.filter(
+        item => item.id !== action.payload
+      );
+    },
+
+    // LOADING STATES
+    setModulesOrderLoading(state, action) {
+      state.modulesOrderLoading = action.payload;
+    },
+
+    setActivitiesOrderLoading(state, action) {
+      state.activitiesOrderLoading = action.payload;
+    },
   },
 });
 
@@ -188,19 +381,26 @@ export function getCourses() {
       const response = await axios.get("/api/courses/fetchCourses");
       dispatch(slice.actions.getCoursesSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
 
 /// In USE //
-export function getModules(modules) {
+export function getModules(courseId) {
   return async () => {
     try {
-      const response = await axios.post("/api/courses/modules", { modules });
+      if (!courseId) {
+        dispatch(slice.actions.getModulesSuccess([]));
+        return;
+      }
+      
+      const response = await axios.get(`/api/courses/getModulesWithActivities?courseId=${courseId}`);
       dispatch(slice.actions.getModulesSuccess(response.data.modules));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      console.error('Error fetching modules:', error);
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(slice.actions.getModulesSuccess([])); // Set empty array on error
     }
   };
 }
@@ -208,17 +408,131 @@ export function getModules(modules) {
 export function addModule(modules, module) {
   return async () => {
     try {
-      const response = await axios.post("/api/courses/add-module", { modules });
-
-      await dispatch(slice.actions.addModuleSuccess(response.data));
+      // First create in database to get real ID
       const serverResponse = await axios.post("/api/courses/db-create-module", {
         module,
       });
 
-      await dispatch(slice.actions.hasResponse(serverResponse.data));
-      await console.log(serverResponse.data);
+      // Update the module with real database ID and add to modules array
+      const moduleWithDbId = { ...module, id: serverResponse.data.module.id };
+      const updatedModules = [...modules, moduleWithDbId];
+
+      // Update local state with database-generated module
+      dispatch(slice.actions.addModuleSuccess({ modules: updatedModules }));
+      dispatch(slice.actions.hasResponse(serverResponse.data));
+
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Module created successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      const errorMessage = getErrorMessage(error, 'Failed to create module');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function duplicateModule(moduleId, modules) {
+  return async () => {
+    try {
+      // Call API to duplicate the module
+      const serverResponse = await axios.post("/api/courses/duplicate-module", {
+        moduleId,
+      });
+
+      // Add the duplicated module to the modules array
+      const duplicatedModule = serverResponse.data.module;
+      const updatedModules = [...modules, duplicatedModule];
+
+      // Update local state with the duplicated module
+      dispatch(slice.actions.duplicateModuleSuccess({ modules: updatedModules }));
+      dispatch(slice.actions.hasResponse(serverResponse.data));
+
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Module duplicated successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to duplicate module');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function updateModuleLevel(moduleId, level) {
+  return async () => {
+    try {
+      // Call API to update the module level
+      const serverResponse = await axios.put("/api/courses/update-module-level", {
+        moduleId,
+        level
+      });
+
+      // Update local state with the updated module
+      dispatch(slice.actions.updateModuleLevelSuccess({ module: serverResponse.data.module }));
+      dispatch(slice.actions.hasResponse(serverResponse.data));
+
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: `Module level updated to ${level}`,
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to update module level');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
     }
   };
 }
@@ -226,20 +540,46 @@ export function addModule(modules, module) {
 export function editModule(editedModule, moduleId, modules) {
   return async () => {
     try {
+      // Update local state first for immediate UI feedback
       const response = await axios.post("/api/courses/edit-module", {
         editedModule,
         moduleId,
         modules,
       });
       dispatch(slice.actions.editModuleSuccess(response.data));
+      console.log('TO DB:', editedModule);
+      // Save to database
       const serverResponse = await axios.post("/api/courses/db-update-module", {
         editedModule,
         moduleId,
       });
-      await console.log(serverResponse.data);
-      await dispatch(slice.actions.hasResponse(serverResponse.data));
+      dispatch(slice.actions.hasResponse(serverResponse.data));
+
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Module updated successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      const errorMessage = getErrorMessage(error, 'Failed to update module');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
     }
   };
 }
@@ -257,9 +597,8 @@ export function deleteItem(moduleId, modules) {
         moduleId,
       });
       await dispatch(slice.actions.hasResponse(serverResponse.data));
-      console.log(serverResponse.data); // This will now be executed after the response is received
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -268,17 +607,52 @@ export function deleteItem(moduleId, modules) {
 export function updateModulesOrder(newModulesOrder, courseId) {
   return async () => {
     try {
-      const response = await axios.post("/api/courses/update-modules-order", {
-        newModulesOrder,
-      });
-      await dispatch(slice.actions.updateModulesOrderSuccess(response.data));
-      const serverResponse = await axios.post("/api/courses/saveModulesOrder", {
-        newModulesOrder,
+      // Set loading state
+      dispatch(slice.actions.setModulesOrderLoading(true));
+      
+      // Update local state first for immediate UI feedback
+      dispatch(slice.actions.updateModulesOrderSuccess({ newModulesOrder }));
+      
+      // Sync with database
+      const response = await axios.post("/api/courses/update-module-order", {
+        modules: newModulesOrder,
         courseId,
       });
-      console.log(serverResponse.data);
+      
+      // Update with fresh data from database
+      dispatch(slice.actions.updateModulesOrderSuccess({ newModulesOrder: response.data.modules }));
+      dispatch(slice.actions.hasResponse({ message: 'Module order updated successfully' }));
+      
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Module order saved successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+      
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      const errorMessage = getErrorMessage(error, 'Failed to update module order');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+      
+      // Optionally revert the optimistic update here
+    } finally {
+      // Clear loading state
+      dispatch(slice.actions.setModulesOrderLoading(false));
     }
   };
 }
@@ -299,9 +673,8 @@ export function updateModuleContent(
         "/api/courses/db-update-module-content",
         { editedJSON, selectedModuleId }
       );
-      console.log(serverResponse.data);
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -313,21 +686,58 @@ export function updateActivitiesOrder(
 ) {
   return async () => {
     try {
-      const response = await axios.post("/api/courses/update-activites-order", {
-        newActivitiesOrder,
-        moduleIndex,
+      // Set loading state
+      dispatch(slice.actions.setActivitiesOrderLoading(true));
+      
+      // Update local state first for immediate UI feedback
+      dispatch(slice.actions.updateActivitiesOrderSuccess({ 
+        newActivitiesOrder, 
+        index: moduleIndex 
+      }));
+      
+      // Sync with database
+      const response = await axios.post("/api/courses/update-activity-order", {
+        activities: newActivitiesOrder,
+        moduleId,
       });
-      await dispatch(slice.actions.updateActivitiesOrderSuccess(response.data));
-      const serverResponse = await axios.post(
-        "/api/courses/db-update-activities-order",
-        {
-          newActivitiesOrder,
-          moduleId,
+      
+      // Update with fresh data from database
+      dispatch(slice.actions.updateActivitiesOrderSuccess({ 
+        newActivitiesOrder: response.data.activities, 
+        index: moduleIndex 
+      }));
+      dispatch(slice.actions.hasResponse({ message: 'Activity order updated successfully' }));
+      
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Activity order saved successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
         }
-      );
-      console.log(serverResponse.data);
+      }));
+      
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      const errorMessage = getErrorMessage(error, 'Failed to update activity order');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+      
+      // Optionally revert the optimistic update here
+    } finally {
+      // Clear loading state
+      dispatch(slice.actions.setActivitiesOrderLoading(false));
     }
   };
 }
@@ -342,7 +752,7 @@ export function getColumnsOrder() {
         slice.actions.getColumnsOrderSuccess(response.data.columnsOrder)
       );
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -353,7 +763,7 @@ export function getComments() {
       const response = await axios.get("/api/kanban/comments");
       dispatch(slice.actions.getCommentsSuccess(response.data.comments));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -364,7 +774,7 @@ export function getProfiles() {
       const response = await axios.get("/api/kanban/profiles");
       dispatch(slice.actions.getProfilesSuccess(response.data.profiles));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -375,7 +785,7 @@ export function getUserStory() {
       const response = await axios.get("/api/kanban/userstory");
       dispatch(slice.actions.getUserStorySuccess(response.data.userStory));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -388,7 +798,7 @@ export function getUserStoryOrder() {
         slice.actions.getUserStoryOrderSuccess(response.data.userStoryOrder)
       );
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -403,7 +813,7 @@ export function addColumn(column, columns, columnsOrder) {
       });
       dispatch(slice.actions.addColumnSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -417,7 +827,7 @@ export function editColumn(column, columns) {
       });
       dispatch(slice.actions.editColumnSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -432,7 +842,7 @@ export function deleteColumn(columnId, columnsOrder, columns) {
       });
       dispatch(slice.actions.deleteColumnSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -450,7 +860,7 @@ export function addItem(columnId, columns, item, items, storyId, userStory) {
       });
       dispatch(slice.actions.addItemSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -463,7 +873,7 @@ export function updateItemOrder(columns) {
       });
       dispatch(slice.actions.updateColumnItemOrderSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -476,7 +886,7 @@ export function selectItem(selectedItem) {
       });
       dispatch(slice.actions.selectItemSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -492,7 +902,7 @@ export function addItemComment(itemId, comment, items, comments) {
       });
       dispatch(slice.actions.addItemCommentSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -507,7 +917,7 @@ export function addStory(story, userStory, userStoryOrder) {
       });
       dispatch(slice.actions.addStorySuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -521,7 +931,7 @@ export function editStory(story, userStory) {
       });
       dispatch(slice.actions.editStorySuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -534,7 +944,7 @@ export function updateStoryOrder(userStoryOrder) {
       });
       dispatch(slice.actions.updateStoryOrderSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -547,7 +957,7 @@ export function updateStoryItemOrder(userStory) {
       });
       dispatch(slice.actions.updateStoryItemOrderSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -563,7 +973,7 @@ export function addStoryComment(storyId, comment, comments, userStory) {
       });
       dispatch(slice.actions.addStoryCommentSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -578,7 +988,402 @@ export function deleteStory(storyId, userStory, userStoryOrder) {
       });
       dispatch(slice.actions.deleteStorySuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
+
+// CURRICULUM FUNCTIONS
+export function getCurriculums() {
+  return async () => {
+    try {
+      const response = await axios.get("/api/curriculums/fetchCurriculums");
+      dispatch(slice.actions.getCurriculumsSuccess(response.data));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+    }
+  };
+}
+
+export function addCurriculum(curriculumData) {
+  return async () => {
+    try {
+      const response = await axios.post("/api/curriculums/createCurriculum", curriculumData);
+      dispatch(slice.actions.addCurriculumSuccess(response.data.curriculum));
+      dispatch(slice.actions.hasResponse(response.data));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+    }
+  };
+}
+
+export function deleteCurriculum(curriculumId) {
+  return async () => {
+    try {
+      const response = await axios.delete(`/api/curriculums/deleteCurriculum?id=${curriculumId}`);
+      dispatch(slice.actions.deleteCurriculumSuccess(curriculumId));
+      dispatch(slice.actions.hasResponse(response.data));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+    }
+  };
+}
+
+export function updateCurriculum(curriculumData) {
+  return async () => {
+    try {
+      const response = await axios.put("/api/curriculums/updateCurriculum", curriculumData);
+      dispatch(slice.actions.updateCurriculumSuccess(response.data.curriculum));
+      dispatch(slice.actions.hasResponse(response.data));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+    }
+  };
+}
+
+// COURSE FUNCTIONS
+export function createCourse(courseData) {
+  return async () => {
+    try {
+      const response = await axios.post("/api/courses/createCourse", courseData);
+      dispatch(slice.actions.addCourseSuccess(response.data.course));
+      dispatch(slice.actions.hasResponse(response.data));
+      
+      // Return the course ID for redirect purposes
+      return {
+        success: true,
+        courseId: response.data.courseId,
+        message: response.data.message
+      };
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      return {
+        success: false,
+        error: getErrorMessage(error)
+      };
+    }
+  };
+}
+
+export function updateCourse(courseData) {
+  return async () => {
+    try {
+      const response = await axios.put("/api/courses/updateCourse", courseData);
+      dispatch(slice.actions.updateCourseSuccess(response.data.course));
+      dispatch(slice.actions.hasResponse(response.data));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+    }
+  };
+}
+
+export function deleteCourse(courseId) {
+  return async () => {
+    try {
+      const response = await axios.delete(`/api/courses/deleteCourse?id=${courseId}`);
+      
+      // Check if the response indicates success
+      if (response.data && response.data.success === false) {
+        const errorMessage = response.data.message || 'Failed to delete course';
+        dispatch(slice.actions.hasError(errorMessage));
+        throw new Error(errorMessage);
+      }
+      
+      dispatch(slice.actions.deleteCourseSuccess(courseId));
+      dispatch(slice.actions.hasResponse(response.data));
+    } catch (error) {
+      // Handle both axios errors and API errors
+      let errorMessage;
+      
+      if (error.response && error.response.data) {
+        // This is an axios error with response data
+        errorMessage = error.response.data.message || 'Failed to delete course';
+      } else if (error.message) {
+        // This is a thrown error with a message
+        errorMessage = error.message;
+      } else {
+        // Fallback error message
+        errorMessage = 'Failed to delete course';
+      }
+      
+      dispatch(slice.actions.hasError(errorMessage));
+      throw new Error(errorMessage);
+    }
+  };
+}
+
+export function deactivateCourse(courseId) {
+  return async () => {
+    try {
+      const response = await axios.put(`/api/courses/deactivateCourse?id=${courseId}`);
+      dispatch(slice.actions.deactivateCourseSuccess(response.data.course));
+      dispatch(slice.actions.hasResponse(response.data));
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      dispatch(slice.actions.hasError(errorMessage));
+      throw new Error(errorMessage);
+    }
+  };
+}
+
+export function activateCourse(courseId) {
+  return async () => {
+    try {
+      const response = await axios.put(`/api/courses/activateCourse?id=${courseId}`);
+      dispatch(slice.actions.activateCourseSuccess(response.data.course));
+      dispatch(slice.actions.hasResponse(response.data));
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      dispatch(slice.actions.hasError(errorMessage));
+      throw new Error(errorMessage);
+    }
+  };
+}
+
+// ACTIVITY FUNCTIONS
+export function createActivity(activityData) {
+  return async () => {
+    try {
+      const response = await axios.post("/api/courses/createActivity", activityData);
+      
+      dispatch(slice.actions.addActivitySuccess({
+        moduleId: activityData.moduleId,
+        activity: response.data.activity
+      }));
+      dispatch(slice.actions.hasResponse(response.data));
+
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Activity created successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to create activity');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function updateActivity(activityId, activityData) {
+  return async (dispatch) => {
+    try {
+      const response = await axios.put("/api/courses/updateActivity", {
+        id: activityId,
+        ...activityData
+      });
+      
+      dispatch(slice.actions.updateActivitySuccess(response.data.activity));
+      dispatch(slice.actions.hasResponse(response.data));
+
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Activity updated successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to update activity');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function deleteActivity(activityId) {
+  return async (dispatch) => {
+    try {
+      const response = await axios.delete(`/api/courses/deleteActivity?id=${activityId}`);
+      
+      dispatch(slice.actions.deleteActivitySuccess({
+        activityId: activityId
+      }));
+      dispatch(slice.actions.hasResponse(response.data));
+
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Activity deleted successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to delete activity');
+      dispatch(slice.actions.hasError(errorMessage));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+// CHECKLIST FUNCTIONS
+export function getChecklistItems(courseId) {
+  return async () => {
+    try {
+      dispatch(slice.actions.getChecklistItemsStart());
+      const response = await axios.get(`/api/courses/checklist-items?courseId=${courseId}`);
+      dispatch(slice.actions.getChecklistItemsSuccess(response.data));
+    } catch (error) {
+      dispatch(slice.actions.getChecklistItemsFailure(getErrorMessage(error)));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to load checklist items'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function createChecklistItem(itemData) {
+  return async () => {
+    try {
+      const response = await axios.post("/api/courses/checklist-items", itemData);
+      dispatch(slice.actions.addChecklistItemSuccess(response.data));
+      dispatch(slice.actions.hasResponse(response.data));
+      
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Checklist item created successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to create checklist item'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function updateChecklistItem(itemData) {
+  return async () => {
+    try {
+      const { id, ...data } = itemData;
+      const response = await axios.put(`/api/courses/checklist-items?id=${id}`, data);
+      dispatch(slice.actions.updateChecklistItemSuccess(response.data));
+      dispatch(slice.actions.hasResponse({ message: 'Checklist item updated successfully' }));
+      
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Checklist item updated successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to update checklist item'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function deleteChecklistItem(itemId) {
+  return async () => {
+    try {
+      const response = await axios.delete(`/api/courses/checklist-items?id=${itemId}`);
+      dispatch(slice.actions.deleteChecklistItemSuccess(itemId));
+      dispatch(slice.actions.hasResponse(response.data));
+      
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Checklist item deleted successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to delete checklist item'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+

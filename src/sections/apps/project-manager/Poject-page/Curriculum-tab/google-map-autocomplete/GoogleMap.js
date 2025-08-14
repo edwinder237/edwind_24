@@ -7,7 +7,25 @@ import { Autocomplete, Box, Grid, TextField, Typography } from "@mui/material";
 // third-party
 import { getGeocode } from "use-places-autocomplete";
 import parse from "autosuggest-highlight/parse";
-import throttle from "lodash/throttle";
+// Native throttle implementation
+const throttle = (func, delay) => {
+  let timeoutId;
+  let lastExecTime = 0;
+  return function (...args) {
+    const currentTime = Date.now();
+    
+    if (currentTime - lastExecTime > delay) {
+      func.apply(this, args);
+      lastExecTime = currentTime;
+    } else {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        func.apply(this, args);
+        lastExecTime = Date.now();
+      }, delay - (currentTime - lastExecTime));
+    }
+  };
+};
 
 // project import
 import { EnvironmentOutlined } from "@ant-design/icons";

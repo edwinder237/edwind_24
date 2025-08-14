@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 
 // third-party
-import {NumberFormat} from 'react-number-format';
+import { NumericFormat } from 'react-number-format';
 
 // project import
 import MainCard from 'components/MainCard';
@@ -105,7 +105,7 @@ const CustomerView = ({ data }) => {
                         </ListItemIcon>
                         <ListItemSecondaryAction>
                           <Typography align="right">
-                            <NumberFormat displayType="text" format="+1 (###) ###-####" mask="_" defaultValue={data.contact} />
+                            <NumericFormat displayType="text" format="+1 (###) ###-####" mask="_" defaultValue={data.contact} />
                           </Typography>
                         </ListItemSecondaryAction>
                       </ListItem>
@@ -166,7 +166,7 @@ const CustomerView = ({ data }) => {
                           <Stack spacing={0.5}>
                             <Typography color="secondary">Zip Code</Typography>
                             <Typography>
-                              <NumberFormat displayType="text" format="### ###" mask="_" defaultValue={data.contact} />
+                              <NumericFormat displayType="text" format="### ###" mask="_" defaultValue={data.contact} />
                             </Typography>
                           </Stack>
                         </Grid>

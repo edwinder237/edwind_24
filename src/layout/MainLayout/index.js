@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'store';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -16,6 +16,7 @@ import navigation from 'menu-items';
 import useConfig from 'hooks/useConfig';
 import { openDrawer } from 'store/reducers/menu';
 import { LAYOUT_CONST } from 'config';
+import GlobalLoadingProvider from 'components/GlobalLoadingProvider';
 
 // ==============================|| MAIN LAYOUT ||============================== //
 
@@ -75,6 +76,7 @@ const MainLayout = ({ children }) => {
           <Footer />
         </Container>
       </Box>
+      <GlobalLoadingProvider />
     </Box>
   );
 };

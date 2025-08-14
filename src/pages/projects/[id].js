@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 //REDUX
 import { useDispatch, useSelector } from "store";
 import { getSingleProject } from "store/reducers/projects";
+import { clearLoading } from "store/reducers/loading";
 
 // project imports
 import Layout from "layout";
@@ -25,10 +26,14 @@ function ProjectDefault() {
   useEffect(() => {
     if (projectId) {
       const singleProject = dispatch(getSingleProject(parseInt(id)));
-      Promise.all([singleProject]).then(() => setLoading(false));
+      Promise.all([singleProject]).then(() => {
+        setLoading(false);
+        // Clear any global loading state when page is ready
+        dispatch(clearLoading());
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [projectId]);
   console.log(loading?"loading":"router")
   if (loading) return <Loader />;
 

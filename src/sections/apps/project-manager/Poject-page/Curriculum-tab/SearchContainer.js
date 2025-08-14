@@ -23,15 +23,15 @@ import Loader from "components/Loader";
 import { PopupTransition } from "components/@extended/Transitions";
 import EmptyUserCard from "components/cards/skeleton/EmptyUserCard";
 import CurriculumCard from "./curriculum/curriculumCard";
-import AddProject from "./AddProject";
+import AddProject from "../../projects-list/AddProject";
+import CurriculumManageDrawer from "./CurriculumManageDrawer";
 
 import { GlobalFilter } from "utils/react-table";
 import usePagination from "hooks/usePagination";
 
 // assets
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, SettingOutlined } from "@ant-design/icons";
 import AddButton from "components/StyledButtons";
-import { curriculum } from "pages/api/courses/fakeCurriculum";
 
 // ==============================|| PROJECTS - CARDS ||============================== //
 
@@ -54,7 +54,7 @@ const allColumns = [
   },
 ];
 
-const SearchContainer = () => {
+const SearchContainer = ({ projectId }) => {
   const {  isAdding,project_curriculums:projects } = useSelector((state) => state.projects);
   const dispatch = useDispatch();
   useEffect(() => {
@@ -62,7 +62,6 @@ const SearchContainer = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdding]);
 
-  console.log(projects)
 
   const matchDownSM = useMediaQuery((theme) => theme.breakpoints.down("sm"));
 
@@ -72,12 +71,17 @@ const SearchContainer = () => {
   const [project, setProject] = useState(null);
   const [userCard, setUserCard] = useState([]);
   const [page, setPage] = useState(1);
+  const [manageDrawerOpen, setManageDrawerOpen] = useState(false);
   const handleChange = (event) => {
     setSortBy(event.target.value);
   };
   const handleAdd = () => {
     setAdd(!add);
     if (project && !add) setProject(null);
+  };
+
+  const handleManageDrawer = () => {
+    setManageDrawerOpen(!manageDrawerOpen);
   };
 
   // search
@@ -158,10 +162,10 @@ if(projects)
               </FormControl>
               <AddButton
                 variant="contained"
-                startIcon={<PlusOutlined />}
-                onClick={handleAdd}
+                startIcon={<SettingOutlined />}
+                onClick={handleManageDrawer}
               >
-                Add Project
+                Manage Curriculums
               </AddButton>
             </Stack>
           </Stack>
@@ -204,6 +208,13 @@ if(projects)
       >
         <AddProject project={project} onCancel={handleAdd} />
       </Dialog>
+
+      {/* Curriculum Management Drawer */}
+      <CurriculumManageDrawer
+        open={manageDrawerOpen}
+        onClose={handleManageDrawer}
+        projectId={projectId}
+      />
     </Fragment>
   );
   return <Loader />;

@@ -11,3 +11,25 @@
 .cell-right > * {
   margin: 0 0 0 auto;
 }
+
+/* Fix navigation link styling */
+.MuiListItemButton-root a,
+.MuiListItemButton-root .MuiLink-root,
+.MuiDrawer-root .MuiLink-root,
+.MuiDrawer-root a,
+nav a,
+.MuiList-root a {
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+/* Force remove underlines from all links in navigation */
+a[href] {
+  text-decoration: none !important;
+}
+
+/* Specific targeting for Material-UI components */
+.MuiTypography-root.MuiLink-root {
+  text-decoration: none !important;
+  color: inherit !important;
+}

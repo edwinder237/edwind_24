@@ -7,7 +7,7 @@ import NextLink from 'next/link';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
-import { Avatar, Chip, Link, ListItemButton, ListItemIcon, ListItemText, Typography, useMediaQuery } from '@mui/material';
+import { Avatar, Chip, ListItemButton, ListItemIcon, ListItemText, Typography, useMediaQuery } from '@mui/material';
 
 // project import
 import Dot from 'components/@extended/Dot';
@@ -36,9 +36,7 @@ const NavItem = ({ item, level }) => {
 
   let listItemProps = {
     component: forwardRef((props, ref) => (
-      <NextLink href={item.url} passHref>
-        <Link {...props} target={itemTarget} ref={ref} />
-      </NextLink>
+      <NextLink {...props} href={item.url} target={itemTarget} ref={ref} style={{ textDecoration: 'none', color: 'inherit' }} />
     ))
   };
   if (item?.external) {
@@ -66,7 +64,7 @@ const NavItem = ({ item, level }) => {
       }
     }
 
-    if (asPath.includes(item.url)) {
+    if (asPath === item.url) {
       dispatch(activeItem({ openItem: [item.id] }));
     }
 
@@ -92,12 +90,12 @@ const NavItem = ({ item, level }) => {
                 bgcolor: theme.palette.mode === 'dark' ? 'divider' : 'primary.lighter'
               },
               '&.Mui-selected': {
-                bgcolor: theme.palette.mode === 'dark' ? 'divider' : 'primary.lighter',
+                background: `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`,
                 borderRight: `2px solid ${theme.palette.primary.main}`,
-                color: iconSelectedColor,
+                color: theme.palette.primary.contrastText,
                 '&:hover': {
-                  color: iconSelectedColor,
-                  bgcolor: theme.palette.mode === 'dark' ? 'divider' : 'primary.lighter'
+                  color: theme.palette.primary.contrastText,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`
                 }
               }
             }),
@@ -113,15 +111,12 @@ const NavItem = ({ item, level }) => {
               }
             })
           }}
-          {...(matchDownLg && {
-            onClick: () => dispatch(openDrawer(false))
-          })}
         >
           {itemIcon && (
             <ListItemIcon
               sx={{
                 minWidth: 28,
-                color: isSelected ? iconSelectedColor : textColor,
+                color: isSelected ? theme.palette.primary.contrastText : textColor,
                 ...(!drawerOpen && {
                   borderRadius: 1.5,
                   width: 36,
@@ -147,7 +142,7 @@ const NavItem = ({ item, level }) => {
           {(drawerOpen || (!drawerOpen && level !== 1)) && (
             <ListItemText
               primary={
-                <Typography variant="h6" sx={{ color: isSelected ? iconSelectedColor : textColor }}>
+                <Typography variant="h6" sx={{ color: isSelected ? theme.palette.primary.contrastText : textColor }}>
                   {item.title}
                 </Typography>
               }

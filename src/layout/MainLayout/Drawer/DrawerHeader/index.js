@@ -26,11 +26,11 @@ const DrawerHeader = ({ open }) => {
       sx={{
 
 
-        background: 'hsla(223, 95%, 15%, 1)',
-        background: 'linear-gradient(180deg, hsla(223, 95%, 15%, 1) 0%, hsla(217, 100%, 42%, 1) 100%)',
-        background: '-moz-linear-gradient(270deg, hsla(223, 95%, 15%, 1) 0%, hsla(217, 100%, 42%, 1) 100%)',
-        background: '-webkit-linear-gradient(180deg, hsla(223, 95%, 15%, 1) 0%, hsla(217, 100%, 42%, 1) 100%)',
-        filter: 'progid:DXImageTransform.Microsoft.gradient(startColorstr="#02174C", endColorstr="#0052D6", GradientType=1)',
+        background: '#02174C',
+        background: 'linear-gradient(180deg, #02174C 0%, #137DC5 100%)',
+        background: '-moz-linear-gradient(270deg, #02174C 0%, #137DC5 100%)',
+        background: '-webkit-linear-gradient(180deg, #02174C 0%, #137DC5 100%)',
+        filter: 'progid:DXImageTransform.Microsoft.gradient(startColorstr="#02174C", endColorstr="#137DC5", GradientType=1)',
 
         minHeight: isHorizontal ? 'unset' : '60px',
         width: isHorizontal ? { xs: '100%', lg: '424px' } : 'inherit',

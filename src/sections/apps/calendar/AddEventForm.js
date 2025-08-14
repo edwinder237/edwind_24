@@ -25,7 +25,6 @@ import { LocalizationProvider, MobileDateTimePicker } from '@mui/x-date-pickers'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 // third-party
-import _ from 'lodash';
 import * as Yup from 'yup';
 import { useFormik, Form, FormikProvider } from 'formik';
 
@@ -53,7 +52,7 @@ const getInitialValues = (event, range) => {
   };
 
   if (event || range) {
-    return _.merge({}, newEvent, event);
+    return { ...newEvent, ...event };
   }
 
   return newEvent;

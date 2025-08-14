@@ -1,37 +1,33 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../../lib/prisma";
 import { connect } from "net";
-
-
-
-const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
     try {
 
-      const { newEvent,events } = req.body;
+      const { newEvent, events, projectId } = req.body;
       
-      //const id = events[0].projectId;
+      if (!projectId) {
+        return res.status(400).json({ error: "Project ID is required" });
+      }
       
-     // delete newEvent.id;
-     console.log(newEvent)
+      console.log('Creating event:', newEvent)
       const event = {
         title: newEvent.title,
         description: newEvent.description,
-        eventType: "other",
-       // projectId: 3, 
-       // courseId: 1, 
-        start: newEvent.start, // Replace with the actual start date and time
-        end: newEvent.end, // Replace with the actual end date and time
-        allDay: newEvent.allDay, // Replace with the actual value
-        color: newEvent.color, // Replace with the actual color value
-        textColor: newEvent.textColor, // Replace with the actual text color value
-        backgroundColor: "#4285F4", // Replace with the actual background color value
-        borderColor: "#000000", // Replace with the actual border color value
-        editable: true, // Replace with the actual value
-        eventStatus: "Active", // Replace with the actual status
-        extendedProps: { location: "Conference Room A", priority: "High" }, // Replace with the actual extendedProps
-        project: {connect: {id:3}},
-        //course: {connect:{id:1}}
+        eventType: newEvent.eventType || "other",
+        start: newEvent.start,
+        end: newEvent.end,
+        allDay: newEvent.allDay,
+        color: newEvent.color,
+        textColor: newEvent.textColor,
+        backgroundColor: "#4285F4",
+        borderColor: "#000000",
+        editable: true,
+        eventStatus: "Active",
+        extendedProps: { location: "Conference Room A", priority: "High" },
+        project: {connect: {id: parseInt(projectId)}},
+        ...(newEvent.courseId && { course: {connect: {id: parseInt(newEvent.courseId)}} }),
+        ...(newEvent.supportActivityId && { supportActivity: {connect: {id: parseInt(newEvent.supportActivityId)}} })
       };
       console.log(event)
        await prisma.events.create({
@@ -45,8 +41,6 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Internal Server Error" });
-    } finally {
-      await prisma.$disconnect();
     }
   }
 

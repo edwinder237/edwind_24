@@ -1,42 +1,38 @@
 import PropTypes from 'prop-types';
 import { useState } from 'react';
 
+// next
+import { useRouter } from 'next/router';
+
 // material-ui
 import { List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 
 // assets
-import { EditOutlined, ProfileOutlined, LogoutOutlined, UserOutlined, WalletOutlined } from '@ant-design/icons';
+import { LogoutOutlined, UserOutlined, WalletOutlined } from '@ant-design/icons';
 
 // ==============================|| HEADER PROFILE - PROFILE TAB ||============================== //
 
 const ProfileTab = ({ handleLogout }) => {
+  const router = useRouter();
   const [selectedIndex, setSelectedIndex] = useState(0);
+  
   const handleListItemClick = (event, index) => {
     setSelectedIndex(index);
   };
 
+  const handleViewProfile = () => {
+    router.push('/apps/profiles/user/personal');
+  };
+
   return (
     <List component="nav" sx={{ p: 0, '& .MuiListItemIcon-root': { minWidth: 32 } }}>
-      <ListItemButton selected={selectedIndex === 0} onClick={(event) => handleListItemClick(event, 0)}>
-        <ListItemIcon>
-          <EditOutlined />
-        </ListItemIcon>
-        <ListItemText primary="Edit Profile" />
-      </ListItemButton>
-      <ListItemButton selected={selectedIndex === 1} onClick={(event) => handleListItemClick(event, 1)}>
+      <ListItemButton selected={selectedIndex === 0} onClick={handleViewProfile}>
         <ListItemIcon>
           <UserOutlined />
         </ListItemIcon>
         <ListItemText primary="View Profile" />
       </ListItemButton>
-
-      <ListItemButton selected={selectedIndex === 3} onClick={(event) => handleListItemClick(event, 3)}>
-        <ListItemIcon>
-          <ProfileOutlined />
-        </ListItemIcon>
-        <ListItemText primary="Social Profile" />
-      </ListItemButton>
-      <ListItemButton selected={selectedIndex === 4} onClick={(event) => handleListItemClick(event, 4)}>
+      <ListItemButton selected={selectedIndex === 1} onClick={(event) => handleListItemClick(event, 1)}>
         <ListItemIcon>
           <WalletOutlined />
         </ListItemIcon>

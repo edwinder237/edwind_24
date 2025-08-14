@@ -10,7 +10,6 @@ import 'simplebar/src/simplebar.css';
 // apex-chart
 import 'styles/apex-chart.css';
 import 'styles/react-table.css';
-import 'styles/editorStyles.module.css';
 
 
 // third party

@@ -12,7 +12,7 @@ import { FileDoneOutlined, MailOutlined, TranslationOutlined } from '@ant-design
 // ==============================|| TAB - SETTINGS ||============================== //
 
 const TabSettings = () => {
-  const [checked, setChecked] = useState(['oc', 'usn', 'lc']);
+  const [checked, setChecked] = useState(['oc', 'lc']);
 
   const handleToggle = (value) => () => {
     const currentIndex = checked.indexOf(value);
@@ -45,42 +45,6 @@ const TabSettings = () => {
             checked={checked.indexOf('oc') !== -1}
             inputProps={{
               'aria-labelledby': 'switch-list-label-oc'
-            }}
-          />
-        </ListItem>
-        <ListItem divider>
-          <ListItemIcon sx={{ color: 'primary.main', mr: 2, display: { xs: 'none', sm: 'block' } }}>
-            <MailOutlined style={{ fontSize: '1.5rem' }} />
-          </ListItemIcon>
-          <ListItemText
-            id="switch-list-label-sen"
-            primary={<Typography variant="h5">Setup Email Notification</Typography>}
-            secondary="Turn on email  notification to get updates through email"
-          />
-          <Switch
-            edge="end"
-            onChange={handleToggle('sen')}
-            checked={checked.indexOf('sen') !== -1}
-            inputProps={{
-              'aria-labelledby': 'switch-list-label-sen'
-            }}
-          />
-        </ListItem>
-        <ListItem divider>
-          <ListItemIcon sx={{ color: 'primary.main', mr: 2, display: { xs: 'none', sm: 'block' } }}>
-            <MailOutlined style={{ fontSize: '1.5rem' }} />
-          </ListItemIcon>
-          <ListItemText
-            id="switch-list-label-usn"
-            primary={<Typography variant="h5">Update System Notification</Typography>}
-            secondary="You will be notified when customer order any product"
-          />
-          <Switch
-            edge="end"
-            onChange={handleToggle('usn')}
-            checked={checked.indexOf('usn') !== -1}
-            inputProps={{
-              'aria-labelledby': 'switch-list-label-usn'
             }}
           />
         </ListItem>

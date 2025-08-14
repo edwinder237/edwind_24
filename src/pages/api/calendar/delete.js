@@ -1,12 +1,11 @@
 // third-party
-import reject from 'lodash/reject';
 
 // ==============================|| CALENDAR - EVENT DELETE ||============================== //
 
 export default async function handler(req, res) {
   try {
     const { eventId,events } = req.body;
-    reject(events, { id: eventId });
+    const filteredEvents = events.filter(event => event.id !== eventId);
 
     res.status(200).json(eventId);
   } catch (err) {

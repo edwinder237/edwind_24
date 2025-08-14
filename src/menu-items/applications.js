@@ -24,13 +24,6 @@ const applications = {
       target: false,
       breadcrumbs: false
     },
-    {
-      id: 'calendar',
-      title: <FormattedMessage id="calendar" />,
-      type: 'item',
-      url: '/apps/calendar',
-      icon: icons.CalendarOutlined
-    },
   ]
 };
 

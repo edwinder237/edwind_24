@@ -1,4 +1,4 @@
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'store';
 
 // material-ui
 import { Alert, Button, Fade, Grow, Slide } from '@mui/material';

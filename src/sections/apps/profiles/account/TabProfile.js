@@ -1,5 +1,5 @@
 // material-ui
-
+import { useTheme } from '@mui/material/styles';
 import {
   useMediaQuery,
   Chip,
@@ -26,7 +26,19 @@ import { AimOutlined, EnvironmentOutlined, MailOutlined, PhoneOutlined } from '@
 // ==============================|| ACCOUNT PROFILE - BASIC ||============================== //
 
 const TabProfile = () => {
+  const theme = useTheme();
   const matchDownMD = useMediaQuery((theme) => theme.breakpoints.down('md'));
+
+  // Generate initials from user name  
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <Grid container spacing={3}>
@@ -40,10 +52,20 @@ const TabProfile = () => {
                     <Chip label="Pro" size="small" color="primary" />
                   </Stack>
                   <Stack spacing={2.5} alignItems="center">
-                    <Avatar alt="Avatar 1" size="xl" src="/assets/images/users/default.png" />
+                    <Avatar 
+                      size="xl" 
+                      sx={{ 
+                        bgcolor: theme.palette.primary.main,
+                        color: theme.palette.primary.contrastText,
+                        fontSize: '2rem',
+                        fontWeight: 600
+                      }}
+                    >
+                      {getInitials('Admin Nelson')}
+                    </Avatar>
                     <Stack spacing={0.5} alignItems="center">
-                      <Typography variant="h5">Anshan H.</Typography>
-                      <Typography color="secondary">Project Manager</Typography>
+                      <Typography variant="h5">admin nelson</Typography>
+                      <Typography color="secondary">User</Typography>
                     </Stack>
                   </Stack>
                 </Grid>

@@ -3,7 +3,7 @@ import { styled, alpha } from "@mui/material/styles";
 import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import { Edit, Delete } from "@mui/icons-material";
+import { Edit, Delete, Email } from "@mui/icons-material";
 import Divider from "@mui/material/Divider";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import FileCopyIcon from "@mui/icons-material/FileCopy";
@@ -53,8 +53,8 @@ const StyledMenu = styled((props) => (
   },
 }));
 
-export default function ActionButton({ label,handleCRUD,iDs }) {
- const {handleRemoveMany}= handleCRUD;
+export default function ActionButton({ label, handleCRUD, iDs, onEmailAccess }) {
+ const { handleRemoveMany } = handleCRUD;
   const [anchorEl, setAnchorEl] = React.useState(false);
   const open = Boolean(anchorEl);
   const handleClick = (event) => {
@@ -64,8 +64,15 @@ export default function ActionButton({ label,handleCRUD,iDs }) {
     setAnchorEl(pre=>!pre);
   };
 
-  const handleRemoveMultiple = () =>{
+  const handleRemoveMultiple = () => {
     handleRemoveMany(iDs);
+    handleClose();
+  }
+
+  const handleEmailAccess = () => {
+    if (onEmailAccess) {
+      onEmailAccess();
+    }
     handleClose();
   }
 
@@ -92,6 +99,11 @@ export default function ActionButton({ label,handleCRUD,iDs }) {
         open={open}
         onClose={handleClose}
       >
+        <MenuItem onClick={handleEmailAccess} disableRipple disabled={!iDs || iDs.length === 0}>
+          <Email sx={{ color: "#2196f3" }} />
+          Email Access
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
         <MenuItem onClick={handleRemoveMultiple} disableRipple>
           <Delete sx={{ color: "#ff5722" }} />
           Delete

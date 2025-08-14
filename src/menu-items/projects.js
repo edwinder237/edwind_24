@@ -3,9 +3,10 @@ import { FormattedMessage } from 'react-intl';
 
 // assets
 import { DollarOutlined, LoginOutlined, PhoneOutlined, RocketOutlined,UnorderedListOutlined,EditOutlined,CalendarOutlined,ScheduleOutlined } from '@ant-design/icons';
+import { LocalParking } from '@mui/icons-material';
 
 // icons
-const icons = { DollarOutlined, LoginOutlined, PhoneOutlined, RocketOutlined, UnorderedListOutlined, EditOutlined,CalendarOutlined,ScheduleOutlined};
+const icons = { DollarOutlined, LoginOutlined, PhoneOutlined, RocketOutlined, UnorderedListOutlined, EditOutlined,CalendarOutlined,ScheduleOutlined, LocalParking};
 
 // ==============================|| MENU ITEMS - PAGES ||============================== //
 
@@ -19,16 +20,9 @@ const Courses = {
       title: <FormattedMessage id="Projects" />,
       type: 'item',
       url: '/projects',
-      icon: icons.ScheduleOutlined,
+      icon: icons.LocalParking,
       target: false,
       breadcrumbs: true
-    },
-    {
-      id: 'calendar',
-      title: <FormattedMessage id="calendar" />,
-      type: 'item',
-      url: '/apps/calendar',
-      icon: icons.CalendarOutlined
     },
    
    

@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   try {
@@ -8,27 +6,36 @@ export default async function handler(req, res) {
 
     const courses = await prisma.courses.findMany({
       include: {
-        
-          modules: {
-            orderBy: {
-              moduleOrder: 'asc' // Sorting modules by moduleOrder in ascending order
+        course_instructors: {
+          include: {
+            instructor: true,
+          },
+        },
+        modules: {
+          orderBy: {
+            moduleOrder: 'asc',
+          },
+          include: {
+            activities: {
+              orderBy: {
+                ActivityOrder: 'asc',
+              },
             },
-            include: {
-              activities: {
-                orderBy: {
-                  ActivityOrder: 'asc' // Sorting activities by ActivityOrder in ascending order
-                }
-              }
-            }
-          }
-        }
+          },
+        },
+      },
     });
+
+    // Debug: Log maxParticipants values
+    console.log("Courses maxParticipants:", courses.map(course => ({ 
+      id: course.id, 
+      title: course.title, 
+      maxParticipants: course.maxParticipants 
+    })));
 
     res.status(200).json(courses );
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await prisma.$disconnect();
   }
 }

@@ -5,11 +5,8 @@ import { useMemo } from 'react';
 import { Box, useMediaQuery } from '@mui/material';
 
 // project import
-import Search from './Search';
 import Message from './Message';
 import Profile from './Profile';
-import Notification from './Notification';
-import MobileSection from './MobileSection';
 import MegaMenuSection from './MegaMenuSection';
 
 import useConfig from 'hooks/useConfig';
@@ -29,14 +26,10 @@ const HeaderContent = () => {
   return (
     <>
       {menuOrientation === LAYOUT_CONST.HORIZONTAL_LAYOUT && !downLG && <DrawerHeader open={true} />}
-      {!downLG && <Search />}
      
-      {downLG && <Box sx={{ width: '100%', ml: 1 }} />}
-
-      <Notification />
+      <Box sx={{ width: '100%', ml: 1 }} />
       
-      {!downLG && <Profile />}
-      {downLG && <MobileSection />}
+      <Profile />
     </>
   );
 };

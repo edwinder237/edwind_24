@@ -8,9 +8,19 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
 // ==============================|| PLUGIN - MASK INPUT ||============================== //
 
-const Date_Picker = ({handleStartDateChange,handleEndDateChange}) => {
-  const [date1, setDate1] = useState(new Date());
-  const [date2, setDate2] = useState(new Date());
+const Date_Picker = ({handleStartDateChange, handleEndDateChange, startDate, endDate}) => {
+  const [date1, setDate1] = useState(startDate || new Date());
+  const [date2, setDate2] = useState(endDate || new Date());
+
+  // Update local state when props change
+  useEffect(() => {
+    if (startDate) {
+      setDate1(startDate);
+    }
+    if (endDate) {
+      setDate2(endDate);
+    }
+  }, [startDate, endDate]);
 
 
 
@@ -30,7 +40,9 @@ const Date_Picker = ({handleStartDateChange,handleEndDateChange}) => {
                       value={date1}
                       onChange={(newValue) => {
                         setDate1(newValue)
-                        handleStartDateChange(newValue)
+                        if (handleStartDateChange) {
+                          handleStartDateChange(newValue)
+                        }
                       }}
                       renderInput={(params) => (
                         <TextField fullWidth {...params} />
@@ -45,7 +57,9 @@ const Date_Picker = ({handleStartDateChange,handleEndDateChange}) => {
                       value={date2}
                       onChange={(newValue) => {
                         setDate2(newValue)
-                        handleEndDateChange(newValue)
+                        if (handleEndDateChange) {
+                          handleEndDateChange(newValue)
+                        }
                       }}
                       renderInput={(params) => (
                         <TextField fullWidth {...params} />

@@ -1,0 +1,133 @@
+import PropTypes from 'prop-types';
+import React, { useState } from 'react';
+
+// material-ui
+import { useTheme } from '@mui/material/styles';
+import { Box, Divider, Grid, Menu, MenuItem, Stack, Typography } from '@mui/material';
+
+// project import
+import useUser from 'hooks/useUser';
+import MainCard from 'components/MainCard';
+import IconButton from 'components/@extended/IconButton';
+
+// assets
+import { MoreOutlined, BankOutlined } from '@ant-design/icons';
+
+// ==============================|| ORGANIZATION PROFILE ||============================== //
+
+const OrganizationProfile = ({ focusInput }) => {
+  const theme = useTheme();
+  const user = useUser();
+
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+
+  const handleClick = (event) => {
+    setAnchorEl(event?.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+
+  return (
+    <MainCard>
+      <Grid container spacing={3} alignItems="center">
+        {/* Organization Icon and Info */}
+        <Grid item xs={12} md={6}>
+          <Stack direction="row" spacing={3} alignItems="center">
+            <Box
+              sx={{
+                width: 100,
+                height: 100,
+                borderRadius: 2,
+                bgcolor: theme.palette.primary.main,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white'
+              }}
+            >
+              <BankOutlined style={{ fontSize: '2.5rem' }} />
+            </Box>
+            <Stack spacing={0.5}>
+              <Typography variant="h5">{user?.organizationName || 'EDWIND Learning Solutions'}</Typography>
+              <Typography color="secondary">{user?.subOrganizationName || 'Training Division'}</Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ maxWidth: 350 }}>
+                Sub-organization for managing training programs and educational content delivery.
+              </Typography>
+            </Stack>
+          </Stack>
+        </Grid>
+
+        {/* Statistics */}
+        <Grid item xs={12} md={5}>
+          <Stack direction="row" justifyContent="space-around" alignItems="center">
+            <Stack spacing={0.5} alignItems="center">
+              <Typography variant="h5">12</Typography>
+              <Typography color="secondary">Projects</Typography>
+            </Stack>
+            <Divider orientation="vertical" flexItem />
+            <Stack spacing={0.5} alignItems="center">
+              <Typography variant="h5">8</Typography>
+              <Typography color="secondary">Instructors</Typography>
+            </Stack>
+            <Divider orientation="vertical" flexItem />
+            <Stack spacing={0.5} alignItems="center">
+              <Typography variant="h5">345</Typography>
+              <Typography color="secondary">Participants</Typography>
+            </Stack>
+          </Stack>
+        </Grid>
+
+        {/* Menu Button */}
+        <Grid item xs={12} md={1}>
+          <Stack direction="row" justifyContent="flex-end">
+            <IconButton
+              variant="light"
+              color="secondary"
+              id="basic-button"
+              aria-controls={open ? 'basic-menu' : undefined}
+              aria-haspopup="true"
+              aria-expanded={open ? 'true' : undefined}
+              onClick={handleClick}
+            >
+              <MoreOutlined />
+            </IconButton>
+            <Menu
+              id="basic-menu"
+              anchorEl={anchorEl}
+              open={open}
+              onClose={handleClose}
+              MenuListProps={{
+                'aria-labelledby': 'basic-button'
+              }}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right'
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right'
+              }}
+            >
+              <MenuItem onClick={handleClose}>
+                Edit
+              </MenuItem>
+              <MenuItem onClick={handleClose} disabled>
+                Delete
+              </MenuItem>
+            </Menu>
+          </Stack>
+        </Grid>
+      </Grid>
+    </MainCard>
+  );
+};
+
+OrganizationProfile.propTypes = {
+  focusInput: PropTypes.func
+};
+
+export default OrganizationProfile;

@@ -1,15 +1,11 @@
 // project import
-import other from './other'; //demo page 
-import pages from './pages'; //demo page 
-
 import Courses from './courses';
-import Projects from './projects';
-import applications from './applications';
+import ProjectManager from './project-manager';
 
 // ==============================|| MENU ITEMS ||============================== //
 
 const menuItems = {
-  items: [Courses,applications,pages]
+  items: [Courses, ProjectManager]
 };
 
 export default menuItems;

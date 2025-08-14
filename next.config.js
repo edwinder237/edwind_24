@@ -3,8 +3,7 @@
  */
 
 const nextConfig = {
-  reactStrictMode: false,
-  transpilePackages: ['@babel/preset-react'],
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {
@@ -24,6 +23,12 @@ const nextConfig = {
       config.externals.push({
         '@workos-inc/node': 'commonjs @workos-inc/node'
       });
+      
+      // Remove any preact aliases that might interfere with FullCalendar
+      if (config.resolve.alias) {
+        delete config.resolve.alias['preact'];
+        delete config.resolve.alias['preact/compat'];
+      }
       
       config.resolve.fallback = {
         ...config.resolve.fallback,

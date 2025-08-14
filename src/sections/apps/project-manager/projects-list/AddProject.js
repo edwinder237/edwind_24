@@ -1,9 +1,12 @@
 import PropTypes from "prop-types";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 
 //REDUX
-import { useDispatch, useSelector } from "react-redux";
-import { addProject } from "store/reducers/projects";
+import { useDispatch, useSelector } from "store";
+import { addProject, updateProject, getProjects } from "store/reducers/projects";
+import { setLoading, clearLoading } from "store/reducers/loading";
+import axios from "utils/axios";
 
 // material-ui
 import { useTheme } from "@mui/material/styles";
@@ -29,12 +32,16 @@ import {
   Typography,
   Radio,
   RadioGroup,
+  Stepper,
+  Step,
+  StepLabel,
+  Fade,
+  Zoom
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 // third-party
-import _ from "lodash";
 import * as Yup from "yup";
 import { useFormik, Form, FormikProvider } from "formik";
 import { createId } from "@paralleldrive/cuid2";
@@ -48,33 +55,94 @@ import { openSnackbar } from "store/reducers/snackbar";
 import SimpleEditor from "components/SimpleEditor";
 import Date_Picker from "./datePicker";
 import TagsPicker from "./tagsPicker";
+import TrainingRecipientPicker from "./TrainingRecipientPicker";
+import InstructorPicker from "./InstructorPicker";
 import GoogleMapAutocomplete from "./google-map-autocomplete";
 
 // assets
-import { DeleteFilled } from "@ant-design/icons";
+import { 
+  DeleteFilled,
+  InfoCircleOutlined,
+  BookOutlined,
+  SettingOutlined,
+  CheckCircleOutlined,
+  ArrowRightOutlined,
+  ArrowLeftOutlined
+} from "@ant-design/icons";
 
 // constant
-const getInitialValues = () => {
+const getInitialValues = (project) => {
+  if (project) {
+    // Editing existing project - populate with current values
+    return {
+      title: project.title || "",
+      type: project.projectType || project.type || "",
+      language: project.language || "",
+      tags: project.tags || "", // Topics
+      description: project.summary || project.description || "",
+      location: project.location || "",
+      trainingRecipient: project.trainingRecipientId ? project.trainingRecipientId.toString() : "",
+      instructor: project.instructorId ? project.instructorId.toString() : "",
+      shared: project.published !== undefined ? project.published : project.sharing || true
+    };
+  }
+  
+  // Creating new project - use empty values
   const newProject = {
     title: "",
     type: "",
     language: "",
-    tags: "",
+    tags: "", // Topics
     description: "",
     location: "",
-    shared:true
+    trainingRecipient: "",
+    instructor: "",
+    shared: true
   };
 
   return newProject;
 };
 
-const types = ["onboarding", "continuous", "other"];
+const types = [
+  "Onboarding", 
+  "Continuous", 
+  "Consultation", 
+  "Event", 
+  "Presentation", 
+  "Certification", 
+  "Other"
+];
+
+// Step configurations
+const steps = [
+  {
+    label: 'Basic Information',
+    description: 'Project title, type, and recipient',
+    icon: <InfoCircleOutlined />
+  },
+  {
+    label: 'Content & Topics',
+    description: 'Description, topics, and language',
+    icon: <BookOutlined />
+  },
+  {
+    label: 'Schedule & Location',
+    description: 'Dates and location details',
+    icon: <SettingOutlined />
+  },
+  {
+    label: 'Review & Submit',
+    description: 'Final review and settings',
+    icon: <CheckCircleOutlined />
+  }
+];
 
 // ==============================|| PROJECT ADD / EDIT / DELETE ||============================== //
 
 const AddProject = ({ project, onCancel,getStateChange }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const router = useRouter();
   const isCreating = !project;
   // Replace with your authentication logic
   const mockUserData = {
@@ -85,26 +153,81 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   const today = new Date();
   const { projects,isAdding } = useSelector((state) => state.projects);
 
-  const [projectTitle, setProjectTitle] = useState("Title");
-  const [projectType, setProjectType] = useState("Type");
-  const [projectTags, setProjectTags] = useState(JSON.stringify([]));
-  const [projectDescription, setProjectDescription] = useState("Desciption");
-  const [projectStartDate, setProjectStartDate] = useState(today);
-  const [projectEndDate, setProjectEndDate] = useState(today);
-  const [projectLocation, setProjectLocation] = useState("location");
+  // Step management
+  const [activeStep, setActiveStep] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState(new Set());
+
+  const [projectTitle, setProjectTitle] = useState(project?.title || "Title");
+  const [projectType, setProjectType] = useState(project?.projectType || project?.type || "Type");
+  const [projectTopics, setProjectTopics] = useState(project?.tags || JSON.stringify([]));
+  const [projectDescription, setProjectDescription] = useState(project?.summary || project?.description || "Description");
+  const [projectStartDate, setProjectStartDate] = useState(project?.startDate ? new Date(project.startDate) : today);
+  const [projectEndDate, setProjectEndDate] = useState(project?.endDate ? new Date(project.endDate) : today);
+  const [projectLocation, setProjectLocation] = useState(project?.location || "location");
+  const [selectedTrainingRecipient, setSelectedTrainingRecipient] = useState(null);
+  const [selectedInstructor, setSelectedInstructor] = useState(null);
+
+  // Set initial training recipient for editing
+  useEffect(() => {
+    if (project?.trainingRecipientId) {
+      // If editing a project, we need to fetch the training recipient details
+      const fetchTrainingRecipient = async () => {
+        try {
+          const response = await axios.get('/api/training-recipients/fetchTrainingRecipients', {
+            params: {
+              sub_organizationId: 1 // TODO: Get from current user's sub-organization
+            }
+          });
+          const recipient = response.data.find(r => r.id === project.trainingRecipientId);
+          if (recipient) {
+            setSelectedTrainingRecipient(recipient);
+          }
+        } catch (error) {
+          console.error('Error fetching training recipient for editing:', error);
+        }
+      };
+      fetchTrainingRecipient();
+    }
+  }, [project]);
+
+  // Set initial instructor for editing
+  useEffect(() => {
+    if (project?.instructorId) {
+      // If editing a project, we need to fetch the instructor details
+      const fetchInstructor = async () => {
+        try {
+          const response = await axios.get('/api/instructors/fetchInstructors', {
+            params: {
+              status: 'active'
+            }
+          });
+          const instructor = response.data.find(i => i.id === project.instructorId);
+          if (instructor) {
+            setSelectedInstructor(instructor);
+          }
+        } catch (error) {
+          console.error('Error fetching instructor for editing:', error);
+        }
+      };
+      fetchInstructor();
+    }
+  }, [project]);
 
   const ProjectSchema = Yup.object().shape({
     title: Yup.string().max(255).required("Title is required"),
     type: Yup.string().required("Type is required"),
     description: Yup.string().max(191),
+    trainingRecipient: Yup.string().required("Training recipient is required"),
   });
 
   const [openAlert, setOpenAlert] = useState(false);
+
 
   const handleAlertClose = () => {
     setOpenAlert(!openAlert);
     onCancel();
   };
+
 
   const handleOnChange = (event) => {
     switch (event.target.id) {
@@ -118,9 +241,9 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
 
 
   const formik = useFormik({
-    initialValues: getInitialValues(),
+    initialValues: getInitialValues(project),
     validationSchema: ProjectSchema,
-    onSubmit: (values, { setSubmitting }) => {
+    onSubmit: async (values, { setSubmitting }) => {
       console.log(values);
       try {
         const newProject = {
@@ -133,7 +256,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           title: values.title,
           summary: projectDescription,
           duration: 180,
-          tags: projectTags,
+          tags: projectTopics,
           projectType: values.type,
           projectCategory: "automotive",
           projectStatus: "started",
@@ -143,40 +266,155 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           color: "",
           language: values.language,
           location: projectLocation,
+          trainingRecipientId: selectedTrainingRecipient ? selectedTrainingRecipient.id : null,
+          instructorId: selectedInstructor ? selectedInstructor.id : null,
         };
         if (project) {
-          // dispatch(project(project.id, newCustomer)); - update
-          dispatch(
-            openSnackbar({
-              open: true,
-              message: "Project updated successfully.",
-              variant: "alert",
-              alert: {
-                color: "success",
-              },
-              close: false,
-            })
-          );
-        } else {
-          dispatch(addProject(newProject, projects,isAdding));
+          // Update existing project
+          const updateData = {
+            id: project.id,
+            title: values.title,
+            description: projectDescription,
+            type: values.type,
+            tags: projectTopics,
+            startDate: projectStartDate,
+            endDate: projectEndDate,
+            language: values.language,
+            location: projectLocation,
+            trainingRecipientId: selectedTrainingRecipient ? selectedTrainingRecipient.id : null,
+            instructorId: selectedInstructor ? selectedInstructor.id : null,
+            sharing: values.shared
+          };
           
-          dispatch(
-            openSnackbar({
-              open: true,
-              message: "Project added successfully.",
-              variant: "alert",
-              alert: {
-                color: "success",
-              },
-              close: false,
-            })
-          );
-        }
+          dispatch(updateProject(updateData)).then(async (result) => {
+            if (result.success) {
+              // If an instructor was selected, update their assignment as main project instructor
+              if (selectedInstructor) {
+                try {
+                  // First check if instructor is already assigned to project
+                  const existingResponse = await axios.get(`/api/projects/instructors?projectId=${project.id}`);
+                  const existingInstructors = existingResponse.data.instructors || [];
+                  const existingInstructor = existingInstructors.find(pi => pi.instructor.id === selectedInstructor.id);
+                  
+                  if (existingInstructor) {
+                    // Update existing instructor to main type
+                    await axios.put(`/api/projects/instructors?projectId=${project.id}`, {
+                      instructorId: selectedInstructor.id,
+                      instructorType: 'main'
+                    });
+                  } else {
+                    // Add new instructor as main
+                    await axios.post(`/api/projects/instructors?projectId=${project.id}`, {
+                      instructorId: selectedInstructor.id,
+                      instructorType: 'main'
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error updating instructor assignment:', error);
+                  // Don't fail the project update if instructor assignment fails
+                }
+              }
 
-        setSubmitting(true);
-        onCancel();
+              // Refresh the projects list to show updated data
+              dispatch(getProjects());
+              
+              dispatch(
+                openSnackbar({
+                  open: true,
+                  message: result.message || "Project updated successfully.",
+                  variant: "alert",
+                  alert: {
+                    color: "success",
+                  },
+                  close: false,
+                })
+              );
+              onCancel(); // Close the modal after successful update
+            } else {
+              dispatch(
+                openSnackbar({
+                  open: true,
+                  message: result.message || "Failed to update project.",
+                  variant: "alert",
+                  alert: {
+                    color: "error",
+                  },
+                  close: false,
+                })
+              );
+            }
+            setSubmitting(false);
+          });
+        } else {
+          // Create new project
+          dispatch(setLoading({
+            message: "Creating your project...",
+            subtitle: "Setting up your workspace and redirecting you to the project page",
+            type: "project-creation"
+          }));
+          
+          const result = await dispatch(addProject(newProject, projects, isAdding));
+          
+          if (result.success) {
+            // If an instructor was selected, assign them as the main project instructor
+            if (selectedInstructor) {
+              try {
+                await axios.post(`/api/projects/instructors?projectId=${result.projectId}`, {
+                  instructorId: selectedInstructor.id,
+                  instructorType: 'main'
+                });
+              } catch (error) {
+                console.error('Error assigning instructor to project:', error);
+                // Don't fail the project creation if instructor assignment fails
+              }
+            }
+
+            dispatch(
+              openSnackbar({
+                open: true,
+                message: "Project added successfully.",
+                variant: "alert",
+                alert: {
+                  color: "success",
+                },
+                close: false,
+              })
+            );
+            
+            // Close modal but keep loading overlay during redirect
+            onCancel();
+            
+            // Update loading message for navigation
+            dispatch(setLoading({
+              message: "Redirecting to project...",
+              subtitle: "Opening your new project workspace",
+              type: "navigation"
+            }));
+            
+            // Small delay to show success message then redirect
+            setTimeout(() => {
+              router.push(`/projects/${result.projectId}`);
+            }, 1000);
+          } else {
+            dispatch(clearLoading());
+            dispatch(
+              openSnackbar({
+                open: true,
+                message: result.error || "Failed to create project.",
+                variant: "alert",
+                alert: {
+                  color: "error",
+                },
+                close: false,
+              })
+            );
+            setSubmitting(false);
+          }
+        }
       } catch (error) {
         console.error(error);
+        dispatch(clearLoading());
+        setSubmitting(false);
       }
     },
   });
@@ -190,9 +428,9 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     setFieldValue,
   } = formik;
 
-  function handleTagsChange(tags) {
-    const JSONTags = JSON.stringify(tags);
-    setProjectTags(JSONTags);
+  function handleTopicsChange(topics) {
+    const JSONTopics = JSON.stringify(topics);
+    setProjectTopics(JSONTopics);
   }
 
   function handleTextChange(text) {
@@ -213,6 +451,351 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     setProjectLocation(JSONLocation);
   }
 
+  function handleTrainingRecipientChange(recipient) {
+    setSelectedTrainingRecipient(recipient);
+    // Update the form value with the recipient ID (convert to string for validation)
+    setFieldValue("trainingRecipient", recipient && recipient.id ? recipient.id.toString() : "");
+  }
+
+  function handleInstructorChange(instructor) {
+    setSelectedInstructor(instructor);
+    // Update the form value with the instructor ID (convert to string for validation)
+    setFieldValue("instructor", instructor && instructor.id ? instructor.id.toString() : "");
+  }
+
+  // Step navigation functions
+  const handleNext = (e) => {
+    e.preventDefault(); // Prevent form submission
+    e.stopPropagation(); // Stop event bubbling
+    
+    // Validate current step before proceeding
+    if (activeStep === 0) {
+      // Step 1: Basic Information - validate title, type, training recipient
+      if (!formik.values.title || !formik.values.type || !formik.values.trainingRecipient) {
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Please complete all required fields in this step.',
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+        return;
+      }
+    }
+
+    setCompletedSteps(prev => new Set([...prev, activeStep]));
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  };
+
+  const handleBack = (e) => {
+    e.preventDefault(); // Prevent form submission
+    e.stopPropagation(); // Stop event bubbling
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  };
+
+  const handleStepClick = (step) => {
+    setActiveStep(step);
+  };
+
+  // Custom form submit handler
+  const handleFormSubmit = (e) => {
+    // Only allow submission if we're on the final step
+    if (activeStep !== steps.length - 1) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    // If we're on the final step, let Formik handle the submission
+    handleSubmit(e);
+  };
+
+  const getStepIcon = (step, index) => {
+    if (completedSteps.has(index)) {
+      return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+    }
+    if (index === activeStep) {
+      return step.icon;
+    }
+    return step.icon;
+  };
+
+  // Step content renderers
+  const renderStepContent = (step) => {
+    switch (step) {
+      case 0:
+        return renderBasicInformation();
+      case 1:
+        return renderContentAndTopics();
+      case 2:
+        return renderScheduleAndLocation();
+      case 3:
+        return renderReviewAndSubmit();
+      default:
+        return null;
+    }
+  };
+
+  const renderBasicInformation = () => (
+    <Fade in={activeStep === 0}>
+      <Box>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              Basic Information
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              Enter the essential details for your project
+            </Typography>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Project Title *"
+              placeholder="Enter project name"
+              {...getFieldProps("title")}
+              error={Boolean(touched.title && errors.title)}
+              helperText={touched.title && errors.title}
+              onChange={(e) => {
+                // Convert to camel case: capitalize first letter of each word
+                const camelCaseValue = e.target.value
+                  .toLowerCase()
+                  .split(' ')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+                
+                setFieldValue("title", camelCaseValue);
+                setProjectTitle(camelCaseValue);
+              }}
+              inputProps={{ 
+                style: { textTransform: 'none' } // Prevent any CSS text transform
+              }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth>
+              <InputLabel>Project Type *</InputLabel>
+              <Select
+                {...getFieldProps("type")}
+                onChange={(event) => {
+                  setFieldValue("type", event.target.value);
+                  setProjectType(event.target.value);
+                }}
+                error={Boolean(touched.type && errors.type)}
+              >
+                {types.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
+              </Select>
+              {touched.type && errors.type && (
+                <FormHelperText error>{errors.type}</FormHelperText>
+              )}
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Training Recipient *
+            </Typography>
+            <TrainingRecipientPicker
+              handleTrainingRecipientChange={handleTrainingRecipientChange}
+              initialValue={selectedTrainingRecipient}
+              error={Boolean(touched.trainingRecipient && errors.trainingRecipient)}
+              helperText={touched.trainingRecipient && errors.trainingRecipient}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Instructor
+            </Typography>
+            <InstructorPicker
+              handleInstructorChange={handleInstructorChange}
+              initialValue={selectedInstructor}
+              error={Boolean(touched.instructor && errors.instructor)}
+              helperText={touched.instructor && errors.instructor}
+            />
+          </Grid>
+        </Grid>
+      </Box>
+    </Fade>
+  );
+
+  const renderContentAndTopics = () => (
+    <Fade in={activeStep === 1}>
+      <Box>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              Content & Topics
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              Define the content, topics, and language for your project
+            </Typography>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Topics
+            </Typography>
+            <TagsPicker 
+              handleTagsChange={handleTopicsChange} 
+              initialValue={project?.tags || []}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Language
+            </Typography>
+            <RadioGroup
+              row
+              {...getFieldProps("language")}
+            >
+              <FormControlLabel
+                value="English"
+                control={<Radio />}
+                label="English"
+              />
+              <FormControlLabel
+                value="French"
+                control={<Radio />}
+                label="French"
+              />
+            </RadioGroup>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Description
+            </Typography>
+            <Box sx={{ 
+              '& .quill': {
+                bgcolor: theme.palette.mode === 'dark' ? 'dark.main' : 'grey.50',
+                borderRadius: '4px',
+                '& .ql-toolbar': {
+                  bgcolor: theme.palette.mode === 'dark' ? 'dark.light' : 'grey.100',
+                  borderColor: theme.palette.divider,
+                  borderTopLeftRadius: '4px',
+                  borderTopRightRadius: '4px',
+                },
+                '& .ql-container': {
+                  borderColor: `${theme.palette.divider} !important`,
+                  borderBottomLeftRadius: '4px',
+                  borderBottomRightRadius: '4px',
+                  '& .ql-editor': {
+                    minHeight: 200,
+                  },
+                },
+              },
+            }}>
+              <SimpleEditor handleTextChange={handleTextChange} />
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
+    </Fade>
+  );
+
+  const renderScheduleAndLocation = () => (
+    <Fade in={activeStep === 2}>
+      <Box>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              Schedule & Location
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              Set the dates and location for your project
+            </Typography>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Project Dates
+            </Typography>
+            <Date_Picker
+              handleStartDateChange={handleStartDateChange}
+              handleEndDateChange={handleEndDateChange}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Location
+            </Typography>
+            <GoogleMapAutocomplete
+              handleLocationChange={handleLocationChange}
+            />
+          </Grid>
+        </Grid>
+      </Box>
+    </Fade>
+  );
+
+  const renderReviewAndSubmit = () => (
+    <Fade in={activeStep === 3}>
+      <Box>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              Review & Submit
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              Review your project details and submit
+            </Typography>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
+              <Typography variant="h6" gutterBottom>
+                Project Summary
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Title:</Typography>
+                  <Typography variant="body1">{formik.values.title}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Type:</Typography>
+                  <Typography variant="body1">{formik.values.type}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Language:</Typography>
+                  <Typography variant="body1">{formik.values.language}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Training Recipient:</Typography>
+                  <Typography variant="body1">{selectedTrainingRecipient?.name}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Instructor:</Typography>
+                  <Typography variant="body1">
+                    {selectedInstructor ? `${selectedInstructor.firstName} ${selectedInstructor.lastName}` : 'Not selected'}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Switch
+                  {...getFieldProps("shared")}
+                  checked={formik.values.shared}
+                />
+              }
+              label="Make this project available to everyone in the organization"
+            />
+          </Grid>
+        </Grid>
+      </Box>
+    </Fade>
+  );
+
   return (
     <>
       <FormikProvider value={formik}>
@@ -220,8 +803,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           <Form
             autoComplete="off"
             noValidate
-            onSubmit={handleSubmit}
-            onChange={handleOnChange}
+            onSubmit={handleFormSubmit}
           >
             <Grid container spacing={3}>
               <Grid item xs={12}>
@@ -230,386 +812,85 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                   content={false}
                   sx={{ overflow: "visible" }}
                 >
-                  <CardContent>
-                    <Grid container spacing={3} alignItems="center">
-                      <Grid item xs={12}>
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{ pt: { xs: 2, sm: "1 !important" } }}
+                  <Box sx={{ p: 4 }}>
+                    {/* Horizontal Stepper */}
+                    <Stepper activeStep={activeStep} orientation="horizontal" sx={{ mb: 4 }}>
+                      {steps.map((step, index) => (
+                        <Step key={step.label} completed={completedSteps.has(index)}>
+                          <StepLabel 
+                            icon={getStepIcon(step, index)}
+                            onClick={() => handleStepClick(index)}
+                            sx={{ cursor: 'pointer' }}
                           >
-                            <Box
-                              sx={{
-                                display: "flex",
-                                justifyContent: "end",
-                                flexWrap: "wrap",
-                                "& > :not(style)": {
-                                  mt: 1,
-                                  width: 100,
-                                  height: 100,
-                                },
-                              }}
-                            >
-                              <Paper elevation={3} />
-                            </Box>
-                          </Grid>
-                          <Grid item xs={12} sm={9} lg={7}>
-                            <Typography variant="h3" sx={{ mb: 0 }}>
-                              {projectTitle} | {projectType}
-                            </Typography>
-                            <Typography variant="body2" sx={{ mb: 2 }}>
-                              Edwind | Created by Marc Nelson
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Divider />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{
-                              pt: { xs: 2, sm: "1 !important" },
-                            }}
-                          >
-                            <InputLabel
-                              sx={{ textAlign: { xs: "left", sm: "right" } }}
-                            >
-                              Project Title :
-                            </InputLabel>
-                          </Grid>
-                          <Grid item xs={12} sm={8} lg={7}>
-                            <TextField
-                              fullWidth
-                              id="project-title"
-                              placeholder="Enter project name"
-                              {...getFieldProps("title")}
-                              error={Boolean(touched.title && errors.title)}
-                              helperText={touched.title && errors.title}
-                            />
-                          </Grid>
+                            <Typography variant="subtitle1">{step.label}</Typography>
+                          </StepLabel>
+                        </Step>
+                      ))}
+                    </Stepper>
 
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{ pt: { xs: 2, sm: "1 !important" } }}
-                          >
-                            <InputLabel
-                              sx={{ textAlign: { xs: "left", sm: "right" } }}
-                            >
-                              Project Type :
-                            </InputLabel>
-                          </Grid>
-                          <Grid item xs={12} sm={8} lg={7}>
-                            <FormControl fullWidth>
-                              <Select
-                                id="project-title"
-                                displayEmpty
-                                {...getFieldProps("type")}
-                                onChange={(event) => {
-                                  setFieldValue("type", event.target.value);
-                                  setProjectType(event.target.value);
-                                }}
-                                input={
-                                  <OutlinedInput
-                                    id="select-column-hiding"
-                                    placeholder="Sort by"
-                                  />
-                                }
-                                renderValue={(selected) => {
-                                  if (!selected) {
-                                    return (
-                                      <Typography variant="subtitle1">
-                                        Select Status
-                                      </Typography>
-                                    );
-                                  }
+                    {/* Step Content */}
+                    <Box sx={{ minHeight: 400, px: 2, py: 3, maxWidth: 800, mx: 'auto' }}>
+                      {renderStepContent(activeStep)}
+                    </Box>
 
-                                  return (
-                                    <Typography variant="subtitle2">
-                                      {selected}
-                                    </Typography>
-                                  );
-                                }}
-                              >
-                                {types.map((column) => (
-                                  <MenuItem key={column} value={column}>
-                                    <ListItemText primary={column} />
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                            {touched.type && errors.type && (
-                              <FormHelperText
-                                error
-                                id="standard-weight-helper-text-email-login"
-                                sx={{ pl: 1.75 }}
-                              >
-                                {errors.type}
-                              </FormHelperText>
-                            )}
-                          </Grid>
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{ pt: { xs: 2, sm: "1 !important" } }}
-                          >
-                            <InputLabel
-                              sx={{ textAlign: { xs: "left", sm: "right" } }}
+                    {/* Navigation Buttons */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, pt: 3, borderTop: 1, borderColor: 'divider' }}>
+                      <Box>
+                        {!isCreating && (
+                          <Tooltip title="Delete Project" placement="top">
+                            <IconButton
+                              onClick={() => setOpenAlert(true)}
+                              size="large"
+                              color="error"
                             >
-                              Language :
-                            </InputLabel>
-                          </Grid>
-                          <Grid item xs={12} sm={8} lg={7}>
-                            <RadioGroup
-                              row
-                              id="project-language"
-                              name="language"
-                              {...getFieldProps("language")}
-                            >
-                              <FormControlLabel
-                                value="english"
-                                control={<Radio />}
-                                label="English"
-                              />
-                              <FormControlLabel
-                                value="french"
-                                control={<Radio />}
-                                label="French"
-                              />
-                            </RadioGroup>
-                          </Grid>
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Divider />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Grid container spacing={3} alignItems="center">
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{
-                              pt: { xs: 2, sm: "1 !important" },
-                            }}
-                          >
-                            <InputLabel
-                              sx={{
-                                textAlign: { xs: "left", sm: "right" },
-                              }}
-                            >
-                              Tags :
-                            </InputLabel>
-                          </Grid>
-                          <Grid item xs={12} sm={8} lg={7}>
-                            <TagsPicker handleTagsChange={handleTagsChange} />
-                          </Grid>
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{
-                              alignSelf: "flex-start",
-                              pt: { xs: 2, sm: "1 !important" },
-                            }}
-                          >
-                            <InputLabel
-                              sx={{
-                                textAlign: { xs: "left", sm: "right" },
-                              }}
-                            >
-                              Description :
-                            </InputLabel>
-                          </Grid>
-                          <Grid
-                            item
-                            xs={12}
-                            sm={8}
-                            lg={7}
-                            sx={{
-                              "& .quill": {
-                                bgcolor:
-                                  theme.palette.mode === "dark"
-                                    ? "dark.main"
-                                    : "grey.50",
-                                borderRadius: "4px",
-                                "& .ql-toolbar": {
-                                  bgcolor:
-                                    theme.palette.mode === "dark"
-                                      ? "dark.light"
-                                      : "grey.100",
-                                  borderColor: theme.palette.divider,
-                                  borderTopLeftRadius: "4px",
-                                  borderTopRightRadius: "4px",
-                                },
-                                "& .ql-container": {
-                                  borderColor: `${theme.palette.divider} !important`,
-                                  borderBottomLeftRadius: "4px",
-                                  borderBottomRightRadius: "4px",
-                                  "& .ql-editor": {
-                                    minHeight: 225,
-                                  },
-                                },
-                              },
-                            }}
-                          >
-                            <SimpleEditor handleTextChange={handleTextChange} />
-                          </Grid>
+                              <DeleteFilled />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
 
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{
-                              alignSelf: "flex-start",
-                              pt: { xs: 2, sm: "1 !important" },
-                            }}
-                          >
-                            <InputLabel
-                              sx={{ textAlign: { xs: "left", sm: "right" } }}
-                            >
-                              Dates :
-                            </InputLabel>
-                          </Grid>
-                          <Grid item xs={12} sm={8} lg={7}>
-                            <Date_Picker
-                              handleStartDateChange={handleStartDateChange}
-                              handleEndDateChange={handleEndDateChange}
-                            />
-                          </Grid>
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Divider />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{
-                              pt: { xs: 20, sm: "1 !important" },
-                            }}
-                          >
-                            <InputLabel
-                              sx={{ textAlign: { xs: "left", sm: "right" } }}
-                            >
-                              Location :
-                            </InputLabel>
-                          </Grid>
-                          <Grid item xs={12} sm={8} lg={7}>
-                            <GoogleMapAutocomplete
-                              handleLocationChange={handleLocationChange}
-                            />
-                          </Grid>
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Divider />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid
-                            item
-                            xs={12}
-                            sm={3}
-                            lg={3}
-                            sx={{
-                              pt: { xs: 2, sm: "1 !important" },
-                            }}
-                          >
-                            <InputLabel
-                              sx={{ textAlign: { xs: "left", sm: "right" } }}
-                            >
-                              Shared :
-                            </InputLabel>
-                          </Grid>
-                          <Grid item xs={10} sm={6} lg={5}>
-                            <Typography variant="caption" color="textSecondary">
-                              Make this project available to Everyone in the
-                              organization
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={2} sm={2} lg={2}>
-                            <FormControlLabel
-                              id="project-shared"
-                              control={
-                                <Switch
-                                  {...getFieldProps("shared")}
-                                  checked={formik.values.shared}
-                                  sx={{ mt: 0 }}
-                                />
-                              }
-                              label=""
-                              labelPlacement="start"
-                            />
-                          </Grid>
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Divider />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Grid
-                          container
-                          spacing={2}
-                          justifyContent="end"
-                          alignItems="center"
+                      <Box sx={{ display: 'flex', gap: 2 }}>
+                        <Button 
+                          type="button"
+                          color="secondary" 
+                          onClick={onCancel}
+                          variant="outlined"
                         >
-                          <Grid item>
-                            {!isCreating && (
-                              <Tooltip title="Delete Project" placement="top">
-                                <IconButton
-                                  onClick={() => setOpenAlert(true)}
-                                  size="large"
-                                  color="error"
-                                >
-                                  <DeleteFilled />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Grid>
-
-                          <Grid item xs={8} sm={3.7} lg={4.7}>
-                            <Stack
-                              direction="row"
-                              spacing={2}
-                              alignItems="center"
-                            >
-                              <Button color="error" onClick={onCancel}>
-                                Cancel
-                              </Button>
-                              <Button
-                                type="submit"
-                                variant="contained"
-                                disabled={isSubmitting}
-                              >
-                                {project ? "Edit" : "Add"}
-                              </Button>
-                            </Stack>
-                          </Grid>
-                        </Grid>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
+                          Cancel
+                        </Button>
+                        
+                        {activeStep > 0 && (
+                          <Button
+                            type="button"
+                            onClick={handleBack}
+                            startIcon={<ArrowLeftOutlined />}
+                            variant="outlined"
+                          >
+                            Back
+                          </Button>
+                        )}
+                        
+                        {activeStep < steps.length - 1 ? (
+                          <Button
+                            type="button"
+                            onClick={handleNext}
+                            endIcon={<ArrowRightOutlined />}
+                            variant="contained"
+                          >
+                            Next
+                          </Button>
+                        ) : (
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={isSubmitting}
+                          >
+                            {project ? "Update Project" : "Create Project"}
+                          </Button>
+                        )}
+                      </Box>
+                    </Box>
+                  </Box>
                 </MainCard>
               </Grid>
             </Grid>

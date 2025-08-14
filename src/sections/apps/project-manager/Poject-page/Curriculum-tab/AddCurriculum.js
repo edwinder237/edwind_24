@@ -1,0 +1,632 @@
+import PropTypes from "prop-types";
+import { useEffect, useState } from "react";
+
+//REDUX
+import { useDispatch, useSelector } from "store";
+import { addProject } from "store/reducers/projects";
+
+// material-ui
+import { useTheme } from "@mui/material/styles";
+import {
+  Box,
+  Button,
+  CardContent,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  Grid,
+  FormHelperText,
+  InputLabel,
+  ListItemText,
+  MenuItem,
+  OutlinedInput,
+  Paper,
+  Select,
+  Stack,
+  Switch,
+  TextField,
+  Tooltip,
+  Typography,
+  Radio,
+  RadioGroup,
+} from "@mui/material";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+
+// third-party
+import * as Yup from "yup";
+import { useFormik, Form, FormikProvider } from "formik";
+import { createId } from "@paralleldrive/cuid2";
+
+// project imports
+import MainCard from "components/MainCard";
+import AlertProjectDelete from "./AlertProjectDelete";
+import Avatar from "components/@extended/Avatar";
+import IconButton from "components/@extended/IconButton";
+import { openSnackbar } from "store/reducers/snackbar";
+import SimpleEditor from "components/SimpleEditor";
+import Date_Picker from "./datePicker";
+import TagsPicker from "./tagsPicker";
+import GoogleMapAutocomplete from "./google-map-autocomplete";
+
+// assets
+import { DeleteFilled } from "@ant-design/icons";
+
+// constant
+const getInitialValues = () => {
+  const newCurriculum = {
+    title: "",
+    type: "",
+    language: "",
+    tags: "",
+    description: "",
+    location: "",
+    shared: true
+  };
+
+  return newCurriculum;
+};
+
+const types = ["onboarding", "continuous", "other"];
+
+// ==============================|| CURRICULUM ADD / EDIT / DELETE ||============================== //
+
+const AddCurriculum = ({ curriculum, onCancel, getStateChange }) => {
+  const theme = useTheme();
+  const dispatch = useDispatch();
+  const isCreating = !curriculum;
+  //const { data } = useSession();
+  //const { user, token } = data;
+  //const { userProps } = token;
+  //const sub_orgId = userProps.sub_org;
+  //const sub_org_name = userProps.sub_org_name;
+  const today = new Date();
+  const { projects,isAdding } = useSelector((state) => state.projects);
+
+  const [curriculumTitle, setCurriculumTitle] = useState("Title");
+  const [curriculumType, setCurriculumType] = useState("Type");
+  const [curriculumTags, setCurriculumTags] = useState(JSON.stringify([]));
+  const [curriculumDescription, setCurriculumDescription] = useState("Description");
+  const [curriculumStartDate, setCurriculumStartDate] = useState(today);
+  const [curriculumEndDate, setCurriculumEndDate] = useState(today);
+  const [curriculumLocation, setCurriculumLocation] = useState("location");
+
+  const CurriculumSchema = Yup.object().shape({
+    title: Yup.string().max(255).required("Title is required"),
+    type: Yup.string().required("Type is required"),
+    description: Yup.string().max(191),
+  });
+
+  const [openAlert, setOpenAlert] = useState(false);
+
+  const handleAlertClose = () => {
+    setOpenAlert(!openAlert);
+    onCancel();
+  };
+
+  const handleOnChange = (event) => {
+    switch (event.target.id) {
+      case "curriculum-title":
+        setCurriculumTitle(event.target.value);
+        break;
+      default:
+        console.log("Unhandled event type:", event.target.id);
+    }
+  };
+
+  const formik = useFormik({
+    initialValues: getInitialValues(),
+    validationSchema: CurriculumSchema,
+    onSubmit: (values, { setSubmitting }) => {
+      console.log(values);
+      try {
+        const newCurriculum = {
+          sortorder: 1,
+          cuid: createId(),
+          //sub_organizationId: parseInt(sub_orgId),
+          sub_organizationId: 1,
+          createdAt: today,
+          published: values.shared,
+          title: values.title,
+          summary: curriculumDescription,
+          duration: 180,
+          tags: curriculumTags,
+          curriculumType: values.type,
+          curriculumCategory: "general",
+          curriculumStatus: "active",
+          startDate: curriculumStartDate,
+          endDate: curriculumEndDate,
+          backgroundImg: "",
+          color: "",
+          language: values.language,
+          location: curriculumLocation,
+        };
+        if (curriculum) {
+          // dispatch(updateCurriculum(curriculum.id, newCurriculum)); - update
+          dispatch(
+            openSnackbar({
+              open: true,
+              message: "Curriculum updated successfully.",
+              variant: "alert",
+              alert: {
+                color: "success",
+              },
+              close: false,
+            })
+          );
+        } else {
+          // dispatch(addCurriculum(newCurriculum, curriculums, isAdding));
+          
+          dispatch(
+            openSnackbar({
+              open: true,
+              message: "Curriculum added successfully.",
+              variant: "alert",
+              alert: {
+                color: "success",
+              },
+              close: false,
+            })
+          );
+        }
+
+        setSubmitting(true);
+        onCancel();
+      } catch (error) {
+        console.error(error);
+      }
+    },
+  });
+
+  const {
+    errors,
+    touched,
+    handleSubmit,
+    isSubmitting,
+    getFieldProps,
+    setFieldValue,
+  } = formik;
+
+  function handleTagsChange(tags) {
+    const JSONTags = JSON.stringify(tags);
+    setCurriculumTags(JSONTags);
+  }
+
+  function handleTextChange(text) {
+    setCurriculumDescription(text);
+  }
+
+  function handleStartDateChange(date) {
+    setCurriculumStartDate(date);
+  }
+  
+  function handleEndDateChange(date) {
+    setCurriculumEndDate(date);
+  }
+
+  function handleLocationChange(location) {
+    const JSONLocation = JSON.stringify(location)
+    setCurriculumLocation(JSONLocation);
+  }
+
+  return (
+    <>
+      <FormikProvider value={formik}>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <Form
+            autoComplete="off"
+            noValidate
+            onSubmit={handleSubmit}
+            onChange={handleOnChange}
+          >
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <MainCard
+                  title={curriculum ? "Edit Curriculum" : "New Curriculum"}
+                  content={false}
+                  sx={{ overflow: "visible" }}
+                >
+                  <CardContent>
+                    <Grid container spacing={3} alignItems="center">
+                      <Grid item xs={12}>
+                        <Grid container spacing={2} alignItems="center">
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{ pt: { xs: 2, sm: "1 !important" } }}
+                          >
+                            <Box
+                              sx={{
+                                display: "flex",
+                                justifyContent: "end",
+                                flexWrap: "wrap",
+                                "& > :not(style)": {
+                                  mt: 1,
+                                  width: 100,
+                                  height: 100,
+                                },
+                              }}
+                            >
+                              <Paper elevation={3} />
+                            </Box>
+                          </Grid>
+                          <Grid item xs={12} sm={9} lg={7}>
+                            <Typography variant="h3" sx={{ mb: 0 }}>
+                              {curriculumTitle} | {curriculumType}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 2 }}>
+                              Edwind | Created by Marc Nelson
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Divider />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Grid container spacing={2} alignItems="center">
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{
+                              pt: { xs: 2, sm: "1 !important" },
+                            }}
+                          >
+                            <InputLabel
+                              sx={{ textAlign: { xs: "left", sm: "right" } }}
+                            >
+                              Curriculum Title :
+                            </InputLabel>
+                          </Grid>
+                          <Grid item xs={12} sm={8} lg={7}>
+                            <TextField
+                              fullWidth
+                              id="curriculum-title"
+                              placeholder="Enter curriculum name"
+                              {...getFieldProps("title")}
+                              error={Boolean(touched.title && errors.title)}
+                              helperText={touched.title && errors.title}
+                            />
+                          </Grid>
+
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{ pt: { xs: 2, sm: "1 !important" } }}
+                          >
+                            <InputLabel
+                              sx={{ textAlign: { xs: "left", sm: "right" } }}
+                            >
+                              Curriculum Type :
+                            </InputLabel>
+                          </Grid>
+                          <Grid item xs={12} sm={8} lg={7}>
+                            <FormControl fullWidth>
+                              <Select
+                                id="curriculum-title"
+                                displayEmpty
+                                {...getFieldProps("type")}
+                                onChange={(event) => {
+                                  setFieldValue("type", event.target.value);
+                                  setCurriculumType(event.target.value);
+                                }}
+                                input={
+                                  <OutlinedInput
+                                    id="select-column-hiding"
+                                    placeholder="Select Type"
+                                  />
+                                }
+                                renderValue={(selected) => {
+                                  if (!selected) {
+                                    return (
+                                      <Typography variant="subtitle1">
+                                        Select Type
+                                      </Typography>
+                                    );
+                                  }
+
+                                  return (
+                                    <Typography variant="subtitle2">
+                                      {selected}
+                                    </Typography>
+                                  );
+                                }}
+                              >
+                                {types.map((column) => (
+                                  <MenuItem key={column} value={column}>
+                                    <ListItemText primary={column} />
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            {touched.type && errors.type && (
+                              <FormHelperText
+                                error
+                                id="standard-weight-helper-text-email-login"
+                                sx={{ pl: 1.75 }}
+                              >
+                                {errors.type}
+                              </FormHelperText>
+                            )}
+                          </Grid>
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{ pt: { xs: 2, sm: "1 !important" } }}
+                          >
+                            <InputLabel
+                              sx={{ textAlign: { xs: "left", sm: "right" } }}
+                            >
+                              Language :
+                            </InputLabel>
+                          </Grid>
+                          <Grid item xs={12} sm={8} lg={7}>
+                            <RadioGroup
+                              row
+                              id="project-language"
+                              name="language"
+                              {...getFieldProps("language")}
+                            >
+                              <FormControlLabel
+                                value="english"
+                                control={<Radio />}
+                                label="English"
+                              />
+                              <FormControlLabel
+                                value="french"
+                                control={<Radio />}
+                                label="French"
+                              />
+                            </RadioGroup>
+                          </Grid>
+                        </Grid>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Divider />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Grid container spacing={3} alignItems="center">
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{
+                              pt: { xs: 2, sm: "1 !important" },
+                            }}
+                          >
+                            <InputLabel
+                              sx={{
+                                textAlign: { xs: "left", sm: "right" },
+                              }}
+                            >
+                              Tags :
+                            </InputLabel>
+                          </Grid>
+                          <Grid item xs={12} sm={8} lg={7}>
+                            <TagsPicker handleTagsChange={handleTagsChange} />
+                          </Grid>
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{
+                              alignSelf: "flex-start",
+                              pt: { xs: 2, sm: "1 !important" },
+                            }}
+                          >
+                            <InputLabel
+                              sx={{
+                                textAlign: { xs: "left", sm: "right" },
+                              }}
+                            >
+                              Description :
+                            </InputLabel>
+                          </Grid>
+                          <Grid
+                            item
+                            xs={12}
+                            sm={8}
+                            lg={7}
+                            sx={{
+                              "& .quill": {
+                                bgcolor:
+                                  theme.palette.mode === "dark"
+                                    ? "dark.main"
+                                    : "grey.50",
+                                borderRadius: "4px",
+                                "& .ql-toolbar": {
+                                  bgcolor:
+                                    theme.palette.mode === "dark"
+                                      ? "dark.light"
+                                      : "grey.100",
+                                  borderColor: theme.palette.divider,
+                                  borderTopLeftRadius: "4px",
+                                  borderTopRightRadius: "4px",
+                                },
+                                "& .ql-container": {
+                                  borderColor: `${theme.palette.divider} !important`,
+                                  borderBottomLeftRadius: "4px",
+                                  borderBottomRightRadius: "4px",
+                                  "& .ql-editor": {
+                                    minHeight: 225,
+                                  },
+                                },
+                              },
+                            }}
+                          >
+                            <SimpleEditor handleTextChange={handleTextChange} />
+                          </Grid>
+
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{
+                              alignSelf: "flex-start",
+                              pt: { xs: 2, sm: "1 !important" },
+                            }}
+                          >
+                            <InputLabel
+                              sx={{ textAlign: { xs: "left", sm: "right" } }}
+                            >
+                              Dates :
+                            </InputLabel>
+                          </Grid>
+                          <Grid item xs={12} sm={8} lg={7}>
+                            <Date_Picker
+                              handleStartDateChange={handleStartDateChange}
+                              handleEndDateChange={handleEndDateChange}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Divider />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Grid container spacing={2} alignItems="center">
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{
+                              pt: { xs: 20, sm: "1 !important" },
+                            }}
+                          >
+                            <InputLabel
+                              sx={{ textAlign: { xs: "left", sm: "right" } }}
+                            >
+                              Location :
+                            </InputLabel>
+                          </Grid>
+                          <Grid item xs={12} sm={8} lg={7}>
+                            <GoogleMapAutocomplete
+                              handleLocationChange={handleLocationChange}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Divider />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Grid container spacing={2} alignItems="center">
+                          <Grid
+                            item
+                            xs={12}
+                            sm={3}
+                            lg={3}
+                            sx={{
+                              pt: { xs: 2, sm: "1 !important" },
+                            }}
+                          >
+                            <InputLabel
+                              sx={{ textAlign: { xs: "left", sm: "right" } }}
+                            >
+                              Shared :
+                            </InputLabel>
+                          </Grid>
+                          <Grid item xs={10} sm={6} lg={5}>
+                            <Typography variant="caption" color="textSecondary">
+                              Make this curriculum available to Everyone in the
+                              organization
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={2} sm={2} lg={2}>
+                            <FormControlLabel
+                              id="curriculum-shared"
+                              control={
+                                <Switch
+                                  {...getFieldProps("shared")}
+                                  checked={formik.values.shared}
+                                  sx={{ mt: 0 }}
+                                />
+                              }
+                              label=""
+                              labelPlacement="start"
+                            />
+                          </Grid>
+                        </Grid>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Divider />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Grid
+                          container
+                          spacing={2}
+                          justifyContent="end"
+                          alignItems="center"
+                        >
+                          <Grid item>
+                            {!isCreating && (
+                              <Tooltip title="Delete Curriculum" placement="top">
+                                <IconButton
+                                  onClick={() => setOpenAlert(true)}
+                                  size="large"
+                                  color="error"
+                                >
+                                  <DeleteFilled />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Grid>
+
+                          <Grid item xs={8} sm={3.7} lg={4.7}>
+                            <Stack
+                              direction="row"
+                              spacing={2}
+                              alignItems="center"
+                            >
+                              <Button color="error" onClick={onCancel}>
+                                Cancel
+                              </Button>
+                              <Button
+                                type="submit"
+                                variant="contained"
+                                disabled={isSubmitting}
+                              >
+                                {curriculum ? "Edit" : "Add"}
+                              </Button>
+                            </Stack>
+                          </Grid>
+                        </Grid>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </MainCard>
+              </Grid>
+            </Grid>
+          </Form>
+        </LocalizationProvider>
+      </FormikProvider>
+      {!isCreating && (
+        <AlertProjectDelete
+          title={curriculum.title}
+          open={openAlert}
+          handleClose={handleAlertClose}
+        />
+      )}
+    </>
+  );
+};
+
+AddCurriculum.propTypes = {
+  curriculum: PropTypes.object,
+  onCancel: PropTypes.func,
+  getStateChange: PropTypes.func,
+};
+
+export default AddCurriculum;

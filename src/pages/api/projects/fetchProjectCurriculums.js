@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   try {
@@ -22,15 +20,17 @@ export default async function handler(req, res) {
                           select:{
                             id:true,
                             title:true,
-                            course_roles:{
+                            modules:{
                               select:{
-                                role:{
+                                id:true,
+                                customDuration:true,
+                                activities:{
                                   select:{
-                                    title:true
+                                    duration:true
                                   }
                                 }
                               }
-                            }
+                            },
                           }
                         }
                       }
@@ -44,13 +44,9 @@ export default async function handler(req, res) {
         }
             });
 
-    res.status(200).json(projectCurriculums.project_curriculums
-      );
-    console.log("Project_curriculums fetched successfully");
+    res.status(200).json(projectCurriculums.project_curriculums);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching project curriculums:', error);
     res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await prisma.$disconnect();
   }
 }

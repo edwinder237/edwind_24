@@ -39,7 +39,7 @@ const NavItem = ({ item }) => {
   let listItemProps = {
     component: forwardRef((props, ref) => (
       <NextLink href={item.url} passHref>
-        <Link {...props} target={itemTarget} ref={ref} />
+        <Link {...props} target={itemTarget} ref={ref} underline="none" color="inherit" />
       </NextLink>
     ))
   };

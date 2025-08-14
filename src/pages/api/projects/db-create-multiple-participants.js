@@ -22,7 +22,11 @@ export default async function handler(req, res) {
         projectId: projectId,
       },
       include: {
-        participant: true,
+        participant: {
+          include: {
+            training_recipient: true
+          }
+        },
         group: {
           include: {
             group: true,

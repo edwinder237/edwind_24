@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { useState } from "react";
 
 // material-ui
 import { alpha, useTheme } from "@mui/material/styles";
@@ -21,6 +22,8 @@ import ScrollX from "components/ScrollX";
 import MainCard from "components/MainCard";
 import GroupEnrolledTable from "./GroupEnrolledTable";
 import CurriculmWidget from "../CurriculmWidget";
+import GroupCurriculumWidget from "./GroupCurriculumWidget";
+import CurriculumManageDialog from "./CurriculumManageDialog";
 
 import GroupCurriculumTable from "./GroupCurriculumTable";
 
@@ -30,11 +33,27 @@ import IconButton from "components/@extended/IconButton";
 
 // ==============================|| EXPANDING TABLE - USER DETAILS ||============================== //
 
-const GroupDetails = ({ Group: { courses, participants } }) => {
+const GroupDetails = ({ Group }) => {
   const theme = useTheme();
   const matchDownMD = useMediaQuery(theme.breakpoints.down("md"));
+  const [curriculumDialogOpen, setCurriculumDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const backColor = alpha(theme.palette.primary.lighter, 0.1);
+
+  const handleCurriculumManage = () => {
+    setCurriculumDialogOpen(true);
+  };
+
+  const handleCurriculumDialogClose = () => {
+    setCurriculumDialogOpen(false);
+  };
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const { courses, participants } = Group || {};
 
   return (
     <TableRow
@@ -63,15 +82,19 @@ const GroupDetails = ({ Group: { courses, participants } }) => {
               title="Curriculum"
               content={false}
               secondary={
-                <Tooltip title="Add course">
-                  <IconButton>
+                <Tooltip title="Manage Group Curriculums">
+                  <IconButton onClick={handleCurriculumManage}>
                     <PlusCircleOutlined />
                   </IconButton>
                 </Tooltip>
               }
               sx={{ "& .MuiCardHeader-root": { p: 1.75 } }}
             >
-              {false && <CurriculmWidget courses={courses} />}
+              <GroupCurriculumWidget 
+                groupId={Group?.id} 
+                onManageCurriculums={handleCurriculumManage}
+                refreshTrigger={refreshKey}
+              />
             </MainCard>
           </Grid>
           <Grid item xs={12} sm={8} md={8} lg={8} xl={8}>
@@ -82,6 +105,14 @@ const GroupDetails = ({ Group: { courses, participants } }) => {
             </MainCard>
           </Grid>
         </Grid>
+
+        {/* Curriculum Management Dialog */}
+        <CurriculumManageDialog
+          open={curriculumDialogOpen}
+          onClose={handleCurriculumDialogClose}
+          group={Group}
+          onRefresh={handleRefresh}
+        />
       </TableCell>
     </TableRow>
   );

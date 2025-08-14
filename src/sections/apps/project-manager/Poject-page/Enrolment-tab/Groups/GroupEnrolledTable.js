@@ -61,41 +61,51 @@ function ReactTable({ columns, data, top }) {
 
       <Table {...getTableProps()}>
         <TableHead sx={{ borderTopWidth: top ? 2 : 1 }}>
-          {headerGroups.map((headerGroup, i) => (
-            <TableRow key={i} {...headerGroup.getHeaderGroupProps()}>
-              {headerGroup.headers.map((column, index) => (
-                <TableCell
-                  key={index}
-                  {...column.getHeaderProps([{ className: column.className }])}
+          {headerGroups.map((headerGroup, i) => {
+            const { key, ...headerGroupProps } = headerGroup.getHeaderGroupProps();
+            return (
+              <TableRow key={i} {...headerGroupProps}>
+              {headerGroup.headers.map((column, index) => {
+                const { key: columnKey, ...columnProps } = column.getHeaderProps([{ className: column.className }]);
+                return (
+                  <TableCell
+                    key={index}
+                    {...columnProps}
                 >
                   {column.render("Header")}
                 </TableCell>
-              ))}
-            </TableRow>
-          ))}
+                );
+              })}
+              </TableRow>
+            );
+          })}
         </TableHead>
         <TableBody {...getTableBodyProps()}>
           {page.map((row, i) => {
             prepareRow(row);
+            const { key: rowKey, ...rowProps } = row.getRowProps();
             return (
-              <TableRow key={i} {...row.getRowProps()}>
-                {row.cells.map((cell, index) => (
-                  <TableCell
-                    key={index}
-                    {...cell.getCellProps([
-                      { className: cell.column.className },
-                    ])}
+              <TableRow key={i} {...rowProps}>
+                {row.cells.map((cell, index) => {
+                  const { key: cellKey, ...cellProps } = cell.getCellProps([
+                    { className: cell.column.className },
+                  ]);
+                  return (
+                    <TableCell
+                      key={index}
+                      {...cellProps}
                   >
                     {cell.render("Cell")}
                   </TableCell>
-                ))}
+                  );
+                })}
               </TableRow>
             );
           })}
 
           {!top && (
             <TableRow>
-              <TableCell sx={{ p: 2 }} colSpan={7}>
+              <TableCell sx={{ p: 2 }} colSpan={4}>
                 <TablePagination
                   gotoPage={gotoPage}
                   rows={rows}
@@ -177,7 +187,10 @@ const GroupEnrolledTable = ({ Enrolled }) => {
     // Add other less common attendance statuses here
   ];
 
-  const participantsWithAttendance = Enrolled.map((person, i) => {
+  // Safety check to prevent errors when Enrolled is undefined or null
+  const enrolledData = Enrolled || [];
+  
+  const participantsWithAttendance = enrolledData.map((person, i) => {
     return { ...person, attendanceStatus: attendanceStatusesArray[i] };
   });
 
@@ -193,21 +206,27 @@ const GroupEnrolledTable = ({ Enrolled }) => {
       {
         Header: "Role",
         accessor: "participant.participant.role",
+        Cell: ({ cell: { value } }) => {
+          if (typeof value === 'object' && value !== null) {
+            return value.title || value.name || 'Unknown Role';
+          }
+          return value || 'N/A';
+        },
       },
       {
-        Header: "Status",
-        accessor: "attendanceStatus",
-        Cell: StatusCell,
-      },
-      {
-        Header: " Departement",
-        accessor: "departement",
+        Header: "Individual Progress",
+        accessor: "participant.participant.progress",
+        Cell: ProgressCell,
       },
     ],
     []
   );
 
   return <ReactTable columns={columns} data={participantsWithAttendance} />;
+};
+
+GroupEnrolledTable.propTypes = {
+  Enrolled: PropTypes.array,
 };
 
 GroupEnrolledTable.getLayout = function getLayout(page) {

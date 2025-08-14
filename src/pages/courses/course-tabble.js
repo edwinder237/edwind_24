@@ -1,8 +1,8 @@
 import PropTypes from "prop-types";
-import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
-import axios from "axios";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "store";
-import { getModules } from "store/reducers/courses";
+import { getCourses, deleteCourse, deactivateCourse, activateCourse } from "store/reducers/courses";
+import { openSnackbar } from "store/reducers/snackbar";
 
 // next
 import NextLink from "next/link";
@@ -10,31 +10,19 @@ import NextLink from "next/link";
 // material-ui
 import { alpha, useTheme } from "@mui/material/styles";
 import {
-  Button,
   Chip,
   Dialog,
   Stack,
-  Table,
-  TableBody,
   TableCell,
-  TableHead,
   TableRow,
   Tooltip,
   Typography,
-  useMediaQuery,
+  CircularProgress,
+  Box,
+  Paper,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
-
-// third-party
-import { NumericFormat } from "react-number-format";
-import {
-  useFilters,
-  useExpanded,
-  useGlobalFilter,
-  useRowSelect,
-  useSortBy,
-  useTable,
-  usePagination,
-} from "react-table";
 
 // project import
 import Layout from "layout";
@@ -43,280 +31,133 @@ import MainCard from "components/MainCard";
 import ScrollX from "components/ScrollX";
 import Avatar from "components/@extended/Avatar";
 import IconButton from "components/@extended/IconButton";
-import { PopupTransition } from "components/@extended/Transitions";
-import {
-  CSVExport,
-  HeaderSort,
-  IndeterminateCheckbox,
-  SortingSelect,
-  TablePagination,
-  TableRowSelection,
-} from "components/third-party/ReactTable";
+import AppTable, { SelectionCell, SelectionHeader } from "components/AppTable";
 
-import AddCustomer from "sections/apps/customer/AddCustomer";
-import CustomerView from "sections/apps/customer/CustomerView";
-import AlertCustomerDelete from "sections/apps/customer/AlertCustomerDelete";
-
-import makeData from "data/react-table";
-import { renderFilterTypes, GlobalFilter } from "utils/react-table";
+import { AddCourseForm } from "sections/apps/courses";
+import { CourseDeleteAlert } from "sections/apps/courses";
 
 // assets
 import {
   CloseOutlined,
-  PlusOutlined,
   EyeTwoTone,
   EditTwoTone,
   DeleteTwoTone,
+  CopyOutlined,
 } from "@ant-design/icons";
 
-// ==============================|| REACT TABLE ||============================== //
+// ==============================|| COURSE LEVEL UTILITIES ||============================== //
 
-function ReactTable({ columns, data, renderRowSubComponent, handleAdd }) {
-  const theme = useTheme();
-  const matchDownSM = useMediaQuery(theme.breakpoints.down("sm"));
+const courseLevels = ['beginner', 'intermediate', 'advanced', 'expert'];
 
-  const filterTypes = useMemo(() => renderFilterTypes, []);
-  const sortBy = { id: "title", desc: false };
-
-  const {
-    getTableProps,
-    getTableBodyProps,
-    headerGroups,
-    prepareRow,
-    setHiddenColumns,
-    allColumns,
-    visibleColumns,
-    rows,
-    page,
-    gotoPage,
-    setPageSize,
-    state: { globalFilter, selectedRowIds, pageIndex, pageSize, expanded },
-    preGlobalFilteredRows,
-    setGlobalFilter,
-    setSortBy,
-    selectedFlatRows,
-  } = useTable(
-    {
-      columns,
-      data,
-      filterTypes,
-      initialState: {
-        pageIndex: 0,
-        pageSize: 5,
-        hiddenColumns: ["avatar"],
-        sortBy: [sortBy],
-      },
-    },
-    useGlobalFilter,
-    useFilters,
-    useSortBy,
-    useExpanded,
-    usePagination,
-    useRowSelect
-  );
-
-  useEffect(() => {
-    if (matchDownSM) {
-      setHiddenColumns(["age", "contact", "visits", , "status", "avatar"]);
-    } else {
-      setHiddenColumns(["avatar"]);
-    }
-    // eslint-disable-next-line
-  }, [matchDownSM]);
-
-  return (
-    <>
-      <TableRowSelection selected={Object.keys(selectedRowIds).length} />
-      <Stack spacing={3}>
-        <Stack
-          direction={matchDownSM ? "column" : "row"}
-          spacing={1}
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ p: 3, pb: 0 }}
-        >
-          <GlobalFilter
-            preGlobalFilteredRows={preGlobalFilteredRows}
-            globalFilter={globalFilter}
-            setGlobalFilter={setGlobalFilter}
-            size="small"
-          />
-          <Stack
-            direction={matchDownSM ? "column" : "row"}
-            alignItems="center"
-            spacing={1}
-          >
-            <SortingSelect
-              sortBy={sortBy.id}
-              setSortBy={setSortBy}
-              allColumns={allColumns}
-            />
-            <Button
-              variant="contained"
-              startIcon={<PlusOutlined />}
-              onClick={handleAdd}
-              size="small"
-            >
-              Add Course
-            </Button>
-            <CSVExport
-              data={
-                selectedFlatRows.length > 0
-                  ? selectedFlatRows.map((d) => d.original)
-                  : data
-              }
-              filename={"customer-list.csv"}
-            />
-          </Stack>
-        </Stack>
-        <Table {...getTableProps()}>
-          <TableHead>
-            {headerGroups.map((headerGroup, index) => (
-              <TableRow
-                {...headerGroup.getHeaderGroupProps()}
-                key={index}
-                sx={{ "& > th:first-of-type": { width: "58px" } }}
-              >
-                {headerGroup.headers.map((column, i) => (
-                  <TableCell
-                    {...column.getHeaderProps([
-                      { className: column.className },
-                    ])}
-                    key={i}
-                  >
-                    <HeaderSort column={column} sort />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableHead>
-          <TableBody {...getTableBodyProps()}>
-            {page.map((row, i) => {
-              prepareRow(row);
-              const rowProps = row.getRowProps();
-
-              return (
-                <Fragment key={i}>
-                  <TableRow
-                    {...row.getRowProps()}
-                    onClick={() => {
-                      row.toggleRowSelected();
-                    }}
-                    sx={{
-                      cursor: "pointer",
-                      bgcolor: row.isSelected
-                        ? alpha(theme.palette.primary.lighter, 0.35)
-                        : "inherit",
-                    }}
-                  >
-                    {true &&
-                      row.cells.map((cell, i) => (
-                        <TableCell
-                          {...cell.getCellProps([
-                            { className: cell.column.className },
-                          ])}
-                          key={i}
-                        >
-                          {cell.render("Cell")}
-                        </TableCell>
-                      ))}
-                  </TableRow>
-                  {row.isExpanded &&
-                    renderRowSubComponent({
-                      row,
-                      rowProps,
-                      visibleColumns,
-                      expanded,
-                    })}
-                </Fragment>
-              );
-            })}
-            <TableRow sx={{ "&:hover": { bgcolor: "transparent !important" } }}>
-              <TableCell sx={{ p: 2, py: 3 }} colSpan={9}>
-                <TablePagination
-                  gotoPage={gotoPage}
-                  rows={rows}
-                  setPageSize={setPageSize}
-                  pageSize={pageSize}
-                  pageIndex={pageIndex}
-                />
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </Stack>
-    </>
-  );
-}
-
-ReactTable.propTypes = {
-  columns: PropTypes.array,
-  data: PropTypes.array,
-  getHeaderProps: PropTypes.func,
-  handleAdd: PropTypes.func,
-  renderRowSubComponent: PropTypes.any,
-};
-
-// ==============================|| CUSTOMER - LIST ||============================== //
-
-const CustomerCell = ({ row }) => {
-  //console.log(row.values);
-  const { values } = row;
-  return (
-    <Stack direction="row" spacing={1.5} alignItems="center">
-      <Avatar
-        alt="Avatar 1"
-        size="sm"
-        src={`/assets/images/users/avatar-${
-          !values.avatar ? 1 : values.avatar
-        }.png`}
-      />
-      <Stack spacing={0}>
-        <Typography variant="subtitle1">{values.fatherName}</Typography>
-        <Typography variant="caption" color="textSecondary">
-          {values.email}
-        </Typography>
-      </Stack>
-    </Stack>
-  );
-};
-
-CustomerCell.propTypes = {
-  row: PropTypes.object,
-};
-
-//const ContactCell = ({ value }) => <NumericFormat displayType="text" format="+1 (###) ###-####" mask="_" defaultValue={value} />; If Phone Number is required
-//ContactCell.propTypes = {
-//value: PropTypes.number
-//};
-
-const StatusCell = ({ value }) => {
-  switch (value) {
-    case "Complicated":
-      return (
-        <Chip color="error" label="Rejected" size="small" variant="light" />
-      );
-    case "Relationship":
-      return (
-        <Chip color="success" label="Verified" size="small" variant="light" />
-      );
-    case "Single":
+const getLevelColor = (level, theme) => {
+  switch (level?.toLowerCase()) {
+    case 'beginner':
+      return {
+        color: theme.palette.success.main,
+        bgcolor: alpha(theme.palette.success.main, 0.1)
+      };
+    case 'intermediate':
+      return {
+        color: theme.palette.info.main,
+        bgcolor: alpha(theme.palette.info.main, 0.1)
+      };
+    case 'advanced':
+      return {
+        color: theme.palette.warning.main,
+        bgcolor: alpha(theme.palette.warning.main, 0.1)
+      };
+    case 'expert':
+      return {
+        color: theme.palette.error.main,
+        bgcolor: alpha(theme.palette.error.main, 0.1)
+      };
     default:
-      return <Chip color="info" label="Pending" size="small" variant="light" />;
+      return {
+        color: theme.palette.text.secondary,
+        bgcolor: alpha(theme.palette.text.secondary, 0.1)
+      };
   }
 };
 
-StatusCell.propTypes = {
-  value: PropTypes.string,
+const CourseLevelChip = ({ level, theme }) => {
+  const colors = getLevelColor(level, theme);
+  return (
+    <Chip
+      label={level ? level.charAt(0).toUpperCase() + level.slice(1) : 'N/A'}
+      size="small"
+      sx={{
+        color: colors.color,
+        bgcolor: colors.bgcolor,
+        fontWeight: 500,
+        minWidth: 80
+      }}
+    />
+  );
 };
+
+const CourseLevelLegend = ({ theme, showInactive, onToggleInactive }) => {
+  return (
+    <Paper sx={{ p: 2, mb: 2 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+            Course Level Legend
+          </Typography>
+          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+            {courseLevels.map((level) => {
+              const colors = getLevelColor(level, theme);
+              return (
+                <Box key={level} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      bgcolor: colors.color
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ textTransform: 'capitalize' }}>
+                    {level}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Box>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showInactive}
+              onChange={(event) => onToggleInactive(event.target.checked)}
+              color="primary"
+              size="small"
+            />
+          }
+          label={
+            <Typography variant="body2" color="textSecondary">
+              Show inactive courses
+            </Typography>
+          }
+          labelPlacement="start"
+          sx={{ m: 0 }}
+        />
+      </Stack>
+    </Paper>
+  );
+};
+
+// ==============================|| COURSE TABLE COMPONENTS ||============================== //
 
 const ActionsCell = (
   row,
   setCustomer,
-  setCustomerDeleteId,
+  setCourseToDelete,
+  setDeleteDialogOpen,
   handleClose,
   handleAdd,
-  theme
+  theme,
+  handleDuplicateCourse,
+  duplicatingId
 ) => {
   const collapseIcon = row.isExpanded ? (
     <CloseOutlined style={{ color: theme.palette.error.main }} />
@@ -349,13 +190,45 @@ const ActionsCell = (
           </IconButton>
         </Tooltip>
       </NextLink>
+      <Tooltip title="Duplicate Course">
+        <IconButton
+          color="secondary"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDuplicateCourse(row.original);
+          }}
+          disabled={duplicatingId === courseId}
+        >
+          {duplicatingId === courseId ? (
+            <CircularProgress size={16} />
+          ) : (
+            <CopyOutlined />
+          )}
+        </IconButton>
+      </Tooltip>
       <Tooltip title="Delete">
         <IconButton
           color="error"
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation();
             handleClose();
-            setCustomerDeleteId(row.values.fatherName);
+            
+            // Fetch course details with associations
+            try {
+              const response = await fetch(`/api/courses/getCourseDetails?id=${row.original.id}`);
+              const result = await response.json();
+              
+              if (result.success) {
+                setCourseToDelete(result.course);
+              } else {
+                setCourseToDelete(row.original);
+              }
+            } catch (error) {
+              console.error('Error fetching course details:', error);
+              setCourseToDelete(row.original);
+            }
+            
+            setDeleteDialogOpen(true);
           }}
         >
           <DeleteTwoTone twoToneColor={theme.palette.error.main} />
@@ -368,60 +241,375 @@ const ActionsCell = (
 ActionsCell.propTypes = {
   row: PropTypes.object,
   setCustomer: PropTypes.func,
-  setCustomerDeleteId: PropTypes.func,
+  setCourseToDelete: PropTypes.func,
+  setDeleteDialogOpen: PropTypes.func,
   handleClose: PropTypes.func,
   handleAdd: PropTypes.func,
   theme: PropTypes.array,
-};
-
-// Section Cell and Header
-const SelectionCell = ({ row }) => (
-  <IndeterminateCheckbox {...row.getToggleRowSelectedProps()} />
-);
-const SelectionHeader = ({ getToggleAllPageRowsSelectedProps }) => (
-  <IndeterminateCheckbox
-    indeterminate
-    {...getToggleAllPageRowsSelectedProps()}
-  />
-);
-
-SelectionCell.propTypes = {
-  row: PropTypes.object,
-};
-
-SelectionHeader.propTypes = {
-  getToggleAllPageRowsSelectedProps: PropTypes.func,
+  handleDuplicateCourse: PropTypes.func,
+  duplicatingId: PropTypes.number,
 };
 
 const CoursesTable = () => {
   const dispatch = useDispatch();
 
-  const { courses, modules } = useSelector((store) => store.courses);
+  const { courses, modules, response } = useSelector((store) => store.courses);
   console.log("from coures-table",courses.filter((course)=>course.id === 1)[0]);
+  console.log("All courses with maxParticipants:", courses.map(course => ({ 
+    id: course.id, 
+    title: course.title, 
+    maxParticipants: course.maxParticipants 
+  })));
 
 
 
   const [data, setData] = useState([{ name: "name" }]);
+  const [open, setOpen] = useState(false);
+  const [customer, setCustomer] = useState(null);
+  const [courseToDelete, setCourseToDelete] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [add, setAdd] = useState(false);
+  const [course, setCourse] = useState(null);
+  const [duplicatingId, setDuplicatingId] = useState(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   useEffect(() => {
-    setData(courses);
-  }, []);
+    dispatch(getCourses());
+  }, [dispatch]);
+
+  useEffect(() => {
+    // Filter courses based on showInactive toggle
+    const filteredCourses = showInactive 
+      ? courses 
+      : courses.filter(course => course.isActive !== false);
+    setData(filteredCourses);
+  }, [courses, showInactive]);
+
+  useEffect(() => {
+    if (response && response.success) {
+        dispatch(getCourses()); // Refresh courses list after any successful operation
+    }
+  }, [response, dispatch]);
 
   const theme = useTheme();
 
-  const [open, setOpen] = useState(false);
-  const [customer, setCustomer] = useState(null);
-  const [customerDeleteId, setCustomerDeleteId] = useState("");
-  const [add, setAdd] = useState(false);
 
   const handleAdd = () => {
     setAdd(!add);
-    if (customer && !add) setCustomer(null);
+    if (course && !add) setCourse(null);
   };
 
   const handleClose = () => {
     setOpen(!open);
   };
+
+  // Handle duplicate course
+  const handleDuplicateCourse = async (course) => {
+    try {
+      setDuplicatingId(course.id);
+      const response = await fetch('/api/courses/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: course.id })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Course duplicated successfully',
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+        
+        // Refresh courses list
+        dispatch(getCourses());
+      } else {
+        throw new Error(result.message || 'Failed to duplicate course');
+      }
+    } catch (error) {
+      console.error('Error duplicating course:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: error.message || 'Failed to duplicate course',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  // Handle bulk delete courses
+  const handleBulkDelete = async (selectedData, selectedIds) => {
+    try {
+      const courseNames = selectedData.map(course => course.title).join(', ');
+      const confirmDelete = window.confirm(
+        `Are you sure you want to delete ${selectedData.length} course(s)?\n\nCourses: ${courseNames}\n\nThis action cannot be undone.`
+      );
+      
+      if (!confirmDelete) return;
+
+      // Delete each course using the same Redux action as single delete
+      const deletePromises = selectedData.map(async (course) => {
+        try {
+          await dispatch(deleteCourse(course.id));
+          return { success: true, course: course.title };
+        } catch (error) {
+          console.error(`Failed to delete ${course.title}:`, error);
+          return { success: false, course: course.title, error: error.message };
+        }
+      });
+
+      // Wait for all deletions to complete
+      const results = await Promise.all(deletePromises);
+      
+      // Count successful and failed deletions
+      const failedDeletes = results.filter(r => !r.success).map(r => r.course);
+      const successCount = results.filter(r => r.success).length;
+
+      // Show appropriate success/error message
+      if (failedDeletes.length === 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `${successCount} course(s) deleted successfully`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+      } else if (successCount > 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `${successCount} course(s) deleted, ${failedDeletes.length} failed: ${failedDeletes.join(', ')}`,
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+      } else {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Failed to delete courses: ${failedDeletes.join(', ')}`,
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
+      }
+
+      // Refresh courses list
+      dispatch(getCourses());
+    } catch (error) {
+      console.error('Error deleting courses:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to delete courses',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  };
+
+  // Handle bulk activate courses
+  const handleBulkActivate = async (selectedData, selectedIds) => {
+    try {
+      const courseNames = selectedData.map(course => course.title).join(', ');
+      const confirmActivate = window.confirm(
+        `Are you sure you want to activate ${selectedData.length} course(s)?\n\nCourses: ${courseNames}\n\nActivated courses will be available for new curriculums and scheduling.`
+      );
+      
+      if (!confirmActivate) return;
+
+      // Activate each course using Redux action
+      const activatePromises = selectedData.map(async (course) => {
+        try {
+          await dispatch(activateCourse(course.id));
+          return { success: true, course: course.title };
+        } catch (error) {
+          console.error(`Failed to activate ${course.title}:`, error);
+          return { success: false, course: course.title, error: error.message };
+        }
+      });
+
+      // Wait for all activations to complete
+      const results = await Promise.all(activatePromises);
+      
+      // Count successful and failed activations
+      const failedActivates = results.filter(r => !r.success).map(r => r.course);
+      const successCount = results.filter(r => r.success).length;
+
+      // Show appropriate success/error message
+      if (failedActivates.length === 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `${successCount} course(s) activated successfully`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+      } else if (successCount > 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `${successCount} course(s) activated, ${failedActivates.length} failed: ${failedActivates.join(', ')}`,
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+      } else {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Failed to activate courses: ${failedActivates.join(', ')}`,
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
+      }
+
+      // Refresh courses list
+      dispatch(getCourses());
+    } catch (error) {
+      console.error('Error activating courses:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to activate courses',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  };
+
+  // Handle bulk deactivate courses
+  const handleBulkDeactivate = async (selectedData, selectedIds) => {
+    try {
+      const courseNames = selectedData.map(course => course.title).join(', ');
+      const confirmDeactivate = window.confirm(
+        `Are you sure you want to deactivate ${selectedData.length} course(s)?\n\nCourses: ${courseNames}\n\nDeactivated courses will be hidden from new curriculums but existing associations will remain intact.`
+      );
+      
+      if (!confirmDeactivate) return;
+
+      // Deactivate each course using Redux action
+      const deactivatePromises = selectedData.map(async (course) => {
+        try {
+          await dispatch(deactivateCourse(course.id));
+          return { success: true, course: course.title };
+        } catch (error) {
+          console.error(`Failed to deactivate ${course.title}:`, error);
+          return { success: false, course: course.title, error: error.message };
+        }
+      });
+
+      // Wait for all deactivations to complete
+      const results = await Promise.all(deactivatePromises);
+      
+      // Count successful and failed deactivations
+      const failedDeactivates = results.filter(r => !r.success).map(r => r.course);
+      const successCount = results.filter(r => r.success).length;
+
+      // Show appropriate success/error message
+      if (failedDeactivates.length === 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `${successCount} course(s) deactivated successfully`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+      } else if (successCount > 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `${successCount} course(s) deactivated, ${failedDeactivates.length} failed: ${failedDeactivates.join(', ')}`,
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+      } else {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Failed to deactivate courses: ${failedDeactivates.join(', ')}`,
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
+      }
+
+      // Refresh courses list
+      dispatch(getCourses());
+    } catch (error) {
+      console.error('Error deactivating courses:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to deactivate courses',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  };
+
+  // Handle bulk duplicate courses
+  const handleBulkDuplicate = async (selectedData, selectedIds) => {
+    try {
+      const courseNames = selectedData.map(course => course.title).join(', ');
+      const confirmDuplicate = window.confirm(
+        `Are you sure you want to duplicate ${selectedData.length} course(s)?\n\nCourses: ${courseNames}`
+      );
+      
+      if (!confirmDuplicate) return;
+
+      // Duplicate each course using individual API calls
+      const duplicatePromises = selectedData.map(async (course) => {
+        try {
+          const response = await fetch('/api/courses/duplicate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: course.id })
+          });
+          const result = await response.json();
+          
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || `Failed to duplicate ${course.title}`);
+          }
+          
+          return { success: true, course: course.title };
+        } catch (error) {
+          return { success: false, course: course.title, error: error.message };
+        }
+      });
+
+      // Wait for all duplications to complete
+      const results = await Promise.all(duplicatePromises);
+      
+      // Count successful and failed duplications
+      const failedDuplicates = results.filter(r => !r.success).map(r => r.course);
+      const successCount = results.filter(r => r.success).length;
+
+      // Show appropriate success/error message
+      if (failedDuplicates.length === 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `${successCount} course(s) duplicated successfully`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+      } else if (successCount > 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `${successCount} course(s) duplicated, ${failedDuplicates.length} failed: ${failedDuplicates.join(', ')}`,
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+      } else {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Failed to duplicate courses: ${failedDuplicates.join(', ')}`,
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
+      }
+
+      // Refresh courses list
+      dispatch(getCourses());
+    } catch (error) {
+      console.error('Error duplicating courses:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to duplicate courses',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  };
+
 
   const columns = useMemo(
     () => [
@@ -433,32 +621,114 @@ const CoursesTable = () => {
         disableSortBy: true,
       },
       {
-        Header: "#",
-        accessor: "sortorder",
+        Header: "ID",
+        accessor: "id",
         className: "cell-center",
       },
       {
         Header: "Course Name",
         accessor: "title",
+        Cell: ({ row, value }) => {
+          const isInactive = !row.original.isActive;
+          const levelColors = getLevelColor(row.original.level, theme);
+          return (
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: levelColors.color,
+                  flexShrink: 0
+                }}
+              />
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  color: isInactive ? 'text.disabled' : 'inherit',
+                  textDecoration: isInactive ? 'line-through' : 'none'
+                }}
+              >
+                {value}
+              </Typography>
+              {isInactive && (
+                <Chip 
+                  label="Inactive" 
+                  size="small" 
+                  color="error" 
+                  variant="outlined"
+                />
+              )}
+            </Stack>
+          );
+        },
       },
       {
-        Header: "Description",
-        accessor: "description",
-        disableSortBy: true,
+        Header: "Code",
+        accessor: "code",
+        className: "cell-center",
+        minWidth: 100,
+        Cell: ({ value }) => (
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              whiteSpace: 'nowrap',
+              overflow: 'visible',
+              textOverflow: 'clip'
+            }}
+          >
+            {value}
+          </Typography>
+        ),
       },
       {
-        Header: "Priority",
-        accessor: "priority",
+        Header: "Version",
+        accessor: "version",
         className: "cell-center",
       },
       {
         Header: "Duration",
         accessor: "duration",
         className: "cell-center",
+        disableSortBy: true,
+        Cell: ({ row }) => {
+          const course = row.original;
+          let totalDuration = 0;
+          
+          if (course.modules) {
+            course.modules.forEach((module) => {
+              let moduleDuration = 0;
+              
+              if (module.duration) {
+                // Use explicit module duration if set
+                moduleDuration = module.duration;
+              } else if (module.activities && module.activities.length > 0) {
+                // Calculate from activities if no explicit module duration
+                moduleDuration = module.activities.reduce((actTotal, activity) => {
+                  return actTotal + (activity.duration || 0);
+                }, 0);
+              }
+              
+              totalDuration += moduleDuration;
+            });
+          }
+          
+          return (
+            <Typography variant="body2">
+              {totalDuration > 0 ? `${totalDuration} min` : 'N/A'}
+            </Typography>
+          );
+        },
       },
       {
-        Header: "Code",
-        accessor: "id",
+        Header: "Max Participants",
+        accessor: "maxParticipants",
+        className: "cell-center",
+        Cell: ({ value }) => (
+          <Typography variant="body2">
+            {value || 'Unlimited'}
+          </Typography>
+        ),
       },
       {
         Header: "Actions",
@@ -468,50 +738,138 @@ const CoursesTable = () => {
           ActionsCell(
             row,
             setCustomer,
-            setCustomerDeleteId,
+            setCourseToDelete,
+            setDeleteDialogOpen,
             handleClose,
             handleAdd,
-            theme
+            theme,
+            handleDuplicateCourse,
+            duplicatingId
           ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [theme]
+    [theme, handleDuplicateCourse, duplicatingId]
   );
 
-  //const renderRowSubComponent = useCallback(({ row }) => <CustomerView data={data2[Number(row.id)]} />, [data2]);
+  const renderRowSubComponent = useCallback(
+    ({ row }) => {
+      const courseData = row.original;
+      return (
+        <TableRow>
+          <TableCell colSpan={7} sx={{ p: 2, bgcolor: alpha(theme.palette.primary.lighter, 0.1) }}>
+            <Stack spacing={2}>
+              <Typography variant="h6">Course Details</Typography>
+              <Stack direction="row" spacing={4}>
+                <Stack>
+                  <Typography variant="body2" color="textSecondary">Summary:</Typography>
+                  <Typography variant="body1">{courseData.summary || 'No summary available'}</Typography>
+                </Stack>
+                <Stack>
+                  <Typography variant="body2" color="textSecondary">Level:</Typography>
+                  <Typography variant="body1">{courseData.level || 'N/A'}</Typography>
+                </Stack>
+                <Stack>
+                  <Typography variant="body2" color="textSecondary">Status:</Typography>
+                  <Typography variant="body1">{courseData.courseStatus || 'N/A'}</Typography>
+                </Stack>
+                <Stack>
+                  <Typography variant="body2" color="textSecondary">Max Participants:</Typography>
+                  <Typography variant="body1">{courseData.maxParticipants || 'Unlimited'}</Typography>
+                </Stack>
+              </Stack>
+              {courseData.modules && courseData.modules.length > 0 && (
+                <Stack>
+                  <Typography variant="body2" color="textSecondary">Modules ({courseData.modules.length}):</Typography>
+                  {courseData.modules.slice(0, 3).map((module, index) => (
+                    <Typography key={index} variant="body2">• {module.title}</Typography>
+                  ))}
+                  {courseData.modules.length > 3 && (
+                    <Typography variant="body2" color="textSecondary">
+                      ...and {courseData.modules.length - 3} more modules
+                    </Typography>
+                  )}
+                </Stack>
+              )}
+            </Stack>
+          </TableCell>
+        </TableRow>
+      );
+    },
+    [theme, data]
+  );
 
   return (
     <Page title="Courses List">
+      <CourseLevelLegend 
+        theme={theme} 
+        showInactive={showInactive}
+        onToggleInactive={setShowInactive}
+      />
       <MainCard content={false}>
         <ScrollX>
-          {true && (
-            <ReactTable
-              columns={columns}
-              data={data.length > 0 ? data : []}
-              handleAdd={handleAdd}
-              renderRowSubComponent={null}
-            />
-          )}
+          <AppTable
+            columns={columns}
+            data={data.length > 0 ? data : []}
+            handleAdd={handleAdd}
+            addButtonText="Add Course"
+            renderRowSubComponent={renderRowSubComponent}
+            initialSortBy={{ id: "title", desc: false }}
+            initialHiddenColumns={["avatar", "id"]}
+            responsiveHiddenColumns={["age", "contact", "visits", "status"]}
+            csvFilename="courses-list.csv"
+            emptyMessage="No courses available"
+            onBulkDelete={handleBulkDelete}
+            customMenuItems={[
+              {
+                label: "Activate Selected",
+                icon: <EditTwoTone twoToneColor="#4caf50" />,
+                onClick: handleBulkActivate
+              },
+              {
+                label: "Deactivate Selected",
+                icon: <EditTwoTone twoToneColor="#ff9800" />,
+                onClick: handleBulkDeactivate
+              },
+              {
+                label: "Duplicate Selected",
+                icon: <CopyOutlined />,
+                onClick: handleBulkDuplicate
+              }
+            ]}
+          />
         </ScrollX>
-        <AlertCustomerDelete
-          title={customerDeleteId}
-          open={open}
-          handleClose={handleClose}
+        <CourseDeleteAlert
+          course={courseToDelete}
+          open={deleteDialogOpen}
+          handleClose={() => {
+            setDeleteDialogOpen(false);
+            setCourseToDelete(null);
+          }}
         />
-        {/* add customer dialog */}
+        {/* add course dialog */}
         <Dialog
           maxWidth="sm"
-          TransitionComponent={PopupTransition}
-          keepMounted
           fullWidth
           onClose={handleAdd}
           open={add}
-          sx={{ "& .MuiDialog-paper": { p: 0 }, transition: "transform 225ms" }}
-          aria-describedby="alert-dialog-slide-description"
+          sx={{ 
+            "& .MuiDialog-paper": { 
+              p: 0,
+              maxHeight: '90vh',
+              overflow: 'auto',
+              maxWidth: '600px'
+            },
+            zIndex: 1300
+          }}
+          disablePortal={false}
+          BackdropProps={{
+            sx: { backgroundColor: 'rgba(0, 0, 0, 0.5)' }
+          }}
         >
-          <AddCustomer customer={customer} onCancel={handleAdd} />
+          <AddCourseForm course={course} onCancel={handleAdd} />
         </Dialog>
+
       </MainCard>
     </Page>
   );

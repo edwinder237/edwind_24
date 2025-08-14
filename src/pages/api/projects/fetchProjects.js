@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   try {
@@ -9,7 +7,15 @@ export default async function handler(req, res) {
         createdAt: 'desc', // 'asc' for ascending, 'desc' for descending
       },
       include:{
-        user:true
+        user:true,
+        training_recipient:true,
+        project_settings: true,
+        sub_organization: true,
+        project_instructors: {
+          include: {
+            instructor: true
+          }
+        }
       }
     });
 
@@ -18,7 +24,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await prisma.$disconnect();
   }
 }

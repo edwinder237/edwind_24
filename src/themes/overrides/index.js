@@ -1,7 +1,23 @@
 // material-ui
 
 // third-party
-import { merge } from 'lodash';
+// Simplified merge for MUI theme overrides
+const merge = (...objects) => {
+  return objects.reduce((result, obj) => {
+    if (!obj) return result;
+    
+    Object.keys(obj).forEach(key => {
+      if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+        // For theme overrides, we can use shallow merge for most cases
+        result[key] = { ...result[key], ...obj[key] };
+      } else {
+        result[key] = obj[key];
+      }
+    });
+    
+    return result;
+  }, {});
+};
 
 // project import
 import Accordion from './Accordion';

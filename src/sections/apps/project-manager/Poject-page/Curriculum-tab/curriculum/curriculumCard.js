@@ -17,6 +17,7 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  Box,
 } from "@mui/material";
 
 // project imports
@@ -33,8 +34,9 @@ const CurriculumCard = ({ curriculum }) => {
   const { project_curriculums } = useSelector((state) => state.projects);
 
   const Curriculum = curriculum.curriculum;
+  const courses = Curriculum?.curriculum_courses || [];
 
-  const [items, setItems] = useState(Curriculum?.curriculum_courses);
+  const [items, setItems] = useState(courses);
 
   function handleToggleDrawer() {
     setDrawer((prevState) => !prevState);
@@ -61,13 +63,18 @@ const CurriculumCard = ({ curriculum }) => {
         >
           <Grid item>
             <Tooltip title="Show Courses">
-              <Button  variant="contained" onClick={handleToggleDrawer}>Expend</Button>
+              <Button variant="contained" onClick={handleToggleDrawer}>
+                View Courses
+              </Button>
               <Drawer
                 anchor={'right'}
                 open={drawer}
                 onClose={handleToggleDrawer}
               >
-                <ModuleCard />
+                <ModuleCard 
+                  curriculum={curriculum} 
+                  onClose={handleToggleDrawer}
+                />
               </Drawer>
             </Tooltip>
           </Grid>
@@ -92,11 +99,11 @@ const CurriculumCard = ({ curriculum }) => {
           >
             <Grid item>
               <Typography variant="subtitle2" color="secondary">
-                Group Count
+                Courses
               </Typography>
             </Grid>
             <Grid item>
-              <Typography variant="h4">3</Typography>
+              <Typography variant="h4">{courses.length}</Typography>
             </Grid>
           </Grid>
         </Grid>
@@ -138,7 +145,44 @@ const CurriculumCard = ({ curriculum }) => {
         </Grid>
       </Grid>
 
-      <CollapsibleGroup data={items} />
+      {courses.length > 0 ? (
+        <Box sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Courses in this Curriculum
+          </Typography>
+          {courses.slice(0, 3).map((curriculumCourse, index) => (
+            <Box 
+              key={curriculumCourse.course.id} 
+              sx={{ 
+                p: 2, 
+                mb: 1, 
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                bgcolor: 'background.paper'
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={600}>
+                {curriculumCourse.course.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Course ID: {curriculumCourse.course.id}
+              </Typography>
+            </Box>
+          ))}
+          {courses.length > 3 && (
+            <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 1 }}>
+              +{courses.length - 3} more courses. Click "View Courses" to see all.
+            </Typography>
+          )}
+        </Box>
+      ) : (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            No courses assigned to this curriculum yet.
+          </Typography>
+        </Box>
+      )}
     </MainCard>
   );
 };

@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   const { id } = req.body;
@@ -11,24 +9,72 @@ export default async function handler(req, res) {
         id: parseInt(id),
       },
       include: {
+        training_recipient: true,
+        project_settings: true,  // Include project settings for dates
+        project_instructors: {
+          include: {
+            instructor: true
+          }
+        },
         participants: {
+          where: {
+            status: {
+              not: 'removed'
+            }
+          },
           include: {
             courses_enrollee_progress: true,
+            participant: {
+              include: {
+                training_recipient: true
+              }
+            },
           },
         },
-        groups: true,
+        groups: {
+          include: {
+            participants: {
+              include: {
+                participant: {
+                  include: {
+                    participant: {
+                      include: {
+                        training_recipient: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         events: {
           include: {
             course: {
-              select: {
-                id: true,
-              },
+              include: {
+                modules: {
+                  include: {
+                    activities: {
+                      orderBy: {
+                        ActivityOrder: 'asc'
+                      }
+                    }
+                  },
+                  orderBy: {
+                    moduleOrder: 'asc'
+                  }
+                }
+              }
             },
             event_attendees: {
               include: {
                 enrollee: {
                   select: {
-                    participant: true,
+                    participant: {
+                      include: {
+                        training_recipient: true
+                      }
+                    },
                   },
                 },
               },
@@ -44,6 +90,31 @@ export default async function handler(req, res) {
             },
           },
         },
+        project_curriculums: {
+          include: {
+            curriculum: {
+              include: {
+                curriculum_courses: {
+                  include: {
+                    course: {
+                      include: {
+                        modules: {
+                          include: {
+                            activities: {
+                              select: {
+                                duration: true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
       },
     });
 
@@ -58,7 +129,5 @@ export default async function handler(req, res) {
     res
       .status(500)
       .json({ error: `Internal Server Error from fetch single project ${id}` });
-  } finally {
-    await prisma.$disconnect();
   }
 }

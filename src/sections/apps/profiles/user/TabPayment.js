@@ -28,7 +28,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 // third party
 import * as Yup from 'yup';
 import { Formik } from 'formik';
-import {NumberFormat} from 'react-number-format';
+import { NumericFormat } from 'react-number-format';
 
 // project import
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -86,7 +86,7 @@ const PaymentCard = ({ card }) => {
                 <Stack spacing={0.5} sx={{ ml: 1 }}>
                   <Typography color="secondary">{name}</Typography>
                   <Typography variant="subtitle1">
-                    <NumberFormat value={number.toString().substring(12)} displayType="text" type="text" format="**** **** **** ####" />
+                    <NumericFormat value={number.toString().substring(12)} displayType="text" type="text" format="**** **** **** ####" />
                   </Typography>
                 </Stack>
               </Grid>
@@ -344,7 +344,7 @@ const TabPayment = () => {
                     <Grid item xs={12} sm={6}>
                       <Stack spacing={1.25}>
                         <InputLabel htmlFor="payment-card-number">Card Number</InputLabel>
-                        <NumberFormat
+                        <NumericFormat
                           id="payment-card-number"
                           value={values.cardNumber}
                           name="cardNumber"
@@ -388,7 +388,7 @@ const TabPayment = () => {
                     <Grid item xs={12} sm={6} md={4}>
                       <Stack spacing={1.25}>
                         <InputLabel htmlFor="payment-card-cvv">CVV Number</InputLabel>
-                        <NumberFormat
+                        <NumericFormat
                           id="payment-card-cvv"
                           value={values.cvv}
                           name="cvv"

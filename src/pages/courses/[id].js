@@ -1,7 +1,7 @@
 import React from "react";
 import { useEffect, useState } from 'react';
 import { useRouter } from "next/router";
-import CourseEditPage from "sections/apps/courses/courseEditPage";
+import { CourseDetailsPage as CourseDetailsComponent } from "sections/apps/courses";
 
 // project imports
 import Layout from "layout";
@@ -39,7 +39,7 @@ const dispatch = useDispatch();
 
   return (
     <Page title="Course Details">
-      <CourseEditPage courseId={id} />
+      <CourseDetailsComponent courseId={id} />
     </Page>
   );
 }

@@ -2,24 +2,16 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Container, Typography, Box, CircularProgress } from '@mui/material';
 import { WorkOS } from '@workos-inc/node';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
-// Initialize WorkOS and Prisma only when needed to avoid build-time errors
+// Initialize WorkOS only when needed to avoid build-time errors
 let workos;
-let prisma;
 
 const getWorkOS = () => {
   if (!workos) {
     workos = new WorkOS(process.env.WORKOS_API_KEY);
   }
   return workos;
-};
-
-const getPrisma = () => {
-  if (!prisma) {
-    prisma = new PrismaClient();
-  }
-  return prisma;
 };
 
 const CallbackPage = () => {
@@ -83,18 +75,17 @@ export async function getServerSideProps(context) {
 
     // Sync user with database
     try {
-      const prismaInstance = getPrisma();
-      let existingUser = await prismaInstance.user.findUnique({
+      let existingUser = await prisma.user.findUnique({
         where: { email: user.email }
       });
 
       if (!existingUser) {
         // Get or create a default sub_organization
-        let defaultSubOrg = await prismaInstance.sub_organizations.findFirst();
+        let defaultSubOrg = await prisma.sub_organizations.findFirst();
         
         if (!defaultSubOrg) {
           // Create default organization and sub_organization if none exist
-          const defaultOrg = await prismaInstance.organizations.create({
+          const defaultOrg = await prisma.organizations.create({
             data: {
               title: 'Default Organization',
               description: 'Default organization for WorkOS users',
@@ -106,7 +97,7 @@ export async function getServerSideProps(context) {
             }
           });
 
-          defaultSubOrg = await prismaInstance.sub_organizations.create({
+          defaultSubOrg = await prisma.sub_organizations.create({
             data: {
               title: 'Default Sub Organization',
               description: 'Default sub organization for WorkOS users',
@@ -118,7 +109,7 @@ export async function getServerSideProps(context) {
         }
 
         // Create new user
-        await prismaInstance.user.create({
+        await prisma.user.create({
           data: {
             id: user.id,
             email: user.email,

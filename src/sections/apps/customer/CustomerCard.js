@@ -30,7 +30,6 @@ import {
 import { PDFDownloadLink } from '@react-pdf/renderer';
 
 // project import
-import CustomerPreview from 'sections/apps/customer/CustomerPreview';
 import AlertCustomerDelete from 'sections/apps/customer/AlertCustomerDelete';
 import AddCustomer from 'sections/apps/customer/AddCustomer';
 import MainCard from 'components/MainCard';
@@ -45,14 +44,6 @@ import { EnvironmentOutlined, LinkOutlined, MailOutlined, MoreOutlined, PhoneOut
 // ==============================|| CUSTOMER - CARD ||============================== //
 
 const CustomerCard = ({ course, customer, projectIndex }) => {
-  const [open, setOpen] = useState(false);
-
-  const handleClickOpen = () => {
-    setOpen(true);
-  };
-  const handleClose = () => {
-    setOpen(false);
-  };
 
   const [openAlert, setOpenAlert] = useState(false);
 
@@ -200,9 +191,6 @@ const CustomerCard = ({ course, customer, projectIndex }) => {
             Created: {course.start_date}
           </Typography>
           <Stack direction="row" spacing={1}>
-          <Button variant="outlined" size="small" onClick={handleClickOpen}>
-            Preview
-          </Button>
 
           <NextLink href={`/projects/${projectIndex}`} passHref>
             <Button variant="contained" size="small" >
@@ -225,7 +213,6 @@ const CustomerCard = ({ course, customer, projectIndex }) => {
       >
         <AddCustomer customer={customer} onCancel={handleAdd} />
       </Dialog>
-      <CustomerPreview course={course} customer={customer} open={open} onClose={handleClose} />
       <AlertCustomerDelete title={customer.id} open={openAlert} handleClose={handleAlertClose} />
     </>
   );

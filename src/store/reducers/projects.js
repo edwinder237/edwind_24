@@ -4,15 +4,40 @@ import { createSlice } from "@reduxjs/toolkit";
 // project imports
 import axios from "utils/axios";
 import { dispatch } from "../index";
+import { openSnackbar } from "./snackbar";
+
+// Utility function to extract error message
+const getErrorMessage = (error, defaultMessage = 'An error occurred') => {
+  // Handle network-specific errors
+  if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT') {
+    return 'Request timed out. Please check your connection and try again.';
+  }
+  if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNRESET') {
+    return 'Network connection failed. Please check your internet connection.';
+  }
+  if (error?.response?.status === 500) {
+    return 'Server error. Please try again in a few moments.';
+  }
+  if (error?.response?.status === 404) {
+    return 'Requested resource not found.';
+  }
+  if (error?.response?.status >= 400 && error?.response?.status < 500) {
+    return error?.response?.data?.message || 'Request failed. Please try again.';
+  }
+  
+  return error?.response?.data?.message || error?.message || defaultMessage;
+};
 
 const dataRoutes = {
   fetchSingleProject: "/api/projects/fetchSingleProject",
   fetchProjects: "/api/projects/fetchProjects",
   fetchProjectParticipantsDetails: "/api/projects/fetchParticipantsDetails",
   addProject: "/api/projects/addProject",
+  updateProject: "/api/projects/updateProject",
   getGroupsFromProjectEmployees: "/api/projects/groupsFromProjectEmployees",
   getEvents: "/api/projects/fetchEvents",
   addGroup: "/api/projects/add-group",
+  updateGroup: "/api/projects/update-group",
   fetchGroupsDetails: "/api/projects/fetchGroupsDetails",
   removeGroup: "/api/projects/remove-group",
   getGroups: "/api/projects/groups",
@@ -22,12 +47,16 @@ const dataRoutes = {
   addParticipant: "/api/projects/addParticipant",
   updateParticipant: "/api/projects/updateParticipant",
   removeParticipant: "/api/projects/removeParticipant",
+  //project settings routes
+  fetchProjectSettings: "/api/projects/fetch-project-settings",
+  updateProjectSettings: "/api/projects/update-project-settings",
 };
 
 const initialState = {
   error: false,
   success: false,
   isAdding: false,
+  loading: false,
   projects: [],
   singleProject: false,
   project_participants: [],
@@ -38,6 +67,12 @@ const initialState = {
   employees: [],
   enrolleeCount: 0,
   enrolleeCourseProgress: [],
+  projectSettings: null,
+  settingsLoading: false,
+  checklistItems: [],
+  checklistLoading: false,
+  // Curriculum expansion state management
+  expandedCurriculums: {}, // { groupId: Set<curriculumId> }
 };
 
 const slice = createSlice({
@@ -57,15 +92,41 @@ const slice = createSlice({
     isAdding(state, action) {
       state.isAdding = action.payload;
     },
+    // LOADING
+    setLoading(state, action) {
+      state.loading = action.payload;
+    },
     //PROJECTS
 
     // GET PROJECTS
     getProjectsSuccess(state, action) {
-      state.projects = action.payload;
+      // Validate that payload is a valid array of projects
+      if (Array.isArray(action.payload) && action.payload.every(project => 
+        project && typeof project === 'object' && !project.error
+      )) {
+        state.projects = action.payload;
+        state.error = null; // Clear any previous errors
+      } else {
+        state.error = 'Invalid projects data received';
+        state.projects = [];
+      }
     },
     // ADD PROJECT
     addProjectSuccess(state, action) {
       state.projects = action.payload.Projects;
+    },
+    // UPDATE PROJECT
+    updateProjectSuccess(state, action) {
+      const updatedProject = action.payload;
+      const index = state.projects.findIndex(p => p.id === updatedProject.id);
+      console.log("hheheh",updatedProject);
+      if (index !== -1) {
+        state.projects[index] = updatedProject;
+      }
+      // Also update singleProject if it matches
+      if (state.singleProject && state.singleProject.id === updatedProject.id) {
+        state.singleProject = updatedProject;
+      }
     },
     // REMOVE PROJECT
     removeProjectSuccess(state, action) {
@@ -79,14 +140,92 @@ const slice = createSlice({
 
     // ADD GROUP
     addGroupSuccess(state, action) {
-      const { newGroupsArray, projectIndex } = action.payload;
-      console.log(newGroupsArray, projectIndex);
-      state.projects[projectIndex].groups = newGroupsArray;
+      const { newGroupsArray, projectIndex, createdGroup, projectId } = action.payload;
+      console.log('Add group success:', newGroupsArray, projectIndex, createdGroup);
+      
+      // Update the groups array in state
+      state.groups = newGroupsArray;
+      
+      // Update singleProject if it exists and matches the project ID
+      if (state.singleProject) {
+        if (projectId && state.singleProject.id === projectId) {
+          state.singleProject.groups = newGroupsArray;
+        } else if (!projectId && state.singleProject.groups) {
+          // Fallback if no projectId provided
+          state.singleProject.groups = newGroupsArray;
+        }
+      }
+      
+      // Update projects array if projectIndex is valid
+      if (state.projects && state.projects.length > projectIndex && projectIndex >= 0) {
+        state.projects[projectIndex].groups = newGroupsArray;
+      }
     },
+
+    // UPDATE GROUP
+    updateGroupSuccess(state, action) {
+      const { updatedGroup, allProjectGroups, projectId } = action.payload;
+      console.log('Update group success:', updatedGroup, allProjectGroups);
+      
+      // Helper function to update group in array while preserving order
+      const updateGroupInArray = (groups) => {
+        if (!groups || !Array.isArray(groups)) return groups;
+        
+        return groups.map(group => 
+          group.id === updatedGroup.id ? { ...group, ...updatedGroup } : group
+        );
+      };
+      
+      // Update the groups array in state (preserve order)
+      if (state.groups) {
+        state.groups = updateGroupInArray(state.groups);
+      } else {
+        // Fallback if no existing groups
+        state.groups = allProjectGroups;
+      }
+      
+      // Update singleProject if it exists and matches the project ID
+      if (state.singleProject) {
+        if (projectId && state.singleProject.id === projectId) {
+          if (state.singleProject.groups) {
+            state.singleProject.groups = updateGroupInArray(state.singleProject.groups);
+          } else {
+            state.singleProject.groups = allProjectGroups;
+          }
+        }
+      }
+      
+      // Update projects array - find the project by ID and update its groups
+      if (state.projects && projectId) {
+        const projectIndex = state.projects.findIndex(p => p.id === projectId);
+        if (projectIndex >= 0) {
+          if (state.projects[projectIndex].groups) {
+            state.projects[projectIndex].groups = updateGroupInArray(state.projects[projectIndex].groups);
+          } else {
+            state.projects[projectIndex].groups = allProjectGroups;
+          }
+        }
+      }
+    },
+
     // REMOVE GROUP
     removeGroupSuccess(state, action) {
       const { newGroupsArray, projectIndex } = action.payload;
-      state.projects[projectIndex].groups = newGroupsArray;
+      
+      // Update projects array if projectIndex is valid
+      if (state.projects && state.projects.length > projectIndex && projectIndex >= 0) {
+        state.projects[projectIndex].groups = newGroupsArray;
+      }
+      
+      // Update singleProject if it exists
+      if (state.singleProject && state.singleProject.groups) {
+        state.singleProject.groups = newGroupsArray;
+      }
+      
+      // Update groups array if it exists
+      if (state.groups) {
+        state.groups = newGroupsArray;
+      }
     },
     getGroupsSuccess(state, action) {
       state.groups = action.payload;
@@ -125,6 +264,21 @@ const slice = createSlice({
     getEnrolleeCourseProgressSuccess(state, action) {
       state.enrolleeCourseProgress = action.payload;
     },
+
+    // PROJECT SETTINGS
+    setSettingsLoading(state, action) {
+      state.settingsLoading = action.payload;
+    },
+    getProjectSettingsSuccess(state, action) {
+      state.projectSettings = action.payload;
+      state.settingsLoading = false;
+      state.error = null;
+    },
+    updateProjectSettingsSuccess(state, action) {
+      state.projectSettings = action.payload;
+      state.settingsLoading = false;
+      state.error = null;
+    },
     // GET EMPLOYEES
     getEmployeesSuccess(state, action) {
       state.employees = action.payload;
@@ -154,6 +308,83 @@ const slice = createSlice({
       const { remainingParticipants } = action.payload;
       state.project_participants = remainingParticipants;
     },
+
+    importParticipantsSuccess(state, action) {
+      state.loading = false;
+      state.error = null;
+      // The actual participant data will be updated via getSingleProject
+      console.log('Import success:', action.payload);
+    },
+
+    // PROJECT CHECKLIST ACTIONS
+    getProjectChecklistStart(state) {
+      state.checklistLoading = true;
+      state.error = null;
+    },
+
+    getProjectChecklistSuccess(state, action) {
+      state.checklistLoading = false;
+      state.checklistItems = action.payload;
+      state.error = null;
+    },
+
+    getProjectChecklistFailure(state, action) {
+      state.checklistLoading = false;
+      state.error = action.payload;
+    },
+
+    updateChecklistProgressSuccess(state, action) {
+      const updatedItem = action.payload;
+      const index = state.checklistItems.findIndex(
+        item => item.id === updatedItem.id
+      );
+      if (index !== -1) {
+        state.checklistItems[index] = {
+          ...state.checklistItems[index],
+          completed: updatedItem.completed,
+          completedAt: updatedItem.completedAt,
+          completedBy: updatedItem.completedBy,
+          notes: updatedItem.notes,
+          progressId: updatedItem.progressId
+        };
+      }
+    },
+
+    // CURRICULUM EXPANSION STATE MANAGEMENT
+    toggleCurriculumExpansion(state, action) {
+      const { groupId, curriculumId } = action.payload;
+      if (!state.expandedCurriculums[groupId]) {
+        state.expandedCurriculums[groupId] = [];
+      }
+      
+      const currentExpanded = state.expandedCurriculums[groupId];
+      const index = currentExpanded.indexOf(curriculumId);
+      
+      if (index > -1) {
+        // Remove from expanded
+        state.expandedCurriculums[groupId].splice(index, 1);
+      } else {
+        // Add to expanded
+        state.expandedCurriculums[groupId].push(curriculumId);
+      }
+    },
+
+    clearGroupExpansion(state, action) {
+      const { groupId } = action.payload;
+      if (state.expandedCurriculums[groupId]) {
+        delete state.expandedCurriculums[groupId];
+      }
+    },
+
+    removeCurriculumFromExpansion(state, action) {
+      const { groupId, curriculumId } = action.payload;
+      if (state.expandedCurriculums[groupId]) {
+        const index = state.expandedCurriculums[groupId].indexOf(curriculumId);
+        if (index > -1) {
+          state.expandedCurriculums[groupId].splice(index, 1);
+        }
+      }
+    }
   },
 });
 
@@ -165,10 +396,15 @@ export default slice.reducer;
 export function getProjects() {
   return async () => {
     try {
+      dispatch(slice.actions.setLoading(true));
+      dispatch(slice.actions.hasError(false)); // Clear any previous errors
+      
       const response = await axios.get(dataRoutes.fetchProjects);
       dispatch(slice.actions.getProjectsSuccess(response.data.projects));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to fetch projects')));
+    } finally {
+      dispatch(slice.actions.setLoading(false));
     }
   };
 }
@@ -182,7 +418,7 @@ export function getProjectCurriculums(projectId) {
       );
       dispatch(slice.actions.getCurriculumSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to fetch project curriculums')));
     }
   };
 }
@@ -190,12 +426,17 @@ export function getProjectCurriculums(projectId) {
 export function getSingleProject(id) {
   return async () => {
     try {
+      dispatch(slice.actions.setLoading(true));
+      dispatch(slice.actions.hasError(false));
+      
       const response = await axios.post(dataRoutes.fetchSingleProject, { id });
       console.log(response)
       dispatch(slice.actions.getSingleProjectSuccess(response.data.project));
     } catch (error) {
       console.log(error)
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to fetch single project')));
+    } finally {
+      dispatch(slice.actions.setLoading(false));
     }
   };
 }
@@ -211,7 +452,7 @@ export function getGroupsFromProjectEmployees(aggregatedGroups, index) {
         slice.actions.getGroupsFromProjectEmployeesSuccess(response.data)
       );
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -231,8 +472,40 @@ export function addProject(newProject, Projects, isAdding) {
       );
       console.log(serverResponse.data);
       dispatch(slice.actions.isAdding(!isAdding));
+      
+      // Return the project ID for redirect purposes
+      return {
+        success: true,
+        projectId: serverResponse.data.projectId,
+        message: serverResponse.data.message
+      };
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      return {
+        success: false,
+        error: getErrorMessage(error)
+      };
+    }
+  };
+}
+
+export function updateProject(projectData) {
+  return async () => {
+    try {
+      const response = await axios.put(dataRoutes.updateProject, projectData);
+      
+      if (response.data.success) {
+        dispatch(slice.actions.updateProjectSuccess(response.data.project));
+        return { success: true, message: response.data.message };
+      } else {
+        throw new Error(response.data.message || 'Failed to update project');
+      }
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      return { 
+        success: false, 
+        message: error.response?.data?.message || error.message || 'Failed to update project' 
+      };
     }
   };
 }
@@ -256,7 +529,7 @@ export function removeProject(projectCUID, projects) {
       // dispatch(slice.actions.hasSuccess(serverResOnDelete.data));
       dispatch(slice.actions.removeProjectSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -267,7 +540,7 @@ export function getGroups(project) {
       const response = await axios.post(dataRoutes.getGroups, { project });
       dispatch(slice.actions.getGroupsSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -275,42 +548,73 @@ export function getGroups(project) {
 export function getGroupsDetails(projectId) {
   return async () => {
     try {
+      dispatch(slice.actions.setLoading(true));
+      dispatch(slice.actions.hasError(false));
+      
       const response = await axios.post(dataRoutes.fetchGroupsDetails, {
         projectId,
       });
       dispatch(slice.actions.getGroupsSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+    } finally {
+      dispatch(slice.actions.setLoading(false));
     }
   };
 }
 
-export function addGroup(newGroup, groups, index) {
+export function addGroup(newGroup, groups, index, projectId) {
   return async () => {
     try {
       const response = await axios.post(dataRoutes.addGroup, {
         newGroup,
         groups,
         index,
+        projectId,
       });
       dispatch(slice.actions.addGroupSuccess(response.data));
+      
+      // Immediately fetch updated group details with curriculum data
+      // to ensure the new group has proper curriculum information
+      if (projectId) {
+        const groupDetailsResponse = await axios.post(dataRoutes.fetchGroupsDetails, {
+          projectId,
+        });
+        dispatch(slice.actions.getGroupsSuccess(groupDetailsResponse.data));
+      }
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
 
-export function removeGroup(updatedGroups, index) {
+export function updateGroup(groupId, updates, projectId) {
+  return async () => {
+    try {
+      const response = await axios.post(dataRoutes.updateGroup, {
+        groupId,
+        updates,
+        projectId,
+      });
+      dispatch(slice.actions.updateGroupSuccess(response.data));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+    }
+  };
+}
+
+export function removeGroup(updatedGroups, index, groupId) {
   return async () => {
     try {
       const response = await axios.post(dataRoutes.removeGroup, {
         updatedGroups,
         index,
+        groupId,
       });
 
       dispatch(slice.actions.removeGroupSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -324,7 +628,7 @@ export function getEmployees(projectId) {
       );
       dispatch(slice.actions.getEmployeesSuccess(serverResponse.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -339,7 +643,7 @@ export function addEmployees(newEmployee, employees) {
       });
       dispatch(slice.actions.addEmployeesSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -355,7 +659,7 @@ export function countEnrollee(projectId) {
       );
       dispatch(slice.actions.countEnrolleeSuccess(serverRespons.data.count));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -373,7 +677,7 @@ export function getEnrolleeCourseProgress(courseId) {
      
       dispatch(slice.actions.getEnrolleeCourseProgressSuccess(serverRespons.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -386,7 +690,7 @@ export function getParticipants(projectId) {
       );
       dispatch(slice.actions.getParticipantsSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -417,7 +721,8 @@ export function addParticipant(
       console.log(serverResponse.data.message);
     } catch (error) {
       await console.log("internal server error =>", error);
-      await dispatch(slice.actions.hasError(error));
+      await dispatch(slice.actions.hasError(getErrorMessage(error)));
+      throw error; // Re-throw to allow form to handle it
     }
   };
 }
@@ -438,7 +743,36 @@ export function addManyParticipants(projectId, newParticipants, participants) {
       console.log(serverResponse.data.message);
     } catch (error) {
       await console.log("internal server error =>", error);
-      await dispatch(slice.actions.hasError(error));
+      await dispatch(slice.actions.hasError(getErrorMessage(error)));
+    }
+  };
+}
+
+export function importParticipantsFromCSV(projectId, participants) {
+  return async (dispatch) => {
+    try {
+      dispatch(slice.actions.setLoading(true));
+      
+      const response = await axios.post("/api/participants/import-csv", {
+        projectId,
+        participants
+      });
+      
+      if (response.data.success) {
+        // Refresh the project data to get updated participants
+        await dispatch(getSingleProject(projectId));
+        
+        dispatch(slice.actions.importParticipantsSuccess(response.data));
+        console.log('CSV Import completed:', response.data.message);
+        return response.data;
+      } else {
+        throw new Error(response.data.error || 'Import failed');
+      }
+    } catch (error) {
+      console.error("CSV import error =>", error);
+      dispatch(slice.actions.setLoading(false));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      throw error;
     }
   };
 }
@@ -455,7 +789,7 @@ export function updateParticipant(index, id, value, participants, groups) {
       });
       dispatch(slice.actions.updateParticipantSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -479,7 +813,7 @@ export function removeParticipant(
       await console.log(serverResponse.data);
       dispatch(slice.actions.removeParticipantSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -499,7 +833,7 @@ export function removeManyParticipant(remainingParticipants, selectedIds) {
       await console.log(serverResponse.data);
       dispatch(slice.actions.removeParticipantSuccess(response.data));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
@@ -510,8 +844,139 @@ export function getEvents() {
       const response = await axios.get(dataRoutes.getEvents);
       dispatch(slice.actions.getEventsSuccess(response.data.events));
     } catch (error) {
-      dispatch(slice.actions.hasError(error));
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
 }
 
+// PROJECT SETTINGS ACTIONS
+export function getProjectSettings(projectId) {
+  return async () => {
+    try {
+      dispatch(slice.actions.setSettingsLoading(true));
+      dispatch(slice.actions.hasError(false));
+      
+      const response = await axios.get(`${dataRoutes.fetchProjectSettings}?projectId=${projectId}`);
+      
+      if (response.data.success) {
+        dispatch(slice.actions.getProjectSettingsSuccess(response.data.settings));
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch project settings');
+      }
+    } catch (error) {
+      console.error('Error fetching project settings:', error);
+      dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to fetch project settings')));
+    } finally {
+      dispatch(slice.actions.setSettingsLoading(false));
+    }
+  };
+}
+
+export function updateProjectSettings(projectId, settingsData) {
+  return async () => {
+    try {
+      dispatch(slice.actions.setSettingsLoading(true));
+      dispatch(slice.actions.hasError(false));
+      
+      const response = await axios.put(dataRoutes.updateProjectSettings, {
+        projectId,
+        ...settingsData
+      });
+      
+      if (response.data.success) {
+        dispatch(slice.actions.updateProjectSettingsSuccess(response.data.settings));
+        return { success: true, message: response.data.message };
+      } else {
+        throw new Error(response.data.message || 'Failed to update project settings');
+      }
+    } catch (error) {
+      console.error('Error updating project settings:', error);
+      dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to update project settings')));
+      return { 
+        success: false, 
+        message: error.response?.data?.message || error.message || 'Failed to update project settings' 
+      };
+    } finally {
+      dispatch(slice.actions.setSettingsLoading(false));
+    }
+  };
+}
+
+// PROJECT CHECKLIST FUNCTIONS
+export function getProjectChecklist(projectId) {
+  return async () => {
+    try {
+      dispatch(slice.actions.getProjectChecklistStart());
+      const response = await axios.get(`/api/projects/checklist-progress?projectId=${projectId}`);
+      dispatch(slice.actions.getProjectChecklistSuccess(response.data));
+    } catch (error) {
+      dispatch(slice.actions.getProjectChecklistFailure(getErrorMessage(error)));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to load project checklist'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function updateChecklistProgress(progressData) {
+  return async () => {
+    try {
+      const response = await axios.post("/api/projects/checklist-progress", progressData);
+      
+      // Update the specific item in the state
+      const checklistItem = response.data.progress.checklistItem;
+      const updatedItem = {
+        ...checklistItem,
+        completed: response.data.progress.completed,
+        completedAt: response.data.progress.completedAt,
+        completedBy: response.data.progress.completedBy,
+        notes: response.data.progress.notes,
+        progressId: response.data.progress.id
+      };
+      
+      dispatch(slice.actions.updateChecklistProgressSuccess(updatedItem));
+      
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: response.data.progress.completed 
+          ? 'Checklist item marked as completed' 
+          : 'Checklist item marked as incomplete',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.getProjectChecklistFailure(getErrorMessage(error)));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to update checklist progress'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+
+// CURRICULUM EXPANSION ACTIONS
+export const { 
+  toggleCurriculumExpansion, 
+  clearGroupExpansion, 
+  removeCurriculumFromExpansion 
+} = slice.actions;

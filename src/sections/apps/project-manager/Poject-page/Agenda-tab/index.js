@@ -1,0 +1,310 @@
+import React, { useMemo } from 'react';
+import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography } from '@mui/material';
+import { useSelector } from 'store';
+import { ViewList, CalendarMonth, DateRange } from '@mui/icons-material';
+
+// Components
+import MainCard from 'components/MainCard';
+import ItinerarySchedule from './ItinerarySchedule';
+import EventDetailsSection from './EventDetailsSection';
+import FullCalendarMonthView from './FullCalendarMonthView';
+import FullCalendarWeekView from './FullCalendarWeekView';
+import ScheduleExport from './components/ScheduleExport';
+
+// Hooks and utilities
+import { useAgendaState } from './hooks/useAgendaState';
+import { useEventOperations } from './hooks/useEventOperations';
+import { VIEW_MODES, SCROLL_STYLES } from './utils/constants';
+
+// Memoized components for better performance
+const MemoizedItinerarySchedule = React.memo(ItinerarySchedule);
+const MemoizedEventDetailsSection = React.memo(EventDetailsSection);
+const MemoizedFullCalendarMonthView = React.memo(FullCalendarMonthView);
+const MemoizedFullCalendarWeekView = React.memo(FullCalendarWeekView);
+
+// ==============================|| AGENDA TAB - ITINERARY SCHEDULE ||============================== //
+
+const AgendaTab = () => {
+  const theme = useTheme();
+  const { singleProject: project } = useSelector((state) => state.projects);
+  
+  // Custom hooks for state and operations
+  const {
+    selectedDate,
+    selectedEventId,
+    viewMode,
+    viewScheduleOpen,
+    handleEventSelect,
+    handleViewModeChange,
+    openViewSchedule,
+    closeViewSchedule
+  } = useAgendaState();
+
+  const { importCurriculumSchedule } = useEventOperations(project?.id);
+
+  // Handle import with error handling
+  const handleImportFromCurriculum = async () => {
+    try {
+      await importCurriculumSchedule();
+      // Could add success notification here
+    } catch (error) {
+      console.error('Import failed:', error);
+      // Could add error notification here
+    }
+  };
+
+  // Memoized styles
+  const styles = useMemo(() => ({
+    container: {
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column'
+    },
+    actionStack: {
+      direction: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      spacing: 1,
+      sx: { mb: 2 }
+    },
+    mainCard: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      '& .MuiCardContent-root': {
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        p: 0
+      }
+    },
+    viewContainer: {
+      flex: 1,
+      p: 2
+    },
+    scrollableBox: {
+      height: 'calc(100vh - 320px)',
+      overflow: 'auto',
+      ...SCROLL_STYLES
+    },
+    fullViewBox: {
+      flex: 1,
+      overflow: 'hidden',
+      ...SCROLL_STYLES
+    }
+  }), []);
+
+  // Memoized toggle button styles
+  const toggleButtonStyles = useMemo(() => ({
+    '& .MuiToggleButton-root': {
+      px: 2,
+      py: 0.75,
+      border: `1px solid ${alpha(theme.palette.divider, 0.23)}`,
+      borderRadius: 0,
+      color: theme.palette.text.secondary,
+      fontWeight: 500,
+      fontSize: '0.875rem',
+      textTransform: 'none',
+      minWidth: '80px',
+      height: 36,
+      '&:hover': {
+        backgroundColor: alpha(theme.palette.action.hover, 0.04),
+        color: theme.palette.text.primary
+      },
+      '&.Mui-selected': {
+        backgroundColor: theme.palette.primary.main,
+        color: theme.palette.primary.contrastText,
+        borderColor: theme.palette.primary.main,
+        fontWeight: 600,
+        '&:hover': {
+          backgroundColor: theme.palette.primary.main,
+          color: theme.palette.primary.contrastText
+        }
+      }
+    },
+    '& .MuiToggleButtonGroup-grouped': {
+      '&:not(:first-of-type)': {
+        borderLeft: 'none',
+        marginLeft: '-1px'
+      },
+      '&:first-of-type, &:last-of-type': {
+        borderRadius: 0
+      }
+    }
+  }), [theme]);
+
+  // Button styles
+  const buttonStyles = useMemo(() => ({
+    common: {
+      textTransform: 'none',
+      fontWeight: 500,
+      fontSize: '0.75rem',
+      px: 1.5,
+      py: 0.5,
+      minWidth: 'auto',
+      borderRadius: 0
+    },
+    outlined: {
+      color: theme.palette.text.primary,
+      borderColor: alpha(theme.palette.divider, 0.23),
+      '&:hover': {
+        borderColor: theme.palette.primary.main,
+        backgroundColor: alpha(theme.palette.primary.main, 0.04),
+        color: theme.palette.primary.main
+      }
+    },
+    contained: {
+      boxShadow: 'none',
+      '&:hover': {
+        boxShadow: 'none'
+      }
+    }
+  }), [theme]);
+
+  // Header content - view toggle buttons
+  const headerContent = useMemo(() => (
+    <ToggleButtonGroup
+      value={viewMode}
+      exclusive
+      onChange={handleViewModeChange}
+      size="small"
+      sx={toggleButtonStyles}
+    >
+      <ToggleButton value={VIEW_MODES.AGENDA}>
+        <ViewList sx={{ mr: 0.5, fontSize: '1rem' }} />
+        Agenda
+      </ToggleButton>
+      <ToggleButton value={VIEW_MODES.WEEK}>
+        <DateRange sx={{ mr: 0.5, fontSize: '1rem' }} />
+        Week
+      </ToggleButton>
+      <ToggleButton value={VIEW_MODES.MONTH}>
+        <CalendarMonth sx={{ mr: 0.5, fontSize: '1rem' }} />
+        Month
+      </ToggleButton>
+    </ToggleButtonGroup>
+  ), [viewMode, handleViewModeChange, toggleButtonStyles]);
+
+  // Render different view modes
+  const renderViewContent = () => {
+    const events = project?.events || [];
+
+    switch (viewMode) {
+      case VIEW_MODES.AGENDA:
+        return (
+          <Grid container spacing={2} sx={styles.viewContainer}>
+            <Grid item xs={12} md={8}>
+              <Box sx={styles.scrollableBox}>
+                <MemoizedItinerarySchedule
+                  project={project}
+                  events={events}
+                  onEventSelect={handleEventSelect}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Box sx={styles.scrollableBox}>
+                <MemoizedEventDetailsSection 
+                  selectedDate={selectedDate}
+                  selectedEventId={selectedEventId}
+                  project={project}
+                />
+              </Box>
+            </Grid>
+          </Grid>
+        );
+
+      case VIEW_MODES.WEEK:
+        return (
+          <Box sx={styles.fullViewBox}>
+            <MemoizedFullCalendarWeekView
+              project={project}
+              events={events}
+              onEventSelect={handleEventSelect}
+            />
+          </Box>
+        );
+
+      case VIEW_MODES.MONTH:
+        return (
+          <Box sx={styles.fullViewBox}>
+            <MemoizedFullCalendarMonthView
+              project={project}
+              events={events}
+              onEventSelect={handleEventSelect}
+            />
+          </Box>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Box sx={styles.container}>
+      {/* Action Buttons */}
+      <Stack {...styles.actionStack}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={handleImportFromCurriculum}
+          sx={{ ...buttonStyles.common, ...buttonStyles.outlined }}
+        >
+          Import
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={openViewSchedule}
+          sx={{ ...buttonStyles.common, ...buttonStyles.contained }}
+        >
+          Export
+        </Button>
+      </Stack>
+
+      {/* Main Content */}
+      <MainCard 
+        title="Schedule Planning"
+        secondary={headerContent}
+        sx={styles.mainCard}
+      >
+        {renderViewContent()}
+      </MainCard>
+
+      {/* View Schedule Dialog */}
+      <Dialog
+        open={viewScheduleOpen}
+        onClose={closeViewSchedule}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            height: '90vh',
+            borderRadius: 2
+          }
+        }}
+      >
+        <MainCard
+          sx={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            '& .MuiCardContent-root': {
+              flex: 1,
+              overflow: 'hidden',
+              p: 0
+            }
+          }}
+        >
+          <ScheduleExport 
+            projectEvents={project?.events || []}
+            projectTitle={project?.name || 'Project Schedule'}
+          />
+        </MainCard>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default React.memo(AgendaTab);

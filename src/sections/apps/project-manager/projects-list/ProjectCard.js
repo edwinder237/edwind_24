@@ -1,24 +1,20 @@
 import PropTypes from "prop-types";
-import { useState, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 
-//redux
+// redux
 import { useDispatch, useSelector } from "store";
 import { removeProject } from "store/reducers/projects";
 // next
 import NextLink from "next/link";
 // material-ui
 import {
-  AvatarGroup,
   Box,
   Button,
   Chip,
   CardContent,
-  Dialog,
   Divider,
   Fade,
   Grid,
-  List,
-  ListItem,
   Menu,
   MenuItem,
   Stack,
@@ -28,15 +24,11 @@ import {
 
 // third-party
 import { format } from "date-fns";
-import { PopupTransition } from "components/@extended/Transitions";
 
 // project import
 import { openSnackbar } from "store/reducers/snackbar";
-import ProjectPreview from "./ProjectPreview";
 import AlertProjectDelete from "./AlertProjectDelete";
-import AddProject from "./AddProject";
 import MainCard from "components/MainCard";
-import Avatar from "components/@extended/Avatar";
 import IconButton from "components/@extended/IconButton";
 
 // assets
@@ -47,127 +39,77 @@ import Loader from "components/Loader";
 
 const ProjectCard = ({ Project, projectId }) => {
   const dispatch = useDispatch();
-  const [open, setOpen] = useState(false);
   const [openAlert, setOpenAlert] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
-  const [add, setAdd] = useState(false);
   const { projects, success } = useSelector((state) => state.projects);
+
+  // Memoized computed values for performance
+  const formattedDates = useMemo(() => {
+    if (!Project) return {};
+    
+    return {
+      creation: Project.createdAt ? format(new Date(Project.createdAt), "dd/MM/yyyy HH:mm") : "",
+      start: Project.startDate ? format(new Date(Project.startDate), "MMM dd, yyyy") : "",
+      end: Project.endDate ? format(new Date(Project.endDate), "MMM dd, yyyy") : ""
+    };
+  }, [Project?.createdAt, Project?.startDate, Project?.endDate]);
+
+  const statusChip = useMemo(() => {
+    const status = Project?.projectStatus;
+    const chipProps = {
+      ongoing: { variant: "light", color: "success", size: "small" },
+      completed: { variant: "light", color: "primary", size: "small" },
+      pending: { variant: "light", color: "warning", size: "small" },
+      cancelled: { variant: "light", color: "error", size: "small" }
+    };
+    
+    const props = chipProps[status] || { variant: "light", color: "primary", size: "small" };
+    const label = status ? status.toUpperCase() : "N/A";
+    return <Chip label={label} {...props} />;
+  }, [Project?.projectStatus]);
+
+  const publishChip = useMemo(() => {
+    return Project?.published === false ? 
+      <Chip label="PRIVATE" variant="outlined" size="small" /> : null;
+  }, [Project?.published]);
+
+  const { tags, mainInstructor } = useMemo(() => {
+    const parsedTags = Project?.tags && (Array.isArray(Project.tags) ? Project.tags : JSON.parse(Project.tags));
+    const instructor = Project?.project_instructors?.find(pi => pi.role === 'main')?.instructor || 
+                      Project?.project_instructors?.[0]?.instructor;
+    
+    return { tags: parsedTags, mainInstructor: instructor };
+  }, [Project?.tags, Project?.project_instructors]);
+
+  // Optimized event handlers
+  const handleMenuClick = useCallback((event) => setAnchorEl(event.currentTarget), []);
+  const handleMenuClose = useCallback(() => setAnchorEl(null), []);
+
+  const handleAlertClose = useCallback((action) => {
+    setOpenAlert(!openAlert);
+    handleMenuClose();
+    if (action === true && Project?.id) {
+      dispatch(removeProject(Project.id, projects));
+      if (success !== false) {
+        dispatch(openSnackbar({
+          open: true,
+          message: success,
+          anchorOrigin: { vertical: "top", horizontal: "right" },
+          variant: "alert",
+          alert: { color: "success" },
+          close: false,
+        }));
+      }
+    }
+  }, [openAlert, handleMenuClose, Project?.id, dispatch, projects, success]);
 
   if (!Project) {
     return <Loader />;
   }
-  
-  const handleClickOpen = () => {
-    setOpen(true);
-  };
-  const handleClose = () => {
-    setOpen(false);
-  };
-
-  //console.log(Project);
-
-  const handleAlertClose = (action) => {
-    setOpenAlert(!openAlert);
-    handleMenuClose();
-    const projectId = Project?.id;
-    if (action === true) {
-      dispatch(removeProject(projectId, projects));
-      if (success !== false) {
-        dispatch(
-          openSnackbar({
-            open: true,
-            message: success,
-            anchorOrigin: { vertical: "top", horizontal: "right" },
-            variant: "alert",
-            alert: {
-              color: "success",
-            },
-            close: false,
-          })
-        );
-      }
-    }
-  };
 
   const openMenu = Boolean(anchorEl);
-  const handleMenuClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
 
-  const handleAdd = () => {
-    setAdd(!add);
-  };
-
-  let formatedCreationDate = "";
-
-  if (Project && Project.createdAt) {
-    formatedCreationDate = format(
-      new Date(Project.createdAt),
-      "dd/MM/yyyy HH:mm"
-    );
-  }
-
-  let statusChip;
-  const { projectStatus } = Project || {};
-  switch (projectStatus) {
-    case "ongoing":
-      statusChip = (
-        <Chip label={projectStatus} variant="outlined" color="success" />
-      );
-      break;
-    case "completed":
-      statusChip = (
-        <Chip
-          variant="light"
-          color="primary"
-          size="small"
-          label={projectStatus}
-        />
-      );
-      break;
-    case "pending":
-      statusChip = (
-        <Chip
-          variant="light"
-          color="warning"
-          size="small"
-          label={projectStatus}
-        />
-      );
-      break;
-    case "cancelled":
-      statusChip = (
-        <Chip
-          variant="light"
-          color="error"
-          size="small"
-          label={projectStatus}
-        />
-      );
-      break;
-    default:
-      statusChip = <Chip label="draft" variant="outlined" color="error" />;
-  }
-  let publishChip;
-  const { published } = Project || {};
-  switch (published) {
-    case false:
-      publishChip = <Chip label="private" variant="outlined" size="small" />;
-      break;
-    default:
-      null;
-  }
-
-  const tags = Project?.tags && JSON.parse(Project.tags);
-  const creator = Project?.user?.name;
-
-  const instructors = ["marc", "Matthew", "Jamal"];
-
-  if (Project)
-    return (
+  return (
       <>
         <MainCard
           sx={{
@@ -224,7 +166,6 @@ const ProjectCard = ({ Project, projectId }) => {
                   horizontal: "right",
                 }}
               >
-                <MenuItem onClick={handleAdd}>Edit</MenuItem>
                 <MenuItem onClick={handleAlertClose}>Delete</MenuItem>
               </Menu>
             </Grid>
@@ -244,61 +185,213 @@ const ProjectCard = ({ Project, projectId }) => {
             </Box>
 
             <CardContent sx={{ p: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Stack spacing="10px">
-                    <Stack spacing="1px">
-                      <Stack spacing={1} direction="row">
-                        <Typography variant="body2" color="textPrimary">
-                          Tags:
-                        </Typography>
-                        {tags.map((tag, index) => (
-                          <Chip
-                            key={index}
-                            label={tag.label}
-                            size="small"
-                            color="primary"
-                          />
-                        ))}
-                      </Stack>
-                    </Stack>
-
-                    <Stack alignItems="center" direction="row">
-                      <Typography variant="body2" color="textPrimary">
-                        Instructors:
-                      </Typography>
-
-                      <AvatarGroup max={4}>
-                        {instructors.map((instructor, index) => (
-                          <Avatar key={index} alt="Marc" size="xs">
-                            {instructor.charAt(0).toUpperCase()}
-                          </Avatar>
-                        ))}
-                      </AvatarGroup>
-                    </Stack>
-                    <Stack>
-                      <NextLink href={`/projects/${projectId}`} passHref>
-                        <Typography
-                          color="textPrimary"
-                          variant="h5"
-                          sx={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            display: "block",
-                            cursor: "pointer",
+              <Stack spacing={1.5}>
+                {/* Project Title & Training Recipient */}
+                <Stack spacing={0.75}>
+                  <NextLink href={`/projects/${projectId}`} passHref>
+                    <Typography
+                      color="textPrimary"
+                      variant="h6"
+                      sx={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontSize: '1.1rem',
+                        lineHeight: 1.3,
+                        '&:hover': {
+                          color: 'primary.main',
+                          transform: 'translateY(-1px)',
+                          transition: 'all 0.2s ease-in-out'
+                        }
+                      }}
+                    >
+                      {Project.title}
+                    </Typography>
+                  </NextLink>
+                  
+                  {/* Training Recipient - Elegant display */}
+                  {Project.training_recipient && (
+                    <Box sx={{ 
+                      bgcolor: 'primary.50', 
+                      borderRadius: '6px', 
+                      px: 1, 
+                      py: 0.5,
+                      border: '1px solid',
+                      borderColor: 'primary.200'
+                    }}>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography 
+                          variant="caption" 
+                          color="primary.600" 
+                          sx={{ 
+                            fontWeight: 700, 
+                            fontSize: '0.65rem',
+                            letterSpacing: '0.5px',
+                            textTransform: 'uppercase'
                           }}
                         >
-                          {Project.title}
+                          For
                         </Typography>
-                      </NextLink>
-                      <Typography variant="h6" color="textSecondary">
-                        description
-                      </Typography>
+                        <Typography 
+                          variant="body2" 
+                          color="primary.800" 
+                          sx={{ 
+                            fontWeight: 600,
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          {Project.training_recipient.name}
+                        </Typography>
+                      </Stack>
+                    </Box>
+                  )}
+                </Stack>
+
+                {/* Refined Details in Two Columns */}
+                <Grid container spacing={1.5}>
+                  {/* Left Column */}
+                  <Grid item xs={4}>
+                    <Stack spacing={1}>
+                      {/* Duration */}
+                      {(formattedDates.start || formattedDates.end) && (
+                        <Box>
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary" 
+                            sx={{ 
+                              fontWeight: 700, 
+                              fontSize: '0.65rem',
+                              letterSpacing: '0.3px',
+                              textTransform: 'uppercase',
+                              mb: 0.5,
+                              display: 'block'
+                            }}
+                          >
+                            Timeline
+                          </Typography>
+                          <Stack spacing={0.25}>
+                            {formattedDates.start && (
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  fontSize: '0.75rem',
+                                  color: 'success.main',
+                                  fontWeight: 500
+                                }}
+                              >
+                                ▶ {formattedDates.start}
+                              </Typography>
+                            )}
+                            {formattedDates.end && (
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  fontSize: '0.75rem',
+                                  color: 'warning.main',
+                                  fontWeight: 500
+                                }}
+                              >
+                                ⏹ {formattedDates.end}
+                              </Typography>
+                            )}
+                          </Stack>
+                        </Box>
+                      )}
+                      
+                      {/* Tags */}
+                      {tags && tags.length > 0 && (
+                        <Box>
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary" 
+                            sx={{ 
+                              fontWeight: 700, 
+                              fontSize: '0.65rem',
+                              letterSpacing: '0.3px',
+                              textTransform: 'uppercase',
+                              mb: 0.5,
+                              display: 'block'
+                            }}
+                          >
+                            Topics
+                          </Typography>
+                          <Stack direction="row" spacing={0.5} flexWrap="wrap" alignItems="center">
+                            {tags.slice(0, 2).map((tag, index) => (
+                              <Chip
+                                key={index}
+                                label={tag.label}
+                                size="small"
+                                variant="outlined"
+                                sx={{ 
+                                  fontSize: '0.65rem', 
+                                  height: 20,
+                                  borderRadius: '10px',
+                                  bgcolor: 'background.paper',
+                                  '&:hover': {
+                                    bgcolor: 'primary.50'
+                                  }
+                                }}
+                              />
+                            ))}
+                            {tags.length > 2 && (
+                              <Typography 
+                                variant="caption" 
+                                color="text.secondary" 
+                                sx={{ 
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  bgcolor: 'grey.100',
+                                  px: 0.5,
+                                  py: 0.25,
+                                  borderRadius: '4px'
+                                }}
+                              >
+                                +{tags.length - 2}
+                              </Typography>
+                            )}
+                          </Stack>
+                        </Box>
+                      )}
                     </Stack>
-                  </Stack>
+                  </Grid>
+
+                  {/* Right Column */}
+                  <Grid item xs={8}>
+                    <Box>
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary" 
+                        sx={{ 
+                          fontWeight: 700, 
+                          fontSize: '0.65rem',
+                          letterSpacing: '0.3px',
+                          textTransform: 'uppercase',
+                          mb: 0.5,
+                          display: 'block'
+                        }}
+                      >
+                        Lead by
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        color="text.primary"
+                        sx={{ 
+                          fontSize: '0.8rem',
+                          fontWeight: 500,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          width: '100%'
+                        }}
+                      >
+                        {mainInstructor ? `${mainInstructor.firstName} ${mainInstructor.lastName}` : 'Unassigned'}
+                      </Typography>
+                    </Box>
+                  </Grid>
                 </Grid>
-              </Grid>
+              </Stack>
             </CardContent>
           </Grid>
           <Divider />
@@ -311,13 +404,9 @@ const ProjectCard = ({ Project, projectId }) => {
             sx={{ mt: "auto", mb: 0, pt: 2.25 }}
           >
             <Typography variant="caption" color="secondary">
-              Created: {formatedCreationDate}  by: {creator}
+              Created: {formattedDates.creation}  by: {Project?.user?.name}
             </Typography>
             <Stack direction="row" spacing={1}>
-              <Button variant="outlined" size="small" onClick={handleClickOpen}>
-                Preview
-              </Button>
-
               <NextLink href={`/projects/${projectId}`} passHref>
                 <Button variant="contained" size="small">
                   Open
@@ -327,23 +416,6 @@ const ProjectCard = ({ Project, projectId }) => {
           </Stack>
         </MainCard>
 
-        {/* edit Project dialog */}
-        <Dialog
-          maxWidth="sm"
-          fullWidth
-          TransitionComponent={PopupTransition}
-          onClose={handleAdd}
-          open={add}
-          sx={{ "& .MuiDialog-paper": { p: 0 } }}
-        >
-          <AddProject project={Project} onCancel={handleAdd} />
-        </Dialog>
-        <ProjectPreview
-          course={Project}
-          customer={Project}
-          open={open}
-          onClose={handleClose}
-        />
         <AlertProjectDelete
           title={Project.title}
           open={openAlert}
@@ -355,6 +427,7 @@ const ProjectCard = ({ Project, projectId }) => {
 
 ProjectCard.propTypes = {
   Project: PropTypes.object,
+  projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 };
 
 export default ProjectCard;

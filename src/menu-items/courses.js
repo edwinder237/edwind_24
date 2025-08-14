@@ -2,10 +2,10 @@
 import { FormattedMessage } from 'react-intl';
 
 // assets
-import { ReadOutlined } from '@ant-design/icons';
+import { ReadOutlined, BookOutlined } from '@ant-design/icons';
 
 // icons
-const icons = { ReadOutlined };
+const icons = { ReadOutlined, BookOutlined };
 
 // ==============================|| MENU ITEMS - PAGES ||============================== //
 
@@ -22,7 +22,14 @@ const Courses = {
       icon: icons.ReadOutlined,
       target: false
     },
-   
+    {
+      id: 'Curriculums',
+      title: <FormattedMessage id="Curriculums" />,
+      type: 'item',
+      url: '/curriculums',
+      icon: icons.BookOutlined,
+      target: false
+    }
   ]
 };
 

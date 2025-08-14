@@ -34,11 +34,16 @@ import { CaretUpOutlined, CaretDownOutlined, DragOutlined, CheckOutlined, Downlo
 
 export const HeaderSort = ({ column, sort }) => {
   const theme = useTheme();
+  
+  // Extract props and remove key to avoid React warning
+  const sortProps = sort && column.getHeaderProps ? column.getHeaderProps(column.getSortByToggleProps()) : {};
+  const { key, ...cleanSortProps } = sortProps;
+  
   return (
     <Stack direction="row" spacing={1} alignItems="center" sx={{ display: 'inline-flex' }}>
       <Box sx={{ width: 'max-content' }}>{column.render('Header')}</Box>
       {!column.disableSortBy && (
-        <Stack sx={{ color: 'secondary.light' }} {...(sort && { ...column.getHeaderProps(column.getSortByToggleProps()) })}>
+        <Stack sx={{ color: 'secondary.light' }} {...(sort && cleanSortProps)}>
           <CaretUpOutlined
             style={{
               fontSize: '0.625rem',

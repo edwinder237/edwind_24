@@ -9,7 +9,7 @@ import MainCard from 'components/MainCard';
 // ==============================|| ACCOUNT PROFILE - SETTINGS ||============================== //
 
 const TabSettings = () => {
-  const [checked, setChecked] = useState(['en', 'email-1', 'email-3', 'order-1', 'order-3']);
+  const [checked, setChecked] = useState(['email-3', 'order-1', 'order-3']);
 
   const handleToggle = (value) => () => {
     const currentIndex = checked.indexOf(value);
@@ -31,19 +31,8 @@ const TabSettings = () => {
           <Grid item xs={12}>
             <MainCard title="Email Settings">
               <Stack spacing={2.5}>
-                <Typography variant="subtitle1">Setup Email Notification</Typography>
+                <Typography variant="subtitle1">Setup Email Preferences</Typography>
                 <List sx={{ p: 0, '& .MuiListItem-root': { p: 0, py: 0.25 } }}>
-                  <ListItem>
-                    <ListItemText id="switch-list-label-en" primary={<Typography color="secondary">Email Notification</Typography>} />
-                    <Switch
-                      edge="end"
-                      onChange={handleToggle('en')}
-                      checked={checked.indexOf('en') !== -1}
-                      inputProps={{
-                        'aria-labelledby': 'switch-list-label-en'
-                      }}
-                    />
-                  </ListItem>
                   <ListItem>
                     <ListItemText
                       id="switch-list-label-sctp"
@@ -63,7 +52,7 @@ const TabSettings = () => {
             </MainCard>
           </Grid>
           <Grid item xs={12}>
-            <MainCard title="Updates from System Notification">
+            <MainCard title="System Updates">
               <Stack spacing={2.5}>
                 <Typography variant="subtitle1">Email you with?</Typography>
                 <List sx={{ p: 0, '& .MuiListItem-root': { p: 0, py: 0.25 } }}>
@@ -100,17 +89,6 @@ const TabSettings = () => {
           <Stack spacing={2.5}>
             <Typography variant="subtitle1">When to email?</Typography>
             <List sx={{ p: 0, '& .MuiListItem-root': { p: 0, py: 0.25 } }}>
-              <ListItem>
-                <ListItemText id="switch-list-label-email-1" primary={<Typography color="secondary">Have new notifications</Typography>} />
-                <Switch
-                  edge="end"
-                  onChange={handleToggle('email-1')}
-                  checked={checked.indexOf('email-1') !== -1}
-                  inputProps={{
-                    'aria-labelledby': 'switch-list-label-email-1'
-                  }}
-                />
-              </ListItem>
               <ListItem>
                 <ListItemText
                   id="switch-list-label-email-2"

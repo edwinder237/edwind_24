@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch } from 'store';
 
 // material-ui
 import { styled, useTheme } from '@mui/material/styles';
