@@ -87,7 +87,6 @@ export default async function handler(req, res) {
     });
 
     res.status(200).json({ success: true, message: "Project and all related data removed from database" });
-    console.log("Project and all related data removed from database");
   } catch (error) {
     console.error("Error deleting project:", error);
     res.status(500).json({ 

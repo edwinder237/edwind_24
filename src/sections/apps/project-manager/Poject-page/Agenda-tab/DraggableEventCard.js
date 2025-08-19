@@ -138,7 +138,8 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
     setMenuAnchorEl(null);
   };
 
-  const handleDeleteClick = () => {
+  const handleDeleteClick = (e) => {
+    e?.stopPropagation();
     handleMenuClose();
     setDeleteDialogOpen(true);
   };
@@ -266,19 +267,24 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
     }
   };
 
-  const handleMenuAction = (action) => {
-    handleMenuClose();
+  const handleMenuAction = (action, e) => {
+    e?.stopPropagation();
+    
     switch (action) {
       case 'edit':
+        handleMenuClose();
         setEditDialogOpen(true);
         break;
       case 'duplicate':
+        handleMenuClose();
         // TODO: Implement duplicate event functionality
         break;
       case 'time':
+        handleMenuClose();
         setIsEditingTime(true);
         break;
       case 'moveToNextDay':
+        handleMenuClose();
         if (onTimeEdit) {
           // Calculate next day dates
           const currentStart = new Date(event.start);
@@ -300,6 +306,7 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
         }
         break;
       case 'moveToPreviousDay':
+        handleMenuClose();
         if (onTimeEdit && hasPreviousDay) {
           // Calculate previous day dates
           const currentStart = new Date(event.start);
@@ -323,11 +330,14 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
       case 'color':
         // Open color picker and close menu
         setColorPickerAnchorEl(menuAnchorEl);
+        // Don't close menu here since we're opening color picker
         break;
       case 'delete':
-        handleDeleteClick();
+        // Don't close menu here - handleDeleteClick will do it
+        handleDeleteClick(e);
         break;
       default:
+        handleMenuClose();
         break;
     }
   };
@@ -543,26 +553,26 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
             }
           }}
         >
-          <MenuItem onClick={() => handleMenuAction('edit')}>
+          <MenuItem onClick={(e) => handleMenuAction('edit', e)}>
             <ListItemIcon>
               <Edit fontSize="small" />
             </ListItemIcon>
             <ListItemText>Edit Event</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => handleMenuAction('time')}>
+          <MenuItem onClick={(e) => handleMenuAction('time', e)}>
             <ListItemIcon>
               <Schedule fontSize="small" />
             </ListItemIcon>
             <ListItemText>Edit Time</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => handleMenuAction('duplicate')}>
+          <MenuItem onClick={(e) => handleMenuAction('duplicate', e)}>
             <ListItemIcon>
               <ContentCopy fontSize="small" />
             </ListItemIcon>
             <ListItemText>Duplicate</ListItemText>
           </MenuItem>
           <MenuItem 
-            onClick={() => handleMenuAction('moveToPreviousDay')}
+            onClick={(e) => handleMenuAction('moveToPreviousDay', e)}
             disabled={!hasPreviousDay}
             sx={{
               color: !hasPreviousDay ? 'text.disabled' : 'inherit'
@@ -576,13 +586,13 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
             </ListItemIcon>
             <ListItemText>Move to Previous Day</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => handleMenuAction('moveToNextDay')}>
+          <MenuItem onClick={(e) => handleMenuAction('moveToNextDay', e)}>
             <ListItemIcon>
               <ArrowForward fontSize="small" />
             </ListItemIcon>
             <ListItemText>Move to Next Day</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => handleMenuAction('color')}>
+          <MenuItem onClick={(e) => handleMenuAction('color', e)}>
             <ListItemIcon>
               <Palette fontSize="small" />
             </ListItemIcon>
@@ -590,7 +600,7 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
           </MenuItem>
           <Divider />
           <MenuItem
-            onClick={() => handleMenuAction('delete')}
+            onClick={(e) => handleMenuAction('delete', e)}
             sx={{ color: 'error.main' }}
           >
             <ListItemIcon>

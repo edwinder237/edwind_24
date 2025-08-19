@@ -333,7 +333,7 @@ GroupCell.propTypes = {
 };
 
 const GroupTable = ({ index }) => {
-  const { singleProject: Project } = useSelector((state) => state.projects);
+  const { singleProject: Project, project_participants } = useSelector((state) => state.projects);
   const dispatch = useDispatch();
   const { participants } = Project;
 
@@ -755,7 +755,7 @@ const GroupTable = ({ index }) => {
           onCancel={handleAdd}
           handleAddParticipant={handleAddGroup}
           groupsInState={groups}
-          participants={participants}
+          participants={project_participants || participants}
         />
       </Dialog>
       
@@ -769,7 +769,8 @@ const GroupTable = ({ index }) => {
           return filteredGroups;
         })()}
         participants={(() => {
-          const mapped = participants ? participants.map(p => {
+          // Use project_participants from Redux state which includes role data
+          const mapped = project_participants ? project_participants.map(p => {
             return {
               ...p.participant,
               projectParticipantId: p.id // Include the project_participants.id for API calls

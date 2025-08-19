@@ -72,12 +72,7 @@ const ManageGroupSlider = ({
         return acc;
       }, []);
       
-      console.log('All participants in any group:', allGroupParticipantIds);
-      console.log('All participants received:', participants);
-      console.log('Participants structure:', participants.map(p => ({ id: p.id, projectParticipantId: p.projectParticipantId, name: `${p.firstName} ${p.lastName}` })));
-      
       const available = participants.filter(p => !allGroupParticipantIds.includes(p.projectParticipantId));
-      console.log('Available participants (not in any group):', available);
       setAvailableParticipants(available);
     } else {
       setSelectedGroupData(null);
@@ -125,29 +120,36 @@ const ManageGroupSlider = ({
         '& .MuiDrawer-paper': {
           height: drawerHeight,
           boxSizing: 'border-box',
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
+          borderRadius: 0,
+          p: 0
         },
       }}
     >
-      <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <Stack 
-          direction="row" 
-          alignItems="center" 
-          justifyContent="space-between" 
-          sx={{ mb: 2 }}
-        >
-          <Typography variant="h5">Manage Group Participants</Typography>
+      <MainCard
+        title={
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="h5">Manage Group Participants</Typography>
+          </Stack>
+        }
+        secondary={
           <IconButton onClick={onClose} size="small">
             <CloseOutlined />
           </IconButton>
-        </Stack>
-
-        <Divider sx={{ mb: 2 }} />
+        }
+        sx={{ 
+          height: '100%',
+          m: 0,
+          borderRadius: 0,
+          '& .MuiCardContent-root': {
+            height: 'calc(100% - 80px)',
+            overflow: 'hidden'
+          }
+        }}
+      >
 
         {/* Group Selection */}
-        <FormControl fullWidth sx={{ mb: 2 }}>
+        <Box sx={{ maxWidth: '1200px', width: '100%', mx: 'auto' }}>
+          <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Select Group</InputLabel>
           <Select
             value={selectedGroup || ''}
@@ -179,17 +181,64 @@ const ManageGroupSlider = ({
             ))}
           </Select>
         </FormControl>
+        </Box>
 
         {selectedGroupData && (
-          <Stack direction="row" spacing={3} sx={{ flex: 1, overflow: 'hidden' }}>
+          <Box sx={{ 
+            maxWidth: '1200px', 
+            width: '100%', 
+            mx: 'auto', 
+            height: 'calc(100% - 60px)' 
+          }}>
+            <Stack direction="row" spacing={3} sx={{ flex: 1, overflow: 'hidden', height: '100%' }}>
             {/* Available Participants */}
             <Box sx={{ flex: 1 }}>
-              <MainCard title="Unassigned Participants" sx={{ height: '100%' }}>
-                <Box sx={{ height: 'calc(100% - 50px)', overflow: 'auto' }}>
+              <MainCard 
+                title={
+                  <Typography variant="h6" sx={{ 
+                    color: 'primary.main', 
+                    fontWeight: 600,
+                    fontSize: '1rem'
+                  }}>
+                    Unassigned Participants ({availableParticipants.length})
+                  </Typography>
+                }
+                sx={{ 
+                  height: '100%', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  '& .MuiCardHeader-root': {
+                    backgroundColor: 'grey.50',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    py: 1.5
+                  }
+                }}
+              >
+                <Box sx={{ 
+                  flex: 1,
+                  height: '100%',
+                  overflow: 'auto',
+                  pt: 1,
+                  pb: 1,
+                  '&::-webkit-scrollbar': {
+                    width: '8px', // Made scrollbar wider for visibility
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                    borderRadius: '4px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                    borderRadius: '4px',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                    }
+                  }
+                }}>
                   {availableParticipants.length > 0 ? (
-                    <List dense>
-                      {availableParticipants.map((participant) => {
-                        console.log('Rendering available participant:', participant);
+                    <List dense sx={{ pb: 2 }}>
+                      {availableParticipants.map((participant, index) => {
                         return (
                           <ListItem key={participant.id || participant.projectParticipantId}>
                             <Avatar sx={{ mr: 2 }}>
@@ -197,7 +246,7 @@ const ManageGroupSlider = ({
                             </Avatar>
                             <ListItemText
                               primary={`${participant.firstName} ${participant.lastName}`}
-                              secondary={participant.derpartement || participant.role || 'No role specified'}
+                              secondary={participant.role?.title || participant.derpartement || 'No role specified'}
                             />
                             <ListItemSecondaryAction>
                               <Button
@@ -229,10 +278,51 @@ const ManageGroupSlider = ({
 
             {/* Current Group Members */}
             <Box sx={{ flex: 1 }}>
-              <MainCard title="Current Members" sx={{ height: '100%' }}>
-                <Box sx={{ height: 'calc(100% - 50px)', overflow: 'auto' }}>
+              <MainCard 
+                title={
+                  <Typography variant="h6" sx={{ 
+                    color: 'primary.main', 
+                    fontWeight: 600,
+                    fontSize: '1rem'
+                  }}>
+                    Current Members ({selectedGroupData.participants?.length || 0})
+                  </Typography>
+                }
+                sx={{ 
+                  height: '100%', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  '& .MuiCardHeader-root': {
+                    backgroundColor: 'grey.50',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    py: 1.5
+                  }
+                }}
+              >
+                <Box sx={{ 
+                  flex: 1,
+                  height: '100%',
+                  overflow: 'auto',
+                  pt: 1,
+                  pb: 1,
+                  '&::-webkit-scrollbar': {
+                    width: '8px', // Made scrollbar wider for visibility
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                    borderRadius: '4px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(0,0,0,0.4)',
+                    borderRadius: '4px',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                    }
+                  }
+                }}>
                   {selectedGroupData.participants && selectedGroupData.participants.length > 0 ? (
-                    <List dense>
+                    <List dense sx={{ pb: 2 }}>
                       {selectedGroupData.participants.map((groupParticipant) => {
                         // Handle different possible data structures
                         let participant = null;
@@ -249,9 +339,6 @@ const ManageGroupSlider = ({
                           participant = groupParticipant;
                         }
                         
-                        console.log('Rendering group participant:', groupParticipant);
-                        console.log('Full participant structure:', JSON.stringify(groupParticipant, null, 2));
-                        console.log('Resolved participant data:', participant);
                         
                         if (!participant || !participant.firstName || !participant.lastName) {
                           console.error('No valid participant data found for groupParticipant:', groupParticipant);
@@ -275,7 +362,7 @@ const ManageGroupSlider = ({
                             </Avatar>
                             <ListItemText
                               primary={`${participant.firstName} ${participant.lastName}`}
-                              secondary={participant.derpartement || participant.role || 'No department specified'}
+                              secondary={participant.role?.title || participant.derpartement || 'No role specified'}
                             />
                             <ListItemSecondaryAction>
                               <IconButton
@@ -297,7 +384,8 @@ const ManageGroupSlider = ({
                 </Box>
               </MainCard>
             </Box>
-          </Stack>
+            </Stack>
+          </Box>
         )}
 
         {error && (
@@ -338,7 +426,7 @@ const ManageGroupSlider = ({
             </Alert>
           </Box>
         )}
-      </Box>
+      </MainCard>
     </Drawer>
   );
 };

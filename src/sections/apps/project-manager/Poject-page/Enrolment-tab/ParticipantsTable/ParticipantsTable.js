@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useSelector, useDispatch } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -54,6 +54,10 @@ const ParticipantsTable = React.memo(({ index }) => {
   const dispatch = useDispatch();
   
   const { title, groups, id: projectId } = Project || {};
+  
+  // State for available roles (fetch once for all dropdowns)
+  const [availableRoles, setAvailableRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
 
   // Custom hooks for data management
   const {
@@ -76,11 +80,36 @@ const ParticipantsTable = React.memo(({ index }) => {
   // Table UI state
   const tableState = useTableState();
 
+  // Fetch available roles once for all dropdown cells
+  useEffect(() => {
+    const fetchAvailableRoles = async () => {
+      if (!projectId) return;
+      
+      setRolesLoading(true);
+      try {
+        const response = await fetch(`/api/projects/available-roles?projectId=${projectId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setAvailableRoles(data.roles);
+        } else {
+          console.error('Failed to fetch available roles:', data.error);
+        }
+      } catch (error) {
+        console.error('Error fetching available roles:', error);
+      } finally {
+        setRolesLoading(false);
+      }
+    };
+
+    fetchAvailableRoles();
+  }, [projectId]);
+
   // Memoized data
   const data = useMemo(() => project_participants || [], [project_participants]);
   
-  // Table columns configuration - memoized for performance
-  const columns = useTableColumns(refreshData);
+  // Table columns configuration - memoized for performance with roles data
+  const columns = useTableColumns(refreshData, availableRoles, rolesLoading);
 
   // Email sending handler
   const handleSendEmail = useCallback(async ({ participants, credentials }) => {

@@ -30,11 +30,54 @@ export default async function handler(req, res) {
                 level: true,
                 courseCategory: true,
                 CourseType: true,
-                cost: true,
                 deliveryMethod: true,
                 code: true,
                 rating: true,
-                backgroundImg: true
+                backgroundImg: true,
+                course_participant_roles: {
+                  include: {
+                    role: {
+                      select: {
+                        id: true,
+                        title: true
+                      }
+                    }
+                  }
+                },
+                modules: {
+                  select: {
+                    id: true,
+                    title: true,
+                    duration: true,
+                    customDuration: true,
+                    moduleOrder: true,
+                    activities: {
+                      select: {
+                        id: true,
+                        title: true,
+                        duration: true,
+                        activityType: true,
+                        ActivityOrder: true
+                      },
+                      orderBy: {
+                        ActivityOrder: 'asc'
+                      }
+                    },
+                    module_objectives: {
+                      select: {
+                        id: true,
+                        objective: true,
+                        objectiveOrder: true
+                      },
+                      orderBy: {
+                        objectiveOrder: 'asc'
+                      }
+                    }
+                  },
+                  orderBy: {
+                    moduleOrder: 'asc'
+                  }
+                }
               }
             }
           },

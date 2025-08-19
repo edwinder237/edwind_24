@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 
 // project import
-import { APP_DEFAULT_PATH } from 'config';
+import { APP_DEFAULT_PATH, ThemeMode, HEADER_HEIGHT } from 'config';
 import IconButton from 'components/@extended/IconButton';
 
 import AnimateButton from 'components/@extended/AnimateButton';
@@ -48,7 +48,7 @@ function ElevationScroll({ layout, children, window }) {
     target: window ? window() : undefined
   });
 
-  const backColorScroll = theme.palette.mode === 'dark' ? theme.palette.grey[50] : theme.palette.grey[800];
+  const backColorScroll = theme.palette.mode === ThemeMode.DARK ? theme.palette.grey[50] : theme.palette.grey[800];
   const backColor = layout !== 'landing' ? backColorScroll : 'transparent';
 
   return React.cloneElement(children, {
@@ -75,48 +75,141 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
 
   return (
     <ElevationScroll layout={layout} {...others}>
-      <AppBar sx={{ bgcolor: 'transparent', color: theme.palette.text.primary, boxShadow: 'none' }}>
-        <Container disableGutters={matchDownMd}>
-          <Toolbar sx={{ px: { xs: 1.5, md: 0, lg: 0 }, py: 2 }}>
-            <Stack direction="row" sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} alignItems="center">
-              <Typography component="div" sx={{ textAlign: 'left', display: 'inline-block' }}>
-                <Logo reverse to="/" />
-              </Typography>
+      <AppBar sx={{ bgcolor: '#1a1a1a', color: 'white', boxShadow: 'none', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <Container maxWidth={false} sx={{ px: 3 }}>
+          <Toolbar sx={{ px: 0, py: 0, minHeight: HEADER_HEIGHT, justifyContent: 'space-between' }}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <img 
+                src="/assets/images/logos/edwind-color-logo.png" 
+                alt="EDWIND" 
+                style={{ height: '40px', width: 'auto' }}
+              />
             </Stack>
             <Stack
               direction="row"
+              alignItems="center"
               sx={{
-                '& .header-link': { px: 1, '&:hover': { color: theme.palette.primary.main } },
-                display: { xs: 'none', md: 'block' }
+                '& .header-link': { 
+                  px: 2, 
+                  py: 1,
+                  fontSize: '0.95rem',
+                  fontWeight: 500,
+                  color: 'rgba(255,255,255,0.8)',
+                  textDecoration: 'none',
+                  borderRadius: 1,
+                  transition: 'all 0.2s',
+                  '&:hover': { 
+                    color: 'white',
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  } 
+                },
+                display: { xs: 'none', md: 'flex' }
               }}
-              spacing={2}
+              spacing={0.5}
             >
-              {session ? (
-                <NextLink href={APP_DEFAULT_PATH} passHref>
-                  <Link className="header-link" color="white" target="_blank" underline="none">
-                    Dashboard
-                  </Link>
-                </NextLink>
-              ) : (
-                <NextLink href="/login" passHref>
-                  <Link className="header-link" color="white" target="_blank" underline="none">
-                    Login
-                  </Link>
-                </NextLink>
-              )}
-              <Link className="header-link" color="white" href="https://codedthemes.gitbook.io/mantis/" target="_blank" underline="none">
-                Documentation
+              <Link 
+                href="#features" 
+                className="header-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                Features
               </Link>
-              <Box sx={{ display: 'inline-block' }}>
+              <Link 
+                href="#pricing" 
+                className="header-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                Pricing
+              </Link>
+              <Link 
+                href="#demo" 
+                className="header-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                Demo
+              </Link>
+              <Link 
+                href="#contact" 
+                className="header-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                Contact
+              </Link>
+              <Box sx={{ ml: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
                 <AnimateButton>
                   <Button
-                    component={Link}
-                    href="https://mui.com/store/items/mantis-react-admin-dashboard-template/"
-                    disableElevation
-                    color="primary"
                     variant="contained"
+                    size="medium"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/auth/signin-url');
+                        const data = await response.json();
+                        if (data.url) {
+                          window.location.href = data.url;
+                        }
+                      } catch (error) {
+                        console.error('Error redirecting to sign-in:', error);
+                      }
+                    }}
+                    sx={{ 
+                      backgroundColor: '#1976d2',
+                      color: 'white',
+                      fontWeight: 500,
+                      minWidth: '100px',
+                      height: '40px',
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      '&:hover': {
+                        backgroundColor: '#1565c0'
+                      }
+                    }}
                   >
-                    Purchase Now
+                    Login
+                  </Button>
+                </AnimateButton>
+                <AnimateButton>
+                  <Button
+                    variant="outlined"
+                    size="medium"
+                    onClick={async () => {
+                      try {
+                        // WorkOS uses the same auth endpoint for both login and signup
+                        const response = await fetch('/api/auth/signin-url');
+                        const data = await response.json();
+                        if (data.url) {
+                          window.location.href = data.url;
+                        }
+                      } catch (error) {
+                        console.error('Error redirecting to sign-up:', error);
+                      }
+                    }}
+                    sx={{ 
+                      borderColor: '#1976d2',
+                      color: '#1976d2',
+                      fontWeight: 500,
+                      minWidth: '100px',
+                      height: '40px',
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      '&:hover': {
+                        borderColor: '#1565c0',
+                        backgroundColor: 'rgba(25, 118, 210, 0.04)'
+                      }
+                    }}
+                  >
+                    Sign Up
                   </Button>
                 </AnimateButton>
               </Box>
@@ -130,30 +223,56 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
               }}
             >
               <Typography component="div" sx={{ textAlign: 'left', display: 'inline-block' }}>
-                <Logo reverse to="/" />
+                <Logo reverse to="/" sx={{ '& svg': { height: 32, width: 'auto' } }} />
               </Typography>
-              <Stack direction="row" spacing={2}>
-                {layout === 'component' && (
-                  <NextLink href={APP_DEFAULT_PATH} passHref>
-                    <Button variant="outlined" size="small" color="warning" sx={{ mt: 0.5, height: 28 }}>
-                      Dashboard
-                    </Button>
-                  </NextLink>
-                )}
-                {layout !== 'component' && (
-                  <NextLink href="/components-overview/buttons" passHref>
-                    <Button variant="outlined" size="small" color="warning" sx={{ mt: 0.5, height: 28 }}>
-                      All Components
-                    </Button>
-                  </NextLink>
-                )}
+              <Stack direction="row" spacing={1}>
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/auth/signin-url');
+                      const data = await response.json();
+                      if (data.url) {
+                        window.location.href = data.url;
+                      }
+                    } catch (error) {
+                      console.error('Error redirecting to sign-in:', error);
+                    }
+                  }}
+                  sx={{ mt: 0.5, height: 28, borderColor: '#1976d2', color: '#1976d2' }}
+                >
+                  Login
+                </Button>
+                <Button 
+                  variant="contained" 
+                  size="small" 
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/auth/signin-url');
+                      const data = await response.json();
+                      if (data.url) {
+                        window.location.href = data.url;
+                      }
+                    } catch (error) {
+                      console.error('Error redirecting to sign-up:', error);
+                    }
+                  }}
+                  sx={{ mt: 0.5, height: 28, backgroundColor: '#1976d2', color: 'white', '&:hover': { backgroundColor: '#1565c0' } }}
+                >
+                  Sign Up
+                </Button>
 
                 <IconButton
-                  color="secondary"
                   {...(layout === 'component' ? { onClick: handleDrawerOpen } : { onClick: drawerToggler(true) })}
-                  sx={{ '&:hover': { bgcolor: theme.palette.mode === 'dark' ? 'secondary.lighter' : 'secondary.dark' } }}
+                  sx={{ 
+                    color: '#9c27b0',
+                    '&:hover': { 
+                      bgcolor: theme.palette.mode === ThemeMode.DARK ? 'rgba(156, 39, 176, 0.08)' : 'rgba(156, 39, 176, 0.12)' 
+                    } 
+                  }}
                 >
-                  <MenuOutlined style={{ color: theme.palette.mode === 'dark' ? 'inherit' : theme.palette.grey[100] }} />
+                  <MenuOutlined style={{ color: theme.palette.mode === ThemeMode.DARK ? 'inherit' : '#f5f5f5' }} />
                 </IconButton>
               </Stack>
               <Drawer
@@ -175,63 +294,94 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                   onKeyDown={drawerToggler(false)}
                 >
                   <List>
-                    <Link style={{ textDecoration: 'none' }} href="/login" target="_blank">
-                      <ListItemButton component="span">
-                        <ListItemIcon>
-                          <LineOutlined />
-                        </ListItemIcon>
-                        <ListItemText primary="Dashboard" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
-                      </ListItemButton>
-                    </Link>
-                    <Link style={{ textDecoration: 'none' }} href="/components-overview/buttons" target="_blank">
-                      <ListItemButton component="span">
-                        <ListItemIcon>
-                          <LineOutlined />
-                        </ListItemIcon>
-                        <ListItemText primary="All Components" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
-                      </ListItemButton>
-                    </Link>
-                    <Link
-                      style={{ textDecoration: 'none' }}
-                      href="https://github.com/codedthemes/mantis-free-react-admin-template"
-                      target="_blank"
+                    <ListItemButton 
+                      component="span"
+                      onClick={() => {
+                        document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+                        setDrawerToggle(false);
+                      }}
                     >
-                      <ListItemButton component="span">
-                        <ListItemIcon>
-                          <LineOutlined />
-                        </ListItemIcon>
-                        <ListItemText primary="Free Version" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
-                      </ListItemButton>
-                    </Link>
-                    <Link style={{ textDecoration: 'none' }} href="https://codedthemes.gitbook.io/mantis/" target="_blank">
-                      <ListItemButton component="span">
-                        <ListItemIcon>
-                          <LineOutlined />
-                        </ListItemIcon>
-                        <ListItemText primary="Documentation" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
-                      </ListItemButton>
-                    </Link>
-                    <Link style={{ textDecoration: 'none' }} href="https://codedthemes.support-hub.io/" target="_blank">
-                      <ListItemButton component="span">
-                        <ListItemIcon>
-                          <LineOutlined />
-                        </ListItemIcon>
-                        <ListItemText primary="Support" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
-                      </ListItemButton>
-                    </Link>
-                    <Link
-                      style={{ textDecoration: 'none' }}
-                      href="https://mui.com/store/items/mantis-react-admin-dashboard-template/"
-                      target="_blank"
+                      <ListItemIcon>
+                        <LineOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Features" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                    </ListItemButton>
+                    <ListItemButton 
+                      component="span"
+                      onClick={() => {
+                        document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+                        setDrawerToggle(false);
+                      }}
                     >
-                      <ListItemButton component="span">
-                        <ListItemIcon>
-                          <LineOutlined />
-                        </ListItemIcon>
-                        <ListItemText primary="Purchase Now" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
-                        <Chip color="primary" label="v1.0" size="small" />
-                      </ListItemButton>
-                    </Link>
+                      <ListItemIcon>
+                        <LineOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Pricing" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                    </ListItemButton>
+                    <ListItemButton 
+                      component="span"
+                      onClick={() => {
+                        document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
+                        setDrawerToggle(false);
+                      }}
+                    >
+                      <ListItemIcon>
+                        <LineOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Demo" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                    </ListItemButton>
+                    <ListItemButton 
+                      component="span"
+                      onClick={() => {
+                        document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+                        setDrawerToggle(false);
+                      }}
+                    >
+                      <ListItemIcon>
+                        <LineOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Contact" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                    </ListItemButton>
+                    <ListItemButton 
+                      component="span"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/auth/signin-url');
+                          const data = await response.json();
+                          if (data.url) {
+                            window.location.href = data.url;
+                          }
+                        } catch (error) {
+                          console.error('Error redirecting to sign-in:', error);
+                        }
+                        setDrawerToggle(false);
+                      }}
+                    >
+                      <ListItemIcon>
+                        <LineOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Login" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                    </ListItemButton>
+                    <ListItemButton 
+                      component="span"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/auth/signin-url');
+                          const data = await response.json();
+                          if (data.url) {
+                            window.location.href = data.url;
+                          }
+                        } catch (error) {
+                          console.error('Error redirecting to sign-up:', error);
+                        }
+                        setDrawerToggle(false);
+                      }}
+                    >
+                      <ListItemIcon>
+                        <LineOutlined />
+                      </ListItemIcon>
+                      <ListItemText primary="Sign Up" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                    </ListItemButton>
                   </List>
                 </Box>
               </Drawer>

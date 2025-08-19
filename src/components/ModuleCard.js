@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, Typography, IconButton, Box, Avatar, TextField, Stack, Menu, MenuItem } from '@mui/material';
+import { Card, CardContent, Typography, IconButton, Box, Avatar, TextField, Stack, Menu, MenuItem, Badge, Chip } from '@mui/material';
 import { EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, FormatListBulletedOutlined, CheckCircle, StarRate, PriorityHigh, School, MoreVert, ContentCopyOutlined, TuneOutlined, AccessTimeOutlined, WarningAmberOutlined, CalculateOutlined } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 
@@ -166,13 +166,17 @@ const ModuleCard = ({ module, index, onUpdateTitle, onCancelEdit, onDelete, onDu
         }
       }}
     >
-      <CardContent sx={{ display: 'flex', alignItems: 'flex-start', p: 2, position: 'relative' }}>
+      <CardContent sx={{ display: 'flex', alignItems: 'flex-start', p: 2, pt: 3, position: 'relative' }}>
         <Avatar sx={{ 
-          bgcolor: theme.palette.primary.main, // Keep blue background always
-          color: theme.palette.common.white, // Keep white text always
-          mr: 2 
+          bgcolor: theme.palette.primary.main, 
+          color: theme.palette.common.white,
+          mr: 2,
+          width: 40,
+          height: 40
         }}>
-          {index + 1}
+          <Typography variant="h6" fontWeight={600}>
+            {index}
+          </Typography>
         </Avatar>
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           {isEditing ? (

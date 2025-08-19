@@ -40,7 +40,6 @@ export default async function handler(req, res) {
         goLiveDate: originalCourse.goLiveDate,
         maxParticipants: originalCourse.maxParticipants,
         deadline: originalCourse.deadline,
-        cost: originalCourse.cost,
         level: originalCourse.level,
         accessRestrictions: originalCourse.accessRestrictions,
         certification: originalCourse.certification,

@@ -6,12 +6,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('DELETE /api/projects/remove-curriculum - req.body:', req.body);
     const { projectId, curriculumId } = req.body;
-    console.log('Extracted parameters:', { projectId, curriculumId });
 
     if (!projectId || !curriculumId) {
-      console.log('Missing parameters check failed:', { projectId, curriculumId });
       return res.status(400).json({ 
         success: false, 
         message: 'Project ID and Curriculum ID are required' 

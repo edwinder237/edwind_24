@@ -13,6 +13,7 @@ export default async function handler(req, res) {
               select:{
                 curriculum:{
                   select:{
+                    id:true,
                     title:true,
                     curriculum_courses:{
                       select:{

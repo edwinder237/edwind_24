@@ -209,6 +209,12 @@ export default async function handler(req, res) {
                     derpartement: true,
                     roleId: true,
                     profileImg: true,
+                    role: {
+                      select: {
+                        id: true,
+                        title: true
+                      }
+                    }
                   }
                 }
               }

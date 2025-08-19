@@ -49,7 +49,6 @@ const CourseSettings = ({ course, courseId }) => {
     goLiveDate: null,
     deadline: null,
     maxParticipants: '',
-    cost: '',
     level: '',
     courseCategory: '',
     courseStatus: '',
@@ -72,7 +71,6 @@ const CourseSettings = ({ course, courseId }) => {
         goLiveDate: course.goLiveDate ? new Date(course.goLiveDate) : null,
         deadline: course.deadline ? new Date(course.deadline) : null,
         maxParticipants: course.maxParticipants || '',
-        cost: course.cost || '',
         level: course.level || '',
         courseCategory: course.courseCategory || '',
         courseStatus: course.courseStatus || 'draft',
@@ -110,7 +108,6 @@ const CourseSettings = ({ course, courseId }) => {
           goLiveDate: formData.goLiveDate ? formData.goLiveDate.toISOString() : null,
           deadline: formData.deadline ? formData.deadline.toISOString() : null,
           maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
-          cost: formData.cost ? parseFloat(formData.cost) : null,
         }),
       });
 

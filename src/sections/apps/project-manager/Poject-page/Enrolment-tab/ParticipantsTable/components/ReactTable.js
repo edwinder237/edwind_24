@@ -211,7 +211,7 @@ const ReactTable = React.memo(({
     () => ({
       pageIndex: 0,
       pageSize: 25,
-      hiddenColumns: ['id', 'avatar'],
+      hiddenColumns: ['id', 'participant.toolAccesses'],
       columnOrder: [],
       sortBy: [{ id: 'participant.firstName', desc: false }],
     }),
@@ -532,40 +532,6 @@ const ReactTable = React.memo(({
               </TableHead>
 
             <TableBody {...getTableBodyProps()} className="striped">
-              {headerGroups.map((group, i) => {
-                const { key, ...groupProps } = group.getHeaderGroupProps();
-                return (
-                  <TableRow key={i} {...groupProps}>
-                  {group.headers.map((column) => {
-                    const { key: groupHeaderKey, ...groupHeaderProps } = column.getHeaderProps();
-                    return (
-                      <TableCell
-                        key={column.id}
-                        {...groupHeaderProps}
-                        sx={{
-                          bgcolor: "primary.lighter"
-                        }}
-                      >
-                        {column.canGroupBy ? (
-                          <Box sx={{ display: "flex", alignItems: "center" }}>
-                            <Box
-                              {...column.getGroupByToggleProps()}
-                              sx={{ color: column.isGrouped ? "error.main" : "primary.main", mr: 1 }}
-                            >
-                              {column.isGrouped ? <DownOutlined /> : <RightOutlined />}
-                            </Box>
-                            <Box>{column.render("Header")}</Box>
-                          </Box>
-                        ) : (
-                          column.render("Header")
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                  </TableRow>
-                );
-              })}
-
               {page.map((row, i) => {
                 prepareRow(row);
                 const { key, ...rowProps } = row.getRowProps();

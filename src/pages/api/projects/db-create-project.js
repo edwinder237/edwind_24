@@ -5,8 +5,6 @@ export default async function handler(req, res) {
   const { newProject } = req.body;
   //delete newProject.id;
 
-  console.log(newProject);
-
   // First, check if the user exists, if not create a default user or use system user
   let userExists = await prisma.user.findUnique({
     where: { id: newProject.createdBy }
@@ -85,7 +83,6 @@ export default async function handler(req, res) {
       message: "Project created and saved to database",
       projectId: createdProject.id
     });
-    console.log("Project created and saved to database");
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });

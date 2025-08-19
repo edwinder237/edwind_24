@@ -74,8 +74,6 @@ export default async function handler(req, res) {
       message: 'Project updated successfully',
       project: updatedProject
     });
-
-    console.log(`Project "${updatedProject.title}" updated successfully`);
   } catch (error) {
     console.error('Error updating project:', error);
     res.status(500).json({ 

@@ -1,6 +1,7 @@
 // ==============================|| THEME CONSTANT ||============================== //
 
 export const drawerWidth = 260;
+export const HEADER_HEIGHT = 64;
 
 export const twitterColor = '#1DA1F2';
 export const facebookColor = '#3b5998';
@@ -13,6 +14,11 @@ export const DRAWER_WIDTH = 260;
 export const ThemeMode = {
   LIGHT: 'light',
   DARK: 'dark'
+};
+
+export const ThemeDirection = {
+  LTR: 'ltr',
+  RTL: 'rtl'
 };
 
 export const LAYOUT_CONST = {

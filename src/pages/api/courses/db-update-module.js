@@ -31,8 +31,6 @@ export default async function handler(req, res) {
   delete updateData.learningObjectives; // This doesn't exist in modules schema
   delete updateData.isEditing; // UI state, not stored
 
-  console.log('Original editedModule:', editedModule);
-  console.log('Updating module:', parsedModuleId, 'with cleaned data:', updateData);
 
   try {
     // First check if the module exists

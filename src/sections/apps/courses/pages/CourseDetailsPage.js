@@ -1,13 +1,8 @@
 import React, { useState, useEffect, useRef, forwardRef } from "react";
 import Loader from "components/Loader";
 import {
-  getUserStory,
-  getUserStoryOrder,
-  getProfiles,
-  getComments,
   getModules,
   getCourses,
-  getColumnsOrder,
   getChecklistItems,
   createChecklistItem,
   updateChecklistItem,
@@ -174,6 +169,8 @@ const CourseEditPage = ({ courseId }) => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const roleAssignmentRefreshRef = useRef(null);
+  const lastRoleAssignmentTabVisit = useRef(0);
   const [itemToDelete, setItemToDelete] = useState(null);
   const textEditorRef = useRef(null);
   const { courses, modules, checklistItems, checklistLoading } = useSelector((state) => state.courses);
@@ -209,8 +206,16 @@ const CourseEditPage = ({ courseId }) => {
     if (newValue !== 1) {
       setSelectedModuleId(false);
     }
+    // Refresh role assignments when role assignments tab is selected (max once per minute)
+    if (newValue === 4 && roleAssignmentRefreshRef.current) {
+      const now = Date.now();
+      if (now - lastRoleAssignmentTabVisit.current > 60000) { // Only refresh if more than 1 minute since last visit
+        lastRoleAssignmentTabVisit.current = now;
+        roleAssignmentRefreshRef.current();
+      }
+    }
     // Fetch checklist items when checklist tab is selected
-    if (newValue === 4 && courseId) {
+    if (newValue === 5 && courseId) {
       dispatch(getChecklistItems(courseId));
     }
   };
@@ -847,6 +852,9 @@ const CourseEditPage = ({ courseId }) => {
             <UnifiedRoleAssignmentManager 
               courseId={courseId}
               modules={modules || []}
+              onRefresh={(refreshFn) => {
+                roleAssignmentRefreshRef.current = refreshFn;
+              }}
             />
           </TabPanel>
 

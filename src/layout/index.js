@@ -43,9 +43,13 @@ export default function Layout({ variant = "main", children }) {
   if (variant === "landing" || variant === "simple") {
     return (
       <Suspense fallback={<Loader />}>
-        <Header layout={variant} />
-        {children}
-        <FooterBlock isFull={variant === "landing"} />
+        <div style={{ position: 'relative', minHeight: '100vh' }}>
+          <Header layout={variant} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            {children}
+          </div>
+          <FooterBlock isFull={variant === "landing"} />
+        </div>
       </Suspense>
     );
   }

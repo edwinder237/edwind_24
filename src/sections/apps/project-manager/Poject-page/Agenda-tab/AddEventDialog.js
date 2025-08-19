@@ -223,27 +223,52 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     return courses;
   }, [project?.project_curriculums]);
 
-  // Get support activities (TODO: fetch from actual data source)
-  const availableSupportActivities = useMemo(() => {
-    // This is a placeholder - replace with actual data from project
-    return [
-      {
-        id: 1,
-        title: 'Team Building Workshop',
-        description: 'Interactive team building activities to strengthen collaboration',
-        duration: 120,
-        category: 'Workshop',
-        instructor: 'John Doe'
-      },
-      {
-        id: 2,
-        title: 'Code Review Session',
-        description: 'Peer code review and best practices discussion',
-        duration: 90,
-        category: 'Technical Session'
+  // Get support activities from project curriculums
+  const [availableSupportActivities, setAvailableSupportActivities] = useState([]);
+  const [loadingSupportActivities, setLoadingSupportActivities] = useState(false);
+
+  // Fetch support activities when project changes
+  useEffect(() => {
+    const fetchSupportActivities = async () => {
+      if (!project?.id) {
+        setAvailableSupportActivities([]);
+        return;
       }
-    ];
-  }, []);
+
+      setLoadingSupportActivities(true);
+      try {
+        const response = await fetch('/api/supportActivities/getByProject', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId: project.id
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setAvailableSupportActivities(data.supportActivities || []);
+          } else {
+            console.error('Failed to fetch support activities:', data.message);
+            setAvailableSupportActivities([]);
+          }
+        } else {
+          console.error('Failed to fetch support activities:', response.statusText);
+          setAvailableSupportActivities([]);
+        }
+      } catch (error) {
+        console.error('Error fetching support activities:', error);
+        setAvailableSupportActivities([]);
+      } finally {
+        setLoadingSupportActivities(false);
+      }
+    };
+
+    fetchSupportActivities();
+  }, [project?.id]);
 
   // Common event suggestions for "Other" tab
   const commonEventSuggestions = useMemo(() => {
@@ -881,14 +906,22 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                   />
                 </Box>
                 
-                {(searchQuery ? filteredSupportActivities : availableSupportActivities).length === 0 && !searchQuery && (
+                {(searchQuery ? filteredSupportActivities : availableSupportActivities).length === 0 && !searchQuery && !loadingSupportActivities && (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Support sx={{ fontSize: 36, color: 'text.secondary', mb: 1.5 }} />
                     <Typography variant="subtitle1" color="text.secondary" gutterBottom>
                       No support activities available
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Support activities will appear here when added to the system.
+                      Add support activities to your project curriculums to see them here.
+                    </Typography>
+                  </Box>
+                )}
+                
+                {loadingSupportActivities && (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Loading support activities...
                     </Typography>
                   </Box>
                 )}

@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { useState } from 'react';
 
 // material-ui
 import { styled, useTheme } from '@mui/material/styles';
@@ -10,14 +11,13 @@ import { motion } from 'framer-motion';
 // project import
 import useConfig from 'hooks/useConfig';
 import AnimateButton from 'components/@extended/AnimateButton';
+import { useCookieConsent } from 'contexts/CookieConsentContext';
+import LegalModal from 'components/LegalModal';
 
 // assets
 import { SendOutlined } from '@ant-design/icons';
 
-const imgfooterlogo = 'assets/images/landing/codedthemes-logo.svg';
-const imgfootersoc1 = 'assets/images/landing/img-soc1.svg';
-const imgfootersoc2 = 'assets/images/landing/img-soc2.svg';
-const imgfootersoc3 = 'assets/images/landing/img-soc3.svg';
+const imgfooterlogo = 'assets/images/logos/edwind-white-logo.png';
 
 // link - custom style
 const FooterLink = styled(Link)(({ theme }) => ({
@@ -35,37 +35,20 @@ const FooterLink = styled(Link)(({ theme }) => ({
 const FooterBlock = ({ isFull }) => {
   const theme = useTheme();
   const { presetColor } = useConfig();
+  const { openPreferences } = useCookieConsent();
   const textColor = theme.palette.mode === 'dark' ? 'text.primary' : 'background.paper';
+  
+  const [legalModal, setLegalModal] = useState({ open: false, type: '' });
 
-  const linkSX = {
-    color: theme.palette.common.white,
-    fontSize: '0.875rem',
-    fontWeight: 400,
-    opacity: '0.6',
-    '&:hover': {
-      opacity: '1'
-    }
+  const handleLegalClick = (type) => {
+    setLegalModal({ open: true, type });
   };
 
-  const frameworks = [
-    { title: 'CodeIgniter', link: 'https://codedthemes.com/item/mantis-codeigniter-admin-template/' },
-    {
-      title: 'React MUI',
-      link: 'https://mui.com/store/items/mantis-react-admin-dashboard-template/'
-    },
-    {
-      title: 'Angular',
-      link: 'https://codedthemes.com/item/mantis-angular-admin-template/'
-    },
-    {
-      title: 'Bootstrap 5',
-      link: 'https://codedthemes.com/item/mantis-bootstrap-admin-dashboard/'
-    },
-    {
-      title: '.Net',
-      link: 'https://codedthemes.com/item/mantis-dotnet-bootstrap-dashboard-template/'
-    }
-  ];
+  const handleLegalClose = () => {
+    setLegalModal({ open: false, type: '' });
+  };
+
+
 
   return (
     <>
@@ -89,18 +72,6 @@ const FooterBlock = ({ isFull }) => {
             }
           }}
         >
-          <CardMedia
-            component="img"
-            image={`assets/images/landing/img-footer-${presetColor}.png`}
-            sx={{
-              display: { xs: 'none', md: 'block' },
-              width: '55%',
-              maxWidth: 700,
-              position: 'absolute',
-              top: '-28%',
-              right: 0
-            }}
-          />
           <Container>
             <Grid container alignItems="center" justifyContent="space-between" spacing={2}>
               <Grid item xs={12} md={6} sx={{ position: 'relative', zIndex: 1 }}>
@@ -133,7 +104,7 @@ const FooterBlock = ({ isFull }) => {
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="body1" sx={{ color: theme.palette.common.white }}>
-                      What is next? Checkout the Upcoming release of Mantis React.
+                      Stay updated with the latest features and improvements coming to EDWIND platform.
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sx={{ my: 2 }}>
@@ -144,10 +115,9 @@ const FooterBlock = ({ isFull }) => {
                           variant="contained"
                           endIcon={<SendOutlined />}
                           component={Link}
-                          href="https://codedthemes.gitbook.io/mantis/roadmap"
-                          target="_blank"
+                          href="#contact"
                         >
-                          Roadmap
+                          Contact Us
                         </Button>
                       </AnimateButton>
                     </Box>
@@ -174,12 +144,12 @@ const FooterBlock = ({ isFull }) => {
               >
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <CardMedia component="img" image={imgfooterlogo} sx={{ width: 'auto' }} />
+                    <CardMedia component="img" image={imgfooterlogo} sx={{ width: '180px', height: 'auto' }} />
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 400, color: theme.palette.common.white }}>
-                      Since 2017, More than 50K+ Developers trust the CodedThemes Digital Product. Mantis React is Manage under their
-                      Experienced Team Players.
+                      EDWIND is a comprehensive training management platform designed to empower organizations with 
+                      advanced educational development and participant tracking solutions.
                     </Typography>
                   </Grid>
                 </Grid>
@@ -190,20 +160,41 @@ const FooterBlock = ({ isFull }) => {
                 <Grid item xs={6} sm={3}>
                   <Stack spacing={{ xs: 3, md: 5 }}>
                     <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
-                      Help
+                      Company
                     </Typography>
                     <Stack spacing={{ xs: 1.5, md: 2.5 }}>
-                      <FooterLink href="https://blog.mantisdashboard.io/" target="_blank" underline="none">
+                      <FooterLink href="#about" underline="none">
+                        About Us
+                      </FooterLink>
+                      <FooterLink href="#contact" underline="none">
+                        Contact Us
+                      </FooterLink>
+                      <FooterLink href="#careers" underline="none">
+                        Careers
+                      </FooterLink>
+                      <FooterLink href="#blog" underline="none">
                         Blog
                       </FooterLink>
-                      <FooterLink href="https://codedthemes.gitbook.io/mantis/" target="_blank" underline="none">
+                    </Stack>
+                  </Stack>
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <Stack spacing={{ xs: 3, md: 5 }}>
+                    <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
+                      Support
+                    </Typography>
+                    <Stack spacing={{ xs: 1.5, md: 2.5 }}>
+                      <FooterLink href="#help" underline="none">
+                        Help Center
+                      </FooterLink>
+                      <FooterLink href="#documentation" underline="none">
                         Documentation
                       </FooterLink>
-                      <FooterLink href="https://codedthemes.gitbook.io/mantis/changelog" target="_blank" underline="none">
-                        Change Log
+                      <FooterLink href="#support" underline="none">
+                        Technical Support
                       </FooterLink>
-                      <FooterLink href="https://codedthemes.support-hub.io/" target="_blank" underline="none">
-                        Support
+                      <FooterLink href="#training" underline="none">
+                        Training Resources
                       </FooterLink>
                     </Stack>
                   </Stack>
@@ -211,21 +202,50 @@ const FooterBlock = ({ isFull }) => {
                 <Grid item xs={6} sm={3}>
                   <Stack spacing={{ xs: 3, md: 5 }}>
                     <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
-                      Store Help
+                      Legal
                     </Typography>
                     <Stack spacing={{ xs: 1.5, md: 2.5 }}>
-                      <FooterLink href="https://mui.com/store/license/" target="_blank" underline="none">
-                        License
-                      </FooterLink>
-                      <FooterLink href="https://mui.com/store/customer-refund-policy/" target="_blank" underline="none">
-                        Refund Policy
-                      </FooterLink>
-                      <FooterLink
-                        href="https://support.mui.com/hc/en-us/sections/360002564979-For-customers"
-                        target="_blank"
+                      <FooterLink 
+                        component="button"
                         underline="none"
+                        onClick={() => handleLegalClick('privacy')}
+                        sx={{ 
+                          border: 'none',
+                          background: 'none',
+                          padding: 0,
+                          textAlign: 'left',
+                          cursor: 'pointer'
+                        }}
                       >
-                        Submit a Request
+                        Privacy Policy
+                      </FooterLink>
+                      <FooterLink 
+                        component="button"
+                        underline="none"
+                        onClick={() => handleLegalClick('terms')}
+                        sx={{ 
+                          border: 'none',
+                          background: 'none',
+                          padding: 0,
+                          textAlign: 'left',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Terms of Service
+                      </FooterLink>
+                      <FooterLink 
+                        component="button"
+                        underline="none"
+                        onClick={() => handleLegalClick('license')}
+                        sx={{ 
+                          border: 'none',
+                          background: 'none',
+                          padding: 0,
+                          textAlign: 'left',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        License Agreement
                       </FooterLink>
                     </Stack>
                   </Stack>
@@ -233,32 +253,20 @@ const FooterBlock = ({ isFull }) => {
                 <Grid item xs={6} sm={3}>
                   <Stack spacing={{ xs: 3, md: 5 }}>
                     <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
-                      Mantis Eco-System
+                      Resources
                     </Typography>
                     <Stack spacing={{ xs: 1.5, md: 2.5 }}>
-                      {frameworks.map((item, index) => (
-                        <FooterLink href={item.link} target="_blank" underline="none" key={index}>
-                          {item.title}
-                          {/* {item.isUpcoming && <Chip variant="outlined" size="small" label="Upcoming" sx={{ ml: 0.5 }} />} */}
-                        </FooterLink>
-                      ))}
-                    </Stack>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Stack spacing={{ xs: 3, md: 5 }}>
-                    <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
-                      More Products
-                    </Typography>
-                    <Stack spacing={{ xs: 1.5, md: 2.5 }}>
-                      <FooterLink href="http://mui.com/store/previews/berry-react-material-admin/" target="_blank" underline="none">
-                        Berry React Material
+                      <FooterLink href="#tutorials" underline="none">
+                        Tutorials
                       </FooterLink>
-                      <FooterLink href="https://mui.com/store/previews/berry-react-material-admin-free/" target="_blank" underline="none">
-                        Free Berry React
+                      <FooterLink href="#webinars" underline="none">
+                        Webinars
                       </FooterLink>
-                      <FooterLink href="https://github.com/codedthemes/mantis-free-react-admin-template" target="_blank" underline="none">
-                        Free Mantis React
+                      <FooterLink href="#case-studies" underline="none">
+                        Case Studies
+                      </FooterLink>
+                      <FooterLink href="#community" underline="none">
+                        Community
                       </FooterLink>
                     </Stack>
                   </Stack>
@@ -279,31 +287,38 @@ const FooterBlock = ({ isFull }) => {
           <Grid container spacing={2}>
             <Grid item xs={12} sm={8}>
               <Typography variant="subtitle2" color="secondary">
-                © Made with love by Team CodedThemes
+                © EDWIND by <Link href="https://www.lumeve.ca" target="_blank" color="inherit" underline="hover">Lumeve</Link> All rights reserved
               </Typography>
             </Grid>
             <Grid item xs={12} sm={4}>
-              <Grid container spacing={2} alignItems="center" sx={{ justifyContent: 'flex-end' }}>
-                <Grid item>
-                  <Link underline="none" sx={linkSX}>
-                    <CardMedia component="img" image={imgfootersoc1} />
-                  </Link>
-                </Grid>
-                <Grid item>
-                  <Link underline="none" sx={linkSX}>
-                    <CardMedia component="img" image={imgfootersoc2} />
-                  </Link>
-                </Grid>
-                <Grid item>
-                  <Link underline="none" sx={linkSX}>
-                    <CardMedia component="img" image={imgfootersoc3} />
-                  </Link>
-                </Grid>
-              </Grid>
+              <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={openPreferences}
+                  sx={{
+                    color: 'text.secondary',
+                    textTransform: 'none',
+                    fontSize: '0.775rem',
+                    '&:hover': {
+                      color: 'primary.main'
+                    }
+                  }}
+                >
+                  Cookie Preferences
+                </Button>
+              </Box>
             </Grid>
           </Grid>
         </Container>
       </Box>
+
+      {/* Legal Modal */}
+      <LegalModal 
+        open={legalModal.open} 
+        onClose={handleLegalClose} 
+        type={legalModal.type} 
+      />
     </>
   );
 };

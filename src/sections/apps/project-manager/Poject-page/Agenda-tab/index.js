@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography } from '@mui/material';
-import { useSelector } from 'store';
+import { useSelector, useDispatch } from 'store';
+import { getSingleProject } from 'store/reducers/projects';
 import { ViewList, CalendarMonth, DateRange } from '@mui/icons-material';
 
 // Components
@@ -10,6 +11,7 @@ import EventDetailsSection from './EventDetailsSection';
 import FullCalendarMonthView from './FullCalendarMonthView';
 import FullCalendarWeekView from './FullCalendarWeekView';
 import ScheduleExport from './components/ScheduleExport';
+import ImportOptionsDialog from './components/ImportOptionsDialog';
 
 // Hooks and utilities
 import { useAgendaState } from './hooks/useAgendaState';
@@ -26,7 +28,18 @@ const MemoizedFullCalendarWeekView = React.memo(FullCalendarWeekView);
 
 const AgendaTab = () => {
   const theme = useTheme();
+  const dispatch = useDispatch();
   const { singleProject: project } = useSelector((state) => state.projects);
+  
+  // Local state for import dialog
+  const [importDialogOpen, setImportDialogOpen] = React.useState(false);
+  const [importLoading, setImportLoading] = React.useState(false);
+  
+  // State for available roles and training plans
+  const [availableRoles, setAvailableRoles] = React.useState([]);
+  const [rolesLoading, setRolesLoading] = React.useState(false);
+  const [availableTrainingPlans, setAvailableTrainingPlans] = React.useState([]);
+  const [trainingPlansLoading, setTrainingPlansLoading] = React.useState(false);
   
   // Custom hooks for state and operations
   const {
@@ -42,14 +55,71 @@ const AgendaTab = () => {
 
   const { importCurriculumSchedule } = useEventOperations(project?.id);
 
-  // Handle import with error handling
-  const handleImportFromCurriculum = async () => {
-    try {
-      await importCurriculumSchedule();
-      // Could add success notification here
-    } catch (error) {
-      console.error('Import failed:', error);
-      // Could add error notification here
+  // Fetch available roles and training plans when project changes
+  React.useEffect(() => {
+    const fetchProjectData = async () => {
+      if (!project?.id) return;
+      
+      // Fetch available roles
+      setRolesLoading(true);
+      try {
+        const rolesResponse = await fetch(`/api/projects/available-roles?projectId=${project.id}`);
+        const rolesData = await rolesResponse.json();
+        
+        if (rolesData.success) {
+          setAvailableRoles(rolesData.roles);
+        } else {
+          console.error('Failed to fetch available roles:', rolesData.error);
+        }
+      } catch (error) {
+        console.error('Error fetching available roles:', error);
+      } finally {
+        setRolesLoading(false);
+      }
+      
+      // Fetch available training plans
+      setTrainingPlansLoading(true);
+      try {
+        const plansResponse = await fetch(`/api/training-plans/fetch-for-project?projectId=${project.id}`);
+        const plansData = await plansResponse.json();
+        
+        if (plansData.success) {
+          setAvailableTrainingPlans(plansData.trainingPlans);
+        } else {
+          console.error('Failed to fetch training plans:', plansData.error);
+        }
+      } catch (error) {
+        console.error('Error fetching training plans:', error);
+      } finally {
+        setTrainingPlansLoading(false);
+      }
+    };
+
+    fetchProjectData();
+  }, [project?.id]);
+
+  // Handle opening import dialog
+  const handleOpenImportDialog = () => {
+    setImportDialogOpen(true);
+  };
+
+  // Handle closing import dialog
+  const handleCloseImportDialog = () => {
+    setImportDialogOpen(false);
+  };
+
+  // Handle import completion (called from dialog when import finishes)
+  const handleImportCompletion = async (result) => {
+    if (result.success) {
+      console.log(`Import completed: ${result.events?.length || 0} events created`);
+      if (result.warnings > 0) {
+        console.warn(`Import completed with ${result.warnings} warnings`);
+      }
+      // Refresh the project data to show new events
+      if (project?.id) {
+        await dispatch(getSingleProject(project.id));
+        console.log('Project data refreshed after import');
+      }
     }
   };
 
@@ -248,7 +318,7 @@ const AgendaTab = () => {
         <Button
           variant="outlined"
           size="small"
-          onClick={handleImportFromCurriculum}
+          onClick={handleOpenImportDialog}
           sx={{ ...buttonStyles.common, ...buttonStyles.outlined }}
         >
           Import
@@ -271,6 +341,18 @@ const AgendaTab = () => {
       >
         {renderViewContent()}
       </MainCard>
+
+      {/* Import Options Dialog */}
+      <ImportOptionsDialog
+        open={importDialogOpen}
+        onClose={handleCloseImportDialog}
+        onImport={handleImportCompletion}
+        projectId={project?.id}
+        projectGroups={project?.groups || []}
+        availableRoles={availableRoles}
+        availableTrainingPlans={availableTrainingPlans}
+        loading={trainingPlansLoading || rolesLoading}
+      />
 
       {/* View Schedule Dialog */}
       <Dialog

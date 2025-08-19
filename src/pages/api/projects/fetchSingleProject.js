@@ -2,7 +2,6 @@ import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   const { id } = req.body;
-  console.log(id)
   try {
     const project = await prisma.projects.findUnique({
       where: {
@@ -123,7 +122,6 @@ export default async function handler(req, res) {
     }
 
     res.status(200).json({ project });
-    console.log(`${project.title} project fetched successfully`);
   } catch (error) {
     console.error(error);
     res

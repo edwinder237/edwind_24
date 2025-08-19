@@ -21,7 +21,6 @@ export default async function handler(req, res) {
         "Participants successfully deleted from the database ",deletedProjectParticipants,
         deletedProjectParticipants
       );
-    console.log("Participants successfully deleted from the database ");
   } catch (error) {
     console.error(error);
     res.status(500).json(error.message);

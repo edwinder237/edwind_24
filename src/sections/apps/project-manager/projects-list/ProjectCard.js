@@ -179,8 +179,13 @@ const ProjectCard = ({ Project, projectId }) => {
                   height: 130,
                   textDecoration: "none",
                   opacity: 1,
+                  backgroundImage: Project?.backgroundImg && Project.backgroundImg.trim() !== "" 
+                    ? `url(${Project.backgroundImg})` 
+                    : 'url(https://images.unsplash.com/photo-1632668701519-46a3e6c0a299?q=80&w=2340&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat'
                 }}
-                image="https://f.hubspotusercontent30.net/hubfs/3277184/employee%20training%20and%20development.png"
               />
             </Box>
 

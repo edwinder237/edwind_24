@@ -9,12 +9,10 @@ import {
 } from '@mui/material';
 import {
   People as PeopleIcon,
-  AttachMoney as MoneyIcon,
   EmojiEvents as CertificateIcon,
 } from '@mui/icons-material';
 
 const EnrollmentSettings = ({ formData, onInputChange }) => {
-  const isFreeCourse = !formData.cost || parseFloat(formData.cost) === 0;
   const hasParticipantLimit = formData.maxParticipants && parseInt(formData.maxParticipants) > 0;
 
   return (
@@ -48,29 +46,6 @@ const EnrollmentSettings = ({ formData, onInputChange }) => {
             />
           </Box>
 
-          {/* Course Pricing */}
-          <Box>
-            <TextField
-              fullWidth
-              type="number"
-              label="Course Cost"
-              value={formData.cost}
-              onChange={(e) => onInputChange('cost', e.target.value)}
-              placeholder="0.00"
-              helperText={isFreeCourse 
-                ? "Course is free for all learners"
-                : `Course costs $${formData.cost} per participant`
-              }
-              inputProps={{ min: 0, step: 0.01 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <MoneyIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
 
           {/* Certification */}
           <Box>
@@ -96,7 +71,6 @@ const EnrollmentSettings = ({ formData, onInputChange }) => {
             <Typography variant="body2">
               <strong>Enrollment Summary:</strong><br/>
               • {hasParticipantLimit ? `Limited to ${formData.maxParticipants} participants` : 'Unlimited enrollment'}<br/>
-              • {isFreeCourse ? 'Free course' : `$${formData.cost} per participant`}<br/>
               • {formData.certification ? `Includes: ${formData.certification}` : 'No certification specified'}
             </Typography>
           </Alert>

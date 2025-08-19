@@ -32,8 +32,6 @@ export default async function handler(req, res) {
     const statusArray = status || req.query['status[]'];
     const topicsArray = topics || req.query['topics[]'];
 
-    console.log('API received query params:', req.query);
-    console.log('Projects filter:', projectsArray, 'Type:', typeof projectsArray);
 
     // Build where clause for events
     const eventWhere = {
@@ -48,13 +46,11 @@ export default async function handler(req, res) {
       const validProjectIds = projectIds.filter(id => id && id.toString().trim() !== '');
       
       if (validProjectIds.length > 0) {
-        console.log('Filtering by projects:', validProjectIds);
         eventWhere.projectId = {
           in: validProjectIds.map(id => parseInt(id))
         };
       }
     } else if (projectId) {
-      console.log('Filtering by single projectId:', projectId);
       eventWhere.projectId = parseInt(projectId);
     }
 

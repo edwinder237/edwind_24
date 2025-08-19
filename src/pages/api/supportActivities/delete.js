@@ -42,8 +42,6 @@ export default async function handler(req, res) {
       message: 'Support activity deleted successfully',
       supportActivity: deletedActivity
     });
-
-    console.log(`Support activity "${deletedActivity.title}" deleted successfully`);
   } catch (error) {
     console.error('Error deleting support activity:', error);
     res.status(500).json({ 

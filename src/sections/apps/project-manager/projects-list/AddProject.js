@@ -83,7 +83,8 @@ const getInitialValues = (project) => {
       location: project.location || "",
       trainingRecipient: project.trainingRecipientId ? project.trainingRecipientId.toString() : "",
       instructor: project.instructorId ? project.instructorId.toString() : "",
-      shared: project.published !== undefined ? project.published : project.sharing || true
+      shared: project.published !== undefined ? project.published : project.sharing || true,
+      backgroundImg: project.backgroundImg || ""
     };
   }
   
@@ -97,7 +98,8 @@ const getInitialValues = (project) => {
     location: "",
     trainingRecipient: "",
     instructor: "",
-    shared: true
+    shared: true,
+    backgroundImg: ""
   };
 
   return newProject;
@@ -262,7 +264,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           projectStatus: "started",
           startDate: projectStartDate,
           endDate: projectEndDate,
-          backgroundImg: "",
+          backgroundImg: values.backgroundImg || "",
           color: "",
           language: values.language,
           location: projectLocation,
@@ -283,7 +285,8 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             location: projectLocation,
             trainingRecipientId: selectedTrainingRecipient ? selectedTrainingRecipient.id : null,
             instructorId: selectedInstructor ? selectedInstructor.id : null,
-            sharing: values.shared
+            sharing: values.shared,
+            backgroundImg: values.backgroundImg || ""
           };
           
           dispatch(updateProject(updateData)).then(async (result) => {
@@ -669,6 +672,18 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
 
           <Grid item xs={12}>
             <Typography variant="subtitle1" gutterBottom>
+              Background Image URL
+            </Typography>
+            <TextField
+              fullWidth
+              placeholder="Enter image URL for project card (e.g., https://example.com/image.jpg)"
+              {...getFieldProps("backgroundImg")}
+              helperText="Optional: Add a custom image URL for your project card"
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
               Description
             </Typography>
             <Box sx={{ 
@@ -776,6 +791,14 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                     {selectedInstructor ? `${selectedInstructor.firstName} ${selectedInstructor.lastName}` : 'Not selected'}
                   </Typography>
                 </Grid>
+                {formik.values.backgroundImg && (
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="textSecondary">Background Image:</Typography>
+                    <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
+                      {formik.values.backgroundImg}
+                    </Typography>
+                  </Grid>
+                )}
               </Grid>
             </Paper>
           </Grid>

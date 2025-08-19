@@ -26,12 +26,6 @@ export default async function handler(req, res) {
       },
     });
 
-    // Debug: Log maxParticipants values
-    console.log("Courses maxParticipants:", courses.map(course => ({ 
-      id: course.id, 
-      title: course.title, 
-      maxParticipants: course.maxParticipants 
-    })));
 
     res.status(200).json(courses );
   } catch (error) {

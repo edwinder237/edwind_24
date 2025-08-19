@@ -79,7 +79,6 @@ const getInitialValues = (course) => {
     courseStatus: 'draft',
     CourseType: '',
     targetAudience: '',
-    cost: '',
     maxParticipants: '',
     code: '',
     tags: '',
@@ -120,7 +119,7 @@ const steps = [
   },
   {
     label: 'Details & Settings',
-    description: 'Cost, participants, and audience',
+    description: 'Participants and audience settings',
     icon: <SettingOutlined />
   },
   {

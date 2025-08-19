@@ -58,8 +58,6 @@ export default async function handler(req, res) {
       message: 'Support activity created successfully',
       supportActivity
     });
-
-    console.log(`Support activity "${supportActivity.title}" created for curriculum "${curriculum.title}"`);
   } catch (error) {
     console.error('Error creating support activity:', error);
     res.status(500).json({ 

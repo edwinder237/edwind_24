@@ -246,12 +246,13 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="md"
+      maxWidth="sm"
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: 2,
-          maxHeight: '90vh'
+          maxHeight: '85vh',
+          height: 'auto'
         }
       }}
     >
@@ -268,13 +269,54 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
             >
               {selectedEventType?.icon}
             </Avatar>
-            <Box>
+            <Box sx={{ flex: 1 }}>
               <Typography variant="h6" fontWeight={600}>
                 Edit Event
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {event && formatDateTime(event.start)}
               </Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+                Event Color
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {colorOptions.slice(0, 8).map((color) => (
+                  <Box
+                    key={color.name}
+                    onClick={() => handleColorChange(color.value)}
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 0.5,
+                      bgcolor: color.value,
+                      cursor: 'pointer',
+                      border: formData.color === color.value ? `2px solid ${theme.palette.text.primary}` : '1px solid transparent',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      '&:hover': {
+                        transform: 'scale(1.05)'
+                      }
+                    }}
+                  >
+                    {formData.color === color.value && (
+                      <Typography 
+                        sx={{ 
+                          color: 'white', 
+                          fontSize: 10, 
+                          fontWeight: 'bold',
+                          textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
+                        }}
+                      >
+                        ✓
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              </Box>
             </Box>
           </Stack>
         }
@@ -285,13 +327,18 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         }
         sx={{
           m: 0,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
           '& .MuiCardContent-root': {
-            p: 0
+            p: 0,
+            flex: 1,
+            overflow: 'auto'
           }
         }}
       >
-        <Box sx={{ p: 3 }}>
-          <Grid container spacing={3}>
+        <Box sx={{ p: 3, flex: 1, overflow: 'auto' }}>
+          <Grid container spacing={2}>
             {/* Basic Information */}
             <Grid item xs={12}>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
@@ -300,7 +347,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
             </Grid>
 
             {/* Event Title */}
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} sm={8}>
               <TextField
                 fullWidth
                 label="Event Title"
@@ -318,7 +365,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
             </Grid>
 
             {/* Event Type */}
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>Event Type</InputLabel>
                 <Select
@@ -379,7 +426,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
             </Grid>
 
             {/* Start Time */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Start Time"
@@ -399,7 +446,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
             </Grid>
 
             {/* End Time */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="End Time"
@@ -414,6 +461,32 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                   startAdornment: (
                     <AccessTime sx={{ mr: 1, color: 'text.secondary' }} />
                   )
+                }}
+              />
+            </Grid>
+
+            {/* Duration Display */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Duration"
+                value={(() => {
+                  if (!formData.start || !formData.end) return '';
+                  const start = new Date(formData.start);
+                  const end = new Date(formData.end);
+                  const diffMs = end - start;
+                  const diffMins = Math.round(diffMs / 60000);
+                  if (diffMins < 60) return `${diffMins} minutes`;
+                  const hours = Math.floor(diffMins / 60);
+                  const mins = diffMins % 60;
+                  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+                })()}
+                disabled
+                helperText="Duration is automatically calculated from start and end times"
+                sx={{
+                  '& .MuiInputBase-input.Mui-disabled': {
+                    WebkitTextFillColor: theme.palette.text.secondary,
+                  }
                 }}
               />
             </Grid>
@@ -478,81 +551,34 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
               />
             </Grid>
 
-            {/* Appearance Section */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Appearance
-              </Typography>
-            </Grid>
-
-            {/* Color Picker */}
-            <Grid item xs={12}>
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  <Palette sx={{ mr: 1, verticalAlign: 'middle', fontSize: 18 }} />
-                  Event Color
-                </Typography>
-                <Grid container spacing={1}>
-                  {colorOptions.map((color) => (
-                    <Grid item key={color.name}>
-                      <Box
-                        onClick={() => handleColorChange(color.value)}
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 1,
-                          bgcolor: color.value,
-                          cursor: 'pointer',
-                          border: formData.color === color.value ? `3px solid ${theme.palette.text.primary}` : '2px solid transparent',
-                          transition: 'all 0.2s ease',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          '&:hover': {
-                            transform: 'scale(1.1)',
-                            boxShadow: theme.shadows[2]
-                          }
-                        }}
-                      >
-                        {formData.color === color.value && (
-                          <Typography 
-                            sx={{ 
-                              color: 'white', 
-                              fontSize: 16, 
-                              fontWeight: 'bold',
-                              textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
-                            }}
-                          >
-                            ✓
-                          </Typography>
-                        )}
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-            </Grid>
           </Grid>
 
-          {/* Actions */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4, pt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
-            <Button
-              variant="outlined"
-              onClick={handleClose}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={loading || !formData.title.trim()}
-              startIcon={<Save />}
-            >
-              {loading ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </Box>
+        </Box>
+        
+        {/* Actions - Fixed at bottom */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          gap: 2, 
+          p: 2, 
+          borderTop: `1px solid ${theme.palette.divider}`,
+          backgroundColor: 'background.paper'
+        }}>
+          <Button
+            variant="outlined"
+            onClick={handleClose}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmit}
+            disabled={loading || !formData.title.trim()}
+            startIcon={<Save />}
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
         </Box>
       </MainCard>
     </Dialog>

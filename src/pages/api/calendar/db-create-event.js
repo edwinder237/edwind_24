@@ -10,7 +10,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Project ID is required" });
       }
       
-      console.log('Creating event:', newEvent)
       const event = {
         title: newEvent.title,
         description: newEvent.description,
@@ -29,7 +28,6 @@ export default async function handler(req, res) {
         ...(newEvent.courseId && { course: {connect: {id: parseInt(newEvent.courseId)}} }),
         ...(newEvent.supportActivityId && { supportActivity: {connect: {id: parseInt(newEvent.supportActivityId)}} })
       };
-      console.log(event)
        await prisma.events.create({
         data: event,
 
@@ -37,7 +35,6 @@ export default async function handler(req, res) {
       
   
       res.status(200).json(`${newEvent.title} Event created and saved to database`);
-      console.log(`${newEvent.title} Event created and saved to database`);
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Internal Server Error" });

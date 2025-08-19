@@ -546,7 +546,7 @@ const CurriculumsPage = () => {
 
                     <Typography variant="caption" color="text.secondary">
                       Created {new Date(curriculum.createdAt).toLocaleDateString()}
-                      {curriculum.updatedAt && curriculum.updatedAt !== curriculum.createdAt && (
+                      {curriculum.updatedAt && (
                         <span> • Updated {new Date(curriculum.updatedAt).toLocaleDateString()}</span>
                       )}
                     </Typography>

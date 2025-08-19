@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { Chip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import Avatar from 'components/@extended/Avatar';
 import LinearWithLabel from 'components/@extended/progress/LinearWithLabel';
 import ToolAccessCell from '../components/ToolAccessCell';
+import RoleDropdownCell from '../components/RoleDropdownCell';
 import { IndeterminateCheckbox } from 'components/third-party/ReactTable';
 import {
   roundedMedian,
@@ -12,14 +12,6 @@ import {
   SliderColumnFilter,
 } from 'utils/react-table';
 
-// Avatar Cell Component
-const CellAvatar = ({ value }) => (
-  <Avatar
-    alt="Avatar 1"
-    size="sm"
-    src={`/assets/images/users/avatar-${!value ? 1 : value}.png`}
-  />
-);
 
 // Selection Header Component
 const SelectionHeader = ({ getToggleAllPageRowsSelectedProps }) => (
@@ -37,7 +29,7 @@ const SelectionCell = ({ row }) => (
 /**
  * Hook to generate table column configuration
  */
-export const useTableColumns = (onRefresh) => {
+export const useTableColumns = (onRefresh, availableRoles = [], rolesLoading = false) => {
   const theme = useTheme();
 
   return useMemo(() => [
@@ -63,21 +55,12 @@ export const useTableColumns = (onRefresh) => {
       disableGroupBy: true,
     },
     {
-      Header: "Avatar",
-      Footer: "Avatar",
-      accessor: "avatar",
-      className: "cell-center",
-      disableSortBy: true,
-      disableFilters: true,
-      disableGroupBy: true,
-      Cell: CellAvatar,
-    },
-    {
       Header: "First Name",
       Footer: "First Name",
       accessor: "participant.firstName",
       dataType: "text",
       disableGroupBy: true,
+      disableFilters: true,
       aggregate: "count",
       Aggregated: ({ value }) => `${value} Person`,
     },
@@ -86,23 +69,27 @@ export const useTableColumns = (onRefresh) => {
       Footer: "Last Name",
       accessor: "participant.lastName",
       dataType: "text",
-      filter: "fuzzyText",
+      disableFilters: true,
       disableGroupBy: true,
       Cell: ({ row, value }) => value,
     },
     {
-      Header: "role",
-      Footer: "role",
+      Header: "Role",
+      Footer: "Role",
       dataType: "text",
       accessor: "participant.role",
       disableFilters: true,
       disableGroupBy: true,
-      Cell: ({ value }) => {
-        // Handle case where role is an object or string
-        if (typeof value === 'object' && value !== null) {
-          return value.title || value.name || 'Unknown Role';
-        }
-        return value || 'N/A';
+      Cell: ({ value, row }) => {
+        return (
+          <RoleDropdownCell 
+            value={value} 
+            row={row} 
+            onUpdate={onRefresh} 
+            availableRoles={availableRoles}
+            rolesLoading={rolesLoading}
+          />
+        );
       },
     },
     {
@@ -178,6 +165,7 @@ export const useTableColumns = (onRefresh) => {
       dataType: "text",
       accessor: "participant.note",
       disableGroupBy: true,
+      disableFilters: true,
       Cell: ({ value }) => {
         // Handle notes value - ensure it's rendered as string
         if (typeof value === 'object' && value !== null) {
@@ -186,5 +174,23 @@ export const useTableColumns = (onRefresh) => {
         return value || '';
       },
     },
-  ], [onRefresh, theme]);
+    {
+      Header: "Tool Access",
+      Footer: "Tool Access",
+      accessor: "participant.toolAccesses",
+      dataType: "text",
+      disableFilters: true,
+      disableGroupBy: true,
+      show: false,
+      Cell: ({ value, row }) => {
+        return (
+          <ToolAccessCell 
+            value={value} 
+            row={row} 
+            onUpdate={onRefresh}
+          />
+        );
+      },
+    },
+  ], [onRefresh, theme, availableRoles, rolesLoading]);
 };

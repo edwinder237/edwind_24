@@ -147,6 +147,7 @@ model projects {
   project_instructors project_instructors[]
   project_settings    project_settings?
   checklist_progress  project_course_checklist_progress[]
+  training_plans      training_plans[]
   user                User                   @relation(fields: [CreatedBy], references: [id])
   sub_organization    sub_organizations      @relation(fields: [sub_organizationId], references: [id])
   training_recipient  training_recipients?   @relation(fields: [trainingRecipientId], references: [id])
@@ -364,11 +365,13 @@ model courses {
   course_instructors        course_instructors[]
   course_checklist_items    course_checklist_items[]
   course_participant_roles  course_participant_roles[]
+  course_objectives         course_objectives[]
   sub_organizationInfo      sub_organizations           @relation(fields: [sub_organizationId], references: [id])
   courses_enrollee_progress courses_enrollee_progress[]
   curriculum_courses        curriculum_courses[]
   events                    events[]
   modules                   modules[]
+  training_plan_modules     training_plan_modules[]
 
   @@index([sub_organizationId])
   @@index([isActive])
@@ -410,6 +413,8 @@ model modules {
   activities             activities[]
   course_checklist_items course_checklist_items[]
   module_participant_roles module_participant_roles[]
+  module_objectives      module_objectives[]
+  training_plan_modules  training_plan_modules[]
   course                 courses            @relation(fields: [courseId], references: [id])
 
   @@index([courseId])
@@ -428,6 +433,7 @@ model curriculums {
   project_curriculums project_curriculums[]
   group_curriculums   group_curriculums[]
   supportActivities   supportActivities[]
+  training_plans      training_plans[]
 }
 
 model curriculum_courses {
@@ -551,6 +557,7 @@ model supportActivities {
   updatedBy      String?
   curriculum     curriculums @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
   events         events[]
+  training_plan_modules training_plan_modules[]
 
   @@index([curriculumId])
   @@index([activityType])
@@ -735,5 +742,100 @@ model project_course_checklist_progress {
   @@index([projectId])
   @@index([checklistItemId])
   @@index([completed])
+}
+
+model course_objectives {
+  id          Int      @id @default(autoincrement())
+  courseId    Int
+  objective   String   @db.Text
+  objectiveOrder Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  course      courses  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([objectiveOrder])
+}
+
+model module_objectives {
+  id          Int      @id @default(autoincrement())
+  moduleId    Int
+  objective   String   @db.Text
+  objectiveOrder Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  module      modules  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId])
+  @@index([objectiveOrder])
+}
+
+model training_plans {
+  id           Int                     @id @default(autoincrement())
+  curriculumId Int
+  projectId    Int?
+  title        String
+  description  String?
+  totalDays    Int                     @default(5)
+  status       String                  @default("draft") // draft, active, completed, archived
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  createdBy    String
+  updatedBy    String?
+  curriculum   curriculums             @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  project      projects?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  days         training_plan_days[]
+
+  @@unique([curriculumId, projectId])
+  @@index([curriculumId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model training_plan_days {
+  id             Int                      @id @default(autoincrement())
+  trainingPlanId Int
+  dayNumber      Int
+  dayTitle       String?
+  dayDescription String?
+  date           DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  trainingPlan   training_plans           @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  modules        training_plan_modules[]
+
+  @@unique([trainingPlanId, dayNumber])
+  @@index([trainingPlanId])
+  @@index([dayNumber])
+}
+
+model training_plan_modules {
+  id                Int                 @id @default(autoincrement())
+  trainingPlanDayId Int
+  moduleId          Int?
+  courseId          Int?
+  supportActivityId Int?
+  customTitle       String?
+  customDuration    Int?
+  moduleOrder       Int
+  activities        Json?               // Store custom activities as JSON
+  learningObjectives Json?              // Store custom learning objectives as JSON
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  day               training_plan_days  @relation(fields: [trainingPlanDayId], references: [id], onDelete: Cascade)
+  module            modules?            @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  course            courses?            @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  supportActivity   supportActivities?  @relation(fields: [supportActivityId], references: [id], onDelete: SetNull)
+
+  @@index([trainingPlanDayId])
+  @@index([moduleId])
+  @@index([courseId])
+  @@index([supportActivityId])
+  @@index([moduleOrder])
 }
 

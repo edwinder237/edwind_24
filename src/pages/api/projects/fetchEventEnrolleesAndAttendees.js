@@ -68,7 +68,6 @@ export default async function handler(req, res) {
     };
 
     res.status(200).json(event);
-    console.log("Enrollees progress fetched successfully", courseId,eventId);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error " });

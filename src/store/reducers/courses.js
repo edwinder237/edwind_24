@@ -29,6 +29,11 @@ const initialState = {
   checklistLoading: false,
   modulesOrderLoading: false,
   activitiesOrderLoading: false,
+  courseObjectives: [],
+  moduleObjectives: {},
+  trainingPlans: [],
+  currentTrainingPlan: null,
+  trainingPlanLoading: false,
 };
 
 // ==============================|| SLICE - KANBAN ||============================== //
@@ -368,6 +373,100 @@ const slice = createSlice({
 
     setActivitiesOrderLoading(state, action) {
       state.activitiesOrderLoading = action.payload;
+    },
+
+    // COURSE OBJECTIVES
+    getCourseObjectivesSuccess(state, action) {
+      state.courseObjectives = action.payload;
+    },
+
+    addCourseObjectiveSuccess(state, action) {
+      state.courseObjectives.push(action.payload);
+    },
+
+    updateCourseObjectiveSuccess(state, action) {
+      const index = state.courseObjectives.findIndex(obj => obj.id === action.payload.id);
+      if (index !== -1) {
+        state.courseObjectives[index] = action.payload;
+      }
+    },
+
+    deleteCourseObjectiveSuccess(state, action) {
+      state.courseObjectives = state.courseObjectives.filter(obj => obj.id !== action.payload);
+    },
+
+    // MODULE OBJECTIVES
+    getModuleObjectivesSuccess(state, action) {
+      const { moduleId, objectives } = action.payload;
+      state.moduleObjectives[moduleId] = objectives;
+    },
+
+    addModuleObjectiveSuccess(state, action) {
+      const { moduleId, objective } = action.payload;
+      if (!state.moduleObjectives[moduleId]) {
+        state.moduleObjectives[moduleId] = [];
+      }
+      state.moduleObjectives[moduleId].push(objective);
+    },
+
+    updateModuleObjectiveSuccess(state, action) {
+      const { moduleId, objective } = action.payload;
+      if (state.moduleObjectives[moduleId]) {
+        const index = state.moduleObjectives[moduleId].findIndex(obj => obj.id === objective.id);
+        if (index !== -1) {
+          state.moduleObjectives[moduleId][index] = objective;
+        }
+      }
+    },
+
+    deleteModuleObjectiveSuccess(state, action) {
+      const { moduleId, objectiveId } = action.payload;
+      if (state.moduleObjectives[moduleId]) {
+        state.moduleObjectives[moduleId] = state.moduleObjectives[moduleId].filter(obj => obj.id !== objectiveId);
+      }
+    },
+
+    // Training Plans reducers
+    setTrainingPlanLoading(state, action) {
+      state.trainingPlanLoading = action.payload;
+    },
+
+    fetchTrainingPlansSuccess(state, action) {
+      state.trainingPlans = action.payload;
+      state.trainingPlanLoading = false;
+    },
+
+    fetchTrainingPlanSuccess(state, action) {
+      state.currentTrainingPlan = action.payload;
+      state.trainingPlanLoading = false;
+    },
+
+    createTrainingPlanSuccess(state, action) {
+      state.trainingPlans.push(action.payload);
+      state.currentTrainingPlan = action.payload;
+      state.trainingPlanLoading = false;
+    },
+
+    updateTrainingPlanSuccess(state, action) {
+      const updatedPlan = action.payload;
+      state.trainingPlans = state.trainingPlans.map(plan => 
+        plan.id === updatedPlan.id ? updatedPlan : plan
+      );
+      state.currentTrainingPlan = updatedPlan;
+      state.trainingPlanLoading = false;
+    },
+
+    deleteTrainingPlanSuccess(state, action) {
+      const deletedId = action.payload;
+      state.trainingPlans = state.trainingPlans.filter(plan => plan.id !== deletedId);
+      if (state.currentTrainingPlan?.id === deletedId) {
+        state.currentTrainingPlan = null;
+      }
+      state.trainingPlanLoading = false;
+    },
+
+    clearCurrentTrainingPlan(state) {
+      state.currentTrainingPlan = null;
     },
   },
 });
@@ -742,66 +841,7 @@ export function updateActivitiesOrder(
   };
 }
 
-/// NOTE USED //
-
-export function getColumnsOrder() {
-  return async () => {
-    try {
-      const response = await axios.get("/api/kanban/columns-order");
-      dispatch(
-        slice.actions.getColumnsOrderSuccess(response.data.columnsOrder)
-      );
-    } catch (error) {
-      dispatch(slice.actions.hasError(getErrorMessage(error)));
-    }
-  };
-}
-
-export function getComments() {
-  return async () => {
-    try {
-      const response = await axios.get("/api/kanban/comments");
-      dispatch(slice.actions.getCommentsSuccess(response.data.comments));
-    } catch (error) {
-      dispatch(slice.actions.hasError(getErrorMessage(error)));
-    }
-  };
-}
-
-export function getProfiles() {
-  return async () => {
-    try {
-      const response = await axios.get("/api/kanban/profiles");
-      dispatch(slice.actions.getProfilesSuccess(response.data.profiles));
-    } catch (error) {
-      dispatch(slice.actions.hasError(getErrorMessage(error)));
-    }
-  };
-}
-
-export function getUserStory() {
-  return async () => {
-    try {
-      const response = await axios.get("/api/kanban/userstory");
-      dispatch(slice.actions.getUserStorySuccess(response.data.userStory));
-    } catch (error) {
-      dispatch(slice.actions.hasError(getErrorMessage(error)));
-    }
-  };
-}
-
-export function getUserStoryOrder() {
-  return async () => {
-    try {
-      const response = await axios.get("/api/kanban/userstory-order");
-      dispatch(
-        slice.actions.getUserStoryOrderSuccess(response.data.userStoryOrder)
-      );
-    } catch (error) {
-      dispatch(slice.actions.hasError(getErrorMessage(error)));
-    }
-  };
-}
+/// REMOVED UNUSED KANBAN FUNCTIONS ///
 
 export function addColumn(column, columns, columnsOrder) {
   return async () => {
@@ -1387,3 +1427,395 @@ export function deleteChecklistItem(itemId) {
   };
 }
 
+
+// ==============================|| COURSE OBJECTIVES ||============================== //
+
+export function getCourseObjectives(courseId) {
+  return async () => {
+    try {
+      const response = await axios.get(`/api/courses/course-objectives?courseId=${courseId}`);
+      dispatch(slice.actions.getCourseObjectivesSuccess(response.data.objectives));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to fetch course objectives'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function addCourseObjective(courseId, objective, createdBy) {
+  return async () => {
+    try {
+      const response = await axios.post('/api/courses/course-objectives', {
+        courseId,
+        objective,
+        createdBy
+      });
+      dispatch(slice.actions.addCourseObjectiveSuccess(response.data.objective));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Course objective added successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to add course objective'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function updateCourseObjective(id, objective, updatedBy) {
+  return async () => {
+    try {
+      const response = await axios.put('/api/courses/course-objectives', {
+        id,
+        objective,
+        updatedBy
+      });
+      dispatch(slice.actions.updateCourseObjectiveSuccess(response.data.objective));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Course objective updated successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to update course objective'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function deleteCourseObjective(id) {
+  return async () => {
+    try {
+      await axios.delete(`/api/courses/course-objectives?id=${id}`);
+      dispatch(slice.actions.deleteCourseObjectiveSuccess(id));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Course objective deleted successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to delete course objective'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+// ==============================|| MODULE OBJECTIVES ||============================== //
+
+export function getModuleObjectives(moduleId) {
+  return async () => {
+    try {
+      const response = await axios.get(`/api/courses/module-objectives?moduleId=${moduleId}`);
+      dispatch(slice.actions.getModuleObjectivesSuccess({ 
+        moduleId, 
+        objectives: response.data.objectives 
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to fetch module objectives'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function addModuleObjective(moduleId, objective, createdBy) {
+  return async () => {
+    try {
+      const response = await axios.post('/api/courses/module-objectives', {
+        moduleId,
+        objective,
+        createdBy
+      });
+      dispatch(slice.actions.addModuleObjectiveSuccess({ 
+        moduleId, 
+        objective: response.data.objective 
+      }));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Module objective added successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to add module objective'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function updateModuleObjective(moduleId, id, objective, updatedBy) {
+  return async () => {
+    try {
+      const response = await axios.put('/api/courses/module-objectives', {
+        id,
+        objective,
+        updatedBy
+      });
+      dispatch(slice.actions.updateModuleObjectiveSuccess({ 
+        moduleId, 
+        objective: response.data.objective 
+      }));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Module objective updated successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to update module objective'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function deleteModuleObjective(moduleId, id) {
+  return async () => {
+    try {
+      await axios.delete(`/api/courses/module-objectives?id=${id}`);
+      dispatch(slice.actions.deleteModuleObjectiveSuccess({ 
+        moduleId, 
+        objectiveId: id 
+      }));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Module objective deleted successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to delete module objective'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+// Training Plan Actions
+export function fetchTrainingPlans(curriculumId, projectId = null) {
+  return async () => {
+    try {
+      dispatch(slice.actions.setTrainingPlanLoading(true));
+      const params = new URLSearchParams();
+      params.append('curriculumId', curriculumId);
+      if (projectId) params.append('projectId', projectId);
+      
+      const response = await axios.get(`/api/training-plans/fetch?${params}`);
+      dispatch(slice.actions.fetchTrainingPlansSuccess(response.data.data));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(slice.actions.setTrainingPlanLoading(false));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to fetch training plans'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function fetchTrainingPlan(id) {
+  return async () => {
+    try {
+      dispatch(slice.actions.setTrainingPlanLoading(true));
+      const response = await axios.get(`/api/training-plans/fetch?id=${id}`);
+      dispatch(slice.actions.fetchTrainingPlanSuccess(response.data.data));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(slice.actions.setTrainingPlanLoading(false));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to fetch training plan'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}
+
+export function createTrainingPlan(trainingPlanData) {
+  return async () => {
+    try {
+      dispatch(slice.actions.setTrainingPlanLoading(true));
+      const response = await axios.post('/api/training-plans/create', trainingPlanData);
+      dispatch(slice.actions.createTrainingPlanSuccess(response.data.data));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Training plan created successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+      return response.data.data;
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(slice.actions.setTrainingPlanLoading(false));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to create training plan'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+      throw error;
+    }
+  };
+}
+
+export function updateTrainingPlan(trainingPlanData) {
+  return async () => {
+    try {
+      dispatch(slice.actions.setTrainingPlanLoading(true));
+      const response = await axios.put('/api/training-plans/update', trainingPlanData);
+      dispatch(slice.actions.updateTrainingPlanSuccess(response.data.data));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Training plan updated successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+      return response.data.data;
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(slice.actions.setTrainingPlanLoading(false));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to update training plan'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+      throw error;
+    }
+  };
+}
+
+export function deleteTrainingPlan(id) {
+  return async () => {
+    try {
+      dispatch(slice.actions.setTrainingPlanLoading(true));
+      await axios.delete(`/api/training-plans/delete?id=${id}`);
+      dispatch(slice.actions.deleteTrainingPlanSuccess(id));
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Training plan deleted successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      dispatch(slice.actions.setTrainingPlanLoading(false));
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to delete training plan'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+}

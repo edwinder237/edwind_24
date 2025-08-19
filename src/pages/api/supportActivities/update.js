@@ -62,8 +62,6 @@ export default async function handler(req, res) {
       message: 'Support activity updated successfully',
       supportActivity: updatedActivity
     });
-
-    console.log(`Support activity "${updatedActivity.title}" updated successfully`);
   } catch (error) {
     console.error('Error updating support activity:', error);
     res.status(500).json({ 

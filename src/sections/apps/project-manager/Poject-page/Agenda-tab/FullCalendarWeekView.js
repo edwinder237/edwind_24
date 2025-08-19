@@ -242,6 +242,69 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     }
   }, [project?.id, dispatch]);
 
+  // Handle delete event directly from calendar
+  const handleEventDelete = useCallback(async (eventId, e) => {
+    e?.stopPropagation();
+    
+    if (!window.confirm('Are you sure you want to delete this event?')) {
+      return;
+    }
+    
+    try {
+      // Show loading state immediately
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Deleting event...',
+          variant: 'alert',
+          alert: { color: 'info' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+        })
+      );
+
+      const response = await fetch('/api/calendar/db-delete-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete event');
+      }
+
+      // Only refresh calendar events, not the entire project
+      if (project?.id) {
+        await dispatch(getEvents(project.id));
+      }
+
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Event deleted successfully',
+          variant: 'alert',
+          alert: { color: 'success' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+          autoHideDuration: 2000
+        })
+      );
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Failed to delete event',
+          variant: 'alert',
+          alert: { color: 'error' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+        })
+      );
+    }
+  }, [project?.id, dispatch]);
+
   // Custom event content
   const renderEventContent = (eventInfo) => {
     const event = eventInfo.event;
@@ -256,9 +319,47 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           cursor: 'pointer',
           display: 'flex',
           flexDirection: 'column',
-          gap: '2px'
+          gap: '2px',
+          position: 'relative'
         }}
       >
+        {/* Delete button */}
+        <Box
+          onClick={(e) => handleEventDelete(event.id, e)}
+          sx={{
+            position: 'absolute',
+            top: 2,
+            right: 2,
+            width: 16,
+            height: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            cursor: 'pointer',
+            opacity: 0,
+            transition: 'opacity 0.2s ease',
+            '.fc-event:hover &': {
+              opacity: 1
+            },
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              transform: 'scale(1.1)'
+            },
+            zIndex: 10
+          }}
+        >
+          <Typography sx={{ 
+            fontSize: '10px', 
+            lineHeight: 1, 
+            color: 'red',
+            fontWeight: 'bold'
+          }}>
+            ×
+          </Typography>
+        </Box>
+
         <Typography 
           sx={{ 
             fontSize: '0.8rem',
@@ -268,7 +369,8 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             color: 'inherit',
-            letterSpacing: '0.01em'
+            letterSpacing: '0.01em',
+            pr: 2 // Add padding to prevent overlap with delete button
           }}
         >
           {event.title}
@@ -308,25 +410,38 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         
         {/* Show groups if available */}
         {hasGroups && (
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 'auto', pt: 0.5 }}>
-            {event.extendedProps.event_groups.slice(0, 3).map((eg, idx) => 
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 'auto', pt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
+            {event.extendedProps.event_groups.slice(0, 2).map((eg, idx) => 
               eg.groups ? (
-                <Box
-                  key={idx}
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 0,
-                    bgcolor: eg.groups.chipColor || theme.palette.common.white,
-                    border: `1px solid ${alpha(theme.palette.common.white, 0.4)}`,
-                    boxShadow: `0 0 2px ${alpha(theme.palette.common.black, 0.1)}`
-                  }}
-                />
+                <Stack key={idx} direction="row" alignItems="center" spacing={0.3}>
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      bgcolor: eg.groups.chipColor || theme.palette.common.white,
+                      border: `1px solid ${alpha(theme.palette.common.white, 0.6)}`,
+                      boxShadow: `0 0 1px ${alpha(theme.palette.common.black, 0.2)}`
+                    }}
+                  />
+                  <Typography sx={{ 
+                    fontSize: '0.6rem', 
+                    opacity: 0.95, 
+                    color: 'inherit', 
+                    fontWeight: 500,
+                    maxWidth: '60px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {eg.groups.groupName}
+                  </Typography>
+                </Stack>
               ) : null
             )}
-            {event.extendedProps.event_groups.length > 3 && (
-              <Typography sx={{ fontSize: '0.65rem', opacity: 0.9, color: 'inherit', fontWeight: 600 }}>
-                +{event.extendedProps.event_groups.length - 3}
+            {event.extendedProps.event_groups.length > 2 && (
+              <Typography sx={{ fontSize: '0.6rem', opacity: 0.9, color: 'inherit', fontWeight: 600 }}>
+                +{event.extendedProps.event_groups.length - 2}
               </Typography>
             )}
           </Stack>

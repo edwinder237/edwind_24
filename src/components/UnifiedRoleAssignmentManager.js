@@ -1,7 +1,101 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'utils/axios';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
+
+// Global cache and request deduplication with enhanced tracking
+class APICache {
+  constructor() {
+    this.cache = new Map();
+    this.pendingRequests = new Map();
+    this.requestCount = new Map(); // Track how many times each URL is requested
+    this.instances = new Set(); // Track component instances
+  }
+
+  registerInstance(id) {
+    this.instances.add(id);
+    console.log('🔗 Registered instance:', id, 'Total instances:', this.instances.size);
+  }
+
+  unregisterInstance(id) {
+    this.instances.delete(id);
+    console.log('🔗 Unregistered instance:', id, 'Total instances:', this.instances.size);
+  }
+
+  async get(url) {
+    // Track request count
+    const count = this.requestCount.get(url) || 0;
+    this.requestCount.set(url, count + 1);
+    
+    if (count > 0) {
+      console.log(`⚠️  DUPLICATE REQUEST #${count + 1} for:`, url);
+    }
+
+    // Check if request is already pending
+    if (this.pendingRequests.has(url)) {
+      console.log('🔄 Returning pending request:', url);
+      return this.pendingRequests.get(url);
+    }
+
+    // Check cache with longer duration
+    if (this.cache.has(url)) {
+      const cached = this.cache.get(url);
+      if (Date.now() - cached.timestamp < 30000) { // Increased to 30 second cache
+        console.log('✅ Cache hit:', url);
+        return cached.data;
+      }
+      this.cache.delete(url);
+    }
+
+    console.log('🌐 Making new API request:', url);
+    // Make request and cache promise
+    const promise = axios.get(url).then(response => {
+      this.cache.set(url, {
+        data: response,
+        timestamp: Date.now()
+      });
+      this.pendingRequests.delete(url);
+      return response;
+    }).catch(error => {
+      this.pendingRequests.delete(url);
+      throw error;
+    });
+
+    this.pendingRequests.set(url, promise);
+    return promise;
+  }
+
+  clear() {
+    this.cache.clear();
+    this.pendingRequests.clear();
+    this.requestCount.clear();
+  }
+
+  clearCourse(courseId) {
+    // Clear course-specific cache entries including bulk endpoint
+    for (const [url] of this.cache) {
+      if (url.includes(`courseId=${courseId}`) || url.includes(`moduleId=`) || url.includes('bulk-role-assignments')) {
+        this.cache.delete(url);
+      }
+    }
+    // Clear request counts for this course
+    for (const [url] of this.requestCount) {
+      if (url.includes(`courseId=${courseId}`) || url.includes(`moduleId=`) || url.includes('bulk-role-assignments')) {
+        this.requestCount.delete(url);
+      }
+    }
+  }
+
+  getStats() {
+    console.log('📊 API Cache Stats:');
+    console.log('  - Cache entries:', this.cache.size);
+    console.log('  - Pending requests:', this.pendingRequests.size);
+    console.log('  - Active instances:', this.instances.size);
+    console.log('  - Request counts:', Object.fromEntries(this.requestCount));
+  }
+}
+
+const apiCache = new APICache();
 import {
   Box,
   Card,
@@ -45,8 +139,9 @@ import {
   DownOutlined
 } from '@ant-design/icons';
 
-const UnifiedRoleAssignmentManager = ({ courseId, modules = [] }) => {
+const UnifiedRoleAssignmentManager = ({ courseId, modules = [], onRefresh }) => {
   const dispatch = useDispatch();
+  const instanceId = useRef(`role-mgr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const [courseAssignments, setCourseAssignments] = useState([]);
   const [moduleAssignments, setModuleAssignments] = useState({});
   const [availableRoles, setAvailableRoles] = useState([]);
@@ -58,67 +153,158 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [] }) => {
   const [error, setError] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [expandedModules, setExpandedModules] = useState(new Set());
+  const loadingRef = useRef(false);
+  const dataLoadedRef = useRef(false);
+  const lastLoadTime = useRef(0);
 
+  // Register this component instance
   useEffect(() => {
-    loadData();
-  }, [courseId]);
+    apiCache.registerInstance(instanceId.current);
+    return () => {
+      apiCache.unregisterInstance(instanceId.current);
+    };
+  }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    // Prevent multiple simultaneous calls and too frequent calls (min 2 seconds between calls)
+    const now = Date.now();
+    if (loadingRef.current || !courseId || (now - lastLoadTime.current < 2000)) {
+      console.log('⚡ loadData blocked:', { loading: loadingRef.current, courseId, timeSinceLastLoad: now - lastLoadTime.current });
+      return;
+    }
+    
     try {
+      console.log('🚀 Starting BULK loadData for course:', courseId, 'modules:', modules.length);
+      loadingRef.current = true;
+      lastLoadTime.current = now;
       setLoading(true);
       
-      // Load course assignments
-      const courseResponse = await axios.get(`/api/courses/manage-role-assignments?courseId=${courseId}`);
-      setCourseAssignments(courseResponse.data.assignments);
-      setAvailableRoles(courseResponse.data.availableRoles);
+      let courseAssignments, availableRoles, moduleAssignmentsData, moduleSelectedRolesData, moduleRoleRequirementsData;
       
-      // Load module assignments for each module
-      const moduleAssignmentsData = {};
-      const moduleSelectedRolesData = {};
-      const moduleRoleRequirementsData = {};
-      
-      for (const module of modules) {
-        try {
-          const moduleResponse = await axios.get(`/api/courses/manage-module-role-assignments?moduleId=${module.id}`);
-          moduleAssignmentsData[module.id] = moduleResponse.data.assignments;
+      try {
+        // 🎯 MAJOR OPTIMIZATION: Use new bulk endpoint to get ALL data in one request
+        const bulkResponse = await apiCache.get(`/api/courses/bulk-role-assignments?courseId=${courseId}`);
+        const { course, modules: moduleData, availableRoles: roles } = bulkResponse.data;
+        
+        console.log('✨ Bulk API response received:', {
+          courseAssignments: course.assignments.length,
+          moduleCount: moduleData.length,
+          availableRoles: roles.length,
+          totalQueries: bulkResponse.data.totalQueries
+        });
+        
+        // Set course data
+        courseAssignments = course.assignments;
+        availableRoles = roles;
+        
+        // Process module data from bulk response
+        moduleAssignmentsData = {};
+        moduleSelectedRolesData = {};
+        moduleRoleRequirementsData = {};
+        
+        moduleData.forEach((module) => {
+          moduleAssignmentsData[module.id] = module.assignments;
           
-          // Initialize module state
-          const assignedRoleIds = new Set(moduleResponse.data.assignments.map(a => a.roleId));
+          // Initialize module state - start with all course-assigned roles checked by default
+          const assignedRoleIds = new Set();
           const requirements = new Map();
           
-          moduleResponse.data.assignments.forEach(assignment => {
-            requirements.set(assignment.roleId, assignment.isRequired);
-          });
-          
-          courseResponse.data.availableRoles.forEach(role => {
-            if (!requirements.has(role.id)) {
-              requirements.set(role.id, true);
+          // Set all course roles as assigned by default
+          course.assignments.forEach(assignment => {
+            const role = roles.find(r => r.id === assignment.roleId);
+            if (role) {
+              assignedRoleIds.add(role.id);
+              // Use existing module assignment requirement if it exists, otherwise inherit from course
+              const existingModuleAssignment = module.assignments.find(a => a.roleId === role.id);
+              requirements.set(role.id, existingModuleAssignment ? existingModuleAssignment.isRequired : assignment.isRequired);
             }
           });
           
           moduleSelectedRolesData[module.id] = assignedRoleIds;
           moduleRoleRequirementsData[module.id] = requirements;
-        } catch (error) {
-          console.error(`Error loading assignments for module ${module.id}:`, error);
-          moduleAssignmentsData[module.id] = [];
-          moduleSelectedRolesData[module.id] = new Set();
-          moduleRoleRequirementsData[module.id] = new Map();
-        }
+        });
+        
+      } catch (bulkError) {
+        console.warn('⚠️ Bulk endpoint failed, falling back to individual requests:', bulkError.message);
+        
+        // FALLBACK: Use original individual requests
+        const courseResponse = await apiCache.get(`/api/courses/manage-role-assignments?courseId=${courseId}`);
+        courseAssignments = courseResponse.data.assignments;
+        availableRoles = courseResponse.data.availableRoles;
+        
+        // Load module assignments in parallel
+        const modulePromises = modules.map(async (module) => {
+          try {
+            const moduleResponse = await apiCache.get(`/api/courses/manage-module-role-assignments?moduleId=${module.id}`);
+            return { moduleId: module.id, response: moduleResponse, error: null };
+          } catch (error) {
+            console.error(`Error loading assignments for module ${module.id}:`, error);
+            return { moduleId: module.id, response: null, error };
+          }
+        });
+        
+        const moduleResults = await Promise.all(modulePromises);
+        
+        // Process fallback results
+        moduleAssignmentsData = {};
+        moduleSelectedRolesData = {};
+        moduleRoleRequirementsData = {};
+        
+        moduleResults.forEach(({ moduleId, response, error }) => {
+          if (response) {
+            moduleAssignmentsData[moduleId] = response.data.assignments;
+            
+            const assignedRoleIds = new Set();
+            const requirements = new Map();
+            
+            courseAssignments.forEach(assignment => {
+              const role = availableRoles.find(r => r.id === assignment.roleId);
+              if (role) {
+                assignedRoleIds.add(role.id);
+                const existingModuleAssignment = response.data.assignments.find(a => a.roleId === role.id);
+                requirements.set(role.id, existingModuleAssignment ? existingModuleAssignment.isRequired : assignment.isRequired);
+              }
+            });
+            
+            moduleSelectedRolesData[moduleId] = assignedRoleIds;
+            moduleRoleRequirementsData[moduleId] = requirements;
+          } else {
+            moduleAssignmentsData[moduleId] = [];
+            
+            const assignedRoleIds = new Set();
+            const requirements = new Map();
+            
+            courseAssignments.forEach(assignment => {
+              const role = availableRoles.find(r => r.id === assignment.roleId);
+              if (role) {
+                assignedRoleIds.add(role.id);
+                requirements.set(role.id, assignment.isRequired);
+              }
+            });
+            
+            moduleSelectedRolesData[moduleId] = assignedRoleIds;
+            moduleRoleRequirementsData[moduleId] = requirements;
+          }
+        });
       }
+      
+      // Apply the data regardless of which method was used
+      setCourseAssignments(courseAssignments);
+      setAvailableRoles(availableRoles);
       
       setModuleAssignments(moduleAssignmentsData);
       setModuleSelectedRoles(moduleSelectedRolesData);
       setModuleRoleRequirements(moduleRoleRequirementsData);
       
       // Initialize course state
-      const courseAssignedRoleIds = new Set(courseResponse.data.assignments.map(a => a.roleId));
+      const courseAssignedRoleIds = new Set(courseAssignments.map(a => a.roleId));
       const courseRequirements = new Map();
       
-      courseResponse.data.assignments.forEach(assignment => {
+      courseAssignments.forEach(assignment => {
         courseRequirements.set(assignment.roleId, assignment.isRequired);
       });
       
-      courseResponse.data.availableRoles.forEach(role => {
+      availableRoles.forEach(role => {
         if (!courseRequirements.has(role.id)) {
           courseRequirements.set(role.id, true);
         }
@@ -141,16 +327,104 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [] }) => {
       setError('Failed to load role assignments');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
+      dataLoadedRef.current = true;
     }
-  };
+  }, [courseId]);
+
+  useEffect(() => {
+    // Reset loading state when courseId changes
+    dataLoadedRef.current = false;
+    loadingRef.current = false;
+    
+    if (courseId) {
+      loadData();
+    }
+  }, [courseId, loadData]);
+
+  // Method to force refresh data (can be called externally)
+  const refreshData = useCallback(() => {
+    dataLoadedRef.current = false;
+    loadingRef.current = false;
+    lastLoadTime.current = 0; // Reset time limit
+    apiCache.clearCourse(courseId); // Clear course-specific cache
+    loadData();
+  }, [loadData, courseId]);
+
+  // Expose refresh method to parent component
+  useEffect(() => {
+    if (onRefresh) {
+      onRefresh(refreshData);
+    }
+  }, [onRefresh, refreshData]);
+
+  // Cleanup cache on unmount and log stats periodically
+  useEffect(() => {
+    const statsInterval = setInterval(() => {
+      apiCache.getStats();
+    }, 10000); // Log stats every 10 seconds
+
+    return () => {
+      clearInterval(statsInterval);
+      apiCache.clearCourse(courseId);
+    };
+  }, [courseId]);
 
   const handleCourseRoleToggle = (roleId) => {
     const newSelectedRoles = new Set(courseSelectedRoles);
-    if (newSelectedRoles.has(roleId)) {
+    const isRemoving = newSelectedRoles.has(roleId);
+    
+    if (isRemoving) {
       newSelectedRoles.delete(roleId);
+      
+      // If removing role from course, also remove it from all modules
+      const newModuleSelectedRoles = { ...moduleSelectedRoles };
+      const newModuleRequirements = { ...moduleRoleRequirements };
+      
+      modules.forEach(module => {
+        if (newModuleSelectedRoles[module.id]) {
+          newModuleSelectedRoles[module.id] = new Set(newModuleSelectedRoles[module.id]);
+          newModuleSelectedRoles[module.id].delete(roleId);
+        }
+        
+        if (newModuleRequirements[module.id]) {
+          const updatedRequirements = new Map(newModuleRequirements[module.id]);
+          updatedRequirements.delete(roleId);
+          newModuleRequirements[module.id] = updatedRequirements;
+        }
+      });
+      
+      setModuleSelectedRoles(newModuleSelectedRoles);
+      setModuleRoleRequirements(newModuleRequirements);
     } else {
       newSelectedRoles.add(roleId);
+      
+      // If adding role to course, add it to all modules by default
+      const newModuleSelectedRoles = { ...moduleSelectedRoles };
+      const newModuleRequirements = { ...moduleRoleRequirements };
+      const courseRequirement = courseRoleRequirements.get(roleId) ?? true;
+      
+      modules.forEach(module => {
+        if (newModuleSelectedRoles[module.id]) {
+          newModuleSelectedRoles[module.id] = new Set(newModuleSelectedRoles[module.id]);
+          newModuleSelectedRoles[module.id].add(roleId);
+        } else {
+          newModuleSelectedRoles[module.id] = new Set([roleId]);
+        }
+        
+        if (newModuleRequirements[module.id]) {
+          const updatedRequirements = new Map(newModuleRequirements[module.id]);
+          updatedRequirements.set(roleId, courseRequirement);
+          newModuleRequirements[module.id] = updatedRequirements;
+        } else {
+          newModuleRequirements[module.id] = new Map([[roleId, courseRequirement]]);
+        }
+      });
+      
+      setModuleSelectedRoles(newModuleSelectedRoles);
+      setModuleRoleRequirements(newModuleRequirements);
     }
+    
     setCourseSelectedRoles(newSelectedRoles);
     setHasChanges(true);
   };
@@ -316,15 +590,28 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [] }) => {
     setExpandedModules(newExpanded);
   };
 
-  const renderRoleList = (selectedRoles, roleRequirements, onRoleToggle, onRequirementToggle, prefix = '') => (
-    <Box sx={{ 
-      bgcolor: 'background.paper', 
-      border: '1px solid', 
-      borderColor: 'grey.200',
-      overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-    }}>
-      {availableRoles.map((role, index) => (
+  // Get roles that are assigned to the course (for module access filtering)
+  const getCourseAssignedRoles = useMemo(() => {
+    const assignedRoleIds = new Set(courseAssignments.map(a => a.roleId));
+    return availableRoles.filter(role => assignedRoleIds.has(role.id));
+  }, [courseAssignments, availableRoles]);
+
+  const renderRoleList = (selectedRoles, roleRequirements, onRoleToggle, onRequirementToggle, prefix = '', rolesToShow = null) => (
+    <List 
+      sx={{ 
+        bgcolor: 'background.paper', 
+        border: '1px solid', 
+        borderColor: 'grey.200',
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        padding: 0,
+        '& .MuiListItem-root': {
+          borderRadius: 0
+        }
+      }}
+      disablePadding
+    >
+      {(rolesToShow || availableRoles).map((role, index) => (
         <React.Fragment key={role.id}>
           <ListItem 
             sx={{ 
@@ -336,6 +623,7 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [] }) => {
               },
               backgroundColor: selectedRoles.has(role.id) ? 'primary.25' : 'transparent'
             }}
+            disableGutters
           >
             <ListItemIcon sx={{ minWidth: 48 }}>
               <Checkbox
@@ -417,7 +705,7 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [] }) => {
           )}
         </React.Fragment>
       ))}
-    </Box>
+    </List>
   );
 
   if (loading) {
@@ -525,7 +813,9 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [] }) => {
               courseSelectedRoles,
               courseRoleRequirements,
               handleCourseRoleToggle,
-              handleCourseRequirementToggle
+              handleCourseRequirementToggle,
+              '',
+              getCourseAssignedRoles
             )}
           </Box>
 
@@ -608,7 +898,9 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [] }) => {
                             moduleSelectedRoles[module.id] || new Set(),
                             moduleRoleRequirements[module.id] || new Map(),
                             (roleId) => handleModuleRoleToggle(module.id, roleId),
-                            (roleId) => handleModuleRequirementToggle(module.id, roleId)
+                            (roleId) => handleModuleRequirementToggle(module.id, roleId),
+                            '',
+                            getCourseAssignedRoles
                           )}
                         </Box>
                       )}

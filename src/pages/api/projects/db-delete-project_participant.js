@@ -28,7 +28,6 @@ export default async function handler(req, res) {
       message: "Participant successfully marked as removed",
       participant: updatedProjectParticipant
     });
-    console.log("Participant successfully marked as removed");
   } catch (error) {
     console.error('Error marking participant as removed:', error);
     res.status(500).json({ error: error.message });

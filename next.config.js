@@ -4,11 +4,32 @@
 
 const nextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'flagcdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ibb.co',
       },
     ],
   },
@@ -66,14 +87,7 @@ const nextConfig = {
     return config;
   },
   async redirects() {
-    // redirect - default first page should be `/projects` when root URL like http://example.com/
-    return [
-      {
-        source: '/',
-        destination: '/projects',
-        permanent: false
-      }
-    ];
+    return [];
   }
 };
 

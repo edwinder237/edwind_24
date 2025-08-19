@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Box, Typography, Grid, Button, Card, CardContent, CardHeader, Avatar, IconButton, Collapse, TextField, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, Stack } from '@mui/material';
-import { Add, VideocamOutlined, DescriptionOutlined, GroupOutlined, SlideshowOutlined, EditOutlined, DeleteOutlined, FolderOpenOutlined, PlaylistAddOutlined, CheckCircleOutline, ExpandMore, ExpandLess, Circle, NotesOutlined, AccessTimeOutlined, Save, Cancel, BookOutlined } from '@mui/icons-material';
+import { Box, Typography, Grid, Button, Card, CardContent, CardHeader, Avatar, IconButton, Collapse, TextField, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, Stack, List, ListItem, ListItemIcon, ListItemText, ListItemSecondaryAction, Popover, Paper } from '@mui/material';
+import { Add, VideocamOutlined, DescriptionOutlined, GroupOutlined, SlideshowOutlined, EditOutlined, DeleteOutlined, FolderOpenOutlined, PlaylistAddOutlined, CheckCircleOutline, ExpandMore, ExpandLess, Circle, NotesOutlined, AccessTimeOutlined, Save, Cancel, BookOutlined, EmojiEvents, Close } from '@mui/icons-material';
 import { Timeline, TimelineItem, TimelineSeparator, TimelineConnector, TimelineDot, TimelineContent } from '@mui/lab';
 import { useTheme } from '@mui/material/styles';
 import MainCard from 'components/MainCard';
@@ -15,7 +15,7 @@ const ModuleLevelDialog = dynamic(() => import('components/ModuleLevelDialog'), 
   ssr: false,
   loading: () => null
 });
-import { updateModulesOrder, updateActivitiesOrder, addModule, editModule, createActivity, deleteItem, deleteActivity, duplicateModule, updateModuleLevel, updateActivity } from 'store/reducers/courses';
+import { updateModulesOrder, updateActivitiesOrder, addModule, editModule, createActivity, deleteItem, deleteActivity, duplicateModule, updateModuleLevel, updateActivity, getModuleObjectives, addModuleObjective, updateModuleObjective, deleteModuleObjective } from 'store/reducers/courses';
 import { openSnackbar } from 'store/reducers/snackbar';
 
 // Helper function to format duration (moved outside components)
@@ -203,7 +203,8 @@ const EditActivityDialog = ({ open, onClose, onSave, activity }) => {
     { value: 'video', label: 'Video', icon: VideocamOutlined },
     { value: 'lecture', label: 'Lecture', icon: DescriptionOutlined },
     { value: 'presentation', label: 'Presentation', icon: SlideshowOutlined },
-    { value: 'group_activity', label: 'Group Activity', icon: GroupOutlined }
+    { value: 'group_activity', label: 'Group Activity', icon: GroupOutlined },
+    { value: 'assessment', label: 'Assessment', icon: EmojiEvents }
   ];
 
   return (
@@ -307,11 +308,13 @@ const EditActivityDialog = ({ open, onClose, onSave, activity }) => {
 
 // Add Activity Dialog Component
 const AddActivityDialog = ({ open, onClose, onAddActivity, moduleId }) => {
+  const theme = useTheme();
+  const [step, setStep] = useState(1); // Step 1: Choose type, Step 2: Fill details
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     duration: 30,
-    type: 'presentation',
+    type: '',
     contentUrl: ''
   });
 
@@ -337,107 +340,331 @@ const AddActivityDialog = ({ open, onClose, onAddActivity, moduleId }) => {
         title: '',
         description: '',
         duration: 30,
-        type: 'presentation',
+        type: '',
         contentUrl: ''
       });
+      setStep(1);
     }
+  };
+
+  const handleClose = () => {
+    setFormData({
+      title: '',
+      description: '',
+      duration: 30,
+      type: '',
+      contentUrl: ''
+    });
+    setStep(1);
+    onClose();
+  };
+
+  const handleTypeSelect = (type) => {
+    setFormData(prev => ({ ...prev, type }));
+    setStep(2);
+  };
+
+  const handleBack = () => {
+    setStep(1);
   };
 
   const activityTypes = [
     { value: 'video', label: 'Video', icon: VideocamOutlined },
     { value: 'lecture', label: 'Lecture', icon: DescriptionOutlined },
     { value: 'presentation', label: 'Presentation', icon: SlideshowOutlined },
-    { value: 'group_activity', label: 'Group Activity', icon: GroupOutlined }
+    { value: 'group_activity', label: 'Group Activity', icon: GroupOutlined },
+    { value: 'assessment', label: 'Assessment', icon: EmojiEvents }
   ];
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <MainCard
-        title="Add New Activity"
+        title={step === 1 ? "Choose Activity Type" : "Add New Activity"}
         content={false}
         sx={{ m: 0 }}
       >
         <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <TextField
-              label="Activity Title"
-              value={formData.title}
-              onChange={(e) => handleInputChange('title', e.target.value)}
-              fullWidth
-              variant="outlined"
-              autoFocus
-            />
-
-            <TextField
-              label="Description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              fullWidth
-              multiline
-              rows={3}
-              variant="outlined"
-            />
-
-            <TextField
-              label="Content URL"
-              value={formData.contentUrl}
-              onChange={(e) => handleInputChange('contentUrl', e.target.value)}
-              fullWidth
-              variant="outlined"
-              placeholder="https://example.com/content"
-            />
-
-            <TextField
-              label="Duration (minutes)"
-              type="number"
-              value={formData.duration}
-              onChange={(e) => handleInputChange('duration', e.target.value)}
-              fullWidth
-              variant="outlined"
-              inputProps={{
-                min: 0,
-                max: 9999
-              }}
-            />
-
-            <FormControl fullWidth>
-              <InputLabel>Activity Type</InputLabel>
-              <Select
-                value={formData.type}
-                onChange={(e) => handleInputChange('type', e.target.value)}
-                label="Activity Type"
-              >
-                {activityTypes.map(type => {
+          {step === 1 ? (
+            // Step 1: Choose Activity Type
+            <Box sx={{ p: 4 }}>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                Select the type of activity you want to create. Each type is optimized for different learning experiences.
+              </Typography>
+              
+              <Grid container spacing={3}>
+                {activityTypes.map((type) => {
                   const Icon = type.icon;
                   return (
-                    <MenuItem key={type.value} value={type.value}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Icon style={{ fontSize: 20 }} />
-                        {type.label}
-                      </Box>
-                    </MenuItem>
+                    <Grid item xs={12} sm={6} key={type.value}>
+                      <Card 
+                        onClick={() => handleTypeSelect(type.value)}
+                        sx={{
+                          p: 3,
+                          cursor: 'pointer',
+                          border: '2px solid transparent',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            borderColor: theme.palette.primary.main,
+                            transform: 'translateY(-4px)',
+                            boxShadow: '0 8px 25px rgba(25, 118, 210, 0.15)',
+                          }
+                        }}
+                      >
+                        <Stack direction="row" alignItems="center" spacing={3}>
+                          <Box sx={{ 
+                            p: 2, 
+                            borderRadius: 2, 
+                            backgroundColor: theme.palette.primary.lighter || theme.palette.primary.light,
+                            color: theme.palette.primary.main,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <Icon sx={{ fontSize: 32 }} />
+                          </Box>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" fontWeight={600} gutterBottom>
+                              {type.label}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {type.value === 'video' && 'Video content, recorded lectures, or multimedia presentations'}
+                              {type.value === 'lecture' && 'Text-based content, reading materials, or written instructions'}
+                              {type.value === 'presentation' && 'Slides, interactive presentations, or visual content'}
+                              {type.value === 'group_activity' && 'Collaborative exercises, discussions, or team-based activities'}
+                              {type.value === 'assessment' && 'Quizzes, tests, assignments, or evaluation activities'}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </Card>
+                    </Grid>
                   );
                 })}
-              </Select>
-            </FormControl>
-          </Box>
+              </Grid>
+            </Box>
+          ) : (
+            // Step 2: Fill Activity Details
+            <Box sx={{ p: 4 }}>
+              {/* Selected Type Display */}
+              <Box sx={{ 
+                mb: 4, 
+                p: 2, 
+                backgroundColor: theme.palette.primary.lighter || theme.palette.primary.light, 
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2
+              }}>
+                {(() => {
+                  const selectedType = activityTypes.find(t => t.value === formData.type);
+                  const Icon = selectedType?.icon || DescriptionOutlined;
+                  return (
+                    <>
+                      <Icon sx={{ color: theme.palette.primary.main, fontSize: 24 }} />
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight={600} color={theme.palette.primary.main}>
+                          Creating {selectedType?.label} Activity
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Click "Back" to change activity type
+                        </Typography>
+                      </Box>
+                    </>
+                  );
+                })()}
+              </Box>
+
+              <Grid container spacing={3}>
+                {/* Left Column */}
+                <Grid item xs={12} md={6}>
+                  <Stack spacing={3}>
+                    <TextField
+                      label="Activity Title"
+                      value={formData.title}
+                      onChange={(e) => handleInputChange('title', e.target.value)}
+                      fullWidth
+                      variant="outlined"
+                      autoFocus
+                      required
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                          '&:hover fieldset': {
+                            borderColor: theme.palette.primary.main,
+                          },
+                        },
+                      }}
+                      helperText="Give your activity a clear, descriptive title"
+                    />
+
+                    <TextField
+                      label="Description"
+                      value={formData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      fullWidth
+                      multiline
+                      rows={4}
+                      variant="outlined"
+                      placeholder="Describe what students will learn or do in this activity..."
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                        },
+                      }}
+                      helperText={`${formData.description.length}/500 characters`}
+                      inputProps={{ maxLength: 500 }}
+                    />
+
+                    <TextField
+                      label={`Content ${
+                        formData.type === 'video' ? 'Video ' : 
+                        formData.type === 'presentation' ? 'Presentation ' : 
+                        formData.type === 'assessment' ? 'Assessment ' : 
+                        ''
+                      }URL`}
+                      value={formData.contentUrl}
+                      onChange={(e) => handleInputChange('contentUrl', e.target.value)}
+                      fullWidth
+                      variant="outlined"
+                      placeholder={
+                        formData.type === 'video' ? 'https://youtube.com/watch?v=...' :
+                        formData.type === 'presentation' ? 'https://docs.google.com/presentation/...' :
+                        formData.type === 'assessment' ? 'https://forms.google.com/...' :
+                        'https://example.com/content'
+                      }
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 2,
+                        },
+                      }}
+                      helperText={`Link to your ${
+                        formData.type === 'video' ? 'video' : 
+                        formData.type === 'presentation' ? 'presentation' : 
+                        formData.type === 'assessment' ? 'quiz, test, or assessment form' : 
+                        'content'
+                      } resource (optional)`}
+                    />
+                  </Stack>
+                </Grid>
+
+                {/* Right Column */}
+                <Grid item xs={12} md={6}>
+                  <Stack spacing={3}>
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom fontWeight={600} color="text.primary">
+                        Duration (minutes)
+                      </Typography>
+                      <TextField
+                        type="number"
+                        value={formData.duration}
+                        onChange={(e) => handleInputChange('duration', e.target.value)}
+                        fullWidth
+                        variant="outlined"
+                        inputProps={{
+                          min: 1,
+                          max: 999
+                        }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 2,
+                          },
+                        }}
+                        helperText="Estimated time to complete this activity"
+                      />
+                    </Box>
+
+                    {/* Preview Card */}
+                    <Box sx={{
+                      p: 3,
+                      borderRadius: 2,
+                      backgroundColor: theme.palette.grey[50],
+                      border: `1px dashed ${theme.palette.grey[300]}`,
+                      mt: 2
+                    }}>
+                      <Typography variant="subtitle2" gutterBottom color="text.secondary">
+                        Preview
+                      </Typography>
+                      <Stack direction="row" alignItems="center" spacing={2} mb={2}>
+                        {(() => {
+                          const selectedType = activityTypes.find(t => t.value === formData.type);
+                          const Icon = selectedType?.icon || DescriptionOutlined;
+                          return (
+                            <Box sx={{ 
+                              p: 1, 
+                              borderRadius: 1, 
+                              backgroundColor: theme.palette.primary.main,
+                              color: 'white'
+                            }}>
+                              <Icon sx={{ fontSize: 16 }} />
+                            </Box>
+                          );
+                        })()}
+                        <Typography variant="body2" fontWeight={600}>
+                          {formData.title || 'Activity Title'}
+                        </Typography>
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        {formData.description || 'Activity description will appear here...'}
+                      </Typography>
+                      <Chip 
+                        label={`${formData.duration} min`} 
+                        size="small" 
+                        variant="outlined" 
+                        sx={{ mt: 1 }}
+                      />
+                    </Box>
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        
+        <DialogActions sx={{ p: 3, gap: 2 }}>
           <Button 
-            onClick={onClose} 
+            onClick={handleClose} 
             variant="outlined"
             startIcon={<Cancel />}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1
+            }}
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleAdd} 
-            variant="contained"
-            startIcon={<Add />}
-            disabled={!formData.title.trim()}
-          >
-            Add Activity
-          </Button>
+          
+          {step === 2 && (
+            <Button 
+              onClick={handleBack} 
+              variant="outlined"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1
+              }}
+            >
+              Back
+            </Button>
+          )}
+          
+          {step === 2 && (
+            <Button 
+              onClick={handleAdd} 
+              variant="contained"
+              startIcon={<Add />}
+              disabled={!formData.title.trim()}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1
+              }}
+            >
+              Add Activity
+            </Button>
+          )}
         </DialogActions>
       </MainCard>
     </Dialog>
@@ -709,7 +936,7 @@ const CourseContent = ({ courseId }) => {
   const dispatch = useDispatch();
   
   // Redux state with safe defaults
-  const { modules: reduxModules = [] } = useSelector((state) => state.courses || {});
+  const { modules: reduxModules = [], moduleObjectives = {} } = useSelector((state) => state.courses || {});
   
   const [openAddActivityDialog, setOpenAddActivityDialog] = useState(false);
   const [openEditActivityDialog, setOpenEditActivityDialog] = useState(false);
@@ -749,6 +976,13 @@ const CourseContent = ({ courseId }) => {
 
   // Level dialog state
   const [levelDialog, setLevelDialog] = useState({ open: false, moduleId: null, moduleTitle: '', currentLevel: '' });
+
+  // Module learning objectives management states
+  const [editingObjective, setEditingObjective] = useState(null);
+  const [editObjectiveText, setEditObjectiveText] = useState('');
+  const [newObjective, setNewObjective] = useState('');
+  const [showAddObjectiveField, setShowAddObjectiveField] = useState(false);
+  const [deleteObjectiveConfirm, setDeleteObjectiveConfirm] = useState({ open: false, index: -1, anchorEl: null });
 
   // Ensure activity data reflects latest Redux state changes
   useEffect(() => {
@@ -1061,6 +1295,82 @@ const CourseContent = ({ courseId }) => {
     }
   };
 
+  // Module learning objectives management functions
+  const getCurrentModuleObjectives = () => {
+    if (!selectedModuleId) return [];
+    return moduleObjectives[selectedModuleId] || [];
+  };
+
+  // Fetch module objectives when selectedModuleId changes
+  useEffect(() => {
+    if (selectedModuleId && !moduleObjectives[selectedModuleId]) {
+      dispatch(getModuleObjectives(selectedModuleId));
+    }
+  }, [selectedModuleId, dispatch, moduleObjectives]);
+
+  const handleAddObjective = () => {
+    if (newObjective.trim() && selectedModuleId) {
+      dispatch(addModuleObjective(selectedModuleId, newObjective.trim()));
+      setNewObjective('');
+      setShowAddObjectiveField(false);
+    }
+  };
+
+  const handleShowAddObjectiveField = () => {
+    setShowAddObjectiveField(true);
+  };
+
+  const handleCancelAddObjective = () => {
+    setShowAddObjectiveField(false);
+    setNewObjective('');
+  };
+
+  const handleDeleteObjectiveClick = (event, index) => {
+    setDeleteObjectiveConfirm({
+      open: true,
+      index: index,
+      anchorEl: event.currentTarget
+    });
+  };
+
+  const handleDeleteObjectiveConfirm = () => {
+    if (selectedModuleId) {
+      const currentObjectives = getCurrentModuleObjectives();
+      const objectiveToDelete = currentObjectives[deleteObjectiveConfirm.index];
+      if (objectiveToDelete?.id) {
+        dispatch(deleteModuleObjective(selectedModuleId, objectiveToDelete.id));
+      }
+    }
+    setDeleteObjectiveConfirm({ open: false, index: -1, anchorEl: null });
+  };
+
+  const handleDeleteObjectiveCancel = () => {
+    setDeleteObjectiveConfirm({ open: false, index: -1, anchorEl: null });
+  };
+
+  const handleEditObjective = (index) => {
+    const currentObjectives = getCurrentModuleObjectives();
+    setEditingObjective(index);
+    setEditObjectiveText(currentObjectives[index]?.objective || '');
+  };
+
+  const handleSaveObjectiveEdit = () => {
+    if (editObjectiveText.trim() && selectedModuleId && editingObjective !== null) {
+      const currentObjectives = getCurrentModuleObjectives();
+      const objectiveToUpdate = currentObjectives[editingObjective];
+      if (objectiveToUpdate?.id) {
+        dispatch(updateModuleObjective(selectedModuleId, objectiveToUpdate.id, editObjectiveText.trim()));
+      }
+    }
+    setEditingObjective(null);
+    setEditObjectiveText('');
+  };
+
+  const handleCancelObjectiveEdit = () => {
+    setEditingObjective(null);
+    setEditObjectiveText('');
+  };
+
   const moveModule = (dragIndex, dropIndex) => {
     if (dragIndex === dropIndex || modules.length === 0) return;
     
@@ -1318,7 +1628,7 @@ const CourseContent = ({ courseId }) => {
                   <React.Fragment key={module.id}>
                     <DraggableModuleCard
                       module={module}
-                      index={index}
+                      index={module.moduleOrder || (index + 1)}
                       onUpdateTitle={handleUpdateModuleTitle}
                       onCancelEdit={handleCancelModuleEdit}
                       onDelete={handleDeleteModule}
@@ -1465,7 +1775,7 @@ const CourseContent = ({ courseId }) => {
                   </Button>
                 </Box>
               ) : (
-                <Box>
+                <Box sx={{ overflow: 'hidden' }}>
                   {selectedModuleId === null ? (
                     <Box 
                       sx={{ 
@@ -1505,86 +1815,123 @@ const CourseContent = ({ courseId }) => {
                     </Box>
                   ) : (
                     <>
-                      {/* Module Learning Objectives */}
-                      <MainCard 
-                        title={
-                          <Box 
-                            sx={{ 
-                              display: 'flex', 
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              cursor: 'pointer',
-                              background: 'hsla(223, 95%, 15%, 1)',
-                              background: 'linear-gradient(90deg, hsla(217, 100%, 42%, 1) 0%, hsla(223, 95%, 15%, 1) 100%)',
-                              mx: -2,
-                              mt: -2,
-                              px: 2,
-                              py: 2,
-                              borderBottom: '1px solid',
-                              borderColor: 'divider',
-                              minHeight: 56
-                            }} 
-                            onClick={() => setObjectivesExpanded(!objectivesExpanded)}
-                          >
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'white' }}>
-                              {modules.find(m => m.id === selectedModuleId)?.title || 'Module'} | Learning Objectives
-                            </Typography>
-                            <IconButton 
-                              size="small" 
-                              sx={{ 
-                                color: 'white',
-                                '&:hover': {
-                                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
-                                }
-                              }}
-                            >
-                              {objectivesExpanded ? <ExpandLess /> : <ExpandMore />}
-                            </IconButton>
-                          </Box>
-                        }
-                        sx={{ 
-                          mb: 3,
-                          boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          transition: 'all 0.3s ease-in-out',
-                          '&:hover': {
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.12)'
-                          },
-                          '& .MuiCardHeader-root': {
-                            p: 0
-                          }
-                        }}
-                        secondary={null}
-                      >
-                        <Collapse in={objectivesExpanded}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, pt: 1, mb: 1 }}>
-                            <Typography variant="body2" color="text.secondary">
-                              Define the specific learning outcomes for this module.
-                            </Typography>
-                            <IconButton 
-                              aria-label="edit-objectives" 
-                              size="small"
-                              sx={{
-                                color: 'text.secondary',
-                                '&:hover': {
-                                  color: 'primary.main',
-                                  backgroundColor: 'action.hover'
-                                }
-                              }}
-                            >
-                              <EditOutlined fontSize="small" />
-                            </IconButton>
-                          </Box>
-                          <Box sx={{ px: 2, pb: 2 }}>
-                            {(modules.find(m => m.id === selectedModuleId)?.learningObjectives || []).map((objective, objIndex) => (
-                              <Box key={objIndex} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <CheckCircleOutline sx={{ color: 'success.main', mr: 1, fontSize: 18 }} />
-                                <Typography variant="body2" color="text.secondary">{objective}</Typography>
-                              </Box>
+
+                      {/* Module Learning Objectives - Interactive Card */}
+                      <Card sx={{ mb: 3 }}>
+                        <CardContent sx={{ p: 3 }}>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
+                            <Stack direction="row" alignItems="center" spacing={2}>
+                              <EmojiEvents style={{ color: theme.palette.warning.main, fontSize: 24 }} />
+                              <Typography variant="h5" fontWeight={600}>
+                                Learning Objectives
+                              </Typography>
+                            </Stack>
+                            {!showAddObjectiveField && (
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={handleShowAddObjectiveField}
+                                startIcon={<Add />}
+                              >
+                                Add
+                              </Button>
+                            )}
+                          </Stack>
+                          
+                          <List sx={{ mb: 2 }}>
+                            {getCurrentModuleObjectives().map((objectiveData, index) => (
+                              <ListItem key={objectiveData.id || index} sx={{ pl: 0, pr: 0 }}>
+                                <ListItemIcon>
+                                  <CheckCircleOutline style={{ color: theme.palette.success.main }} />
+                                </ListItemIcon>
+                                {editingObjective === index ? (
+                                  <TextField
+                                    fullWidth
+                                    value={editObjectiveText}
+                                    onChange={(e) => setEditObjectiveText(e.target.value)}
+                                    variant="outlined"
+                                    size="small"
+                                    onKeyPress={(e) => e.key === 'Enter' && handleSaveObjectiveEdit()}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <ListItemText primary={objectiveData.objective} />
+                                )}
+                                <ListItemSecondaryAction>
+                                  {editingObjective === index ? (
+                                    <Stack direction="row" spacing={1}>
+                                      <IconButton
+                                        size="small"
+                                        onClick={handleSaveObjectiveEdit}
+                                        color="primary"
+                                      >
+                                        <Save />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        onClick={handleCancelObjectiveEdit}
+                                        color="secondary"
+                                      >
+                                        <Cancel />
+                                      </IconButton>
+                                    </Stack>
+                                  ) : (
+                                    <Stack direction="row" spacing={1}>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleEditObjective(index)}
+                                        color="primary"
+                                      >
+                                        <EditOutlined />
+                                      </IconButton>
+                                      <IconButton
+                                        size="small"
+                                        onClick={(e) => handleDeleteObjectiveClick(e, index)}
+                                        color="error"
+                                      >
+                                        <DeleteOutlined />
+                                      </IconButton>
+                                    </Stack>
+                                  )}
+                                </ListItemSecondaryAction>
+                              </ListItem>
                             ))}
-                          </Box>
-                        </Collapse>
-                      </MainCard>
+                          </List>
+
+                          {/* Add new objective */}
+                          {showAddObjectiveField && (
+                            <Stack direction="row" spacing={2} alignItems="center">
+                              <TextField
+                                fullWidth
+                                placeholder="Add new learning objective..."
+                                value={newObjective}
+                                onChange={(e) => setNewObjective(e.target.value)}
+                                variant="outlined"
+                                size="small"
+                                onKeyPress={(e) => e.key === 'Enter' && handleAddObjective()}
+                                autoFocus
+                              />
+                              <Button
+                                variant="contained"
+                                onClick={handleAddObjective}
+                                startIcon={<Save />}
+                                disabled={!newObjective.trim()}
+                                sx={{ whiteSpace: 'nowrap' }}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                onClick={handleCancelAddObjective}
+                                startIcon={<Cancel />}
+                                sx={{ whiteSpace: 'nowrap' }}
+                              >
+                                Cancel
+                              </Button>
+                            </Stack>
+                          )}
+                        </CardContent>
+                      </Card>
 
                       {/* Activities List */}
                       {(() => {
@@ -1725,6 +2072,48 @@ const CourseContent = ({ courseId }) => {
         currentLevel={levelDialog.currentLevel}
         moduleTitle={levelDialog.moduleTitle}
       />
+
+      {/* Delete Module Objective Confirmation Popover */}
+      <Popover
+        open={deleteObjectiveConfirm.open}
+        anchorEl={deleteObjectiveConfirm.anchorEl}
+        onClose={handleDeleteObjectiveCancel}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+      >
+        <Box sx={{ p: 2, maxWidth: 300 }}>
+          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+            Delete Learning Objective
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Are you sure you want to delete this learning objective? This action cannot be undone.
+          </Typography>
+          <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Button
+              size="small"
+              onClick={handleDeleteObjectiveCancel}
+              variant="outlined"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="small"
+              onClick={handleDeleteObjectiveConfirm}
+              variant="contained"
+              color="error"
+              startIcon={<DeleteOutlined />}
+            >
+              Delete
+            </Button>
+          </Stack>
+        </Box>
+      </Popover>
       </Box>
     </DndProvider>
   );

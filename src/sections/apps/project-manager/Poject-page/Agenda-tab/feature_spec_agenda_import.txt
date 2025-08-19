@@ -1,0 +1,178 @@
+Feature Spec — Agenda Import (with Role-Based Assignment & Smart Scheduling)
+
+0) Scope & Goals
+
+Enable users to automate agenda creation by importing a Training Plan from a selected Curriculum into a Project.
+The system must automatically:
+- Create Events on the agenda based on COURSES (not individual modules) and support activities defined in the Training Plan (multi-day supported),
+- Assign the appropriate Groups and participants by role to each course event,
+- Ensure only one group is assigned per course event (courses cannot be delivered to multiple groups simultaneously),
+- Schedule events within project working hours, splitting events across days if necessary,
+- Preserve existing events when requested.
+
+A progress bar must be displayed during the import process to provide real-time feedback.
+
+1) Use Case Context
+
+1. A user creates a Training Plan inside a Curriculum:
+   - Places Courses and Support Activities into a proper sequence per day.
+   - A Training Plan can span multiple days.
+   - Note: While modules exist within courses, the agenda imports COURSES as complete units, not individual modules.
+2. Later, when scheduling a Project, the user imports this Training Plan to automatically create Events in the Project Calendar.
+3. Group assignment rules:
+   - Groups are linked to a Project.
+   - Each Course defines which roles or participants are required (via course_participant_roles).
+   - If a participant from a group is enrolled in the scheduled Course, the entire group is assigned to that event.
+   - If multiple groups are linked to the Project, course events are distributed sequentially (Group 1 → first course, Group 2 → next course, etc.).
+   - Constraint: A single course event cannot be assigned to multiple groups simultaneously.
+4. Duration logic:
+   - Primary source = Course duration.
+   - If no duration is available → default = 60 minutes.
+5. Day-boundary rule:
+   - If an event is scheduled such that it would cross outside project working hours (e.g., starts at 11:30 PM with 2h duration):
+     - Cut the event at end of day,
+     - Create a continuation event on the next valid working day for the remaining duration.
+
+2) Domain & Table Mapping
+
+- Projects → projects
+- Project Settings / Hours → project_settings
+- Curriculum → curriculums
+- Training Plan → training_plans → training_plan_days → training_plan_modules
+- Course / Support Activity → courses, supportActivities (modules are part of courses but not scheduled separately)
+- Role requirements → course_participant_roles (only courses have role requirements)
+- Groups & Membership → groups → group_participants → project_participants
+- Participants → participants
+- Project Participants (enrollees) → project_participants
+- Events & Linking → events, event_attendees, event_groups
+
+3) Sequencing Logic
+
+- Events must follow the exact sequence in training_plan_days → training_plan_modules.
+- Each item (Course or Support Activity) becomes one or more Events on the calendar, depending on duration and day boundaries.
+- Modules within a course are NOT scheduled separately - the entire course is scheduled as one unit.
+- Multi-day plans = training_plan_days.dayNumber defines order.
+
+4) Group & Role Assignment
+
+1. For Courses:
+   - Determine required roles (course_participant_roles only).
+   - Match to participants in Project Groups.
+   - If any participant in a group matches, the entire group is assigned to that course event.
+   - Multiple groups in project: Course events are distributed in sequence between groups (round-robin).
+   - Constraint: One group per course event.
+   - Assign group to event (event_groups) and all its eligible members to event_attendees.
+
+2. For Support Activities:
+   - NO group assignment - support activities are project-wide.
+   - NO participant assignment - applies to all project participants.
+   - NO event_groups or event_attendees records created.
+   - Display with distinct color (orange #FFA726) to differentiate from group-assigned events.
+
+3. For Lunch Breaks:
+   - Automatically created based on project settings lunchTime (e.g., "12:00-13:00").
+   - NO group assignment - lunch breaks are project-wide.
+   - NO participant assignment - applies to all project participants.
+   - NO event_groups or event_attendees records created.
+   - Display with distinct color (gray #9E9E9E) to differentiate as break time.
+   - Only created on days that have scheduled training events.
+   - Scheduled at the exact time specified in project settings.
+
+Edge cases:
+- No eligible participant → create event, mark NoMatchingParticipants.
+- Multiple roles required → assign all participants in group(s) matching any required role.
+
+5) Scheduling Rules
+
+- Follow project working hours: respect startOfDayTime, endOfDayTime, workingDays[], timezone.
+- Preserve existing events: do not modify existing rows; shift new ones forward.
+- Day-boundary splitting: if event cannot fit → split across days.
+- Double-booking resolution:
+  - If group already has event at same time → move forward to next valid slot.
+  - If no slot within horizonBusinessDays → mark Unschedulable.
+
+6) Event Creation (DB Writes)
+
+- Create events row(s) for each Course/SupportActivity/LunchBreak, splitting duration as needed.
+- For Courses: Link exactly one group via event_groups and add all required participants as event_attendees.
+- For Support Activities: No group or attendee associations created (project-wide events).
+- For Lunch Breaks: No group or attendee associations created (project-wide events).
+- Store warnings, locks, audit trail in extendedProps.
+- Support Activities marked with isSupportActivity: true in extendedProps for identification.
+- Lunch Breaks marked with isLunchBreak: true in extendedProps for identification.
+
+7) Updates After Import
+
+- Curriculum/Plan changes: no auto-updates. Provide “Recompute from Plan” action.
+- Participant role changes: no retroactive changes. Provide “Recompute Assignments (future only)” action.
+- Respect manual overrides: Store in extendedProps.locks. Recompute never overrides locked fields unless user opts out.
+
+8) Edge Cases
+
+- Missing duration → 60 minutes.
+- Events spilling past end of day → split into multiple events.
+- Multiple groups → distribute sequentially, never simultaneously (except support activities and lunch breaks which have no groups).
+- Course with no matching participants → event created with warning.
+- Support activities → always created without group assignment, visible to all.
+- Lunch breaks → automatically created for every training day at specified lunch time, visible to all.
+
+9) Progress Feedback
+
+Progress bar must be shown during import
+- Total units = number of agenda items.
+- Each processed item increments progress.
+- On completion: 100% + summary message.
+- If warnings: display count (e.g., “12 events created, 2 warnings”).
+- If error: rollback + progress bar shows failure state.
+
+API support
+- POST /importAgenda/commit returns a jobId.
+- Client can poll /importAgenda/status?jobId=... or subscribe via WebSocket/SSE.
+
+Example status payload:
+{
+  "jobId": "abc123",
+  "processed": 5,
+  "total": 12,
+  "warnings": 2,
+  "status": "in-progress"
+}
+
+10) Acceptance Criteria
+
+1. Events created per Training Plan sequence, across multiple days.
+2. Each COURSE event is tied to exactly one group; support activities have no group assignment.
+3. Course duration used; fallback 60m. (Modules are not scheduled separately)
+4. Events crossing end of day are split into multiple events.
+5. No course event is shared between multiple groups.
+6. Support activities are created as project-wide events without group/participant assignments.
+7. Progress bar updates correctly during import.
+8. Audit trail logged in extendedProps.audit[].
+9. Manual overrides respected in recompute.
+
+11) High-Level Pseudocode
+
+for day in training_plan_days:
+  for item in day.modules:  // Contains courses and support activities
+    // Only process courses and support activities, skip individual modules
+    if item.type not in ['course', 'supportActivity']:
+      continue
+      
+    duration = resolveDuration(item) // course duration > default 60m
+    remaining = duration
+    start = nextAvailableSlot(projectSettings, options)
+
+    while remaining > 0:
+      endOfDay = projectSettings.endOfDayTime
+      slotLength = min(remaining, endOfDay - start)
+
+      event = createEvent(projectId, item, start, start+slotLength)
+      
+      if item.type == 'course':
+        assignOneGroup(event, groups, item.roles)  // Round-robin group assignment
+        assignParticipants(event, group, item.roles)  // Add eligible participants
+      // else: Support activity - no group/participant assignment
+
+      remaining -= slotLength
+      if remaining > 0:
+        start = nextWorkingDay(projectSettings)

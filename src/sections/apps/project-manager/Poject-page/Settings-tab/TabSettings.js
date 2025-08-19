@@ -2,12 +2,15 @@ import React from 'react';
 import { Grid } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { useSelector } from 'store';
+import { useSelector, useDispatch } from 'store';
+import { updateProject } from 'store/reducers/projects';
+import { openSnackbar } from 'store/reducers/snackbar';
 
 // Components
 import {
   ProjectScheduleCard,
   ProjectInfoCard,
+  ProjectCustomizationCard,
   SettingsActions,
   LoadingSpinner,
   ErrorAlert
@@ -20,6 +23,7 @@ import { useProjectSettings } from './hooks/useProjectSettings';
 // ==============================|| PROJECT SETTINGS - REFACTORED ||============================== //
 
 const TabSettings = React.memo(() => {
+  const dispatch = useDispatch();
   const { singleProject: project, projectSettings } = useSelector((state) => state.projects);
   
   const {
@@ -34,6 +38,29 @@ const TabSettings = React.memo(() => {
     cancelChanges,
     retryLoadSettings
   } = useProjectSettings(project?.id);
+
+  // Handle background image update
+  const handleUpdateBackgroundImage = async (backgroundImg) => {
+    if (!project?.id) return;
+    
+    const updateData = {
+      id: project.id,
+      backgroundImg: backgroundImg || ""
+    };
+    
+    const result = await dispatch(updateProject(updateData));
+    
+    if (result.success) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Project background image updated successfully.',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+    } else {
+      throw new Error(result.message || 'Failed to update background image');
+    }
+  };
 
   // Loading state
   if (loading) {
@@ -64,6 +91,13 @@ const TabSettings = React.memo(() => {
               <ProjectInfoCard
                 project={project}
                 projectSettings={projectSettings}
+              />
+            </Grid>
+            {/* Project Customization */}
+            <Grid item xs={12}>
+              <ProjectCustomizationCard
+                project={project}
+                onUpdateBackgroundImage={handleUpdateBackgroundImage}
               />
             </Grid>
             {/* Project Instructors */}

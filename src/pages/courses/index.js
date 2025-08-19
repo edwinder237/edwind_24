@@ -9,7 +9,7 @@ import CoursesTable from "./course-tabble";
 
 import { useDispatch } from "store";
 import { openDrawer } from 'store/reducers/menu';
-import { getUserStory, getUserStoryOrder, getProfiles, getComments, getCourses, getColumnsOrder } from 'store/reducers/courses';
+import { getCourses } from 'store/reducers/courses';
 
 // ==============================|| APPLICATION - COURSES ||============================== //
 
@@ -27,13 +27,8 @@ const dispatch = useDispatch();
 
   useEffect(() => {
     const courses = dispatch(getCourses());
-    const columnOrder = dispatch(getColumnsOrder());
-    const profile = dispatch(getProfiles());
-    const comments = dispatch(getComments());
-    const story = dispatch(getUserStory());
-    const storyOrder = dispatch(getUserStoryOrder());
-
-    Promise.all([ courses, columnOrder, profile, comments, story, storyOrder]).then(() => setLoading(false));
+    
+    Promise.all([courses]).then(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (loading) return <Loader />;

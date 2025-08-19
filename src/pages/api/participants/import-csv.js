@@ -23,7 +23,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    console.log('Importing', participants.length, 'participants for project', projectId);
 
     // Get project to find its training recipient and sub-organization
     const project = await prisma.projects.findUnique({
@@ -48,7 +47,6 @@ export default async function handler(req, res) {
     // Process participants in smaller batches to avoid transaction timeouts
     for (let i = 0; i < participants.length; i += batchSize) {
       const batch = participants.slice(i, i + batchSize);
-      console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(participants.length/batchSize)}`);
       
       try {
         // Process each batch in its own transaction
@@ -68,7 +66,6 @@ export default async function handler(req, res) {
               if (existingParticipant) {
                 // Use existing participant
                 participant = existingParticipant;
-                console.log('Using existing participant:', participant.email);
               } else {
                 // Handle role mapping - try to find role by title, otherwise use null
                 let roleId = null;
@@ -81,9 +78,6 @@ export default async function handler(req, res) {
                     }
                   });
                   roleId = role ? role.id : null;
-                  if (!role) {
-                    console.log(`Role "${participantData.roleId}" not found for participant ${participantData.email}`);
-                  }
                 }
 
                 // Create new participant
@@ -106,7 +100,6 @@ export default async function handler(req, res) {
                     updatedby: 'csv-import',
                   }
                 });
-                console.log('Created new participant:', participant.email);
               }
 
               // Handle tool access creation if provided
@@ -136,9 +129,7 @@ export default async function handler(req, res) {
                         updatedBy: 'csv-import'
                       }
                     });
-                    console.log('Created tool access for participant:', participant.email, 'tool:', participantData.toolAccess.tool);
                   } else {
-                    console.log('Tool access already exists for participant:', participant.email, 'tool:', participantData.toolAccess.tool);
                   }
                 } catch (toolAccessError) {
                   console.error('Error creating tool access for participant:', participant.email, toolAccessError);
@@ -163,9 +154,7 @@ export default async function handler(req, res) {
                     status: 'active'
                   }
                 });
-                console.log('Enrolled participant in project:', participant.email);
               } else {
-                console.log('Participant already enrolled in project:', participant.email);
               }
 
               batchCreated.push({
