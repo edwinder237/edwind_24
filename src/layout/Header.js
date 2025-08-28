@@ -223,7 +223,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
               }}
             >
               <Typography component="div" sx={{ textAlign: 'left', display: 'inline-block' }}>
-                <Logo reverse to="/" sx={{ '& svg': { height: 32, width: 'auto' } }} />
+                <Logo reverse to="/projects" sx={{ '& svg': { height: 32, width: 'auto' } }} />
               </Typography>
               <Stack direction="row" spacing={1}>
                 <Button 

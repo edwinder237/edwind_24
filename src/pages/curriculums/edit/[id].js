@@ -820,6 +820,19 @@ const CurriculumEditPage = () => {
                                   <DeleteIcon fontSize="small" />
                                 </IconButton>
                               </Stack>
+                              
+                              {/* Inactive Course Warning */}
+                              {curriculumCourse.course?.isActive === false && (
+                                <Alert
+                                  severity="warning"
+                                  size="small"
+                                  sx={{ mb: 2 }}
+                                  icon={<AlertIcon fontSize="small" />}
+                                >
+                                  This course is not active and may not be available for training delivery.
+                                </Alert>
+                              )}
+                              
                               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                                 {curriculumCourse.course?.summary || 'No description available'}
                               </Typography>
@@ -830,6 +843,14 @@ const CurriculumEditPage = () => {
                                   size="small" 
                                   variant="outlined" 
                                 />
+                                {curriculumCourse.course?.isActive === false && (
+                                  <Chip 
+                                    label="INACTIVE" 
+                                    size="small" 
+                                    color="warning"
+                                    variant="filled"
+                                  />
+                                )}
                               </Stack>
                               <Typography variant="caption" color="text.secondary">
                                 {curriculumCourse.course?.modules?.length || 0} modules • 
@@ -1920,79 +1941,86 @@ const CurriculumEditPage = () => {
         <Dialog
           open={addCourseDialogOpen}
           onClose={() => setAddCourseDialogOpen(false)}
-          maxWidth="md"
+          maxWidth="sm"
           fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              maxWidth: '500px',
+              width: '100%'
+            }
+          }}
         >
-          <DialogTitle>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="h6">Add Courses to Curriculum</Typography>
+          <MainCard
+            title="Add Courses to Curriculum"
+            secondary={
               <IconButton onClick={() => setAddCourseDialogOpen(false)} size="small">
                 <CloseIcon />
               </IconButton>
-            </Stack>
-          </DialogTitle>
-          
-          <DialogContent>
-            <FormControl fullWidth sx={{ mt: 2 }}>
-              <InputLabel>Select Courses</InputLabel>
-              <Select
-                multiple
-                value={selectedCourses}
-                onChange={(e) => setSelectedCourses(e.target.value)}
-                input={<OutlinedInput label="Select Courses" />}
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selected.map((value) => {
-                      const course = courses.find(c => c.id === value);
-                      return (
-                        <Chip 
-                          key={value} 
-                          label={course?.title || `Course ${value}`} 
-                          size="small" 
+            }
+            content={false}
+          >
+            <Box sx={{ p: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel>Select Courses</InputLabel>
+                <Select
+                  multiple
+                  value={selectedCourses}
+                  onChange={(e) => setSelectedCourses(e.target.value)}
+                  input={<OutlinedInput label="Select Courses" />}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((value) => {
+                        const course = courses.find(c => c.id === value);
+                        return (
+                          <Chip 
+                            key={value} 
+                            label={course?.title || `Course ${value}`} 
+                            size="small" 
+                          />
+                        );
+                      })}
+                    </Box>
+                  )}
+                >
+                  {courses
+                    .filter(course => 
+                      !curriculum.curriculum_courses?.some(cc => cc.courseId === course.id)
+                    )
+                    .map((course) => (
+                      <MenuItem key={course.id} value={course.id}>
+                        <Checkbox checked={selectedCourses.indexOf(course.id) > -1} />
+                        <ListItemText 
+                          primary={course.title}
+                          secondary={`${course.level} • ${course.courseCategory} • ${course.modules?.length || 0} modules`}
                         />
-                      );
-                    })}
-                  </Box>
-                )}
-              >
-                {courses
-                  .filter(course => 
-                    !curriculum.curriculum_courses?.some(cc => cc.courseId === course.id)
-                  )
-                  .map((course) => (
-                    <MenuItem key={course.id} value={course.id}>
-                      <Checkbox checked={selectedCourses.indexOf(course.id) > -1} />
-                      <ListItemText 
-                        primary={course.title}
-                        secondary={`${course.level} • ${course.courseCategory} • ${course.modules?.length || 0} modules`}
-                      />
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-            
-            {courses.filter(course => 
-              !curriculum.curriculum_courses?.some(cc => cc.courseId === course.id)
-            ).length === 0 && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                All available courses are already assigned to this curriculum.
-              </Alert>
-            )}
-          </DialogContent>
-          
-          <DialogActions>
-            <Button onClick={() => setAddCourseDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddCourses}
-              variant="contained"
-              startIcon={actionLoading ? <CircularProgress size={20} /> : <AddIcon />}
-              disabled={actionLoading || selectedCourses.length === 0}
-            >
-              Add Selected Courses
-            </Button>
-          </DialogActions>
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+              
+              {courses.filter(course => 
+                !curriculum.curriculum_courses?.some(cc => cc.courseId === course.id)
+              ).length === 0 && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  All available courses are already assigned to this curriculum.
+                </Alert>
+              )}
+
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+                <Button variant="outlined" onClick={() => setAddCourseDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddCourses}
+                  variant="contained"
+                  startIcon={actionLoading ? <CircularProgress size={20} /> : <AddIcon />}
+                  disabled={actionLoading || selectedCourses.length === 0}
+                >
+                  Add Selected Courses
+                </Button>
+              </Box>
+            </Box>
+          </MainCard>
         </Dialog>
 
         {/* Unsaved Changes Warning Dialog */}

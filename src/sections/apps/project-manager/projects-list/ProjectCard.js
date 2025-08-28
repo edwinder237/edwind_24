@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 // redux
 import { useDispatch, useSelector } from "store";
@@ -41,7 +41,27 @@ const ProjectCard = ({ Project, projectId }) => {
   const dispatch = useDispatch();
   const [openAlert, setOpenAlert] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [projectTopics, setProjectTopics] = useState([]);
   const { projects, success } = useSelector((state) => state.projects);
+
+  // Fetch project topics
+  useEffect(() => {
+    const fetchProjectTopics = async () => {
+      if (!projectId) return;
+      
+      try {
+        const response = await fetch(`/api/projects/${projectId}/topics`);
+        if (response.ok) {
+          const topics = await response.json();
+          setProjectTopics(topics);
+        }
+      } catch (error) {
+        console.error('Error fetching project topics:', error);
+      }
+    };
+
+    fetchProjectTopics();
+  }, [projectId]);
 
   // Memoized computed values for performance
   const formattedDates = useMemo(() => {
@@ -255,9 +275,9 @@ const ProjectCard = ({ Project, projectId }) => {
                 </Stack>
 
                 {/* Refined Details in Two Columns */}
-                <Grid container spacing={1.5}>
+                <Grid container spacing={1.5} sx={{ justifyContent: 'space-between' }}>
                   {/* Left Column */}
-                  <Grid item xs={4}>
+                  <Grid item xs={5}>
                     <Stack spacing={1}>
                       {/* Duration */}
                       {(formattedDates.start || formattedDates.end) && (
@@ -305,95 +325,99 @@ const ProjectCard = ({ Project, projectId }) => {
                         </Box>
                       )}
                       
-                      {/* Tags */}
-                      {tags && tags.length > 0 && (
-                        <Box>
-                          <Typography 
-                            variant="caption" 
-                            color="text.secondary" 
-                            sx={{ 
-                              fontWeight: 700, 
-                              fontSize: '0.65rem',
-                              letterSpacing: '0.3px',
-                              textTransform: 'uppercase',
-                              mb: 0.5,
-                              display: 'block'
-                            }}
-                          >
-                            Topics
-                          </Typography>
-                          <Stack direction="row" spacing={0.5} flexWrap="wrap" alignItems="center">
-                            {tags.slice(0, 2).map((tag, index) => (
-                              <Chip
-                                key={index}
-                                label={tag.label}
-                                size="small"
-                                variant="outlined"
-                                sx={{ 
-                                  fontSize: '0.65rem', 
-                                  height: 20,
-                                  borderRadius: '10px',
-                                  bgcolor: 'background.paper',
-                                  '&:hover': {
-                                    bgcolor: 'primary.50'
-                                  }
-                                }}
-                              />
-                            ))}
-                            {tags.length > 2 && (
-                              <Typography 
-                                variant="caption" 
-                                color="text.secondary" 
-                                sx={{ 
-                                  fontSize: '0.65rem',
-                                  fontWeight: 500,
-                                  bgcolor: 'grey.100',
-                                  px: 0.5,
-                                  py: 0.25,
-                                  borderRadius: '4px'
-                                }}
-                              >
-                                +{tags.length - 2}
-                              </Typography>
-                            )}
-                          </Stack>
-                        </Box>
-                      )}
+                      {/* Lead by */}
+                      <Box>
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary" 
+                          sx={{ 
+                            fontWeight: 700, 
+                            fontSize: '0.65rem',
+                            letterSpacing: '0.3px',
+                            textTransform: 'uppercase',
+                            mb: 0.5,
+                            display: 'block'
+                          }}
+                        >
+                          Lead by
+                        </Typography>
+                        <Typography 
+                          variant="body2" 
+                          color="text.primary"
+                          sx={{ 
+                            fontSize: '0.8rem',
+                            fontWeight: 500
+                          }}
+                        >
+                          {mainInstructor ? `${mainInstructor.firstName} ${mainInstructor.lastName}` : 'Unassigned'}
+                        </Typography>
+                      </Box>
                     </Stack>
                   </Grid>
 
                   {/* Right Column */}
-                  <Grid item xs={8}>
-                    <Box>
-                      <Typography 
-                        variant="caption" 
-                        color="text.secondary" 
-                        sx={{ 
-                          fontWeight: 700, 
-                          fontSize: '0.65rem',
-                          letterSpacing: '0.3px',
-                          textTransform: 'uppercase',
-                          mb: 0.5,
-                          display: 'block'
-                        }}
-                      >
-                        Lead by
-                      </Typography>
-                      <Typography 
-                        variant="body2" 
-                        color="text.primary"
-                        sx={{ 
-                          fontSize: '0.8rem',
-                          fontWeight: 500,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          width: '100%'
-                        }}
-                      >
-                        {mainInstructor ? `${mainInstructor.firstName} ${mainInstructor.lastName}` : 'Unassigned'}
-                      </Typography>
-                    </Box>
+                  <Grid item xs={7}>
+                    {/* Topics */}
+                    {projectTopics && projectTopics.length > 0 && (
+                      <Box>
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary" 
+                          sx={{ 
+                            fontWeight: 700, 
+                            fontSize: '0.65rem',
+                            letterSpacing: '0.3px',
+                            textTransform: 'uppercase',
+                            mb: 0.5,
+                            display: 'block'
+                          }}
+                        >
+                          Topics
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" alignItems="center">
+                          {projectTopics.slice(0, 2).map((topic) => (
+                            <Chip
+                              key={topic.id}
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                                  {topic.icon && <span style={{ fontSize: '10px' }}>{topic.icon}</span>}
+                                  {topic.title}
+                                </Box>
+                              }
+                              size="small"
+                              variant="outlined"
+                              sx={{ 
+                                fontSize: '0.65rem', 
+                                height: 20,
+                                borderRadius: '10px',
+                                borderColor: topic.color || 'primary.main',
+                                color: topic.color || 'primary.main',
+                                bgcolor: `${topic.color}10` || 'primary.lighter',
+                                '&:hover': {
+                                  bgcolor: `${topic.color}20` || 'primary.light'
+                                }
+                              }}
+                            />
+                          ))}
+                          {projectTopics.length > 2 && (
+                            <Typography 
+                              variant="caption" 
+                              color="text.secondary" 
+                              sx={{ 
+                                fontSize: '0.65rem',
+                                fontWeight: 500,
+                                bgcolor: 'grey.100',
+                                px: 0.5,
+                                py: 0.25,
+                                borderRadius: '4px'
+                              }}
+                            >
+                              +{projectTopics.length - 2}
+                            </Typography>
+                          )}
+                        </Stack>
+                      </Box>
+                    )}
                   </Grid>
                 </Grid>
               </Stack>

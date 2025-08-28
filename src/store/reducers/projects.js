@@ -136,6 +136,10 @@ const slice = createSlice({
     // GET SINGLE PROJECT
     getSingleProjectSuccess(state, action) {
       state.singleProject = action.payload;
+      // Also update project_participants if they exist in the project data
+      if (action.payload?.participants) {
+        state.project_participants = action.payload.participants;
+      }
     },
 
     // ADD GROUP

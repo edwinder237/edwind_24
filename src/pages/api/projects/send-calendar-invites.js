@@ -120,7 +120,7 @@ export default async function handler(req, res) {
           
           // Send individual event invitation with rate limiting
           const emailData = await resend.emails.send({
-            from: 'EDWIND Training Schedule <crm360accesses@lumiversa.com>',
+            from: 'EDWIND Training Schedule <admin@edwind.ca>',
             to: [participant.email],
             subject: `Calendar Invitation: ${event.title} - ${projectTitle}`,
             html: generateEventInviteTemplate({

@@ -5,6 +5,9 @@ export default async function handler(req, res) {
 
 
     const courses = await prisma.courses.findMany({
+      where: {
+        isActive: true,
+      },
       include: {
         course_instructors: {
           include: {

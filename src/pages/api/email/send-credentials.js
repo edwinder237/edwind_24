@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_FuWEsP4t_57FGZEkUyxct65xaqCYXvQGG');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
 
       try {
         const emailData = await resend.emails.send({
-          from: 'CRM 360 access credentials <crm360accesses@lumiversa.com>',
+          from: 'CRM 360 access credentials <admin@edwind.ca>',
           to: [participant.participant.email],
           subject: `Your CRM 360 Access Credentials - ${projectName || 'Training Project'}`,
           html: generateEmailTemplate({

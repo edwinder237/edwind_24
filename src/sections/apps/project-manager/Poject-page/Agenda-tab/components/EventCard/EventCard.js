@@ -165,7 +165,7 @@ const EventCard = React.memo(({
               }}
               noWrap
             >
-              {event.title || 'Untitled Event'}
+              {"event.title "|| 'Untitled Event'}
             </Typography>
             
             <IconButton

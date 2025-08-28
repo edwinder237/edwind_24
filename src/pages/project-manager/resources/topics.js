@@ -394,7 +394,19 @@ function TopicsPage() {
         onClose={handleClose}
         maxWidth="sm"
         fullWidth
-        sx={{ '& .MuiDialog-paper': { overflow: 'visible' } }}
+        scroll="body"
+        sx={{ 
+          '& .MuiDialog-paper': { 
+            overflow: 'visible',
+            maxHeight: '90vh',
+            width: '100%',
+            maxWidth: '500px',
+            margin: 'auto'
+          },
+          '& .MuiDialog-container': {
+            alignItems: 'center'
+          }
+        }}
       >
         <MainCard
           title={editingTopic ? 'Edit Topic' : 'Add New Topic'}
@@ -404,8 +416,18 @@ function TopicsPage() {
               ✕
             </Button>
           }
+          sx={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            '& .MuiCardContent-root': {
+              flex: 1,
+              overflow: 'auto',
+              maxHeight: 'calc(90vh - 64px)' // Subtract header height
+            }
+          }}
         >
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: 3, overflow: 'auto', maxHeight: 'inherit' }}>
             {errorMessage && (
               <Alert severity="error" sx={{ mb: 3 }}>
                 {errorMessage}

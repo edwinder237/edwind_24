@@ -708,6 +708,143 @@ async function main() {
     })
   ]);
 
+  // Create topics for the organization
+  console.log('🏷️ Creating topics...');
+  const topics = await Promise.all([
+    prisma.topics.create({
+      data: {
+        title: 'JAVASCRIPT',
+        description: 'Client-side and server-side JavaScript programming',
+        color: '#F7DF1E',
+        icon: '🟨',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'REACT',
+        description: 'Modern React.js library for building user interfaces',
+        color: '#61DAFB',
+        icon: '⚛️',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'NODE.JS',
+        description: 'Server-side JavaScript runtime environment',
+        color: '#339933',
+        icon: '🟢',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'PYTHON',
+        description: 'General-purpose programming language for various applications',
+        color: '#3776AB',
+        icon: '🐍',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'LEADERSHIP',
+        description: 'Leadership skills and management techniques',
+        color: '#FF6B35',
+        icon: '👑',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'UI/UX DESIGN',
+        description: 'User interface and user experience design principles',
+        color: '#FF007F',
+        icon: '🎨',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'CLOUD COMPUTING',
+        description: 'Cloud infrastructure and services (AWS, Azure, GCP)',
+        color: '#0066CC',
+        icon: '☁️',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'DATA SCIENCE',
+        description: 'Data analysis, machine learning, and statistical modeling',
+        color: '#FF9500',
+        icon: '📊',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'AGILE METHODOLOGY',
+        description: 'Agile project management and development practices',
+        color: '#00CED1',
+        icon: '🔄',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'BUSINESS STRATEGY',
+        description: 'Strategic planning and business development',
+        color: '#800080',
+        icon: '💼',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'CYBERSECURITY',
+        description: 'Information security and cyber threat protection',
+        color: '#DC143C',
+        icon: '🔒',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    }),
+    prisma.topics.create({
+      data: {
+        title: 'DEVOPS',
+        description: 'Development operations and CI/CD practices',
+        color: '#4169E1',
+        icon: '⚙️',
+        sub_organizationId: subOrganization.id,
+        createdBy: systemUser.id,
+        updatedBy: systemUser.id
+      }
+    })
+  ]);
+
   // Create 2 curriculums
   console.log('📖 Creating 2 curriculums...');
   
@@ -2323,6 +2460,19 @@ async function main() {
   console.log(`  - David: Tableau, SQL Server, Power BI (3 tools)`);
   console.log(`  - Eva: AWS Console, Docker Hub, Jenkins, Kubernetes (4 tools)`);
   console.log(`• 8 Tags for categorization`);
+  console.log(`• ${topics.length} Topics:`);
+  console.log(`  - ${topics[0].title} (${topics[0].icon} ${topics[0].description})`);
+  console.log(`  - ${topics[1].title} (${topics[1].icon} ${topics[1].description})`);
+  console.log(`  - ${topics[2].title} (${topics[2].icon} ${topics[2].description})`);
+  console.log(`  - ${topics[3].title} (${topics[3].icon} ${topics[3].description})`);
+  console.log(`  - ${topics[4].title} (${topics[4].icon} ${topics[4].description})`);
+  console.log(`  - ${topics[5].title} (${topics[5].icon} ${topics[5].description})`);
+  console.log(`  - ${topics[6].title} (${topics[6].icon} ${topics[6].description})`);
+  console.log(`  - ${topics[7].title} (${topics[7].icon} ${topics[7].description})`);
+  console.log(`  - ${topics[8].title} (${topics[8].icon} ${topics[8].description})`);
+  console.log(`  - ${topics[9].title} (${topics[9].icon} ${topics[9].description})`);
+  console.log(`  - ${topics[10].title} (${topics[10].icon} ${topics[10].description})`);
+  console.log(`  - ${topics[11].title} (${topics[11].icon} ${topics[11].description})`);
   console.log(`• 5 Courses:`);
   console.log(`  - ${course1.title} (${course1.code})`);
   console.log(`  - ${course2.title} (${course2.code})`);

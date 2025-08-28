@@ -18,7 +18,7 @@ import {
   Event
 } from '@mui/icons-material';
 
-const EventModalCards = ({ items, onItemSelect, type = 'course' }) => {
+const EventModalCards = ({ items, onItemSelect, type = 'course', scheduledItemIds = [], pendingItemIds = [] }) => {
   const theme = useTheme();
 
   // Get appropriate icon based on type and item
@@ -57,28 +57,63 @@ const EventModalCards = ({ items, onItemSelect, type = 'course' }) => {
 
   return (
     <Stack spacing={1.5}>
-      {items.map((item) => (
-        <Card 
-          key={item.id}
-          elevation={0}
-          sx={{ 
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: 2,
-            '&:hover': {
-              borderColor: color,
-              boxShadow: `0 4px 12px ${alpha(color, 0.15)}`,
-              transform: 'translateY(-2px)',
-              '& .item-avatar': {
-                transform: 'scale(1.05)',
-                boxShadow: theme.shadows[3]
+      {items.map((item) => {
+        const isScheduled = scheduledItemIds.includes(item.id);
+        const isPending = pendingItemIds.includes(item.id);
+        const isDisabled = isPending; // Only disable if currently being added
+        
+        return (
+          <Card 
+            key={item.id}
+            elevation={0}
+            sx={{ 
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: 2,
+              opacity: isDisabled ? 0.5 : 1,
+              position: 'relative',
+              '&:hover': isDisabled ? {} : {
+                borderColor: color,
+                boxShadow: `0 4px 12px ${alpha(color, 0.15)}`,
+                transform: 'translateY(-2px)',
+                '& .item-avatar': {
+                  transform: 'scale(1.05)',
+                  boxShadow: theme.shadows[3]
+                }
               }
-            }
-          }}
-          onClick={() => onItemSelect(item)}
+            }}
+            onClick={() => !isDisabled && onItemSelect(item)}
         >
           <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+            {isScheduled && !isPending && (
+              <Chip 
+                label="Already Scheduled"
+                size="small"
+                color="warning"
+                sx={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  fontWeight: 600,
+                  fontSize: '0.7rem'
+                }}
+              />
+            )}
+            {isPending && (
+              <Chip 
+                label="Adding..."
+                size="small"
+                color="info"
+                sx={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  fontWeight: 600,
+                  fontSize: '0.7rem'
+                }}
+              />
+            )}
             <Stack direction="row" p={2} spacing={2.5} alignItems="flex-start">
               <Avatar 
                 className="item-avatar"
@@ -202,7 +237,8 @@ const EventModalCards = ({ items, onItemSelect, type = 'course' }) => {
             </Stack>
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
     </Stack>
   );
 };

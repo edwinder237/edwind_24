@@ -79,6 +79,16 @@ export default async function handler(req, res) {
       });
     }
 
+    // If curriculumId is provided, create project_curriculum relationship
+    if (newProject.curriculumId) {
+      await prisma.project_curriculums.create({
+        data: {
+          projectId: createdProject.id,
+          curriculumId: newProject.curriculumId
+        }
+      });
+    }
+
     res.status(200).json({ 
       message: "Project created and saved to database",
       projectId: createdProject.id

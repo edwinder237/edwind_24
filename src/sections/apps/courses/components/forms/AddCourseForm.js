@@ -79,7 +79,7 @@ const getInitialValues = (course) => {
     courseStatus: 'draft',
     CourseType: '',
     targetAudience: '',
-    maxParticipants: '',
+    maxParticipants: '10',
     code: '',
     tags: '',
     accessRestrictions: '',
@@ -1012,11 +1012,16 @@ const AddCourseMultiStep = ({ course, onCancel }) => {
               )}
               {(isCreating || activeStep !== 0) && <Box />}
               <Stack direction="row" spacing={2} alignItems="center">
-                <Button color="error" onClick={onCancel}>
+                <Button 
+                  variant="outlined" 
+                  color="error" 
+                  onClick={onCancel}
+                >
                   Cancel
                 </Button>
                 {activeStep > 0 && (
                   <Button 
+                    variant="outlined"
                     onClick={handleBack}
                     startIcon={<ArrowLeftOutlined />}
                   >

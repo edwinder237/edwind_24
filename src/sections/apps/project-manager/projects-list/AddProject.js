@@ -58,6 +58,7 @@ import TagsPicker from "./tagsPicker";
 import TrainingRecipientPicker from "./TrainingRecipientPicker";
 import InstructorPicker from "./InstructorPicker";
 import GoogleMapAutocomplete from "./google-map-autocomplete";
+import CurriculumPicker from "./CurriculumPicker";
 
 // assets
 import { 
@@ -77,12 +78,13 @@ const getInitialValues = (project) => {
     return {
       title: project.title || "",
       type: project.projectType || project.type || "",
-      language: project.language || "",
+      language: project.language || "English",
       tags: project.tags || "", // Topics
       description: project.summary || project.description || "",
       location: project.location || "",
       trainingRecipient: project.trainingRecipientId ? project.trainingRecipientId.toString() : "",
       instructor: project.instructorId ? project.instructorId.toString() : "",
+      curriculum: project.curriculumId ? project.curriculumId.toString() : "",
       shared: project.published !== undefined ? project.published : project.sharing || true,
       backgroundImg: project.backgroundImg || ""
     };
@@ -92,12 +94,13 @@ const getInitialValues = (project) => {
   const newProject = {
     title: "",
     type: "",
-    language: "",
+    language: "English",
     tags: "", // Topics
     description: "",
     location: "",
     trainingRecipient: "",
     instructor: "",
+    curriculum: "",
     shared: true,
     backgroundImg: ""
   };
@@ -168,6 +171,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   const [projectLocation, setProjectLocation] = useState(project?.location || "location");
   const [selectedTrainingRecipient, setSelectedTrainingRecipient] = useState(null);
   const [selectedInstructor, setSelectedInstructor] = useState(null);
+  const [selectedCurriculum, setSelectedCurriculum] = useState(null);
 
   // Set initial training recipient for editing
   useEffect(() => {
@@ -215,11 +219,40 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     }
   }, [project]);
 
+  // Set initial curriculum for editing
+  useEffect(() => {
+    // Check if project has curriculum data through project_curriculums relation
+    if (project?.project_curriculums && project.project_curriculums.length > 0) {
+      // Get the first curriculum (assuming one curriculum per project for now)
+      const projectCurriculum = project.project_curriculums[0];
+      if (projectCurriculum?.curriculum) {
+        setSelectedCurriculum(projectCurriculum.curriculum);
+        setFieldValue("curriculum", projectCurriculum.curriculum.id.toString());
+      }
+    } else if (project?.curriculumId) {
+      // Fallback: If curriculumId is directly on project, fetch the curriculum details
+      const fetchCurriculum = async () => {
+        try {
+          const response = await axios.get('/api/curriculums/fetchCurriculums');
+          const curriculum = response.data.find(c => c.id === project.curriculumId);
+          if (curriculum) {
+            setSelectedCurriculum(curriculum);
+            setFieldValue("curriculum", curriculum.id.toString());
+          }
+        } catch (error) {
+          console.error('Error fetching curriculum for editing:', error);
+        }
+      };
+      fetchCurriculum();
+    }
+  }, [project]);
+
   const ProjectSchema = Yup.object().shape({
     title: Yup.string().max(255).required("Title is required"),
     type: Yup.string().required("Type is required"),
     description: Yup.string().max(191),
     trainingRecipient: Yup.string().required("Training recipient is required"),
+    curriculum: Yup.string().required("Curriculum is required"),
   });
 
   const [openAlert, setOpenAlert] = useState(false);
@@ -246,7 +279,10 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     initialValues: getInitialValues(project),
     validationSchema: ProjectSchema,
     onSubmit: async (values, { setSubmitting }) => {
-      console.log(values);
+      console.log('Form values:', values);
+      console.log('Selected instructor state:', selectedInstructor);
+      console.log('Selected training recipient state:', selectedTrainingRecipient);
+      console.log('Selected curriculum state:', selectedCurriculum);
       try {
         const newProject = {
           sortorder: 1,
@@ -270,6 +306,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           location: projectLocation,
           trainingRecipientId: selectedTrainingRecipient ? selectedTrainingRecipient.id : null,
           instructorId: selectedInstructor ? selectedInstructor.id : null,
+          curriculumId: selectedCurriculum ? selectedCurriculum.id : null,
         };
         if (project) {
           // Update existing project
@@ -285,6 +322,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             location: projectLocation,
             trainingRecipientId: selectedTrainingRecipient ? selectedTrainingRecipient.id : null,
             instructorId: selectedInstructor ? selectedInstructor.id : null,
+            curriculumId: selectedCurriculum ? selectedCurriculum.id : null,
             sharing: values.shared,
             backgroundImg: values.backgroundImg || ""
           };
@@ -429,6 +467,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     isSubmitting,
     getFieldProps,
     setFieldValue,
+    setFieldTouched,
   } = formik;
 
   function handleTopicsChange(topics) {
@@ -450,8 +489,29 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   }
 
   function handleLocationChange(location) {
-    const JSONLocation = JSON.stringify(location)
-    setProjectLocation(JSONLocation);
+    if (location) {
+      const JSONLocation = JSON.stringify(location);
+      setProjectLocation(JSONLocation);
+      
+      // If location has an image URL, set it as the background image
+      if (location.imageUrl) {
+        setFieldValue('backgroundImg', location.imageUrl);
+        
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: `Location image has been set as project background: ${location.description}`,
+            variant: "alert",
+            alert: {
+              color: "success",
+            },
+            close: false,
+          })
+        );
+      }
+    } else {
+      setProjectLocation('');
+    }
   }
 
   function handleTrainingRecipientChange(recipient) {
@@ -461,9 +521,21 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   }
 
   function handleInstructorChange(instructor) {
+    console.log('Instructor changed:', instructor);
     setSelectedInstructor(instructor);
     // Update the form value with the instructor ID (convert to string for validation)
     setFieldValue("instructor", instructor && instructor.id ? instructor.id.toString() : "");
+    
+    // Force validation to ensure form recognizes the change
+    if (instructor && instructor.id) {
+      setFieldTouched('instructor', true, false);
+    }
+  }
+
+  function handleCurriculumChange(curriculum) {
+    setSelectedCurriculum(curriculum);
+    // Update the form value with the curriculum ID (convert to string for validation)
+    setFieldValue("curriculum", curriculum && curriculum.id ? curriculum.id.toString() : "");
   }
 
   // Step navigation functions
@@ -473,8 +545,8 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     
     // Validate current step before proceeding
     if (activeStep === 0) {
-      // Step 1: Basic Information - validate title, type, training recipient
-      if (!formik.values.title || !formik.values.type || !formik.values.trainingRecipient) {
+      // Step 1: Basic Information - validate title, type, training recipient, curriculum
+      if (!formik.values.title || !formik.values.type || !formik.values.trainingRecipient || !formik.values.curriculum) {
         dispatch(openSnackbar({
           open: true,
           message: 'Please complete all required fields in this step.',
@@ -607,6 +679,18 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
               initialValue={selectedTrainingRecipient}
               error={Boolean(touched.trainingRecipient && errors.trainingRecipient)}
               helperText={touched.trainingRecipient && errors.trainingRecipient}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Curriculum *
+            </Typography>
+            <CurriculumPicker
+              handleCurriculumChange={handleCurriculumChange}
+              initialValue={selectedCurriculum}
+              error={Boolean(touched.curriculum && errors.curriculum)}
+              helperText={touched.curriculum && errors.curriculum}
             />
           </Grid>
 
@@ -784,6 +868,10 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Training Recipient:</Typography>
                   <Typography variant="body1">{selectedTrainingRecipient?.name}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Curriculum:</Typography>
+                  <Typography variant="body1">{selectedCurriculum?.title || 'Not selected'}</Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Instructor:</Typography>

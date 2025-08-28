@@ -84,7 +84,8 @@ export default async function handler(req, res) {
     res.status(201).json({
       success: true,
       message: 'Instructor created successfully',
-      data: instructor
+      data: instructor,
+      instructor: instructor // Keep both for backward compatibility
     });
 
   } catch (error) {

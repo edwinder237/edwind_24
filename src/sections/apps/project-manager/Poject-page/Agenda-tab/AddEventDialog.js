@@ -14,7 +14,9 @@ import {
   useTheme,
   alpha,
   Tooltip,
-  Chip
+  Chip,
+  CircularProgress,
+  Backdrop
 } from '@mui/material';
 import {
   Search,
@@ -34,6 +36,7 @@ import { createEvent, getEvents } from 'store/reducers/calendar';
 import { openSnackbar } from 'store/reducers/snackbar';
 import { getSingleProject } from 'store/reducers/projects';
 import EventModalCards from './EventModalCards';
+import { calculateCourseDurationFromModules } from 'utils/durationCalculations';
 
 // Tab Panel Component
 function TabPanel(props) {
@@ -72,6 +75,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const [editableTime, setEditableTime] = useState(selectedTime || '9:00 AM');
   const [isTimeEditing, setIsTimeEditing] = useState(false);
   const [timeInputValue, setTimeInputValue] = useState('');
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [pendingEventIds, setPendingEventIds] = useState(new Set());
 
   // Update editableTime when selectedTime prop changes (when user clicks different time slots)
   useEffect(() => {
@@ -85,6 +90,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     if (!open) {
       setIsTimeEditing(false);
       setTimeInputValue('');
+      setIsCreatingEvent(false);
+      setPendingEventIds(new Set());
     }
   }, [open]);
 
@@ -94,6 +101,10 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   };
 
   const handleClose = () => {
+    // Prevent closing while creating event
+    if (isCreatingEvent) {
+      return;
+    }
     setSearchQuery('');
     setTabValue(0);
     onClose();
@@ -352,6 +363,14 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     );
   }, [availableCourses, searchQuery]);
 
+  // Get scheduled course IDs (existing only)
+  const scheduledCourseIds = useMemo(() => {
+    if (!events || !project?.id) return [];
+    return events
+      .filter(event => event.courseId && event.projectId === project.id && event.eventType === 'course')
+      .map(event => event.courseId);
+  }, [events, project?.id]);
+
   // Filter support activities based on search query
   const filteredSupportActivities = useMemo(() => {
     if (!searchQuery) return availableSupportActivities;
@@ -365,8 +384,36 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     );
   }, [availableSupportActivities, searchQuery]);
 
+  // Get scheduled support activity IDs (existing only)
+  const scheduledSupportActivityIds = useMemo(() => {
+    if (!events || !project?.id) return [];
+    return events
+      .filter(event => event.supportActivityId && event.projectId === project.id && event.eventType === 'supportActivity')
+      .map(event => event.supportActivityId);
+  }, [events, project?.id]);
+
+  // Convert pendingEventIds Set to Array for passing to components
+  const pendingEventIdsArray = useMemo(() => [...pendingEventIds], [pendingEventIds]);
+
   const handleCourseSelect = async (course) => {
+    // Prevent multiple clicks
+    if (isCreatingEvent) {
+      return;
+    }
+    
+    // Check if already being added or already exists
+    if (pendingEventIds.has(course.id)) {
+      return;
+    }
+    
     try {
+      // Set creating state and add to pending
+      setIsCreatingEvent(true);
+      setPendingEventIds(prev => new Set([...prev, course.id]));
+      
+      // Note: We allow rescheduling the same course to different time slots
+      // The duplicate check is removed to allow multiple schedules of the same course
+
       // Calculate start and end times using editableTime
       const startDate = new Date(selectedDate);
       if (editableTime) {
@@ -382,7 +429,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       }
 
       // Calculate end time based on course duration
-      const duration = course.duration || 60; // Default to 60 minutes
+      const calculatedDuration = calculateCourseDurationFromModules(course.modules || []);
+      const duration = calculatedDuration || 60; // Default to 60 minutes if no modules
       const endDate = new Date(startDate.getTime() + duration * 60000);
 
       // Create event data matching the format expected by the calendar reducer
@@ -445,6 +493,13 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     } catch (error) {
       console.error('Error creating event:', error);
       
+      // Remove from pending since creation failed
+      setPendingEventIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(course.id);
+        return newSet;
+      });
+      
       // Show error notification
       dispatch(
         openSnackbar({
@@ -457,11 +512,31 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
           close: false
         })
       );
+    } finally {
+      // Always reset creating state
+      setIsCreatingEvent(false);
     }
   };
 
   const handleSupportActivitySelect = async (activity) => {
+    // Prevent multiple clicks
+    if (isCreatingEvent) {
+      return;
+    }
+    
+    // Check if already being added or already exists
+    if (pendingEventIds.has(activity.id)) {
+      return;
+    }
+    
     try {
+      // Set creating state and add to pending
+      setIsCreatingEvent(true);
+      setPendingEventIds(prev => new Set([...prev, activity.id]));
+      
+      // Note: We allow rescheduling the same support activity to different time slots
+      // The duplicate check is removed to allow multiple schedules of the same activity
+
       // Calculate start and end times using editableTime
       const startDate = new Date(selectedDate);
       if (editableTime) {
@@ -538,6 +613,13 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     } catch (error) {
       console.error('Error creating support activity event:', error);
       
+      // Remove from pending since creation failed
+      setPendingEventIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(activity.id);
+        return newSet;
+      });
+      
       // Show error notification
       dispatch(
         openSnackbar({
@@ -550,6 +632,9 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
           close: false
         })
       );
+    } finally {
+      // Always reset creating state
+      setIsCreatingEvent(false);
     }
   };
 
@@ -651,6 +736,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
+      disableEscapeKeyDown={isCreatingEvent}
       PaperProps={{
         sx: {
           borderRadius: 2,
@@ -856,6 +942,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                     items={searchQuery ? filteredCourses : availableCourses}
                     onItemSelect={handleCourseSelect}
                     type="course"
+                    scheduledItemIds={scheduledCourseIds}
+                    pendingItemIds={pendingEventIdsArray}
                   />
                 </Box>
                 
@@ -903,6 +991,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                     items={searchQuery ? filteredSupportActivities : availableSupportActivities}
                     onItemSelect={handleSupportActivitySelect}
                     type="supportActivity"
+                    scheduledItemIds={scheduledSupportActivityIds}
+                    pendingItemIds={pendingEventIdsArray}
                   />
                 </Box>
                 
@@ -982,6 +1072,25 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
             </Box>
           </TabPanel>
         </Box>
+        
+        {/* Loading Overlay */}
+        <Backdrop
+          sx={{ 
+            position: 'absolute',
+            zIndex: 9999,
+            color: '#fff',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            borderRadius: 2
+          }}
+          open={isCreatingEvent}
+        >
+          <Stack alignItems="center" spacing={2}>
+            <CircularProgress color="inherit" />
+            <Typography variant="body1" color="inherit">
+              Adding event to calendar...
+            </Typography>
+          </Stack>
+        </Backdrop>
       </MainCard>
     </Dialog>
   );

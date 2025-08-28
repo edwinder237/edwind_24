@@ -2,7 +2,7 @@ import PropTypes from "prop-types";
 import * as React from "react";
 
 // material-ui
-import { Autocomplete, Box, Grid, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Grid, TextField, Typography, Alert } from "@mui/material";
 
 // third-party
 import { getGeocode } from "use-places-autocomplete";
@@ -43,6 +43,50 @@ function loadScript(src, position, id) {
 }
 
 const autocompleteService = { current: null };
+const placesService = { current: null };
+
+// Function to get place details including photos
+const getPlaceDetails = (placeId) => {
+  return new Promise((resolve, reject) => {
+    if (!placesService.current || !window.google) {
+      resolve({ imageUrl: null, photos: [] });
+      return;
+    }
+    
+    const request = {
+      placeId: placeId,
+      fields: ['photos', 'name', 'formatted_address', 'geometry']
+    };
+    
+    placesService.current.getDetails(request, (place, status) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+        let imageUrl = null;
+        const photos = [];
+        
+        if (place.photos && place.photos.length > 0) {
+          // Get the first photo URL with high resolution
+          imageUrl = place.photos[0].getUrl({
+            maxWidth: 1200,
+            maxHeight: 800
+          });
+          
+          // Get multiple photos if available
+          place.photos.slice(0, 5).forEach(photo => {
+            photos.push({
+              url: photo.getUrl({ maxWidth: 800, maxHeight: 600 }),
+              htmlAttributions: photo.html_attributions
+            });
+          });
+        }
+        
+        resolve({ imageUrl, photos, place });
+      } else {
+        console.warn('Place details request failed:', status);
+        resolve({ imageUrl: null, photos: [] });
+      }
+    });
+  });
+};
 
 // ==============================|| GOOGLE MAP - AUTOCOMPLETE ||============================== //
 
@@ -50,9 +94,17 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
   const [value, setValue] = React.useState(null);
   const [inputValue, setInputValue] = React.useState("");
   const [options, setOptions] = React.useState([]);
+  const [error, setError] = React.useState(null);
+  const [isLoading, setIsLoading] = React.useState(false);
   const loaded = React.useRef(false);
   
   if (typeof window !== "undefined" && !loaded.current) {
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+      setError("Google Maps API key is not configured. Please add GOOGLE_MAPS_API_KEY to your environment variables.");
+      loaded.current = true;
+      return;
+    }
+    
     if (!document.querySelector("#google-maps")) {
       loadScript(
         `https://maps.googleapis.com/maps/api/js?key=${process.env.GOOGLE_MAPS_API_KEY}&libraries=places`,
@@ -67,10 +119,26 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
   const fetch = React.useMemo(
     () =>
       throttle((request, callback) => {
-        autocompleteService.current.getPlacePredictions(
-          { ...request, componentRestrictions: { country: "CA" } },
-          callback
-        );
+        if (!autocompleteService.current) {
+          callback(null, null);
+          return;
+        }
+        try {
+          autocompleteService.current.getPlacePredictions(
+            { ...request, types: ['establishment', 'geocode'] }, // Remove country restriction to allow global search
+            (predictions, status) => {
+              if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+                callback(predictions, null);
+              } else {
+                console.warn('Places service status:', status);
+                callback(null, status);
+              }
+            }
+          );
+        } catch (error) {
+          console.error('Error fetching place predictions:', error);
+          callback(null, error);
+        }
       }, 200),
     []
   );
@@ -82,6 +150,14 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
       autocompleteService.current =
         new window.google.maps.places.AutocompleteService();
     }
+    
+    // Initialize Places Service for getting place details and photos
+    if (!placesService.current && window.google) {
+      // Create a hidden div for the PlacesService
+      const div = document.createElement('div');
+      placesService.current = new window.google.maps.places.PlacesService(div);
+    }
+    
     if (!autocompleteService.current) {
       return undefined;
     }
@@ -91,8 +167,15 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
       return undefined;
     }
 
-    fetch({ input: inputValue }, (results) => {
+    setIsLoading(true);
+    fetch({ input: inputValue }, (results, error) => {
       if (active) {
+        setIsLoading(false);
+        if (error) {
+          setError(`Failed to fetch suggestions: ${error}`);
+          return;
+        }
+        
         let newOptions = [];
 
         if (value) {
@@ -104,6 +187,7 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
         }
 
         setOptions(newOptions);
+        setError(null);
       }
     });
 
@@ -111,6 +195,15 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
       active = false;
     };
   }, [value, inputValue, fetch]);
+
+  // Show error alert if there's an issue
+  if (error) {
+    return (
+      <Alert severity="warning" sx={{ mb: 2 }}>
+        {error}
+      </Alert>
+    );
+  }
 
   return (
     <Autocomplete
@@ -127,54 +220,73 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
       filterSelectedOptions
       disabled={disabled}
       value={value}
-      onChange={(event, newValue) => {
+      onChange={async (event, newValue) => {
         setOptions(newValue ? [newValue, ...options] : options);
         setValue(newValue);
-        handleLocationChange(newValue);
-        let address1 = "";
-        getGeocode({ address: newValue?.description })
-          .then((results) => {
-            results[0].address_components.filter((locData) => {
-              if (locData.types[0] === "route") {
-                if (locData.long_name !== undefined)
-                  address1 =
-                    address1 !== ""
-                      ? `${locData.long_name} ${address1}`
-                      : locData.long_name;
-              }
+        
+        if (newValue) {
+          try {
+            // Get place details including photos
+            const placeDetails = await getPlaceDetails(newValue.place_id);
+            const locationWithImage = {
+              ...newValue,
+              imageUrl: placeDetails.imageUrl || null,
+              photos: placeDetails.photos || []
+            };
+            
+            handleLocationChange(locationWithImage);
+            
+            let address1 = "";
+            const results = await getGeocode({ address: newValue.description });
+            
+            if (results && results[0]) {
+              results[0].address_components.forEach((locData) => {
+                if (locData.types[0] === "route") {
+                  if (locData.long_name !== undefined)
+                    address1 =
+                      address1 !== ""
+                        ? `${locData.long_name} ${address1}`
+                        : locData.long_name;
+                }
 
-              if (locData.types[0] === "street_number") {
-                if (locData.long_name !== undefined)
-                  address1 =
-                    address1 !== ""
-                      ? `${address1} ${locData.long_name}`
-                      : locData.long_name;
-              }
+                if (locData.types[0] === "street_number") {
+                  if (locData.long_name !== undefined)
+                    address1 =
+                      address1 !== ""
+                        ? `${address1} ${locData.long_name}`
+                        : locData.long_name;
+                }
 
-              if (
-                locData.types[0] === "locality" ||
-                locData.types[0] === "postal_town"
-              ) {
-                locData.long_name !== undefined &&
-                  formik.setFieldValue("city", locData.long_name);
-              }
+                if (
+                  locData.types[0] === "locality" ||
+                  locData.types[0] === "postal_town"
+                ) {
+                  locData.long_name !== undefined &&
+                    formik.setFieldValue("city", locData.long_name);
+                }
 
-              if (locData.types[0] === "administrative_area_level_1") {
-                locData.long_name !== undefined &&
-                  formik.setFieldValue("county", locData.long_name);
-              }
+                if (locData.types[0] === "administrative_area_level_1") {
+                  locData.long_name !== undefined &&
+                    formik.setFieldValue("county", locData.long_name);
+                }
 
-              if (locData.types[0] === "country") {
-                formik.setFieldValue("country", locData.long_name);
-              }
-              if (locData.types[0] === "postal_code") {
-                locData.long_name !== undefined &&
-                  formik.setFieldValue("postCode", locData.long_name);
-              }
-              return false;
-            });
-          })
-          .then(() => formik.setFieldValue("address1", address1));
+                if (locData.types[0] === "country") {
+                  formik.setFieldValue("country", locData.long_name);
+                }
+                if (locData.types[0] === "postal_code") {
+                  locData.long_name !== undefined &&
+                    formik.setFieldValue("postCode", locData.long_name);
+                }
+              });
+              formik.setFieldValue("address1", address1);
+            }
+          } catch (error) {
+            console.error('Error processing location:', error);
+            handleLocationChange(newValue);
+          }
+        } else {
+          handleLocationChange(null);
+        }
       }}
       onInputChange={(event, newInputValue) => {
         setInputValue(newInputValue);
@@ -184,6 +296,8 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
           {...params}
           placeholder="Search your company address"
           fullWidth
+          loading={isLoading}
+          helperText={isLoading ? "Searching locations..." : ""}
         />
       )}
       renderOption={(props, option) => {

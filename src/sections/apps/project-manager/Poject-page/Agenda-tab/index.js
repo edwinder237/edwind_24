@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography } from '@mui/material';
 import { useSelector, useDispatch } from 'store';
 import { getSingleProject } from 'store/reducers/projects';
-import { ViewList, CalendarMonth, DateRange } from '@mui/icons-material';
+import { ViewList, CalendarMonth, DateRange, Add } from '@mui/icons-material';
 
 // Components
 import MainCard from 'components/MainCard';
@@ -12,6 +12,7 @@ import FullCalendarMonthView from './FullCalendarMonthView';
 import FullCalendarWeekView from './FullCalendarWeekView';
 import ScheduleExport from './components/ScheduleExport';
 import ImportOptionsDialog from './components/ImportOptionsDialog';
+import AddEventDialog from './AddEventDialog';
 
 // Hooks and utilities
 import { useAgendaState } from './hooks/useAgendaState';
@@ -34,6 +35,9 @@ const AgendaTab = () => {
   // Local state for import dialog
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
   const [importLoading, setImportLoading] = React.useState(false);
+  
+  // Local state for add event dialog
+  const [addEventDialogOpen, setAddEventDialogOpen] = React.useState(false);
   
   // State for available roles and training plans
   const [availableRoles, setAvailableRoles] = React.useState([]);
@@ -106,6 +110,26 @@ const AgendaTab = () => {
   // Handle closing import dialog
   const handleCloseImportDialog = () => {
     setImportDialogOpen(false);
+  };
+
+  // Handle opening add event dialog
+  const handleOpenAddEventDialog = () => {
+    setAddEventDialogOpen(true);
+  };
+
+  // Handle closing add event dialog
+  const handleCloseAddEventDialog = () => {
+    setAddEventDialogOpen(false);
+  };
+
+  // Handle event creation completion
+  const handleEventCreated = async () => {
+    // Refresh the project data to show new event
+    if (project?.id) {
+      await dispatch(getSingleProject(project.id));
+      console.log('Project data refreshed after event creation');
+    }
+    setAddEventDialogOpen(false);
   };
 
   // Handle import completion (called from dialog when import finishes)
@@ -352,6 +376,16 @@ const AgendaTab = () => {
         availableRoles={availableRoles}
         availableTrainingPlans={availableTrainingPlans}
         loading={trainingPlansLoading || rolesLoading}
+      />
+
+      {/* Add Event Dialog */}
+      <AddEventDialog
+        open={addEventDialogOpen}
+        onClose={handleCloseAddEventDialog}
+        selectedTime={null}
+        selectedDate={selectedDate || new Date()}
+        project={project}
+        onEventCreated={handleEventCreated}
       />
 
       {/* View Schedule Dialog */}

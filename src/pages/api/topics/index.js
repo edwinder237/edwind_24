@@ -27,10 +27,19 @@ export default async function handler(req, res) {
 
 async function handleGet(req, res) {
   try {
-    // Note: For now, we'll fetch all topics. In a real app, you'd filter by sub_organizationId
-    // based on the authenticated user's organization
+    const { sub_organizationId } = req.query;
     
-    // Fetch all topics with usage count
+    // Build where clause
+    const where = {
+      isActive: true
+    };
+    
+    // Filter by sub_organizationId if provided
+    if (sub_organizationId && !isNaN(parseInt(sub_organizationId))) {
+      where.sub_organizationId = parseInt(sub_organizationId);
+    }
+    
+    // Fetch topics with usage count
     const topics = await prisma.topics.findMany({
       include: {
         course_topics: {
@@ -45,9 +54,7 @@ async function handleGet(req, res) {
           }
         }
       },
-      where: {
-        isActive: true
-      },
+      where,
       orderBy: {
         title: 'asc'
       }

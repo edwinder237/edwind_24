@@ -374,6 +374,7 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
       ref={drag}
       onClick={() => onSelect(event.id)}
       sx={{
+        p: 2,
         flex: 1,
         mb: isCompact ? 0 : 3,
         cursor: isDragging ? 'grabbing' : 'grab',
@@ -393,7 +394,7 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
         }
       }}
     >
-      <CardContent sx={{ px: 1.5, py: 2, '&:last-child': { pb: 1 } }}>
+      <CardContent >
         <Stack direction="row" justifyContent="space-between" alignItems="start" mb={1}>
           <Box flex={1}>
             <Stack direction="row" spacing={1} alignItems="center" mb={1}>

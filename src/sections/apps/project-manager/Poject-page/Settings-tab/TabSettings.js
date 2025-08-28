@@ -11,6 +11,8 @@ import {
   ProjectScheduleCard,
   ProjectInfoCard,
   ProjectCustomizationCard,
+  ProjectTopicsCard,
+  ProjectCurriculumCard,
   SettingsActions,
   LoadingSpinner,
   ErrorAlert
@@ -62,6 +64,52 @@ const TabSettings = React.memo(() => {
     }
   };
 
+  // Handle project title update
+  const handleUpdateTitle = async (newTitle) => {
+    if (!project?.id) return;
+    
+    const updateData = {
+      id: project.id,
+      title: newTitle
+    };
+    
+    const result = await dispatch(updateProject(updateData));
+    
+    if (result.success) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Project title updated successfully.',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+    } else {
+      throw new Error(result.message || 'Failed to update project title');
+    }
+  };
+
+  // Handle project status update
+  const handleUpdateStatus = async (newStatus) => {
+    if (!project?.id) return;
+    
+    const updateData = {
+      id: project.id,
+      projectStatus: newStatus
+    };
+    
+    const result = await dispatch(updateProject(updateData));
+    
+    if (result.success) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Project status updated successfully.',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+    } else {
+      throw new Error(result.message || 'Failed to update project status');
+    }
+  };
+
   // Loading state
   if (loading) {
     return <LoadingSpinner />;
@@ -91,7 +139,17 @@ const TabSettings = React.memo(() => {
               <ProjectInfoCard
                 project={project}
                 projectSettings={projectSettings}
+                onUpdateTitle={handleUpdateTitle}
+                onUpdateStatus={handleUpdateStatus}
               />
+            </Grid>
+            {/* Project Topics */}
+            <Grid item xs={12}>
+              <ProjectTopicsCard projectId={project?.id} />
+            </Grid>
+            {/* Curriculum Management */}
+            <Grid item xs={12}>
+              <ProjectCurriculumCard projectId={project?.id} />
             </Grid>
             {/* Project Customization */}
             <Grid item xs={12}>

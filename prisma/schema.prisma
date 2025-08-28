@@ -143,6 +143,7 @@ model projects {
   events              events[]
   groups              groups[]
   project_curriculums project_curriculums[]
+  project_topics      project_topics[]
   participants        project_participants[]
   project_instructors project_instructors[]
   project_settings    project_settings?
@@ -668,6 +669,7 @@ model topics {
   updatedBy          String?
   sub_organizationId Int
   course_topics      course_topics[]
+  project_topics     project_topics[]
   sub_organization   sub_organizations @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 
   @@unique([title, sub_organizationId], name: "unique_topic_per_organization")
@@ -837,5 +839,19 @@ model training_plan_modules {
   @@index([courseId])
   @@index([supportActivityId])
   @@index([moduleOrder])
+}
+
+model project_topics {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  projectId Int
+  topicId   Int
+  project   projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  topic     topics   @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, topicId], name: "projectId_topicId")
+  @@index([projectId])
+  @@index([topicId])
 }
 

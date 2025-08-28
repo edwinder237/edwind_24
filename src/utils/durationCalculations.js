@@ -14,7 +14,11 @@
  */
 export const calculateModuleDurationFromActivities = (module) => {
   if (!module?.activities || module.activities.length === 0) return 0;
-  return module.activities.reduce((acc, activity) => acc + (parseInt(activity.duration) || 0), 0);
+  return module.activities.reduce((acc, activity) => {
+    const duration = parseInt(activity.duration) || 0;
+    console.log(`Activity "${activity.title}" duration: ${activity.duration} (${typeof activity.duration}) -> parsed: ${duration}`);
+    return acc + duration;
+  }, 0);
 };
 
 /**

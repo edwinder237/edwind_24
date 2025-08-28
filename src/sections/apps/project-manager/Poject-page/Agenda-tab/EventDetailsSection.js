@@ -13,6 +13,7 @@ import { Box, Stack, Typography } from "@mui/material";
 
 // Project imports
 import MainCard from "components/MainCard";
+import { calculateCourseDurationFromModules } from 'utils/durationCalculations';
 
 // Debounce utility function for API calls
 const debounce = (func, wait) => {
@@ -238,10 +239,11 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project }) => {
     switch (eventType) {
       case "course":
         if (course) {
+          const calculatedDuration = calculateCourseDurationFromModules(course.modules || []);
           setScheduleState(prevState => ({
             ...prevState,
             ...baseState,
-            courseTitle: `${course.duration || 0}min | ${eventTitle} | ${course.title}`,
+            courseTitle: `${calculatedDuration}min | ${eventTitle} | ${course.title}`,
             course: course,
             modules: course.modules || [],
             activities: course.modules?.flatMap(m => m.activities || []) || [],

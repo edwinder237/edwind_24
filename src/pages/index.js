@@ -1,11 +1,19 @@
-// project import
-import Landing from 'sections/landing';
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+
+// project import  
 import Layout from 'layout';
 
-// ==============================|| HOME PAGE ||============================== //
+// ==============================|| HOME PAGE - REDIRECT TO PROJECTS ||============================== //
 
 const HomePage = () => {
-  return <Landing />;
+  const router = useRouter();
+  
+  useEffect(() => {
+    router.push('/projects');
+  }, [router]);
+  
+  return null; // Return null while redirecting
 };
 
 HomePage.getLayout = function getLayout(page) {

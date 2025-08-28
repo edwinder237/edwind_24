@@ -60,93 +60,110 @@ const getActivityColor = (type) => {
 
 // ==============================|| STEPPER - VERTICAL ||============================== //
 
-export default function VerticalLinearStepper({activities}) {
+export default function VerticalLinearStepper({activities, onComplete, moduleIndex}) {
   const [activeStep, setActiveStep] = useState(0);
 
-  const handleNext = () => setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  const handleNext = () => {
+    const nextStep = activeStep + 1;
+    setActiveStep(nextStep);
+    
+    // Check if all activities are completed
+    if (nextStep === activities.length && onComplete) {
+      // Call the onComplete callback immediately for better UX
+      onComplete(moduleIndex);
+    }
+  };
+  
   const handleBack = () => setActiveStep((prevActiveStep) => prevActiveStep - 1);
   const handleReset = () => setActiveStep(0);
 
-  if(activities){
+  // Check if activities exist and have length
+  if(!activities || activities.length === 0){
     return (
-      <div>
-        <Stepper activeStep={activeStep} orientation="vertical">
-          {activities.map((activitie, index) => (
-            <Step key={activitie.id || `step-${index}`}>
-              <StepLabel 
-                optional={index === 2 ? <Typography variant="caption">Last step</Typography> : null}
-                sx={{ 
-                  '& .MuiStepLabel-labelContainer': { 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 1 
-                  } 
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box 
-                    sx={{ 
-                      color: getActivityColor(activitie.activityType || activitie.type),
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}
-                  >
-                    {getActivityIcon(activitie.activityType || activitie.type)}
-                  </Box>
-                  <Typography>{activitie.title}</Typography>
-                  {activitie.contentUrl && activitie.contentUrl.trim() !== '' && (
-                    <Tooltip title="Open content in new tab">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(activitie.contentUrl, '_blank', 'noopener,noreferrer');
-                        }}
-                        sx={{
-                          color: 'primary.main',
-                          '&:hover': {
-                            backgroundColor: 'primary.lighter'
-                          }
-                        }}
-                      >
-                        <OpenInNew fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
-              </StepLabel>
-              <StepContent>
-                <Typography>{activitie.summary}</Typography>
-                <Box sx={{ mb: 2 }}>
-                  <div>
-                    <Button
-                      variant="contained"
-                      onClick={handleNext}
-                      sx={{ mt: 1, mr: 1 }}
-                      color={index === activities.length - 1 ? 'success' : 'primary'}
-                    >
-                      {index === activities.length - 1 ? 'Finish' : 'Continue'}
-                    </Button>
-                    <Button disabled={index === 0} onClick={handleBack} sx={{ mt: 1, mr: 1 }}>
-                      Back
-                    </Button>
-                  </div>
-                </Box>
-              </StepContent>
-            </Step>
-          ))}
-        </Stepper>
-        {activeStep === activities.length && (
-          <Box sx={{ pt: 2 }}>
-            <Typography sx={{ color: 'success.main' }}>All steps completed - you&apos;re finished</Typography>
-            <Button size="small" variant="contained" color="error" onClick={handleReset} sx={{ mt: 2, mr: 1 }}>
-              Reset
-            </Button>
-          </Box>
-        )}
-      </div>
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          No activities in this module
+        </Typography>
+      </Box>
     );
+  }
 
-  }else return <>no activities</>
-
+  return (
+    <div>
+      <Stepper activeStep={activeStep} orientation="vertical">
+        {activities.map((activitie, index) => (
+          <Step key={activitie.id || `step-${index}`}>
+            <StepLabel 
+              optional={index === 2 ? <Typography variant="caption">Last step</Typography> : null}
+              sx={{ 
+                '& .MuiStepLabel-labelContainer': { 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1 
+                } 
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box 
+                  sx={{ 
+                    color: getActivityColor(activitie.activityType || activitie.type),
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  {getActivityIcon(activitie.activityType || activitie.type)}
+                </Box>
+                <Typography>{activitie.title}</Typography>
+                {activitie.contentUrl && activitie.contentUrl.trim() !== '' && (
+                  <Tooltip title="Open content in new tab">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(activitie.contentUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                      sx={{
+                        color: 'primary.main',
+                        '&:hover': {
+                          backgroundColor: 'primary.lighter'
+                        }
+                      }}
+                    >
+                      <OpenInNew fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            </StepLabel>
+            <StepContent>
+              <Typography>{activitie.summary}</Typography>
+              <Box sx={{ mb: 2 }}>
+                <div>
+                  <Button
+                    variant="contained"
+                    onClick={handleNext}
+                    sx={{ mt: 1, mr: 1 }}
+                    color={index === activities.length - 1 ? 'success' : 'primary'}
+                  >
+                    {index === activities.length - 1 ? 'Finish' : 'Continue'}
+                  </Button>
+                  <Button disabled={index === 0} onClick={handleBack} sx={{ mt: 1, mr: 1 }}>
+                    Back
+                  </Button>
+                </div>
+              </Box>
+            </StepContent>
+          </Step>
+        ))}
+      </Stepper>
+      {activeStep === activities.length && (
+        <Box sx={{ pt: 2 }}>
+          <Typography sx={{ color: 'success.main' }}>All steps completed - you&apos;re finished</Typography>
+          <Button size="small" variant="contained" color="error" onClick={handleReset} sx={{ mt: 2, mr: 1 }}>
+            Reset
+          </Button>
+        </Box>
+      )}
+    </div>
+  );
 }

@@ -1,798 +1,445 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Grid,
+import { useRef, useEffect, useState, useMemo } from 'react';
+import PropTypes from 'prop-types';
+import { 
+  Box, 
+  Paper, 
+  Typography, 
+  Tooltip, 
   Chip,
-  Button,
-  ButtonGroup,
-  Tooltip,
-  IconButton,
   Stack,
-  Menu,
-  MenuItem,
-  FormControl,
-  Select,
-  InputLabel,
-  Divider,
-  Card,
   Avatar,
-  LinearProgress,
-  Badge,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
+  LinearProgress
 } from '@mui/material';
-import {
-  ZoomInOutlined,
-  ZoomOutOutlined,
-  CalendarOutlined,
-  FilterOutlined,
-  FullscreenOutlined,
-  SettingOutlined,
-  DownloadOutlined,
-  InfoCircleOutlined,
-  WarningOutlined
-} from '@ant-design/icons';
-import { format, addDays, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import {
-  getStatusColor,
-  getStatusColorAlpha,
-  calculateProgress,
-  formatDuration,
-  getTimelineIntervals,
-  getProjectBarStyle,
-  getColumnWidth,
-  formatTimelineHeader,
-  getProjectTypeIcon,
-  isProjectOverdue,
-  getProjectHealthStatus,
-  exportGanttData,
-  groupProjectsByCategory,
-  getTimelineStats,
-  getCurrentDateLinePosition
-} from './GanttUtils';
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval,
+  eachWeekOfInterval,
+  eachMonthOfInterval,
+  differenceInDays,
+  isToday,
+  isWeekend,
+  parseISO,
+  startOfWeek,
+  endOfWeek
+} from 'date-fns';
 
 // ==============================|| GANTT CHART COMPONENT ||============================== //
 
-const GanttChart = ({ projects = [], onProjectUpdate, height = 600 }) => {
-  const [viewMode, setViewMode] = useState('weeks'); // 'days', 'weeks', 'months'
-  const [zoom, setZoom] = useState(1);
-  const [selectedProject, setSelectedProject] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [groupBy, setGroupBy] = useState('none'); // 'none', 'category', 'status'
-  const [showStats, setShowStats] = useState(false);
-  const [exportDialog, setExportDialog] = useState(false);
-  const [timelineStart, setTimelineStart] = useState(null);
-  const [timelineEnd, setTimelineEnd] = useState(null);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const scrollContainerRef = useRef(null);
+const GanttChart = ({ 
+  projects = [], 
+  viewMode = 'month', 
+  zoomLevel = 100,
+  onProjectClick,
+  instructors = []
+}) => {
+  const containerRef = useRef(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [hoveredProject, setHoveredProject] = useState(null);
 
-  // Calculate timeline bounds from project dates
+  // Calculate chart dimensions
   useEffect(() => {
-    if (projects.length === 0) return;
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.offsetWidth,
+          height: Math.max(600, projects.length * 60 + 100)
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, [projects.length]);
+
+  // Calculate date range for the chart
+  const dateRange = useMemo(() => {
+    if (projects.length === 0) {
+      const now = new Date();
+      return {
+        start: startOfMonth(now),
+        end: endOfMonth(now)
+      };
+    }
+
+    const allDates = projects.flatMap(p => [
+      parseISO(p.startDate),
+      parseISO(p.endDate)
+    ]);
     
-    const startDates = projects.map(p => p.startDate).filter(Boolean);
-    const endDates = projects.map(p => p.endDate).filter(Boolean);
+    const minDate = new Date(Math.min(...allDates));
+    const maxDate = new Date(Math.max(...allDates));
     
-    if (startDates.length > 0 && endDates.length > 0) {
-      const minStart = new Date(Math.min(...startDates.map(d => new Date(d))));
-      const maxEnd = new Date(Math.max(...endDates.map(d => new Date(d))));
+    // Add padding to the date range
+    const paddingDays = viewMode === 'day' ? 3 : viewMode === 'week' ? 7 : 30;
+    const start = new Date(minDate);
+    start.setDate(start.getDate() - paddingDays);
+    const end = new Date(maxDate);
+    end.setDate(end.getDate() + paddingDays);
+    
+    return { start, end };
+  }, [projects, viewMode]);
+
+  // Generate timeline headers based on view mode
+  const timelineHeaders = useMemo(() => {
+    const { start, end } = dateRange;
+    
+    switch(viewMode) {
+      case 'day':
+        return eachDayOfInterval({ start, end }).map(date => ({
+          date,
+          label: format(date, 'dd'),
+          sublabel: format(date, 'MMM'),
+          isWeekend: isWeekend(date),
+          isToday: isToday(date)
+        }));
       
-      // Add padding
-      setTimelineStart(addDays(startOfWeek(minStart), -7));
-      setTimelineEnd(addDays(endOfWeek(maxEnd), 14));
+      case 'week':
+        return eachWeekOfInterval({ start, end }).map(date => ({
+          date,
+          label: format(date, 'wo'),
+          sublabel: format(date, 'MMM'),
+          weekStart: startOfWeek(date),
+          weekEnd: endOfWeek(date)
+        }));
+      
+      case 'month':
+      default:
+        return eachMonthOfInterval({ start, end }).map(date => ({
+          date,
+          label: format(date, 'MMM'),
+          sublabel: format(date, 'yyyy')
+        }));
     }
-  }, [projects]);
+  }, [dateRange, viewMode]);
 
-  // Generate timeline intervals
-  const timelineIntervals = useMemo(() => {
-    return getTimelineIntervals(timelineStart, timelineEnd, viewMode);
-  }, [timelineStart, timelineEnd, viewMode]);
+  // Calculate column width based on zoom level
+  const columnWidth = useMemo(() => {
+    const baseWidth = viewMode === 'day' ? 40 : viewMode === 'week' ? 80 : 120;
+    return (baseWidth * zoomLevel) / 100;
+  }, [viewMode, zoomLevel]);
 
-  // Calculate timeline width
-  const timelineWidth = useMemo(() => {
-    return timelineIntervals.length * getColumnWidth(viewMode, zoom);
-  }, [timelineIntervals.length, viewMode, zoom]);
+  // Calculate total chart width
+  const chartWidth = timelineHeaders.length * columnWidth;
 
-  // Filter projects based on status
-  const filteredProjects = useMemo(() => {
-    if (filterStatus === 'all') return projects;
-    return projects.filter(project => project.projectStatus === filterStatus);
-  }, [projects, filterStatus]);
-
-  // Group projects if needed
-  const groupedProjects = useMemo(() => {
-    if (groupBy === 'none') return { 'All Projects': filteredProjects };
-    if (groupBy === 'category') return groupProjectsByCategory(filteredProjects);
-    if (groupBy === 'status') {
-      return filteredProjects.reduce((groups, project) => {
-        const status = project.projectStatus || 'unknown';
-        if (!groups[status]) groups[status] = [];
-        groups[status].push(project);
-        return groups;
-      }, {});
-    }
-    return { 'All Projects': filteredProjects };
-  }, [filteredProjects, groupBy]);
-
-  // Calculate statistics
-  const stats = useMemo(() => getTimelineStats(filteredProjects), [filteredProjects]);
-
-  // Calculate current date line position
-  const currentDateLinePosition = useMemo(() => {
-    return getCurrentDateLinePosition(timelineStart, timelineEnd);
-  }, [timelineStart, timelineEnd]);
-
-  // Handle scroll
-  const handleScroll = (newScrollLeft) => {
-    setScrollLeft(newScrollLeft);
+  // Helper function to calculate bar position and width
+  const calculateBarPosition = (project) => {
+    const projectStart = parseISO(project.startDate);
+    const projectEnd = parseISO(project.endDate);
+    const { start: chartStart } = dateRange;
+    
+    const startDays = differenceInDays(projectStart, chartStart);
+    const duration = differenceInDays(projectEnd, projectStart) + 1;
+    
+    const pixelsPerDay = chartWidth / differenceInDays(dateRange.end, chartStart);
+    
+    return {
+      left: startDays * pixelsPerDay,
+      width: duration * pixelsPerDay
+    };
   };
 
-  // Handle drag end
-  const handleDragEnd = (result) => {
-    if (!result.destination) return;
-    
-    const sourceIndex = result.source.index;
-    const destinationIndex = result.destination.index;
-    
-    if (sourceIndex === destinationIndex) return;
-    
-    // Reorder projects
-    const newProjects = Array.from(filteredProjects);
-    const [reorderedProject] = newProjects.splice(sourceIndex, 1);
-    newProjects.splice(destinationIndex, 0, reorderedProject);
-    
-    if (onProjectUpdate) {
-      onProjectUpdate(newProjects);
-    }
+  // Get status color
+  const getStatusColor = (status) => {
+    const colors = {
+      'upcoming': '#ff9800',
+      'in-progress': '#2196f3',
+      'completed': '#4caf50',
+      'cancelled': '#f44336',
+      'onhold': '#9e9e9e'
+    };
+    return colors[status] || '#2196f3';
   };
 
-  // Handle zoom
-  const handleZoom = (direction) => {
-    setZoom(prev => {
-      const newZoom = direction === 'in' ? prev * 1.2 : prev / 1.2;
-      return Math.max(0.5, Math.min(3, newZoom));
-    });
-  };
-
-  // Handle export
-  const handleExport = () => {
-    const data = exportGanttData(filteredProjects);
-    const csv = [
-      Object.keys(data[0]).join(','),
-      ...data.map(row => Object.values(row).map(val => `"${val}"`).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `project-timeline-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    setExportDialog(false);
-  };
-
-  if (!timelineStart || !timelineEnd || timelineIntervals.length === 0) {
-    return (
-      <Box sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="h6" color="text.secondary">
-          No timeline data available. Please add projects with start and end dates.
-        </Typography>
-      </Box>
-    );
-  }
+  // Row height
+  const rowHeight = 75;
+  const headerHeight = 80;
+  const projectColumnWidth = 300;
 
   return (
-    <Box sx={{ width: '100%', height, display: 'flex', flexDirection: 'column' }}>
-      {/* Header Controls */}
-      <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Typography variant="h6">Project Timeline</Typography>
-            
-            <ButtonGroup size="small">
-              <Button 
-                variant={viewMode === 'days' ? 'contained' : 'outlined'}
-                onClick={() => setViewMode('days')}
-              >
-                Days
-              </Button>
-              <Button 
-                variant={viewMode === 'weeks' ? 'contained' : 'outlined'}
-                onClick={() => setViewMode('weeks')}
-              >
-                Weeks
-              </Button>
-              <Button 
-                variant={viewMode === 'months' ? 'contained' : 'outlined'}
-                onClick={() => setViewMode('months')}
-              >
-                Months
-              </Button>
-            </ButtonGroup>
-
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Status Filter</InputLabel>
-              <Select
-                value={filterStatus}
-                label="Status Filter"
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <MenuItem value="all">All Status</MenuItem>
-                <MenuItem value="ongoing">
-                  <Badge badgeContent={stats.ongoing} color="success" sx={{ mr: 1 }}>
-                    Ongoing
-                  </Badge>
-                </MenuItem>
-                <MenuItem value="completed">
-                  <Badge badgeContent={stats.completed} color="primary" sx={{ mr: 1 }}>
-                    Completed
-                  </Badge>
-                </MenuItem>
-                <MenuItem value="pending">
-                  <Badge badgeContent={stats.pending} color="warning" sx={{ mr: 1 }}>
-                    Pending
-                  </Badge>
-                </MenuItem>
-                <MenuItem value="cancelled">
-                  <Badge badgeContent={stats.cancelled} color="error" sx={{ mr: 1 }}>
-                    Cancelled
-                  </Badge>
-                </MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel>Group By</InputLabel>
-              <Select
-                value={groupBy}
-                label="Group By"
-                onChange={(e) => setGroupBy(e.target.value)}
-              >
-                <MenuItem value="none">None</MenuItem>
-                <MenuItem value="category">Category</MenuItem>
-                <MenuItem value="status">Status</MenuItem>
-              </Select>
-            </FormControl>
-          </Stack>
-
-          <Stack direction="row" spacing={1}>
-            <Tooltip title="View Statistics">
-              <IconButton onClick={() => setShowStats(true)} size="small">
-                <InfoCircleOutlined />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Export Timeline">
-              <IconButton onClick={() => setExportDialog(true)} size="small">
-                <DownloadOutlined />
-              </IconButton>
-            </Tooltip>
-            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-            <Tooltip title="Zoom In">
-              <IconButton onClick={() => handleZoom('in')} size="small">
-                <ZoomInOutlined />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Zoom Out">
-              <IconButton onClick={() => handleZoom('out')} size="small">
-                <ZoomOutOutlined />
-              </IconButton>
-            </Tooltip>
-            <Typography variant="body2" sx={{ alignSelf: 'center', minWidth: '60px' }}>
-              {Math.round(zoom * 100)}%
+    <Box ref={containerRef} sx={{ width: '100%', overflow: 'auto', position: 'relative' }}>
+      <Paper elevation={0} sx={{ minWidth: chartWidth + projectColumnWidth, bgcolor: 'background.paper' }}>
+        {/* Timeline Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          height: headerHeight,
+          borderBottom: 2,
+          borderColor: 'divider',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          bgcolor: 'background.paper'
+        }}>
+          {/* Project Name Column Header */}
+          <Box sx={{ 
+            width: projectColumnWidth, 
+            borderRight: 2,
+            borderColor: 'divider',
+            px: 2,
+            py: 2.5,
+            display: 'flex',
+            alignItems: 'center',
+            bgcolor: 'grey.50'
+          }}>
+            <Typography variant="subtitle1" fontWeight="bold" color="text.primary">
+              Projects
             </Typography>
-          </Stack>
-        </Stack>
-      </Paper>
-
-      {/* Gantt Chart Container */}
-      <Paper elevation={2} sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <Box
-          ref={scrollContainerRef}
-          sx={{
-            flex: 1,
-            overflowX: 'auto',
-            overflowY: 'auto',
-            scrollbarWidth: 'thin',
-            '&::-webkit-scrollbar': {
-              width: '8px',
-              height: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: 'grey.100',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: 'grey.400',
-              borderRadius: '4px',
-              '&:hover': {
-                backgroundColor: 'grey.600',
-              },
-            }
-          }}
-          onScroll={(e) => setScrollLeft(e.target.scrollLeft)}
-        >
-          <Box sx={{ minWidth: 300 + timelineWidth, display: 'flex', flexDirection: 'column' }}>
-            {/* Timeline Header */}
-            <Box sx={{ 
-              display: 'flex', 
-              borderBottom: 1, 
-              borderColor: 'divider', 
-              backgroundColor: 'grey.50',
-              position: 'sticky',
-              top: 0,
-              zIndex: 2
-            }}>
-              {/* Project Names Column */}
-              <Box sx={{ 
-                width: 300, 
-                p: 2, 
-                borderRight: 1, 
-                borderColor: 'divider', 
-                fontWeight: 'bold',
-                flexShrink: 0,
-                backgroundColor: 'grey.50'
-              }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="subtitle2">
-                    Projects ({filteredProjects.length})
-                  </Typography>
-                  {stats.overdue > 0 && (
-                    <Tooltip title={`${stats.overdue} overdue project${stats.overdue !== 1 ? 's' : ''}`}>
-                      <Chip 
-                        icon={<WarningOutlined />}
-                        label={stats.overdue}
-                        color="error"
-                        size="small"
-                        sx={{ fontSize: '0.65rem' }}
-                      />
-                    </Tooltip>
-                  )}
-                </Stack>
-              </Box>
-              
-              {/* Timeline Header */}
-              <Box sx={{ 
-                display: 'flex',
-                width: timelineWidth,
-                backgroundColor: 'grey.50',
-                position: 'relative'
-              }}>
-                {timelineIntervals.map((interval, index) => (
-                  <Box 
-                    key={index}
-                    sx={{ 
-                      width: getColumnWidth(viewMode, zoom),
-                      p: 1,
-                      borderRight: 1,
-                      borderColor: 'divider',
-                      textAlign: 'center',
-                      fontSize: '0.75rem',
-                      flexShrink: 0
-                    }}
-                  >
-                    {formatTimelineHeader(interval, viewMode)}
-                  </Box>
-                ))}
-                
-                {/* Current Date Line in Header */}
-                {currentDateLinePosition !== null && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      left: `${currentDateLinePosition}%`,
-                      top: 0,
-                      bottom: 0,
-                      width: '2px',
-                      backgroundColor: '#f44336',
-                      zIndex: 10,
-                      pointerEvents: 'none'
-                    }}
-                  />
-                )}
-              </Box>
-            </Box>
-
-            {/* Project Rows */}
-            {Object.entries(groupedProjects).map(([groupName, groupProjects]) => (
-              <Box key={groupName}>
-                {groupBy !== 'none' && (
-                  <Box sx={{ 
-                    display: 'flex',
-                    borderBottom: 1,
-                    borderColor: 'divider'
-                  }}>
-                    <Box sx={{ 
-                      width: 300, 
-                      p: 1, 
-                      backgroundColor: 'primary.50', 
-                      borderRight: 1, 
-                      borderColor: 'divider',
-                      flexShrink: 0
-                    }}>
-                      <Typography variant="subtitle2" color="primary.main" fontWeight="bold">
-                        {groupName} ({groupProjects.length})
-                      </Typography>
-                    </Box>
-                    <Box sx={{ 
-                      width: timelineWidth,
-                      backgroundColor: 'primary.50'
-                    }} />
-                  </Box>
-                )}
-                
-                <DragDropContext onDragEnd={handleDragEnd}>
-                  <Droppable droppableId={`projects-${groupName}`}>
-                    {(provided) => (
-                      <div {...provided.droppableProps} ref={provided.innerRef}>
-                        {groupProjects.map((project, index) => {
-                          const barStyle = getProjectBarStyle(project, timelineStart, timelineEnd);
-                          const progress = calculateProgress(project);
-                          const healthStatus = getProjectHealthStatus(project);
-                          const isOverdue = isProjectOverdue(project);
-                          
-                          return (
-                            <Draggable 
-                              key={project.id} 
-                              draggableId={project.id.toString()} 
-                              index={index}
-                            >
-                              {(provided, snapshot) => (
-                                <Box
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  sx={{
-                                    display: 'flex',
-                                    borderBottom: 1,
-                                    borderColor: 'divider',
-                                    minHeight: 60,
-                                    backgroundColor: isOverdue ? 'error.50' : 'transparent',
-                                    '&:hover': { 
-                                      backgroundColor: isOverdue ? 'error.100' : 'grey.50' 
-                                    },
-                                    ...(snapshot.isDragging && { 
-                                      backgroundColor: 'action.selected',
-                                      boxShadow: 2 
-                                    })
-                                  }}
-                                >
-                                  {/* Project Info Column */}
-                                  <Box 
-                                    sx={{ 
-                                      width: 300, 
-                                      p: 2, 
-                                      borderRight: 1, 
-                                      borderColor: 'divider',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      flexShrink: 0
-                                    }}
-                                    {...provided.dragHandleProps}
-                                  >
-                                    <Stack spacing={1} sx={{ width: '100%' }}>
-                                      <Stack direction="row" spacing={1} alignItems="center">
-                                        <Typography variant="body2">
-                                          {getProjectTypeIcon(project.projectType)}
-                                        </Typography>
-                                        <Typography variant="subtitle2" noWrap sx={{ flex: 1 }}>
-                                          {project.title}
-                                        </Typography>
-                                        <Chip 
-                                          label={project.projectStatus} 
-                                          size="small"
-                                          sx={{ 
-                                            backgroundColor: getStatusColor(project.projectStatus),
-                                            color: 'white',
-                                            fontSize: '0.65rem'
-                                          }}
-                                        />
-                                        {isOverdue && (
-                                          <Tooltip title="Project is overdue">
-                                            <WarningOutlined sx={{ color: 'error.main', fontSize: '16px' }} />
-                                          </Tooltip>
-                                        )}
-                                      </Stack>
-                                      
-                                      <Stack direction="row" spacing={1} alignItems="center">
-                                        {project.training_recipient && (
-                                          <Chip 
-                                            label={project.training_recipient.name}
-                                            size="small"
-                                            variant="outlined"
-                                            sx={{ fontSize: '0.65rem' }}
-                                          />
-                                        )}
-                                        <Typography variant="caption" color="text.secondary">
-                                          {progress}% • {healthStatus.label}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                          {formatDuration(project.duration)}
-                                        </Typography>
-                                      </Stack>
-                                    </Stack>
-                                  </Box>
-
-                                  {/* Timeline Column */}
-                                  <Box sx={{ 
-                                    width: timelineWidth,
-                                    position: 'relative',
-                                    overflow: 'hidden'
-                                  }}>
-                                    <Box sx={{ 
-                                      display: 'flex', 
-                                      width: timelineWidth,
-                                      height: '100%'
-                                    }}>
-                                      {timelineIntervals.map((interval, idx) => (
-                                        <Box 
-                                          key={idx}
-                                          sx={{ 
-                                            width: getColumnWidth(viewMode, zoom),
-                                            borderRight: 1,
-                                            borderColor: 'divider',
-                                            position: 'relative',
-                                            flexShrink: 0
-                                          }}
-                                        />
-                                      ))}
-                                      
-                                      {/* Current Date Line */}
-                                      {currentDateLinePosition !== null && (
-                                        <Box
-                                          sx={{
-                                            position: 'absolute',
-                                            left: `${currentDateLinePosition}%`,
-                                            top: 0,
-                                            bottom: 0,
-                                            width: '2px',
-                                            backgroundColor: '#f44336',
-                                            zIndex: 10,
-                                            pointerEvents: 'none'
-                                          }}
-                                        />
-                                      )}
-                                      
-                                      {/* Project Bar */}
-                                      {barStyle && (
-                                        <Box
-                                          sx={{
-                                            position: 'absolute',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            height: 24,
-                                            borderRadius: '12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            cursor: 'pointer',
-                                            overflow: 'hidden',
-                                            boxShadow: 1,
-                                            border: isOverdue ? '2px solid #f44336' : 'none',
-                                            '&:hover': { 
-                                              boxShadow: 2,
-                                              transform: 'translateY(-50%) scale(1.02)'
-                                            },
-                                            ...barStyle
-                                          }}
-                                          onClick={() => setSelectedProject(project)}
-                                        >
-                                          {/* Progress Overlay */}
-                                          <Box
-                                            sx={{
-                                              position: 'absolute',
-                                              left: 0,
-                                              top: 0,
-                                              height: '100%',
-                                              width: `${progress}%`,
-                                              backgroundColor: 'rgba(255,255,255,0.3)',
-                                              borderRadius: 'inherit'
-                                            }}
-                                          />
-                                          
-                                          {/* Project Title on Bar */}
-                                          <Typography 
-                                            variant="caption" 
-                                            sx={{ 
-                                              color: 'white',
-                                              fontWeight: 'bold',
-                                              px: 1,
-                                              position: 'relative',
-                                              zIndex: 1,
-                                              overflow: 'hidden',
-                                              textOverflow: 'ellipsis',
-                                              whiteSpace: 'nowrap'
-                                            }}
-                                          >
-                                            {project.title}
-                                          </Typography>
-                                        </Box>
-                                      )}
-                                    </Box>
-                                  </Box>
-                                </Box>
-                              )}
-                            </Draggable>
-                          );
-                        })}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </DragDropContext>
+          </Box>
+          
+          {/* Timeline Columns Headers */}
+          <Box sx={{ display: 'flex', position: 'relative' }}>
+            {timelineHeaders.map((header, index) => (
+              <Box
+                key={index}
+                sx={{
+                  width: columnWidth,
+                  borderRight: 1,
+                  borderColor: 'divider',
+                  p: 1,
+                  textAlign: 'center',
+                  bgcolor: header.isToday ? 'primary.lighter' : 
+                          header.isWeekend ? 'grey.50' : 'transparent'
+                }}
+              >
+                <Typography variant="body2" fontWeight="bold">
+                  {header.label}
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {header.sublabel}
+                </Typography>
               </Box>
             ))}
           </Box>
         </Box>
+
+        {/* Project Rows */}
+        {projects.map((project, projectIndex) => {
+          const barPosition = calculateBarPosition(project);
+          const instructor = instructors.find(i => i.id === project.instructorId);
+          
+          return (
+            <Box
+              key={project.id}
+              sx={{ 
+                display: 'flex',
+                height: rowHeight,
+                borderBottom: 1,
+                borderColor: 'divider',
+                '&:hover': {
+                  bgcolor: 'action.hover'
+                }
+              }}
+              onMouseEnter={() => setHoveredProject(project.id)}
+              onMouseLeave={() => setHoveredProject(null)}
+            >
+              {/* Project Name Cell */}
+              <Box sx={{ 
+                width: projectColumnWidth,
+                borderRight: 2,
+                borderColor: 'divider',
+                px: 2,
+                py: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}>
+                <Stack spacing={0.75} sx={{ flex: 1 }}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      fontWeight: hoveredProject === project.id ? 600 : 400,
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      lineHeight: 1.3,
+                      wordBreak: 'break-word',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                    onClick={() => onProjectClick && onProjectClick(project)}
+                  >
+                    {project.name}
+                  </Typography>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    {instructor && (
+                      <Chip
+                        label={instructor.name}
+                        size="small"
+                        variant="outlined"
+                        sx={{ 
+                          height: 22, 
+                          fontSize: '0.75rem',
+                          '& .MuiChip-label': {
+                            px: 1
+                          }
+                        }}
+                      />
+                    )}
+                    <Chip
+                      label={project.status}
+                      size="small"
+                      sx={{ 
+                        height: 22, 
+                        fontSize: '0.7rem',
+                        bgcolor: `${getStatusColor(project.status)}20`,
+                        color: getStatusColor(project.status),
+                        borderColor: getStatusColor(project.status),
+                        fontWeight: 500,
+                        '& .MuiChip-label': {
+                          px: 1
+                        }
+                      }}
+                      variant="outlined"
+                    />
+                  </Stack>
+                </Stack>
+              </Box>
+
+              {/* Timeline Grid and Bar */}
+              <Box sx={{ position: 'relative', flex: 1 }}>
+                {/* Grid Lines */}
+                <Box sx={{ display: 'flex', position: 'absolute', height: '100%', width: '100%' }}>
+                  {timelineHeaders.map((_, index) => (
+                    <Box
+                      key={index}
+                      sx={{
+                        width: columnWidth,
+                        borderRight: 1,
+                        borderColor: 'divider',
+                        height: '100%',
+                        bgcolor: _.isWeekend ? 'grey.50' : 'transparent'
+                      }}
+                    />
+                  ))}
+                </Box>
+
+                {/* Project Bar */}
+                <Tooltip
+                  title={
+                    <Box sx={{ p: 1 }}>
+                      <Typography variant="body2" fontWeight="bold">{project.name}</Typography>
+                      <Typography variant="caption">
+                        {format(parseISO(project.startDate), 'MMM dd, yyyy')} - {format(parseISO(project.endDate), 'MMM dd, yyyy')}
+                      </Typography>
+                      <br />
+                      <Typography variant="caption">Status: {project.status}</Typography>
+                      <br />
+                      <Typography variant="caption">Instructor: {instructor?.name || 'Unassigned'}</Typography>
+                      {project.progress !== undefined && (
+                        <>
+                          <br />
+                          <Typography variant="caption">Progress: {project.progress}%</Typography>
+                        </>
+                      )}
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <Box
+                    onClick={() => onProjectClick && onProjectClick(project)}
+                    sx={{
+                      position: 'absolute',
+                      left: barPosition.left,
+                      width: barPosition.width,
+                      height: 40,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      bgcolor: project.color || getStatusColor(project.status),
+                      borderRadius: 1.5,
+                      cursor: 'pointer',
+                      opacity: hoveredProject === project.id ? 1 : 0.9,
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      px: 1.5,
+                      overflow: 'hidden',
+                      boxShadow: hoveredProject === project.id ? 3 : 1,
+                      border: '1px solid',
+                      borderColor: 'rgba(0,0,0,0.1)',
+                      '&:hover': {
+                        transform: 'translateY(-50%) scale(1.02)',
+                        boxShadow: 4
+                      }
+                    }}
+                  >
+                    {project.progress !== undefined && project.progress > 0 && (
+                      <LinearProgress
+                        variant="determinate"
+                        value={project.progress}
+                        sx={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: 3,
+                          bgcolor: 'rgba(255,255,255,0.3)',
+                          '& .MuiLinearProgress-bar': {
+                            bgcolor: 'rgba(255,255,255,0.7)'
+                          }
+                        }}
+                      />
+                    )}
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'white',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {project.name}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+              </Box>
+            </Box>
+          );
+        })}
+
+        {/* Today Line */}
+        {viewMode === 'day' && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: headerHeight,
+              bottom: 0,
+              left: projectColumnWidth + (differenceInDays(new Date(), dateRange.start) * (chartWidth / differenceInDays(dateRange.end, dateRange.start))),
+              width: 2,
+              bgcolor: 'error.main',
+              zIndex: 5,
+              '&::before': {
+                content: '"Today"',
+                position: 'absolute',
+                top: -20,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                bgcolor: 'error.main',
+                color: 'white',
+                px: 1,
+                borderRadius: 1,
+                fontSize: '0.7rem'
+              }
+            }}
+          />
+        )}
       </Paper>
-
-      {/* Project Details Modal/Tooltip */}
-      {selectedProject && (
-        <Paper 
-          elevation={4}
-          sx={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            p: 3,
-            zIndex: 1300,
-            maxWidth: 400,
-            width: '90%'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Stack spacing={2}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6">{selectedProject.title}</Typography>
-              <IconButton onClick={() => setSelectedProject(null)} size="small">
-                ×
-              </IconButton>
-            </Stack>
-            
-            <Divider />
-            
-            <Stack spacing={1}>
-              <Typography variant="body2">
-                <strong>Status:</strong> {selectedProject.projectStatus}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Start:</strong> {selectedProject.startDate ? format(new Date(selectedProject.startDate), 'MMM dd, yyyy') : 'Not set'}
-              </Typography>
-              <Typography variant="body2">
-                <strong>End:</strong> {selectedProject.endDate ? format(new Date(selectedProject.endDate), 'MMM dd, yyyy') : 'Not set'}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Duration:</strong> {selectedProject.duration || 'Not specified'}
-              </Typography>
-              {selectedProject.training_recipient && (
-                <Typography variant="body2">
-                  <strong>Client:</strong> {selectedProject.training_recipient.name}
-                </Typography>
-              )}
-              <Typography variant="body2">
-                <strong>Progress:</strong> {calculateProgress(selectedProject)}%
-              </Typography>
-              
-              <LinearProgress 
-                variant="determinate" 
-                value={calculateProgress(selectedProject)} 
-                sx={{ mt: 1 }}
-              />
-            </Stack>
-            
-            {selectedProject.summary && (
-              <>
-                <Divider />
-                <Typography variant="body2">
-                  <strong>Summary:</strong> {selectedProject.summary}
-                </Typography>
-              </>
-            )}
-          </Stack>
-        </Paper>
-      )}
-      
-      {/* Backdrop for modal */}
-      {selectedProject && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 1200
-          }}
-          onClick={() => setSelectedProject(null)}
-        />
-      )}
-
-      {/* Statistics Dialog */}
-      <Dialog open={showStats} onClose={() => setShowStats(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">Timeline Statistics</Typography>
-            <IconButton onClick={() => setShowStats(false)} size="small">
-              ×
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="h3" color="primary">{stats.total}</Typography>
-                <Typography variant="body2" color="text.secondary">Total Projects</Typography>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="h3" color="success.main">{stats.averageProgress}%</Typography>
-                <Typography variant="body2" color="text.secondary">Average Progress</Typography>
-              </Card>
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <Card sx={{ p: 2, textAlign: 'center', bgcolor: 'success.50' }}>
-                <Typography variant="h4" color="success.main">{stats.ongoing}</Typography>
-                <Typography variant="body2">Ongoing</Typography>
-              </Card>
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <Card sx={{ p: 2, textAlign: 'center', bgcolor: 'info.50' }}>
-                <Typography variant="h4" color="info.main">{stats.completed}</Typography>
-                <Typography variant="body2">Completed</Typography>
-              </Card>
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <Card sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.50' }}>
-                <Typography variant="h4" color="warning.main">{stats.pending}</Typography>
-                <Typography variant="body2">Pending</Typography>
-              </Card>
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <Card sx={{ p: 2, textAlign: 'center', bgcolor: 'error.50' }}>
-                <Typography variant="h4" color="error.main">{stats.overdue}</Typography>
-                <Typography variant="body2">Overdue</Typography>
-              </Card>
-            </Grid>
-          </Grid>
-        </DialogContent>
-      </Dialog>
-
-      {/* Export Dialog */}
-      <Dialog open={exportDialog} onClose={() => setExportDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Export Timeline Data</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2}>
-            <Alert severity="info">
-              Export will include all filtered projects with their timeline data, status, and progress information.
-            </Alert>
-            <Typography variant="body2">
-              <strong>Projects to export:</strong> {filteredProjects.length}
-            </Typography>
-            <Typography variant="body2">
-              <strong>File format:</strong> CSV (Comma Separated Values)
-            </Typography>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setExportDialog(false)}>Cancel</Button>
-          <Button 
-            onClick={handleExport} 
-            variant="contained" 
-            startIcon={<DownloadOutlined />}
-          >
-            Export CSV
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
+};
+
+GanttChart.propTypes = {
+  projects: PropTypes.array,
+  viewMode: PropTypes.oneOf(['day', 'week', 'month']),
+  zoomLevel: PropTypes.number,
+  onProjectClick: PropTypes.func,
+  instructors: PropTypes.array
 };
 
 export default GanttChart;

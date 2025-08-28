@@ -15,6 +15,11 @@ export default async function handler(req, res) {
           include: {
             instructor: true
           }
+        },
+        project_curriculums: {
+          include: {
+            curriculum: true
+          }
         }
       }
     });

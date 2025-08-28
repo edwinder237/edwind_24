@@ -17,6 +17,7 @@ export default async function handler(req, res) {
       language,
       location,
       trainingRecipientId,
+      curriculumId,
       sharing,
       backgroundImg,
       color,
@@ -68,6 +69,26 @@ export default async function handler(req, res) {
         events: true
       }
     });
+
+    // Handle curriculum update
+    if (curriculumId !== undefined) {
+      // First, remove existing curriculum associations for this project
+      await prisma.project_curriculums.deleteMany({
+        where: {
+          projectId: parseInt(id)
+        }
+      });
+
+      // If a new curriculum is provided, create the association
+      if (curriculumId) {
+        await prisma.project_curriculums.create({
+          data: {
+            projectId: parseInt(id),
+            curriculumId: parseInt(curriculumId)
+          }
+        });
+      }
+    }
 
     res.status(200).json({
       success: true,

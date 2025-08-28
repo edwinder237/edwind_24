@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { useDispatch } from 'react-redux';
 import { openSnackbar } from 'store/reducers/snackbar';
+import MainCard from 'components/MainCard';
 
 const SupportActivitiesManager = ({ curriculumId, curriculumTitle }) => {
   const dispatch = useDispatch();
@@ -385,89 +386,99 @@ const SupportActivitiesManager = ({ curriculumId, curriculumTitle }) => {
           onClose={() => setDialogOpen(false)}
           maxWidth="md"
           fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              maxWidth: '600px',
+              width: '100%'
+            }
+          }}
         >
-          <DialogTitle>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="h6">
-                {editingActivity ? 'Edit Support Activity' : 'Add Support Activity'}
-              </Typography>
+          <MainCard
+            title={editingActivity ? 'Edit Support Activity' : 'Add Support Activity'}
+            secondary={
               <IconButton onClick={() => setDialogOpen(false)} size="small">
                 <CloseIcon />
               </IconButton>
-            </Stack>
-          </DialogTitle>
-          
-          <DialogContent>
-            <Grid container spacing={3} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Activity Title"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
-                  required
-                  placeholder="e.g., One-on-One Code Review"
-                />
+            }
+            content={false}
+          >
+            <Box sx={{ p: 3 }}>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Activity Title"
+                    value={formData.title}
+                    onChange={(e) => handleInputChange('title', e.target.value)}
+                    required
+                    placeholder="e.g., One-on-One Code Review"
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Activity Type"
+                    value={formData.activityType}
+                    onChange={(e) => handleInputChange('activityType', e.target.value)}
+                    required
+                  >
+                    {activityTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {type}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Duration (minutes)"
+                    type="number"
+                    value={formData.duration}
+                    onChange={(e) => handleInputChange('duration', e.target.value)}
+                    placeholder="e.g., 45"
+                    InputProps={{
+                      endAdornment: <Typography variant="body2" color="text.secondary">min</Typography>
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Description"
+                    multiline
+                    rows={3}
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    placeholder="Describe what this support activity involves..."
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 2 }}>
+                    <Button 
+                      onClick={() => setDialogOpen(false)}
+                      variant="outlined"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSave}
+                      variant="contained"
+                      startIcon={<SaveIcon />}
+                      disabled={!formData.title || !formData.activityType}
+                    >
+                      {editingActivity ? 'Update' : 'Create'} Activity
+                    </Button>
+                  </Stack>
+                </Grid>
               </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Activity Type"
-                  value={formData.activityType}
-                  onChange={(e) => handleInputChange('activityType', e.target.value)}
-                  required
-                >
-                  {activityTypes.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Duration (minutes)"
-                  type="number"
-                  value={formData.duration}
-                  onChange={(e) => handleInputChange('duration', e.target.value)}
-                  placeholder="e.g., 45"
-                  InputProps={{
-                    endAdornment: <Typography variant="body2" color="text.secondary">min</Typography>
-                  }}
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  multiline
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Describe what this support activity involves..."
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          
-          <DialogActions>
-            <Button onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              variant="contained"
-              startIcon={<SaveIcon />}
-              disabled={!formData.title || !formData.activityType}
-            >
-              {editingActivity ? 'Update' : 'Create'} Activity
-            </Button>
-          </DialogActions>
+            </Box>
+          </MainCard>
         </Dialog>
       </CardContent>
     </Card>

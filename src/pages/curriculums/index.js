@@ -658,86 +658,96 @@ const CurriculumsPage = () => {
           onClose={() => setCreateDialogOpen(false)}
           maxWidth="sm"
           fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              maxWidth: '500px',
+              width: '100%'
+            }
+          }}
         >
-          <DialogTitle>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="h6">Create New Curriculum</Typography>
+          <MainCard
+            title="Create New Curriculum"
+            secondary={
               <IconButton onClick={() => setCreateDialogOpen(false)} size="small">
                 <CloseIcon />
               </IconButton>
-            </Stack>
-          </DialogTitle>
-          
-          <DialogContent>
-            <Stack spacing={3} sx={{ mt: 1 }}>
-              <TextField
-                fullWidth
-                label="Curriculum Title"
-                value={formData.title}
-                onChange={(e) => handleInputChange('title', e.target.value)}
-                required
-                placeholder="e.g., Full Stack Web Development"
-              />
-              
-              <TextField
-                fullWidth
-                label="Description"
-                multiline
-                rows={4}
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Describe the curriculum objectives and learning outcomes..."
-              />
+            }
+            content={false}
+          >
+            <Box sx={{ p: 3 }}>
+              <Stack spacing={3}>
+                <TextField
+                  fullWidth
+                  label="Curriculum Title"
+                  value={formData.title}
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  required
+                  placeholder="e.g., Full Stack Web Development"
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Description"
+                  multiline
+                  rows={4}
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Describe the curriculum objectives and learning outcomes..."
+                />
 
-              <FormControl fullWidth>
-                <InputLabel>Select Courses</InputLabel>
-                <Select
-                  multiple
-                  value={formData.selectedCourses}
-                  onChange={(e) => handleInputChange('selectedCourses', e.target.value)}
-                  input={<OutlinedInput label="Select Courses" />}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((value) => {
-                        const course = courses.find(c => c.id === value);
-                        return (
-                          <Chip 
-                            key={value} 
-                            label={course?.title || `Course ${value}`} 
-                            size="small" 
-                          />
-                        );
-                      })}
-                    </Box>
-                  )}
-                >
-                  {courses.map((course) => (
-                    <MenuItem key={course.id} value={course.id}>
-                      <Checkbox checked={formData.selectedCourses.indexOf(course.id) > -1} />
-                      <MuiListItemText 
-                        primary={course.title}
-                        secondary={`${course.level} • ${course.courseCategory}`}
-                      />
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Stack>
-          </DialogContent>
-          
-          <DialogActions>
-            <Button onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateCurriculum}
-              variant="contained"
-              startIcon={actionLoading ? <CircularProgress size={20} /> : <SaveIcon />}
-              disabled={actionLoading || !formData.title.trim()}
-            >
-              Create Curriculum
-            </Button>
-          </DialogActions>
+                <FormControl fullWidth>
+                  <InputLabel>Select Courses</InputLabel>
+                  <Select
+                    multiple
+                    value={formData.selectedCourses}
+                    onChange={(e) => handleInputChange('selectedCourses', e.target.value)}
+                    input={<OutlinedInput label="Select Courses" />}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((value) => {
+                          const course = courses.find(c => c.id === value);
+                          return (
+                            <Chip 
+                              key={value} 
+                              label={course?.title || `Course ${value}`} 
+                              size="small" 
+                            />
+                          );
+                        })}
+                      </Box>
+                    )}
+                  >
+                    {courses.map((course) => (
+                      <MenuItem key={course.id} value={course.id}>
+                        <Checkbox checked={formData.selectedCourses.indexOf(course.id) > -1} />
+                        <MuiListItemText 
+                          primary={course.title}
+                          secondary={`${course.level} • ${course.courseCategory}`}
+                        />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
+                  <Button 
+                    onClick={() => setCreateDialogOpen(false)}
+                    variant="outlined"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateCurriculum}
+                    variant="contained"
+                    startIcon={actionLoading ? <CircularProgress size={20} /> : <SaveIcon />}
+                    disabled={actionLoading || !formData.title.trim()}
+                  >
+                    Create Curriculum
+                  </Button>
+                </Stack>
+              </Stack>
+            </Box>
+          </MainCard>
         </Dialog>
 
         {/* Edit Dialog */}
@@ -746,85 +756,95 @@ const CurriculumsPage = () => {
           onClose={() => setEditDialogOpen(false)}
           maxWidth="sm"
           fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              maxWidth: '500px',
+              width: '100%'
+            }
+          }}
         >
-          <DialogTitle>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="h6">Edit Curriculum</Typography>
+          <MainCard
+            title="Edit Curriculum"
+            secondary={
               <IconButton onClick={() => setEditDialogOpen(false)} size="small">
                 <CloseIcon />
               </IconButton>
-            </Stack>
-          </DialogTitle>
-          
-          <DialogContent>
-            <Stack spacing={3} sx={{ mt: 1 }}>
-              <TextField
-                fullWidth
-                label="Curriculum Title"
-                value={formData.title}
-                onChange={(e) => handleInputChange('title', e.target.value)}
-                required
-              />
-              
-              <TextField
-                fullWidth
-                label="Description"
-                multiline
-                rows={4}
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Describe the curriculum objectives and learning outcomes..."
-              />
+            }
+            content={false}
+          >
+            <Box sx={{ p: 3 }}>
+              <Stack spacing={3}>
+                <TextField
+                  fullWidth
+                  label="Curriculum Title"
+                  value={formData.title}
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  required
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Description"
+                  multiline
+                  rows={4}
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Describe the curriculum objectives and learning outcomes..."
+                />
 
-              <FormControl fullWidth>
-                <InputLabel>Select Courses</InputLabel>
-                <Select
-                  multiple
-                  value={formData.selectedCourses}
-                  onChange={(e) => handleInputChange('selectedCourses', e.target.value)}
-                  input={<OutlinedInput label="Select Courses" />}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((value) => {
-                        const course = courses.find(c => c.id === value);
-                        return (
-                          <Chip 
-                            key={value} 
-                            label={course?.title || `Course ${value}`} 
-                            size="small" 
-                          />
-                        );
-                      })}
-                    </Box>
-                  )}
-                >
-                  {courses.map((course) => (
-                    <MenuItem key={course.id} value={course.id}>
-                      <Checkbox checked={formData.selectedCourses.indexOf(course.id) > -1} />
-                      <MuiListItemText 
-                        primary={course.title}
-                        secondary={`${course.level} • ${course.courseCategory}`}
-                      />
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Stack>
-          </DialogContent>
-          
-          <DialogActions>
-            <Button onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateCurriculum}
-              variant="contained"
-              startIcon={actionLoading ? <CircularProgress size={20} /> : <SaveIcon />}
-              disabled={actionLoading || !formData.title.trim()}
-            >
-              Update Curriculum
-            </Button>
-          </DialogActions>
+                <FormControl fullWidth>
+                  <InputLabel>Select Courses</InputLabel>
+                  <Select
+                    multiple
+                    value={formData.selectedCourses}
+                    onChange={(e) => handleInputChange('selectedCourses', e.target.value)}
+                    input={<OutlinedInput label="Select Courses" />}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((value) => {
+                          const course = courses.find(c => c.id === value);
+                          return (
+                            <Chip 
+                              key={value} 
+                              label={course?.title || `Course ${value}`} 
+                              size="small" 
+                            />
+                          );
+                        })}
+                      </Box>
+                    )}
+                  >
+                    {courses.map((course) => (
+                      <MenuItem key={course.id} value={course.id}>
+                        <Checkbox checked={formData.selectedCourses.indexOf(course.id) > -1} />
+                        <MuiListItemText 
+                          primary={course.title}
+                          secondary={`${course.level} • ${course.courseCategory}`}
+                        />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
+                  <Button 
+                    onClick={() => setEditDialogOpen(false)}
+                    variant="outlined"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleUpdateCurriculum}
+                    variant="contained"
+                    startIcon={actionLoading ? <CircularProgress size={20} /> : <SaveIcon />}
+                    disabled={actionLoading || !formData.title.trim()}
+                  >
+                    Update Curriculum
+                  </Button>
+                </Stack>
+              </Stack>
+            </Box>
+          </MainCard>
         </Dialog>
 
         {/* Delete Dialog */}

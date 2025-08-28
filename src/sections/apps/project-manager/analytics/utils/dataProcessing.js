@@ -335,3 +335,73 @@ export const generateSignOffSheetData = (filteredResults, courseId) => {
     }))
   };
 };
+
+// Export data to CSV
+export const exportToCSV = (data, filename = 'training-report') => {
+  if (!data || data.length === 0) {
+    console.warn('No data to export');
+    return;
+  }
+
+  // Define column headers based on the data structure
+  const headers = [
+    'PARTICIPANT',
+    'COMPANY',
+    'ROLE',
+    'TRAINING RECIPIENT',
+    'PROJECT',
+    'COURSE',
+    'DURATION (MIN)',
+    'INSTRUCTOR',
+    'COMPLETION DATE',
+    'STATUS',
+    'SCORE'
+  ];
+
+  // Convert data to CSV format
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => {
+      const values = [
+        row.participantName || '',
+        row.participantCompany || '',
+        row.participantRole || '',
+        row.participantTrainingRecipient || '',
+        row.projectName || '',
+        row.courseName || '',
+        row.duration || '0',
+        row.instructorName || 'No Instructor',
+        row.completionDate ? new Date(row.completionDate).toLocaleDateString() : '',
+        row.status || '',
+        row.score !== undefined && row.score !== null ? row.score : ''
+      ];
+      
+      // Escape values that contain commas or quotes
+      const escapedValues = values.map(val => {
+        const strVal = String(val);
+        if (strVal.includes(',') || strVal.includes('"') || strVal.includes('\n')) {
+          return `"${strVal.replace(/"/g, '""')}"`;
+        }
+        return strVal;
+      });
+      
+      return escapedValues.join(',');
+    })
+  ].join('\n');
+
+  // Create a blob and download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}-${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  // Clean up the URL object
+  URL.revokeObjectURL(url);
+};

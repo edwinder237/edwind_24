@@ -175,10 +175,32 @@ const CourseEditPage = ({ courseId }) => {
   const textEditorRef = useRef(null);
   const { courses, modules, checklistItems, checklistLoading } = useSelector((state) => state.courses);
 
-  
   const course = courses.find(
     (course) => course.id.toString() === courseId
   );
+
+  // Calculate total duration - must be before conditional returns
+  const totalDuration = React.useMemo(() => {
+    if (!modules || modules.length === 0) return 0;
+    const duration = calculateCourseDurationFromModules(modules);
+    console.log('Calculating course duration:', {
+      modulesCount: modules.length,
+      modules: modules.map(m => ({
+        title: m.title,
+        activities: m.activities?.length || 0,
+        activityDurations: m.activities?.map(a => ({ 
+          title: a.title, 
+          duration: a.duration, 
+          type: typeof a.duration 
+        })) || [],
+        customDuration: m.customDuration
+      })),
+      totalDuration: duration,
+      courseDuration: course?.duration,
+      courseTitle: course?.title
+    });
+    return duration;
+  }, [modules, course]);
   
   useEffect(() => {
     const modules = dispatch(getModules(courseId));
@@ -683,10 +705,6 @@ const CourseEditPage = ({ courseId }) => {
   const deleteStuff = () => {
     setIsDeleting(true);
   };
-
-
-
-  const totalDuration = calculateCourseDurationFromModules(modules) || 0;
   
   const totalModules = modules?.length?.toString() || '0';
 

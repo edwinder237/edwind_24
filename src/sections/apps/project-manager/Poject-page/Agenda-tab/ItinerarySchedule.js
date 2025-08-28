@@ -260,10 +260,29 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
     }));
   }, [localEvents]);
 
-  // Set all days as expanded by default on first load only
+  // Set only today's events as expanded by default on first load and scroll to today
   React.useEffect(() => {
     if (eventsByDay.length > 0 && !hasInitialized) {
-      setExpandedDays(eventsByDay.map(d => d.dayNumber));
+      // Find today's day and expand only that
+      const todayDay = eventsByDay.find(d => d.isToday);
+      if (todayDay) {
+        setExpandedDays([todayDay.dayNumber]);
+        
+        // Scroll to today's section after a brief delay to ensure DOM is ready
+        setTimeout(() => {
+          const todayElement = document.getElementById(`day-section-${todayDay.dayNumber}`);
+          if (todayElement) {
+            todayElement.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start',
+              inline: 'nearest' 
+            });
+          }
+        }, 100);
+      } else {
+        // If no events today, expand the first day with events
+        setExpandedDays([eventsByDay[0].dayNumber]);
+      }
       setHasInitialized(true);
     }
   }, [eventsByDay, hasInitialized]);
@@ -455,16 +474,34 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
         }
       }
 
+      // Create a map of hours that are occupied by events
+      const occupiedHours = new Set();
+      dayEvents.forEach(event => {
+        const eventStartHour = new Date(event.start).getHours();
+        const eventEndHour = new Date(event.end).getHours();
+        const eventEndMinutes = new Date(event.end).getMinutes();
+        
+        // Mark all hours from start to end as occupied
+        for (let h = eventStartHour; h < eventEndHour || (h === eventEndHour && eventEndMinutes > 0); h++) {
+          if (h !== eventStartHour) { // Don't mark the start hour as occupied (we want to show the event there)
+            occupiedHours.add(h);
+          }
+        }
+      });
+
       for (let hour = startHour; hour <= endHour; hour++) {
+        // Skip hours that are occupied by an event (except the event start time)
+        if (occupiedHours.has(hour)) {
+          continue;
+        }
+
         const time = `${hour > 12 ? hour - 12 : hour === 12 ? 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
         const event = dayEvents.find(e => {
           const eventHour = new Date(e.start).getHours();
           return eventHour === hour;
         });
 
-        if (event || hour % 1 === 0) { // Show event times or every 1 hour
-          slots.push({ time, event, hour });
-        }
+        slots.push({ time, event, hour });
       }
 
       return slots;
@@ -472,6 +509,7 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
 
     return (
       <Box
+        id={`day-section-${day.dayNumber}`}
         sx={{
           mb: 2,
           bgcolor: theme.palette.background.paper,
@@ -812,9 +850,33 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
             <Typography variant="h6" color="text.secondary">
               No events scheduled
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 3 }}>
               Start by adding events to your project schedule
             </Typography>
+            <Button
+              variant="contained"
+              size="medium"
+              startIcon={<AddCircleOutline />}
+              onClick={() => {
+                setSelectedEventTime('9:00 AM');
+                setSelectedEventDate(new Date());
+                setAddEventDialogOpen(true);
+              }}
+              sx={{
+                bgcolor: theme.palette.primary.main,
+                color: '#FFFFFF',
+                textTransform: 'none',
+                px: 3,
+                py: 1,
+                boxShadow: theme.shadows[2],
+                '&:hover': {
+                  bgcolor: theme.palette.primary.dark,
+                  boxShadow: theme.shadows[4]
+                }
+              }}
+            >
+              Add Event
+            </Button>
           </Box>
         ) : viewMode === 'compact' ? (
           /* Compact View - Same cards, no gaps */

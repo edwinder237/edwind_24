@@ -34,7 +34,8 @@ import {
   getGroupedResults,
   getColumnOrder,
   getSummaryStats,
-  generateSignOffSheetData
+  generateSignOffSheetData,
+  exportToCSV
 } from 'sections/apps/project-manager/analytics/utils/dataProcessing';
 
 // ==============================|| REPORTS ||============================== //
@@ -187,6 +188,7 @@ const Reports = () => {
                         size="medium"
                         sx={{ width: { xs: '100%', sm: 'auto' } }}
                         disabled={sortedResults.length === 0}
+                        onClick={() => exportToCSV(sortedResults, 'training-report')}
                       >
                         Export CSV
                       </Button>

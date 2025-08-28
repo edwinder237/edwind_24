@@ -34,6 +34,7 @@ export default async function handler(req, res) {
                 code: true,
                 rating: true,
                 backgroundImg: true,
+                isActive: true,
                 course_participant_roles: {
                   include: {
                     role: {

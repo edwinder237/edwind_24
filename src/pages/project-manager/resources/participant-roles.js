@@ -22,6 +22,7 @@ import {
   CircularProgress,
   FormHelperText
 } from '@mui/material';
+import { Close as CloseIcon } from '@mui/icons-material';
 import { EditOutlined, DeleteOutlined, SearchOutlined, FilterListOutlined } from '@ant-design/icons';
 
 // project import
@@ -459,104 +460,113 @@ function ParticipantRolesPage() {
         maxWidth="sm"
         fullWidth
         disableEscapeKeyDown={submitting}
+        sx={{
+          '& .MuiDialog-paper': {
+            maxWidth: '500px',
+            width: '100%'
+          }
+        }}
       >
-        <DialogTitle>
-          <Typography variant="h6">
-            {editingRole ? 'Edit Participant Role' : 'Add New Participant Role'}
-          </Typography>
-        </DialogTitle>
-        
-        <DialogContent>
-          {errorMessage && (
-            <Fade in={!!errorMessage}>
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {errorMessage}
-              </Alert>
-            </Fade>
-          )}
-          
-          <TextField
-            autoFocus
-            label="Role Title"
-            fullWidth
-            variant="outlined"
-            value={formData.title}
-            onChange={(e) => {
-              setFormData(prev => ({ ...prev, title: e.target.value }));
-              if (formErrors.title) {
-                setFormErrors(prev => ({ ...prev, title: '' }));
-              }
-            }}
-            placeholder="Enter role name (e.g., Sales Manager, Sales Rep, Team Lead, etc.)"
-            error={!!formErrors.title}
-            helperText={formErrors.title}
-            disabled={submitting}
-            sx={{ mb: 3, mt: 1 }}
-            inputProps={{ maxLength: 50 }}
-          />
-          
-          <TextField
-            label="Description"
-            fullWidth
-            variant="outlined"
-            multiline
-            rows={3}
-            value={formData.description}
-            onChange={(e) => {
-              setFormData(prev => ({ ...prev, description: e.target.value }));
-              if (formErrors.description) {
-                setFormErrors(prev => ({ ...prev, description: '' }));
-              }
-            }}
-            placeholder="Brief description of the role and its responsibilities (optional)"
-            error={!!formErrors.description}
-            helperText={formErrors.description || `${formData.description?.length || 0}/255 characters`}
-            disabled={submitting}
-            sx={{ mb: 3 }}
-            inputProps={{ maxLength: 255 }}
-          />
+        <MainCard
+          title={editingRole ? 'Edit Participant Role' : 'Add New Participant Role'}
+          secondary={
+            <IconButton onClick={handleClose} size="small" disabled={submitting}>
+              <CloseIcon />
+            </IconButton>
+          }
+          content={false}
+        >
+          <Box sx={{ p: 3 }}>
+            {errorMessage && (
+              <Fade in={!!errorMessage}>
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  {errorMessage}
+                </Alert>
+              </Fade>
+            )}
+            
+            <TextField
+              autoFocus
+              label="Role Title"
+              fullWidth
+              variant="outlined"
+              value={formData.title}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, title: e.target.value }));
+                if (formErrors.title) {
+                  setFormErrors(prev => ({ ...prev, title: '' }));
+                }
+              }}
+              placeholder="Enter role name (e.g., Sales Manager, Sales Rep, Team Lead, etc.)"
+              error={!!formErrors.title}
+              helperText={formErrors.title}
+              disabled={submitting}
+              sx={{ mb: 3 }}
+              inputProps={{ maxLength: 50 }}
+            />
+            
+            <TextField
+              label="Description"
+              fullWidth
+              variant="outlined"
+              multiline
+              rows={3}
+              value={formData.description}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, description: e.target.value }));
+                if (formErrors.description) {
+                  setFormErrors(prev => ({ ...prev, description: '' }));
+                }
+              }}
+              placeholder="Brief description of the role and its responsibilities (optional)"
+              error={!!formErrors.description}
+              helperText={formErrors.description || `${formData.description?.length || 0}/255 characters`}
+              disabled={submitting}
+              sx={{ mb: 3 }}
+              inputProps={{ maxLength: 255 }}
+            />
 
-          {/* Preview */}
-          {formData.title && (
-            <Fade in={!!formData.title}>
-              <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Preview:</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip
-                    label={formData.title || 'Role Title'}
-                    variant="outlined"
-                    size="small"
-                    color="primary"
-                  />
+            {/* Preview */}
+            {formData.title && (
+              <Fade in={!!formData.title}>
+                <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Preview:</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip
+                      label={formData.title || 'Role Title'}
+                      variant="outlined"
+                      size="small"
+                      color="primary"
+                    />
+                  </Box>
+                  {formData.description && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      {formData.description}
+                    </Typography>
+                  )}
                 </Box>
-                {formData.description && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    {formData.description}
-                  </Typography>
-                )}
-              </Box>
-            </Fade>
-          )}
-        </DialogContent>
+              </Fade>
+            )}
 
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button 
-            onClick={handleClose} 
-            color="secondary" 
-            variant="outlined"
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSubmit}
-            variant="contained"
-            disabled={!formData.title?.trim() || submitting || Object.keys(formErrors).length > 0}
-            startIcon={submitting ? <CircularProgress size={16} /> : <PlusOutlined />}
-          >
-            {submitting ? 'Saving...' : (editingRole ? 'Update Role' : 'Create Role')}
-          </Button>
-        </DialogActions>
+            <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Button 
+                onClick={handleClose} 
+                variant="outlined"
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSubmit}
+                variant="contained"
+                disabled={!formData.title?.trim() || submitting || Object.keys(formErrors).length > 0}
+                startIcon={submitting ? <CircularProgress size={16} /> : <PlusOutlined />}
+              >
+                {submitting ? 'Saving...' : (editingRole ? 'Update Role' : 'Create Role')}
+              </Button>
+            </Stack>
+          </Box>
+        </MainCard>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
