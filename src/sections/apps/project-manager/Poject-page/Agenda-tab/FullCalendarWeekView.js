@@ -7,26 +7,32 @@ import {
   IconButton,
   Stack,
   Chip,
-  Button
+  Button,
+  Select,
+  MenuItem,
+  FormControl,
+  Tooltip
 } from '@mui/material';
 import {
   NavigateBefore,
   NavigateNext,
-  Today
+  Today,
+  Add
 } from '@mui/icons-material';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import EditEventDialog from './EditEventDialog';
 import AddEventDialog from './AddEventDialog';
-import { useDispatch } from 'store';
+import { useDispatch, useSelector } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
 import { getEvents } from 'store/reducers/calendar';
-import { getSingleProject } from 'store/reducers/projects';
+import { getSingleProject, getGroupsDetails } from 'store/reducers/projects';
 
 const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const { groups } = useSelector((state) => state.projects);
   const calendarRef = useRef(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -34,26 +40,79 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [calendarReady, setCalendarReady] = useState(false);
+  const [conflictingEvents, setConflictingEvents] = useState([]);
+
+  // Function to detect overlapping/conflicting events
+  const detectConflicts = useCallback((events) => {
+    const conflicts = [];
+    
+    for (let i = 0; i < events.length; i++) {
+      for (let j = i + 1; j < events.length; j++) {
+        const event1 = events[i];
+        const event2 = events[j];
+        
+        const start1 = new Date(event1.start);
+        const end1 = new Date(event1.end);
+        const start2 = new Date(event2.start);
+        const end2 = new Date(event2.end);
+        
+        // Check if events overlap (accounting for all-day events)
+        const hasTimeOverlap = 
+          (start1 < end2 && end1 > start2) || 
+          (start2 < end1 && end2 > start1);
+        
+        // Check if they're on the same day for all-day events
+        const sameDay = start1.toDateString() === start2.toDateString();
+        
+        if (hasTimeOverlap || (event1.allDay && event2.allDay && sameDay)) {
+          // Add both events to conflicts if not already there
+          if (!conflicts.find(c => c.id === event1.id)) {
+            conflicts.push(event1);
+          }
+          if (!conflicts.find(c => c.id === event2.id)) {
+            conflicts.push(event2);
+          }
+        }
+      }
+    }
+    
+    return conflicts;
+  }, []);
+
+  // Update conflicts when events change
+  useEffect(() => {
+    const conflicts = detectConflicts(events);
+    setConflictingEvents(conflicts.map(e => e.id));
+  }, [events, detectConflicts]);
 
   // Transform events for FullCalendar
-  const calendarEvents = events.map(event => ({
-    id: event.id,
-    title: event.title,
-    start: event.start,
-    end: event.end,
-    allDay: event.allDay,
-    backgroundColor: event.color || event.backgroundColor || theme.palette.primary.main,
-    borderColor: event.color || event.borderColor || theme.palette.primary.main,
-    textColor: '#fff',
-    extendedProps: {
-      ...event,
-      event_groups: event.event_groups,
-      instructor: event.instructor,
-      location: event.location,
-      eventType: event.eventType,
-      description: event.description
-    }
-  }));
+  const calendarEvents = events.map(event => {
+    const isConflicting = conflictingEvents.includes(event.id);
+    
+    return {
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      allDay: event.allDay,
+      backgroundColor: isConflicting 
+        ? theme.palette.error.main 
+        : event.color || event.backgroundColor || theme.palette.primary.main,
+      borderColor: isConflicting 
+        ? theme.palette.error.dark 
+        : event.color || event.borderColor || theme.palette.primary.main,
+      textColor: '#fff',
+      extendedProps: {
+        ...event,
+        event_groups: event.event_groups,
+        instructor: event.instructor,
+        location: event.location,
+        eventType: event.eventType,
+        description: event.description,
+        isConflicting: isConflicting
+      }
+    };
+  });
 
   // Get calendar API
   const getCalendarApi = () => calendarRef.current?.getApi();
@@ -68,6 +127,13 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
       }, 100);
     }
   }, []);
+
+  // Load groups when component mounts or project changes
+  useEffect(() => {
+    if (project?.id) {
+      dispatch(getGroupsDetails(project.id));
+    }
+  }, [project?.id, dispatch]);
 
   // Handle navigation
   const handleNavigate = useCallback((action) => {
@@ -273,9 +339,10 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to delete event');
       }
 
-      // Only refresh calendar events, not the entire project
+      // Refresh both calendar events and project data to ensure UI updates
       if (project?.id) {
         await dispatch(getEvents(project.id));
+        await dispatch(getSingleProject(project.id));
       }
 
       dispatch(
@@ -305,10 +372,58 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     }
   }, [project?.id, dispatch]);
 
+  // Handle quick group assignment
+  const handleQuickGroupAssign = useCallback(async (eventId, groupId, e) => {
+    e?.stopPropagation();
+    
+    try {
+      const response = await fetch('/api/projects/addEventGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, groupId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to assign group to event');
+      }
+
+      // Refresh events to show the update
+      if (project?.id) {
+        await dispatch(getEvents(project.id));
+      }
+
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Group assigned to event successfully',
+          variant: 'alert',
+          alert: { color: 'success' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+          autoHideDuration: 2000
+        })
+      );
+    } catch (error) {
+      console.error('Error assigning group to event:', error);
+      
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Failed to assign group to event',
+          variant: 'alert',
+          alert: { color: 'error' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+        })
+      );
+    }
+  }, [project?.id, dispatch]);
+
   // Custom event content
   const renderEventContent = (eventInfo) => {
     const event = eventInfo.event;
     const hasGroups = event.extendedProps.event_groups?.length > 0;
+    const isConflicting = event.extendedProps.isConflicting;
     
     return (
       <Box
@@ -320,7 +435,12 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           display: 'flex',
           flexDirection: 'column',
           gap: '2px',
-          position: 'relative'
+          position: 'relative',
+          ...(isConflicting && {
+            border: `2px solid ${theme.palette.error.dark}`,
+            boxShadow: `0 0 8px ${alpha(theme.palette.error.main, 0.3)}`,
+            animation: 'pulse 2s infinite'
+          })
         }}
       >
         {/* Delete button */}
@@ -360,21 +480,36 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           </Typography>
         </Box>
 
-        <Typography 
-          sx={{ 
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            lineHeight: 1.3,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            color: 'inherit',
-            letterSpacing: '0.01em',
-            pr: 2 // Add padding to prevent overlap with delete button
-          }}
-        >
-          {event.title}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pr: 2 }}>
+          {isConflicting && (
+            <Tooltip title="Scheduling Conflict!" arrow>
+              <Box sx={{ 
+                fontSize: '0.7rem',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                animation: 'blink 1.5s infinite'
+              }}>
+                ⚠️
+              </Box>
+            </Tooltip>
+          )}
+          <Typography 
+            sx={{ 
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              lineHeight: 1.3,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: 'inherit',
+              letterSpacing: '0.01em',
+              flex: 1
+            }}
+          >
+            {event.title}
+          </Typography>
+        </Box>
         
         {/* Show time */}
         <Typography 
@@ -408,8 +543,8 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           </Typography>
         )}
         
-        {/* Show groups if available */}
-        {hasGroups && (
+        {/* Show groups if available or quick assign dropdown if none */}
+        {hasGroups ? (
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 'auto', pt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
             {event.extendedProps.event_groups.slice(0, 2).map((eg, idx) => 
               eg.groups ? (
@@ -445,6 +580,68 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
               </Typography>
             )}
           </Stack>
+        ) : (
+          // Quick group assignment dropdown when no groups are assigned
+          groups && groups.length > 0 && (
+            <Box sx={{ mt: 'auto', pt: 0.5 }}>
+              <FormControl size="small" sx={{ minWidth: 80 }}>
+                <Select
+                  displayEmpty
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleQuickGroupAssign(event.id, e.target.value, e);
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{
+                    fontSize: '0.65rem',
+                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    borderRadius: '12px',
+                    '& .MuiSelect-select': {
+                      py: 0.5,
+                      px: 1,
+                      fontSize: '0.65rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5
+                    },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      border: '1px solid rgba(255, 255, 255, 0.5)'
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      border: '1px solid rgba(255, 255, 255, 0.8)'
+                    }
+                  }}
+                  renderValue={() => (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Add sx={{ fontSize: 12 }} />
+                      <span>Add Group</span>
+                    </Box>
+                  )}
+                >
+                  {groups.map((group) => (
+                    <MenuItem key={group.id} value={group.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor: group.chipColor || theme.palette.primary.main
+                          }}
+                        />
+                        <Typography sx={{ fontSize: '0.75rem' }}>
+                          {group.groupName}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          )
         )}
       </Box>
     );
@@ -550,6 +747,19 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
             color="primary"
             variant="outlined"
           />
+          {conflictingEvents.length > 0 && (
+            <Chip 
+              label={`${conflictingEvents.length} conflicts`}
+              size="small"
+              color="error"
+              variant="filled"
+              icon={<Box component="span" sx={{ fontSize: '0.8rem' }}>⚠️</Box>}
+              sx={{
+                animation: 'pulse 2s infinite',
+                fontWeight: 600
+              }}
+            />
+          )}
         </Stack>
       </Stack>
     );
@@ -574,7 +784,32 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const businessHours = getBusinessHours();
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
+    <Box sx={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      p: 2,
+      // Add CSS animations
+      '@keyframes pulse': {
+        '0%': {
+          transform: 'scale(1)',
+        },
+        '50%': {
+          transform: 'scale(1.05)',
+        },
+        '100%': {
+          transform: 'scale(1)',
+        },
+      },
+      '@keyframes blink': {
+        '0%, 100%': {
+          opacity: 1,
+        },
+        '50%': {
+          opacity: 0.3,
+        },
+      }
+    }}>
       <Box
         sx={{ 
           flex: 1, 

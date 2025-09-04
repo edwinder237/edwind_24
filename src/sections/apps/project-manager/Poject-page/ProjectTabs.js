@@ -6,20 +6,26 @@ import {
   Grid,
   Tabs,
   Tab,
+  Button,
+  Stack,
+  Drawer,
+  IconButton,
+  Typography,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import MainCard from 'components/MainCard';
 import {
   DashboardOutlined,
-  BookOutlined,
   TeamOutlined,
   CalendarOutlined,
   CheckSquareOutlined,
   SettingOutlined,
   ExperimentOutlined,
+  UserOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 import Loader from "components/Loader";
 import TabSettings from "./Settings-tab/TabSettings";
-import SearchContainer from "./Curriculum-tab/SearchContainer";
 import ProjectChecklist from "./ProjectChecklist";
 import AgendaTab from "./Agenda-tab";
 import getTabIcons from "utils/getTabIcons";
@@ -73,7 +79,6 @@ function a11yProps(index) {
 
 const ProjectTabs = ({ 
   project,
-  projectCurriculums,
   checklistItems,
   checklistLoading,
   onChecklistToggle,
@@ -81,29 +86,49 @@ const ProjectTabs = ({
 }) => {
   const theme = useTheme();
   const [tabValue, setTabValue] = React.useState(0);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
 
   const handleChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
+  const handleOpenDrawer = () => {
+    setDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setDrawerOpen(false);
+  };
+
   return (
-    <Grid
-      item
-      xs={12}
+    <MainCard
+      content={false}
+      border={false}
+      boxShadow
       sx={{
-        bgcolor: theme.palette.grey[100],
-        boxShadow: theme.shadows[4]
+        borderRadius: 0
       }}
     >
       <Grid item xs={12}>
-        <Tabs
-          value={tabValue}
-          onChange={handleChange}
-          variant="scrollable"
-          scrollButtons
-          allowScrollButtonsMobile
-          aria-label="navigation tabs"
+        <Stack 
+          direction="row" 
+          justifyContent="space-between" 
+          alignItems="center"
+          sx={{ 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            minHeight: '48px'
+          }}
         >
+          <Tabs
+            value={tabValue}
+            onChange={handleChange}
+            variant="scrollable"
+            scrollButtons
+            allowScrollButtonsMobile
+            aria-label="navigation tabs"
+            sx={{ flex: 1 }}
+          >
           <Tab 
             label={
               <Box sx={styles.tabLabel}>
@@ -122,16 +147,6 @@ const ProjectTabs = ({
             }
             {...a11yProps(1)} 
           />
-          <Tab
-            label={
-              <Box sx={styles.tabLabel}>
-                <BookOutlined />
-                <span>Curriculum</span>
-                {getTabIcons(projectCurriculums.length > 0)}
-              </Box>
-            }
-            {...a11yProps(2)}
-          />
           <Tab 
             label={
               <Box sx={styles.tabLabel}>
@@ -139,7 +154,7 @@ const ProjectTabs = ({
                 <span>Enrollment</span>
               </Box>
             }
-            {...a11yProps(3)} 
+            {...a11yProps(2)} 
           />
           <Tab 
             label={
@@ -152,7 +167,7 @@ const ProjectTabs = ({
                 )}
               </Box>
             }
-            {...a11yProps(4)} 
+            {...a11yProps(3)} 
           />
           <Tab 
             label={
@@ -161,9 +176,26 @@ const ProjectTabs = ({
                 <span>Settings</span>
               </Box>
             }
-            {...a11yProps(5)} 
+            {...a11yProps(4)} 
           />
         </Tabs>
+
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<UserOutlined />}
+          onClick={handleOpenDrawer}
+          sx={{
+            ml: 2,
+            mr: 1,
+            whiteSpace: 'nowrap',
+            minWidth: 'auto',
+            borderRadius: 0
+          }}
+        >
+          Manage Participants
+        </Button>
+      </Stack>
 
         <TabPanel value={tabValue} index={0}>
           <AgendaTab />
@@ -172,12 +204,9 @@ const ProjectTabs = ({
           <OverviewTab />
         </TabPanel>
         <TabPanel value={tabValue} index={2}>
-          <SearchContainer projectId={project.id} />
-        </TabPanel>
-        <TabPanel value={tabValue} index={3}>
           <EnrolmentTAB index={0} />
         </TabPanel>
-        <TabPanel value={tabValue} index={4}>
+        <TabPanel value={tabValue} index={3}>
           <ProjectChecklist 
             checklistItems={checklistItems}
             checklistLoading={checklistLoading}
@@ -185,17 +214,54 @@ const ProjectTabs = ({
             styles={styles}
           />
         </TabPanel>
-        <TabPanel value={tabValue} index={5}>
+        <TabPanel value={tabValue} index={4}>
           <TabSettings />
         </TabPanel>
       </Grid>
-    </Grid>
+
+      {/* Bottom Drawer for Manage Participants */}
+      <Drawer
+        anchor="bottom"
+        open={drawerOpen}
+        onClose={handleCloseDrawer}
+        PaperProps={{
+          sx: {
+            height: '70vh',
+            borderRadius: 0,
+          }
+        }}
+      >
+        <Box sx={{ p: 3 }}>
+          {/* Header */}
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+            <Typography variant="h5" fontWeight="600">
+              Manage Participants
+            </Typography>
+            <IconButton onClick={handleCloseDrawer} size="large">
+              <CloseOutlined />
+            </IconButton>
+          </Stack>
+          
+          {/* Placeholder content */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '50vh',
+            color: 'text.secondary' 
+          }}>
+            <Typography variant="h6">
+              Participants management content will go here
+            </Typography>
+          </Box>
+        </Box>
+      </Drawer>
+    </MainCard>
   );
 };
 
 ProjectTabs.propTypes = {
   project: PropTypes.object.isRequired,
-  projectCurriculums: PropTypes.array.isRequired,
   checklistItems: PropTypes.array.isRequired,
   checklistLoading: PropTypes.bool.isRequired,
   onChecklistToggle: PropTypes.func.isRequired,

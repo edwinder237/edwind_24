@@ -30,17 +30,54 @@ export default async function handler(req, res) {
       }
     });
 
-    await prisma.events.update({
-      where: {
-        id: parseInt(eventId), 
-      },
-      data: updateData,
+    // Use transaction to update both event and groups
+    const result = await prisma.$transaction(async (tx) => {
+      // Update the event
+      const updatedEvent = await tx.events.update({
+        where: {
+          id: parseInt(eventId), 
+        },
+        data: updateData,
+      });
+
+      // Handle group assignments if selectedGroups is provided
+      if (event.selectedGroups !== undefined) {
+        // First, delete existing group assignments
+        await tx.event_groups.deleteMany({
+          where: {
+            eventsId: parseInt(eventId)
+          }
+        });
+
+        // Then create new group assignments
+        if (event.selectedGroups.length > 0) {
+          const groupAssignments = event.selectedGroups
+            .filter(groupId => {
+              // Filter out invalid group IDs
+              const parsed = parseInt(groupId);
+              return !isNaN(parsed) && parsed > 0;
+            })
+            .map(groupId => ({
+              eventsId: parseInt(eventId),
+              groupId: parseInt(groupId)
+            }));
+
+          // Only create if there are valid group assignments
+          if (groupAssignments.length > 0) {
+            await tx.event_groups.createMany({
+              data: groupAssignments
+            });
+          }
+        }
+      }
+
+      return updatedEvent;
     });
 
     res.status(200).json({ 
       success: true, 
-      message: "Event updated and saved to database",
-      updatedEvent: updateData
+      message: "Event and group assignments updated successfully",
+      updatedEvent: result
     });
   } catch (error) {
     console.error('Error updating event:', error);

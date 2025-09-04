@@ -13,11 +13,11 @@ import {
   FormControl,
   Chip
 } from '@mui/material';
-import { EditOutlined, CheckOutlined, CloseOutlined } from '@mui/icons-material';
-import MainCard from 'components/MainCard';
+import { EditOutlined, CheckOutlined, CloseOutlined, LocationOnOutlined } from '@mui/icons-material';
 import { formatDisplayDate } from '../utils/timeHelpers';
+import GoogleMapAutocomplete from '../../../projects-list/google-map-autocomplete';
 
-const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, onUpdateStatus }) => {
+const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, onUpdateStatus, onUpdateLocation, onUpdateBackgroundImage }) => {
   // State for editing project title
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(project?.title || '');
@@ -26,6 +26,11 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
   // State for editing project status
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [statusValue, setStatusValue] = useState(project?.projectStatus || 'started');
+  
+  // State for editing project location
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [locationData, setLocationData] = useState(null);
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
   
   // Available project statuses
   const projectStatuses = [
@@ -134,6 +139,103 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
   const getStatusConfig = (status) => {
     return projectStatuses.find(s => s.value === status) || projectStatuses[0];
   };
+  
+  // Handle location editing
+  const handleStartEditLocation = () => {
+    setIsEditingLocation(true);
+    setLocationData(null);
+  };
+  
+  const handleCancelEditLocation = () => {
+    setIsEditingLocation(false);
+    setLocationData(null);
+  };
+  
+  const handleSaveLocation = async () => {
+    if (!locationData) {
+      setIsEditingLocation(false);
+      return;
+    }
+    
+    setIsSavingLocation(true);
+    try {
+      if (onUpdateLocation) {
+        // Pass the location data which includes the R2 image URL
+        await onUpdateLocation(JSON.stringify(locationData));
+      }
+      setIsEditingLocation(false);
+      setLocationData(null);
+    } catch (error) {
+      console.error('Failed to update location:', error);
+    } finally {
+      setIsSavingLocation(false);
+    }
+  };
+  
+  const handleLocationChange = (location) => {
+    setLocationData(location);
+    // Auto-save when location is selected
+    if (location && onUpdateLocation) {
+      setIsSavingLocation(true);
+      onUpdateLocation(JSON.stringify(location))
+        .then(() => {
+          setIsEditingLocation(false);
+          setLocationData(null);
+        })
+        .catch((error) => {
+          console.error('Failed to update location:', error);
+        })
+        .finally(() => {
+          setIsSavingLocation(false);
+        });
+    }
+  };
+  
+  // Memoized location display to prevent unnecessary recalculations
+  const locationDisplay = useMemo(() => {
+    if (!project?.location) return 'No location set';
+    
+    // Handle placeholder strings
+    if (typeof project.location === 'string' && 
+        (project.location === 'location' || project.location.trim() === '')) {
+      return 'No location set';
+    }
+    
+    try {
+      let location = project.location;
+      
+      // Parse JSON string if needed
+      if (typeof project.location === 'string') {
+        const trimmed = project.location.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          location = JSON.parse(project.location);
+        } else {
+          return 'No location set';
+        }
+      }
+      
+      // Extract location description from various formats
+      if (location?.description) {
+        return location.description;
+      }
+      
+      if (location?.address1) {
+        return [location.address1, location.city, location.country]
+          .filter(Boolean)
+          .join(', ');
+      }
+      
+      if (location?.structured_formatting) {
+        const { main_text, secondary_text } = location.structured_formatting;
+        return secondary_text ? `${main_text}, ${secondary_text}` : main_text;
+      }
+      
+      return 'No location set';
+    } catch (error) {
+      console.error('Error parsing location:', error);
+      return 'No location set';
+    }
+  }, [project?.location]);
 
   const projectInfo = useMemo(() => [
     {
@@ -151,10 +253,9 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
   ], [project?.id, formattedDates]);
 
   return (
-    <MainCard title="Project Information">
-      <Stack spacing={3}>
-        {/* Editable Project Title */}
-        <Box>
+    <Stack spacing={3}>
+      {/* Editable Project Title */}
+      <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Project Title
           </Typography>
@@ -276,6 +377,113 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
           )}
         </Box>
 
+        {/* Background Image URL */}
+        <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Background Image URL
+          </Typography>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Enter image URL for project card (e.g., https://example.com/image.jpg)"
+            value={project?.backgroundImg || ''}
+            InputProps={{
+              readOnly: true,
+              sx: { 
+                fontSize: '0.875rem',
+                '& input': {
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }
+              }
+            }}
+            helperText="This URL is automatically set when you select a location with an image"
+          />
+          
+          {/* Image Preview */}
+          {project?.backgroundImg && (
+            <Stack spacing={1} sx={{ mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Preview
+              </Typography>
+              <Box
+                sx={{
+                  height: 200,
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  backgroundImage: `url(${project.backgroundImg})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'action.hover'
+                }}
+              >
+                {!project.backgroundImg && (
+                  <Typography variant="body2" color="text.secondary">
+                    No image URL provided
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+          )}
+        </Box>
+
+        {/* Project Location */}
+        <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Project Location
+          </Typography>
+          {isEditingLocation ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ flex: 1 }}>
+                <GoogleMapAutocomplete
+                  handleLocationChange={handleLocationChange}
+                />
+                {locationData?.imageUrl && (
+                  <Typography variant="caption" color="success.main" sx={{ mt: 1, display: 'block' }}>
+                    ✅ Location image ready for upload
+                  </Typography>
+                )}
+              </Box>
+              <Tooltip title="Cancel editing">
+                <IconButton 
+                  size="small" 
+                  onClick={handleCancelEditLocation}
+                  color="secondary"
+                  disabled={isSavingLocation}
+                >
+                  <CloseOutlined fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                <LocationOnOutlined sx={{ color: 'text.secondary', fontSize: 20 }} />
+                <Typography variant="body1">
+                  {locationDisplay}
+                </Typography>
+              </Box>
+              <Tooltip title="Edit project location">
+                <IconButton 
+                  size="small" 
+                  onClick={handleStartEditLocation}
+                  color="primary"
+                >
+                  <EditOutlined fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+        </Box>
+
         {/* Other Project Information */}
         <Grid container spacing={2}>
           {projectInfo.map((info, index) => (
@@ -289,8 +497,8 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
             </Grid>
           ))}
         </Grid>
-      </Stack>
-    </MainCard>
+
+    </Stack>
   );
 });
 
@@ -299,13 +507,16 @@ ProjectInfoCard.propTypes = {
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     title: PropTypes.string,
     projectStatus: PropTypes.string,
+    location: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
     createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
   }),
   projectSettings: PropTypes.shape({
     updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
   }),
   onUpdateTitle: PropTypes.func,
-  onUpdateStatus: PropTypes.func
+  onUpdateStatus: PropTypes.func,
+  onUpdateLocation: PropTypes.func,
+  onUpdateBackgroundImage: PropTypes.func
 };
 
 ProjectInfoCard.displayName = 'ProjectInfoCard';

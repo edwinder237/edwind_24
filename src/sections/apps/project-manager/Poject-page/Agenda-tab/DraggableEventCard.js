@@ -24,6 +24,10 @@ import {
   DialogActions,
   Popover,
   Grid,
+  Select,
+  FormControl,
+  Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import {
   AccessTime,
@@ -38,11 +42,12 @@ import {
   ArrowForward,
   ArrowBack,
   Palette,
+  Add,
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
 import { useDispatch, useSelector } from 'store';
 import { deleteEvent, getEvents } from 'store/reducers/calendar';
-import { getSingleProject } from 'store/reducers/projects';
+import { getSingleProject, getGroupsDetails } from 'store/reducers/projects';
 import { openSnackbar } from 'store/reducers/snackbar';
 import EditEventDialog from './EditEventDialog';
 
@@ -51,10 +56,12 @@ const ItemTypes = {
   EVENT: 'event'
 };
 
-const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToNextDay, allEvents, project, isCompact = false }) => {
+const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect, onTimeEdit, onMoveToNextDay, allEvents, project, isCompact = false, onEventUpdate }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const { events } = useSelector((state) => state.calendar);
+  const { groups, loading: groupsLoading } = useSelector((state) => state.projects);
+  
   
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -64,6 +71,9 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [colorPickerAnchorEl, setColorPickerAnchorEl] = useState(null);
+  const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
+  const [groupDropdownAnchorEl, setGroupDropdownAnchorEl] = useState(null);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const menuOpen = Boolean(menuAnchorEl);
   const colorPickerOpen = Boolean(colorPickerAnchorEl);
 
@@ -267,6 +277,53 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
     }
   };
 
+  // Handle quick group assignment
+  const handleQuickGroupAssign = async (groupId, e) => {
+    e?.stopPropagation();
+    
+    try {
+      const response = await fetch('/api/projects/addEventGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.id, groupId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to assign group to event');
+      }
+
+      // Refresh events to show the update
+      if (project?.id) {
+        await dispatch(getEvents(project.id));
+      }
+
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Group assigned to event successfully',
+          variant: 'alert',
+          alert: { color: 'success' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+          autoHideDuration: 2000
+        })
+      );
+    } catch (error) {
+      console.error('Error assigning group to event:', error);
+      
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Failed to assign group to event',
+          variant: 'alert',
+          alert: { color: 'error' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+        })
+      );
+    }
+  };
+
   const handleMenuAction = (action, e) => {
     e?.stopPropagation();
     
@@ -351,6 +408,82 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
     }
   }, [event]);
 
+
+  // Group dropdown handlers
+  const handleGroupClick = (e) => {
+    e.stopPropagation();
+    setGroupDropdownAnchorEl(e.currentTarget);
+    setGroupDropdownOpen(true);
+  };
+
+  const handleGroupDropdownClose = () => {
+    setGroupDropdownOpen(false);
+    setGroupDropdownAnchorEl(null);
+  };
+
+  const handleGroupChange = async (newGroupId) => {
+    try {
+      // Update the event with the new group assignment
+      const response = await fetch('/api/calendar/db-update-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: event.id,
+          event: {
+            ...event,
+            selectedGroups: [newGroupId] // Replace with single group selection
+          }
+        })
+      });
+
+      if (response.ok) {
+        
+        // Update the local event state immediately for instant UI feedback
+        const selectedGroup = groups.find(g => g.id === parseInt(newGroupId));
+        if (onEventUpdate && selectedGroup) {
+          const updatedEventData = {
+            event_groups: [{
+              groups: selectedGroup
+            }]
+          };
+          onEventUpdate(event.id, updatedEventData);
+        }
+        
+        // Refresh data in background to ensure consistency with database
+        if (project?.id) {
+          // Run these in parallel for better performance
+          Promise.all([
+            dispatch(getSingleProject(project.id)),
+            dispatch(getEvents(project.id)),
+            dispatch(getGroupsDetails(project.id))
+          ]);
+        }
+        
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Group assignment updated successfully',
+            variant: 'alert',
+            alert: { color: 'success' },
+            close: false
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error updating group assignment:', error);
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Failed to update group assignment',
+          variant: 'alert',
+          alert: { color: 'error' },
+          close: false
+        })
+      );
+    }
+    handleGroupDropdownClose();
+  };
+
   const getEventTypeColor = (event) => {
     // Use event color from database if available, otherwise fall back to type-based colors
     if (event.color) return event.color;
@@ -379,18 +512,36 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
         mb: isCompact ? 0 : 3,
         cursor: isDragging ? 'grabbing' : 'grab',
         transition: 'all 0.3s ease',
-        border: `1px solid ${isSelected ? theme.palette.primary.main : theme.palette.divider}`,
+        border: isConflicting 
+          ? `2px solid ${theme.palette.error.main}` 
+          : `1px solid ${isSelected ? theme.palette.primary.main : theme.palette.divider}`,
         borderLeftWidth: 4,
-        borderLeftColor: getEventTypeColor(event),
-        boxShadow: isSelected ? theme.shadows[3] : theme.shadows[0],
-        bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.1) : 'background.paper',
+        borderLeftColor: isConflicting ? theme.palette.error.main : getEventTypeColor(event),
+        boxShadow: isConflicting 
+          ? `0 0 8px ${alpha(theme.palette.error.main, 0.3)}`
+          : isSelected ? theme.shadows[3] : theme.shadows[0],
+        bgcolor: isConflicting
+          ? alpha(theme.palette.error.main, 0.1)
+          : isSelected ? alpha(theme.palette.primary.main, 0.1) : 'background.paper',
         opacity: isDragging ? 0.5 : 1,
         transform: isDragging ? 'rotate(5deg)' : 'none',
         position: 'relative',
+        ...(isConflicting && {
+          animation: 'pulse 2s infinite',
+          '@keyframes pulse': {
+            '0%': { transform: 'scale(1)' },
+            '50%': { transform: 'scale(1.02)' },
+            '100%': { transform: 'scale(1)' }
+          }
+        }),
         '&:hover': {
-          boxShadow: theme.shadows[2],
+          boxShadow: isConflicting
+            ? `0 0 12px ${alpha(theme.palette.error.main, 0.4)}`
+            : theme.shadows[2],
           transform: isDragging ? 'rotate(5deg)' : 'translateY(-2px)',
-          bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.15) : alpha(theme.palette.action.hover, 0.08)
+          bgcolor: isConflicting
+            ? alpha(theme.palette.error.main, 0.15)
+            : isSelected ? alpha(theme.palette.primary.main, 0.15) : alpha(theme.palette.action.hover, 0.08)
         }
       }}
     >
@@ -403,10 +554,27 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  bgcolor: getEventTypeColor(event),
+                  bgcolor: isConflicting ? theme.palette.error.main : getEventTypeColor(event),
                   flexShrink: 0
                 }}
               />
+              {isConflicting && (
+                <Tooltip title="Scheduling Conflict!" arrow>
+                  <Box sx={{ 
+                    fontSize: '1rem',
+                    color: theme.palette.error.main,
+                    display: 'flex',
+                    alignItems: 'center',
+                    animation: 'blink 1.5s infinite',
+                    '@keyframes blink': {
+                      '0%, 100%': { opacity: 1 },
+                      '50%': { opacity: 0.3 }
+                    }
+                  }}>
+                    ⚠️
+                  </Box>
+                </Tooltip>
+              )}
               <Typography variant="subtitle1" fontWeight={600} sx={{ lineHeight: 1 }}>
                 {event.title}
               </Typography>
@@ -440,31 +608,131 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
                 </Stack>
               )}
 
-              {/* Group chips */}
-              {event.event_groups && event.event_groups.length > 0 && (
-                <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-                  {event.event_groups.map((eventGroup, index) => 
-                    eventGroup.groups ? (
-                      <Chip
-                        key={`group-${eventGroup.groups.id}-${index}`}
-                        label={eventGroup.groups.groupName}
-                        size="small"
-                        sx={{
-                          backgroundColor: alpha(eventGroup.groups.chipColor || theme.palette.primary.main, 0.1),
-                          color: eventGroup.groups.chipColor || theme.palette.primary.main,
-                          border: `1px solid ${alpha(eventGroup.groups.chipColor || theme.palette.primary.main, 0.3)}`,
-                          fontWeight: 500,
-                          fontSize: '0.75rem',
-                          height: 22,
-                          '& .MuiChip-label': {
-                            px: 1
-                          }
-                        }}
-                      />
-                    ) : null
-                  )}
-                </Stack>
-              )}
+              {/* Group chips or quick assignment dropdown */}
+              {(() => {
+                // Check if event has any actual groups assigned
+                const hasActualGroups = event.event_groups && 
+                  event.event_groups.length > 0 && 
+                  event.event_groups.some(eg => eg.groups);
+                
+                
+                if (hasActualGroups) {
+                  return (
+                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+                      {event.event_groups.map((eventGroup, index) => 
+                        eventGroup.groups ? (
+                          <Chip
+                            key={`group-${eventGroup.groups.id}-${index}`}
+                            label={eventGroup.groups.groupName}
+                            size="small"
+                            onClick={handleGroupClick}
+                            sx={{
+                              backgroundColor: alpha(eventGroup.groups.chipColor || theme.palette.primary.main, 0.1),
+                              color: eventGroup.groups.chipColor || theme.palette.primary.main,
+                              border: `1px solid ${alpha(eventGroup.groups.chipColor || theme.palette.primary.main, 0.3)}`,
+                              fontWeight: 500,
+                              fontSize: '0.75rem',
+                              height: 22,
+                              cursor: 'pointer',
+                              '& .MuiChip-label': {
+                                px: 1
+                              },
+                              '&:hover': {
+                                backgroundColor: alpha(eventGroup.groups.chipColor || theme.palette.primary.main, 0.2),
+                                boxShadow: 1
+                              }
+                            }}
+                          />
+                        ) : null
+                      )}
+                    </Stack>
+                  );
+                } else {
+                  return (
+                    <Box sx={{ 
+                      mt: 0.5
+                    }}>
+                      {isLoadingGroups || groupsLoading ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <CircularProgress size={12} />
+                          <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                            Loading groups...
+                          </Typography>
+                        </Box>
+                      ) : groups.length > 0 ? (
+                        <FormControl size="small" sx={{ minWidth: 100 }}>
+                          <Select
+                            displayEmpty
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleQuickGroupAssign(e.target.value, e);
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            variant="outlined"
+                            sx={{
+                              fontSize: '0.7rem',
+                              bgcolor: 'transparent',
+                              border: `1px dashed ${alpha(theme.palette.divider, 0.6)}`,
+                              borderRadius: 1,
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                border: 'none'
+                              },
+                              '& .MuiSelect-select': {
+                                py: 0.25,
+                                px: 0.75,
+                                fontSize: '0.7rem',
+                                fontWeight: 400,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                color: 'text.secondary'
+                              },
+                              '&:hover': {
+                                border: `1px dashed ${alpha(theme.palette.primary.main, 0.5)}`,
+                                '& .MuiSelect-select': {
+                                  color: 'primary.main'
+                                }
+                              }
+                            }}
+                            renderValue={() => (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Add sx={{ fontSize: 12, color: 'inherit', opacity: 0.7 }} />
+                                <Typography sx={{ fontSize: '0.7rem', color: 'inherit' }}>
+                                  Add Group
+                                </Typography>
+                              </Box>
+                            )}
+                          >
+                            {groups.map((group) => (
+                              <MenuItem key={group.id} value={group.id}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Box
+                                    sx={{
+                                      width: 8,
+                                      height: 8,
+                                      borderRadius: '50%',
+                                      bgcolor: group.chipColor || theme.palette.primary.main
+                                    }}
+                                  />
+                                  <Typography sx={{ fontSize: '0.8rem' }}>
+                                    {group.groupName}
+                                  </Typography>
+                                </Box>
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                          No groups available
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                }
+              })()}
             </Stack>
           </Box>
 
@@ -903,6 +1171,112 @@ const DraggableEventCard = ({ event, isSelected, onSelect, onTimeEdit, onMoveToN
       event={event}
       project={project}
     />
+
+    {/* Group Selection Popover */}
+    <Popover
+      open={groupDropdownOpen}
+      anchorEl={groupDropdownAnchorEl}
+      onClose={handleGroupDropdownClose}
+      anchorOrigin={{
+        vertical: 'bottom',
+        horizontal: 'center',
+      }}
+      transformOrigin={{
+        vertical: 'top',
+        horizontal: 'center',
+      }}
+      slotProps={{
+        backdrop: {
+          sx: {
+            backgroundColor: isLoadingGroups || groupsLoading ? 'rgba(0, 0, 0, 0.3)' : 'transparent',
+            pointerEvents: isLoadingGroups || groupsLoading ? 'all' : 'none'
+          }
+        }
+      }}
+      PaperProps={{
+        sx: {
+          mt: 1,
+          minWidth: 200,
+          maxWidth: 300,
+          borderRadius: 2,
+          boxShadow: theme.shadows[8]
+        }
+      }}
+    >
+      <Box sx={{ p: 1 }}>
+        <Typography variant="subtitle2" sx={{ px: 2, py: 1, fontWeight: 600 }}>
+          Change Group Assignment
+        </Typography>
+        <Divider />
+        <Box sx={{ mt: 1 }}>
+          {(() => {
+            // Show loading state
+            if (isLoadingGroups || groupsLoading) {
+              return (
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center',
+                  py: 3,
+                  px: 2
+                }}>
+                  <CircularProgress size={24} />
+                  <Typography variant="body2" sx={{ ml: 2 }} color="text.secondary">
+                    Loading groups...
+                  </Typography>
+                </Box>
+              );
+            }
+            
+            // Show no groups available
+            if (!groups || groups.length === 0) {
+              return (
+                <MenuItem disabled>
+                  <Typography variant="body2" color="text.secondary">
+                    No groups available
+                  </Typography>
+                </MenuItem>
+              );
+            }
+            
+            // Show groups list
+            return groups.map((group) => (
+              <MenuItem
+                key={group.id}
+                onClick={() => handleGroupChange(group.id)}
+                sx={{
+                  borderRadius: 1,
+                  mx: 0.5,
+                  my: 0.25,
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1)
+                  }
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      backgroundColor: group.chipColor || theme.palette.primary.main
+                    }}
+                  />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" fontWeight={500}>
+                      {group.groupName || `Group ${group.id}`}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {group.participants?.length || 0} participants
+                    </Typography>
+                  </Box>
+                </Stack>
+              </MenuItem>
+            ));
+          })()}
+        </Box>
+      </Box>
+    </Popover>
     </>
   );
 };

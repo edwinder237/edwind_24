@@ -68,9 +68,30 @@ export default async function handler(req, res) {
       }
     });
 
+    // Automatically add the curriculum to all existing groups in the project
+    const projectGroups = await prisma.groups.findMany({
+      where: { projectId: parseInt(projectId) },
+      select: { id: true }
+    });
+
+    if (projectGroups.length > 0) {
+      const groupCurriculums = projectGroups.map(group => ({
+        groupId: group.id,
+        curriculumId: parseInt(curriculumId),
+        isActive: true,
+        assignedAt: new Date(),
+        assignedBy: 'system'
+      }));
+
+      await prisma.group_curriculums.createMany({
+        data: groupCurriculums,
+        skipDuplicates: true
+      });
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Curriculum added to project successfully',
+      message: 'Curriculum added to project and synced with all groups successfully',
       data: projectCurriculum
     });
 

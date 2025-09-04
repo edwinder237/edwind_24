@@ -6,6 +6,34 @@ import { Autocomplete, Checkbox, TextField, Chip, Box, Typography, CircularProgr
 // ==============================|| AUTOCOMPLETE - CHECKBOXES ||============================== //
 
 export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
+  // Ensure initialValue is always an array of strings
+  const sanitizedInitialValue = (() => {
+    if (!initialValue) return [];
+    
+    // If it's a JSON string, parse it
+    let parsed = initialValue;
+    if (typeof initialValue === 'string') {
+      try {
+        parsed = JSON.parse(initialValue);
+      } catch (error) {
+        return [];
+      }
+    }
+    
+    // Convert to string array
+    if (Array.isArray(parsed)) {
+      return parsed.map(item => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') {
+          return item.title || item.label || '';
+        }
+        return '';
+      }).filter(Boolean);
+    }
+    
+    return [];
+  })();
+  
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -17,28 +45,17 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
 
   // Set initial value if provided (for editing existing projects)
   useEffect(() => {
-    if (initialValue && initialValue.length > 0 && topics.length > 0) {
-      // If initialValue is a JSON string, parse it
-      let parsedValue = initialValue;
-      if (typeof initialValue === 'string') {
-        try {
-          parsedValue = JSON.parse(initialValue);
-        } catch (error) {
-          console.warn('Failed to parse initial topics value:', error);
-          parsedValue = [];
-        }
-      }
-      
+    if (sanitizedInitialValue.length > 0 && topics.length > 0) {
       // Find matching topics from the database
       const matchingTopics = topics.filter(topic => 
-        parsedValue.some(val => 
-          (typeof val === 'string' && val === topic.title) ||
-          (typeof val === 'object' && val.label === topic.title)
-        )
+        sanitizedInitialValue.includes(topic.title)
       );
       setSelectedTopics(matchingTopics);
+    } else if (sanitizedInitialValue.length === 0) {
+      // Clear selected topics if no initial value
+      setSelectedTopics([]);
     }
-  }, [initialValue, topics]);
+  }, [sanitizedInitialValue, topics]);
 
   const fetchTopics = async () => {
     setLoading(true);
@@ -112,6 +129,7 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
   };
 
   const handleChange = async (event, value) => {
+    console.log('TagsPicker handleChange - value:', value);
     // Handle creating new topics
     const processedValue = [];
     
@@ -128,8 +146,15 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
       }
     }
     
+    console.log('TagsPicker processedValue:', processedValue);
     setSelectedTopics(processedValue);
-    handleTagsChange(processedValue);
+    // Convert topic objects to simple string array for parent component
+    const topicTitles = processedValue.map(topic => {
+      if (typeof topic === 'string') return topic;
+      return topic?.title || topic?.label || '';
+    }).filter(Boolean); // Remove empty strings
+    console.log('TagsPicker topicTitles:', topicTitles);
+    handleTagsChange(topicTitles);
   };
 
   return (
@@ -138,15 +163,24 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
       id="topics-picker"
       options={topics}
       loading={loading}
-      value={selectedTopics}
+      value={selectedTopics || []}
       disableCloseOnSelect
       getOptionLabel={(option) => {
         // Handle string inputs (when user types)
         if (typeof option === 'string') {
-          return option.toUpperCase();
+          return String(option).toUpperCase();
         }
         // Handle object options (existing topics)
-        return (option?.label || option?.title || '').toUpperCase();
+        const label = option?.label || option?.title || '';
+        const result = String(label).toUpperCase();
+        
+        // Extra safety check
+        if (typeof result !== 'string') {
+          console.error('getOptionLabel returning non-string:', result, 'from option:', option);
+          return 'ERROR';
+        }
+        
+        return result;
       }}
       onChange={handleChange}
       filterOptions={(options, params) => {
@@ -229,34 +263,58 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
           </li>
         );
       }}
-      renderTags={(value, getTagProps) =>
-        value.map((option, index) => (
-          <Chip
-            {...getTagProps({ index })}
-            key={option.id}
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                {option.icon && (
-                  <span style={{ fontSize: '12px' }}>{option.icon}</span>
-                )}
-                <span style={{ textTransform: 'uppercase' }}>{option.label}</span>
-              </Box>
-            }
-            sx={{
-              bgcolor: option.color ? `${option.color}20` : 'primary.lighter',
-              border: '1px solid',
-              borderColor: option.color || 'primary.light',
-              color: option.color || 'primary.main',
-              '& .MuiSvgIcon-root': {
-                color: option.color || 'primary.main',
-                '&:hover': {
-                  color: option.color || 'primary.dark'
+      renderTags={(value, getTagProps) => {
+        console.log('TagsPicker renderTags - value:', value);
+        if (!Array.isArray(value)) {
+          console.error('TagsPicker renderTags received non-array value:', value);
+          return [];
+        }
+        
+        return value.map((option, index) => {
+          // Extra safety check to prevent objects from being rendered
+          if (option == null) {
+            console.warn('TagsPicker renderTags - null/undefined option at index', index);
+            return null;
+          }
+
+          // Ensure option is always an object and not accidentally a primitive
+          const safeOption = option && typeof option === 'object' ? option : { 
+            id: `fallback-${index}`, 
+            label: String(option || ''), 
+            title: String(option || ''),
+            color: null,
+            icon: null
+          };
+
+          const displayLabel = String(safeOption.label || safeOption.title || '');
+          
+          // Double check we're not accidentally passing an object as the label
+          if (typeof displayLabel !== 'string') {
+            console.error('TagsPicker - displayLabel is not a string:', displayLabel);
+            return null;
+          }
+          
+          return (
+            <Chip
+              {...getTagProps({ index })}
+              key={String(safeOption.id || `topic-${index}`)}
+              label={displayLabel.toUpperCase()}
+              sx={{
+                bgcolor: safeOption.color ? `${safeOption.color}20` : 'primary.lighter',
+                border: '1px solid',
+                borderColor: safeOption.color || 'primary.light',
+                color: safeOption.color || 'primary.main',
+                '& .MuiSvgIcon-root': {
+                  color: safeOption.color || 'primary.main',
+                  '&:hover': {
+                    color: safeOption.color || 'primary.dark'
+                  }
                 }
-              }
-            }}
-          />
-        ))
-      }
+              }}
+            />
+          );
+        }).filter(Boolean); // Remove any null entries
+      }}
       renderInput={(params) => (
         <TextField 
           {...params} 

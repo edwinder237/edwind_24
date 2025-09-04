@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Card,
-  CardContent,
   Typography,
   Button,
   Stack,
   Box,
-  Avatar,
   Chip,
   IconButton,
   Menu,
@@ -21,7 +18,9 @@ import {
   Select,
   OutlinedInput,
   CircularProgress,
-  Alert
+  Alert,
+  Card,
+  CardContent
 } from '@mui/material';
 import {
   MenuBook as MenuBookIcon,
@@ -199,34 +198,19 @@ const ProjectCurriculumCard = ({ projectId }) => {
 
   return (
     <>
-      <Card>
-        <CardContent>
-          <Stack spacing={3}>
-            <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Avatar sx={{ bgcolor: 'primary.main' }}>
-                  <MenuBookIcon />
-                </Avatar>
-                <Box>
-                  <Typography variant="h6" fontWeight="bold">
-                    Project Curriculums
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Manage curriculums assigned to this project
-                  </Typography>
-                </Box>
-              </Stack>
-              
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setAddDialogOpen(true)}
-                disabled={getAvailableForAdd().length === 0}
-              >
-                Add Curriculum
-              </Button>
-            </Stack>
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="subtitle1">Curriculums</Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setAddDialogOpen(true)}
+            disabled={getAvailableForAdd().length === 0}
+          >
+            Add Curriculum
+          </Button>
+        </Box>
 
             {projectCurriculums.length === 0 ? (
               <Alert severity="info">
@@ -271,9 +255,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
                 ))}
               </Stack>
             )}
-          </Stack>
-        </CardContent>
-      </Card>
+      </Box>
 
       {/* Context Menu */}
       <Menu

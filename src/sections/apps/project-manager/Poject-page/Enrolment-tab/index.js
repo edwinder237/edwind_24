@@ -1,5 +1,6 @@
 // react
 import { useState, lazy, Suspense } from "react";
+import { useSelector } from 'store';
 
 // material-ui
 import { 
@@ -49,13 +50,14 @@ const LoadingFallback = () => (
 
 const EnrolmentTAB = ({ index }) => {
   const [tabValue, setTabValue] = useState(0); // Default to Groups tab
+  const { singleProject } = useSelector((state) => state.projects);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
   return (
-    <Page title={`${null} Enrollment`}>
+    <Page title={`${singleProject?.title || 'Project'} - Enrollment`}>
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <Card>

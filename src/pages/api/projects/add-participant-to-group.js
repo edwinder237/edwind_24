@@ -10,8 +10,21 @@ export default async function handler(req, res) {
   try {
     const { groupId, participantId } = req.body;
     
+    console.log('API received:', { groupId, participantId, type: typeof participantId });
+    
     if (!groupId || !participantId) {
       return res.status(400).json({ error: 'Group ID and Participant ID are required' });
+    }
+
+    // Verify the participant exists in project_participants table
+    const participantExists = await prisma.project_participants.findUnique({
+      where: { id: parseInt(participantId) }
+    });
+    
+    console.log('Participant exists:', participantExists);
+    
+    if (!participantExists) {
+      return res.status(400).json({ error: 'Participant not found in project participants' });
     }
 
     // Check if the participant is already in the group

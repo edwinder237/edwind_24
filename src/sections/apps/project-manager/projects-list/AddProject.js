@@ -13,6 +13,7 @@ import { useTheme } from "@mui/material/styles";
 import {
   Box,
   Button,
+  Card,
   CardContent,
   Divider,
   FormControl,
@@ -78,6 +79,7 @@ const getInitialValues = (project) => {
     return {
       title: project.title || "",
       type: project.projectType || project.type || "",
+      deliveryMethod: project.deliveryMethod || "",
       language: project.language || "English",
       tags: project.tags || "", // Topics
       description: project.summary || project.description || "",
@@ -94,6 +96,7 @@ const getInitialValues = (project) => {
   const newProject = {
     title: "",
     type: "",
+    deliveryMethod: "",
     language: "English",
     tags: "", // Topics
     description: "",
@@ -108,21 +111,79 @@ const getInitialValues = (project) => {
   return newProject;
 };
 
-const types = [
-  "Onboarding", 
-  "Continuous", 
-  "Consultation", 
-  "Event", 
-  "Presentation", 
-  "Certification", 
-  "Other"
+const projectTypes = [
+  {
+    value: "Onboarding",
+    title: "Onboarding",
+    description: "New employee orientation and training programs",
+    icon: "👋",
+    color: "#1976d2"
+  },
+  {
+    value: "Continuous",
+    title: "Continuous Learning",
+    description: "Ongoing skill development and improvement programs",
+    icon: "📈",
+    color: "#388e3c"
+  },
+  {
+    value: "Consultation",
+    title: "Consultation",
+    description: "Expert advisory and consulting sessions",
+    icon: "💡",
+    color: "#f57c00"
+  },
+  {
+    value: "Event",
+    title: "Event",
+    description: "Workshops, seminars, and special training events",
+    icon: "🎯",
+    color: "#7b1fa2"
+  },
+  {
+    value: "Presentation",
+    title: "Presentation",
+    description: "Training sessions focused on presentations and demos",
+    icon: "📊",
+    color: "#c2185b"
+  },
+  {
+    value: "Certification",
+    title: "Certification",
+    description: "Programs leading to professional certifications",
+    icon: "🏆",
+    color: "#d32f2f"
+  },
+  {
+    value: "Other",
+    title: "Other",
+    description: "Custom training programs and specialized content",
+    icon: "⚙️",
+    color: "#5d4037"
+  }
+];
+
+// Keep legacy types array for compatibility
+const types = projectTypes.map(type => type.value);
+
+const deliveryMethods = [
+  "In Person",
+  "Remote",
+  "Hybrid",
+  "Self-Paced Online",
+  "Blended Learning"
 ];
 
 // Step configurations
 const steps = [
   {
+    label: 'Project Type',
+    description: 'Choose your project type',
+    icon: <BookOutlined />
+  },
+  {
     label: 'Basic Information',
-    description: 'Project title, type, and recipient',
+    description: 'Project details and recipient',
     icon: <InfoCircleOutlined />
   },
   {
@@ -132,7 +193,7 @@ const steps = [
   },
   {
     label: 'Schedule & Location',
-    description: 'Dates and location details',
+    description: 'Project dates and timeline',
     icon: <SettingOutlined />
   },
   {
@@ -164,7 +225,12 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
 
   const [projectTitle, setProjectTitle] = useState(project?.title || "Title");
   const [projectType, setProjectType] = useState(project?.projectType || project?.type || "Type");
-  const [projectTopics, setProjectTopics] = useState(project?.tags || JSON.stringify([]));
+  const [projectTopics, setProjectTopics] = useState(() => {
+    if (!project?.tags) return JSON.stringify([]);
+    if (typeof project.tags === 'string') return project.tags;
+    // If it's an array or object, stringify it
+    return JSON.stringify(project.tags);
+  });
   const [projectDescription, setProjectDescription] = useState(project?.summary || project?.description || "Description");
   const [projectStartDate, setProjectStartDate] = useState(project?.startDate ? new Date(project.startDate) : today);
   const [projectEndDate, setProjectEndDate] = useState(project?.endDate ? new Date(project.endDate) : today);
@@ -250,6 +316,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   const ProjectSchema = Yup.object().shape({
     title: Yup.string().max(255).required("Title is required"),
     type: Yup.string().required("Type is required"),
+    deliveryMethod: Yup.string().required("Delivery method is required"),
     description: Yup.string().max(191),
     trainingRecipient: Yup.string().required("Training recipient is required"),
     curriculum: Yup.string().required("Curriculum is required"),
@@ -283,6 +350,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
       console.log('Selected instructor state:', selectedInstructor);
       console.log('Selected training recipient state:', selectedTrainingRecipient);
       console.log('Selected curriculum state:', selectedCurriculum);
+      console.log('Project topics state:', projectTopics, typeof projectTopics);
       try {
         const newProject = {
           sortorder: 1,
@@ -296,6 +364,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           duration: 180,
           tags: projectTopics,
           projectType: values.type,
+          deliveryMethod: values.deliveryMethod,
           projectCategory: "automotive",
           projectStatus: "started",
           startDate: projectStartDate,
@@ -315,6 +384,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             title: values.title,
             description: projectDescription,
             type: values.type,
+            deliveryMethod: values.deliveryMethod,
             tags: projectTopics,
             startDate: projectStartDate,
             endDate: projectEndDate,
@@ -471,7 +541,11 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   } = formik;
 
   function handleTopicsChange(topics) {
-    const JSONTopics = JSON.stringify(topics);
+    // Ensure topics is always an array of strings
+    const sanitizedTopics = Array.isArray(topics) 
+      ? topics.map(topic => typeof topic === 'string' ? topic : String(topic || '')).filter(Boolean)
+      : [];
+    const JSONTopics = JSON.stringify(sanitizedTopics);
     setProjectTopics(JSONTopics);
   }
 
@@ -545,8 +619,19 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     
     // Validate current step before proceeding
     if (activeStep === 0) {
-      // Step 1: Basic Information - validate title, type, training recipient, curriculum
-      if (!formik.values.title || !formik.values.type || !formik.values.trainingRecipient || !formik.values.curriculum) {
+      // Step 1: Project Type - validate type selection
+      if (!formik.values.type) {
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Please select a project type to continue.',
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+        return;
+      }
+    } else if (activeStep === 1) {
+      // Step 2: Basic Information - validate title, delivery method, training recipient, curriculum
+      if (!formik.values.title || !formik.values.deliveryMethod || !formik.values.trainingRecipient || !formik.values.curriculum) {
         dispatch(openSnackbar({
           open: true,
           message: 'Please complete all required fields in this step.',
@@ -597,20 +682,83 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   const renderStepContent = (step) => {
     switch (step) {
       case 0:
-        return renderBasicInformation();
+        return renderProjectTypeSelection();
       case 1:
-        return renderContentAndTopics();
+        return renderBasicInformation();
       case 2:
-        return renderScheduleAndLocation();
+        return renderContentAndTopics();
       case 3:
+        return renderScheduleAndLocation();
+      case 4:
         return renderReviewAndSubmit();
       default:
         return null;
     }
   };
 
-  const renderBasicInformation = () => (
+  const renderProjectTypeSelection = () => (
     <Fade in={activeStep === 0}>
+      <Box>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              Project Type
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              Choose the type of project you want to create
+            </Typography>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Grid container spacing={2}>
+              {projectTypes.map((type) => (
+                <Grid item xs={12} sm={6} md={4} key={type.value}>
+                  <Card 
+                    sx={{ 
+                      cursor: 'pointer',
+                      height: '100%',
+                      border: formik.values.type === type.value ? 2 : 1,
+                      borderColor: formik.values.type === type.value ? type.color : 'divider',
+                      bgcolor: formik.values.type === type.value ? `${type.color}08` : 'background.paper',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        borderColor: type.color,
+                        bgcolor: `${type.color}08`,
+                        transform: 'translateY(-2px)',
+                        boxShadow: 3
+                      }
+                    }}
+                    onClick={() => {
+                      setFieldValue("type", type.value);
+                      setProjectType(type.value);
+                    }}
+                  >
+                    <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                      <Typography variant="h2" sx={{ fontSize: '2rem', mb: 1 }}>
+                        {type.icon}
+                      </Typography>
+                      <Typography variant="h6" gutterBottom sx={{ color: type.color, fontWeight: 600 }}>
+                        {type.title}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {type.description}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+            {touched.type && errors.type && (
+              <FormHelperText error sx={{ mt: 2 }}>{errors.type}</FormHelperText>
+            )}
+          </Grid>
+        </Grid>
+      </Box>
+    </Fade>
+  );
+
+  const renderBasicInformation = () => (
+    <Fade in={activeStep === 1}>
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -622,7 +770,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             </Typography>
           </Grid>
           
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <TextField
               fullWidth
               label="Project Title *"
@@ -647,25 +795,21 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             />
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <FormControl fullWidth>
-              <InputLabel>Project Type *</InputLabel>
+              <InputLabel>Delivery Method *</InputLabel>
               <Select
-                {...getFieldProps("type")}
-                onChange={(event) => {
-                  setFieldValue("type", event.target.value);
-                  setProjectType(event.target.value);
-                }}
-                error={Boolean(touched.type && errors.type)}
+                {...getFieldProps("deliveryMethod")}
+                error={Boolean(touched.deliveryMethod && errors.deliveryMethod)}
               >
-                {types.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
+                {deliveryMethods.map((method) => (
+                  <MenuItem key={method} value={method}>
+                    {method}
                   </MenuItem>
                 ))}
               </Select>
-              {touched.type && errors.type && (
-                <FormHelperText error>{errors.type}</FormHelperText>
+              {touched.deliveryMethod && errors.deliveryMethod && (
+                <FormHelperText error>{errors.deliveryMethod}</FormHelperText>
               )}
             </FormControl>
           </Grid>
@@ -705,13 +849,22 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
               helperText={touched.instructor && errors.instructor}
             />
           </Grid>
+
+          <Grid item xs={12}>
+            <Typography variant="subtitle1" gutterBottom>
+              Location
+            </Typography>
+            <GoogleMapAutocomplete
+              handleLocationChange={handleLocationChange}
+            />
+          </Grid>
         </Grid>
       </Box>
     </Fade>
   );
 
   const renderContentAndTopics = () => (
-    <Fade in={activeStep === 1}>
+    <Fade in={activeStep === 2}>
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -727,9 +880,9 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             <Typography variant="subtitle1" gutterBottom>
               Topics
             </Typography>
-            <TagsPicker 
-              handleTagsChange={handleTopicsChange} 
-              initialValue={project?.tags || []}
+            <TagsPicker
+              handleTagsChange={handleTopicsChange}
+              initialValue={projectTopics}
             />
           </Grid>
 
@@ -799,7 +952,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   );
 
   const renderScheduleAndLocation = () => (
-    <Fade in={activeStep === 2}>
+    <Fade in={activeStep === 3}>
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -807,7 +960,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
               Schedule & Location
             </Typography>
             <Typography variant="body2" color="textSecondary" paragraph>
-              Set the dates and location for your project
+              Set the dates for your project
             </Typography>
           </Grid>
           
@@ -820,22 +973,13 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
               handleEndDateChange={handleEndDateChange}
             />
           </Grid>
-
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" gutterBottom>
-              Location
-            </Typography>
-            <GoogleMapAutocomplete
-              handleLocationChange={handleLocationChange}
-            />
-          </Grid>
         </Grid>
       </Box>
     </Fade>
   );
 
   const renderReviewAndSubmit = () => (
-    <Fade in={activeStep === 3}>
+    <Fade in={activeStep === 4}>
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -860,6 +1004,10 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Type:</Typography>
                   <Typography variant="body1">{formik.values.type}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Delivery Method:</Typography>
+                  <Typography variant="body1">{formik.values.deliveryMethod}</Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Language:</Typography>

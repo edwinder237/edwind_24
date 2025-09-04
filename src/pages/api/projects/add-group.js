@@ -44,13 +44,39 @@ export default async function handler(req, res) {
       });
     }
 
-    // Fetch the complete group with participants
+    // Automatically assign all project curriculums to the new group
+    const projectCurriculums = await prisma.project_curriculums.findMany({
+      where: { projectId: parseInt(projectId) },
+      select: { curriculumId: true }
+    });
+
+    if (projectCurriculums.length > 0) {
+      const groupCurriculums = projectCurriculums.map(pc => ({
+        groupId: createdGroup.id,
+        curriculumId: pc.curriculumId,
+        isActive: true,
+        assignedAt: new Date(),
+        assignedBy: 'system'
+      }));
+
+      await prisma.group_curriculums.createMany({
+        data: groupCurriculums,
+        skipDuplicates: true
+      });
+    }
+
+    // Fetch the complete group with participants and curriculums
     const groupWithParticipants = await prisma.groups.findUnique({
       where: { id: createdGroup.id },
       include: {
         participants: {
           include: {
             participant: true,
+          },
+        },
+        group_curriculums: {
+          include: {
+            curriculum: true,
           },
         },
       },
@@ -63,6 +89,11 @@ export default async function handler(req, res) {
         participants: {
           include: {
             participant: true,
+          },
+        },
+        group_curriculums: {
+          include: {
+            curriculum: true,
           },
         },
       },

@@ -87,14 +87,16 @@ const SessionNotes = React.memo(({ notes, selectedEvent, events }) => {
             </Typography>
           )}
           <Tooltip title="Save Notes">
-            <IconButton 
-              onClick={handleSave} 
-              disabled={isSaving || !hasUnsavedChanges}
-              color="primary"
-              size="small"
-            >
-              <SaveOutlined />
-            </IconButton>
+            <span>
+              <IconButton 
+                onClick={handleSave} 
+                disabled={isSaving || !hasUnsavedChanges}
+                color="primary"
+                size="small"
+              >
+                <SaveOutlined />
+              </IconButton>
+            </span>
           </Tooltip>
         </Stack>
       }

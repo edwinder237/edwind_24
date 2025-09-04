@@ -44,6 +44,9 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   
+  // Get groups from Redux store
+  const { groups } = useSelector((state) => state.projects);
+  
   // Form state
   const [formData, setFormData] = useState({
     title: '',
@@ -57,7 +60,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     color: theme.palette.primary.main,
     backgroundColor: theme.palette.primary.main,
     courseId: null,
-    supportActivityId: null
+    supportActivityId: null,
+    selectedGroups: []
   });
 
   // Color options
@@ -111,7 +115,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         color: event.color || theme.palette.primary.main,
         backgroundColor: event.backgroundColor || event.color || theme.palette.primary.main,
         courseId: event.courseId || null,
-        supportActivityId: event.supportActivityId || null
+        supportActivityId: event.supportActivityId || null,
+        selectedGroups: event.event_groups?.map(eg => eg.group_id) || []
       });
     }
   }, [event, open, theme.palette.primary.main]);
@@ -402,6 +407,65 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                   )
                 }}
               />
+            </Grid>
+
+            {/* Groups Assignment */}
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Assigned Groups</InputLabel>
+                <Select
+                  multiple
+                  value={formData.selectedGroups}
+                  label="Assigned Groups"
+                  onChange={(e) => handleInputChange('selectedGroups', e.target.value)}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((groupId) => {
+                        const group = groups?.find(g => g.id === groupId);
+                        return (
+                          <Chip
+                            key={groupId}
+                            label={group?.name || `Group ${groupId}`}
+                            size="small"
+                            sx={{ 
+                              bgcolor: alpha(formData.color, 0.1),
+                              color: formData.color,
+                              borderColor: formData.color
+                            }}
+                            variant="outlined"
+                          />
+                        );
+                      })}
+                    </Box>
+                  )}
+                >
+                  {groups?.map((group) => (
+                    <MenuItem key={group.id} value={group.id}>
+                      <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                        <Avatar 
+                          sx={{ 
+                            width: 32, 
+                            height: 32, 
+                            bgcolor: alpha(formData.color, 0.1),
+                            color: formData.color,
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          {group.name?.charAt(0) || 'G'}
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" fontWeight={500}>
+                            {group.name || `Group ${group.id}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {group.participants?.length || 0} participants
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </MenuItem>
+                  )) || []}
+                </Select>
+              </FormControl>
             </Grid>
 
             {/* Timing Section */}

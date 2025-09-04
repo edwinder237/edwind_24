@@ -36,6 +36,7 @@ import { PopupTransition } from "components/@extended/Transitions";
 import { EmptyUserCard, ProjectsListSkeleton } from "components/cards/skeleton";
 import ProjectCard from "./ProjectCard";
 import AddProject from "./AddProject";
+import DateRangeFilterButton from "components/DateRangeFilter";
 
 import { GlobalFilter } from "utils/react-table";
 import usePagination from "hooks/usePagination";
@@ -223,17 +224,92 @@ const ProjectsList = () => {
 
       // Date range filter
       if (dateRange.start || dateRange.end) {
-        const projectStart = new Date(project.startDate);
-        const projectEnd = new Date(project.endDate);
+        // Get dates from project_settings first, fallback to project directly
+        const projectStartDate = project.project_settings?.startDate || project.startDate;
+        const projectEndDate = project.project_settings?.endDate || project.endDate;
         
-        if (dateRange.start && projectStart < new Date(dateRange.start)) return false;
-        if (dateRange.end && projectEnd > new Date(dateRange.end)) return false;
+        // If project has dates, check if they fall within the filter range
+        if (projectStartDate || projectEndDate) {
+          const projectStart = projectStartDate ? new Date(projectStartDate) : null;
+          const projectEnd = projectEndDate ? new Date(projectEndDate) : null;
+          
+          // For projects with dates, check if they fall within the filter range
+          // We check if ANY part of the project overlaps with the filter range
+          if (dateRange.start && dateRange.end) {
+            const filterStart = new Date(dateRange.start);
+            const filterEnd = new Date(dateRange.end);
+            
+            // Check for overlap: project must start before filter ends AND end after filter starts
+            if (projectStart && projectStart > filterEnd) return false;
+            if (projectEnd && projectEnd < filterStart) return false;
+          } else if (dateRange.start) {
+            const filterStart = new Date(dateRange.start);
+            // Project must end after or on the filter start date
+            if (projectEnd && projectEnd < filterStart) return false;
+          } else if (dateRange.end) {
+            const filterEnd = new Date(dateRange.end);
+            // Project must start before or on the filter end date
+            if (projectStart && projectStart > filterEnd) return false;
+          }
+        }
+        // Note: Projects without dates are included when date filter is active
+        // Change to 'return false' if you want to exclude projects without dates
       }
 
       return true;
     });
 
-    setUserCard(filteredData);
+    // Apply sorting
+    const sortedData = [...filteredData].sort((a, b) => {
+      switch (sortBy) {
+        case 'Title':
+          return (a.title || '').localeCompare(b.title || '');
+        
+        case 'Start Date':
+          const aStartDate = a.project_settings?.startDate || a.startDate;
+          const bStartDate = b.project_settings?.startDate || b.startDate;
+          
+          if (!aStartDate && !bStartDate) return 0;
+          if (!aStartDate) return 1; // Put items without dates at the end
+          if (!bStartDate) return -1;
+          
+          const dateA = new Date(aStartDate);
+          const dateB = new Date(bStartDate);
+          
+          // Check for invalid dates
+          if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
+          if (isNaN(dateA.getTime())) return 1;
+          if (isNaN(dateB.getTime())) return -1;
+          
+          return dateA - dateB;
+        
+        case 'End Date':
+          const aEndDate = a.project_settings?.endDate || a.endDate;
+          const bEndDate = b.project_settings?.endDate || b.endDate;
+          
+          if (!aEndDate && !bEndDate) return 0;
+          if (!aEndDate) return 1; // Put items without dates at the end
+          if (!bEndDate) return -1;
+          
+          const endDateA = new Date(aEndDate);
+          const endDateB = new Date(bEndDate);
+          
+          // Check for invalid dates
+          if (isNaN(endDateA.getTime()) && isNaN(endDateB.getTime())) return 0;
+          if (isNaN(endDateA.getTime())) return 1;
+          if (isNaN(endDateB.getTime())) return -1;
+          
+          return endDateA - endDateB;
+        
+        case 'Default':
+        default:
+          // Sort by creation date (newest first)
+          return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+    });
+
+
+    setUserCard(sortedData);
     setPage(1); // Reset to first page when filters change
   }, [
     globalFilter, 
@@ -242,6 +318,7 @@ const ProjectsList = () => {
     trainingRecipientFilter, 
     tagFilter, 
     dateRange, 
+    sortBy,
     projects, 
     hasError, 
     isValidProjectsArray
@@ -387,7 +464,11 @@ const ProjectsList = () => {
                 sx={{ 
                   textTransform: 'none',
                   fontWeight: 600,
-                  px: 3
+                  px: 3,
+                  background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
+                  }
                 }}
               >
                 Add Project
@@ -409,25 +490,18 @@ const ProjectsList = () => {
                 
                 <Grid container spacing={2.5} alignItems="flex-start">
                   {/* Status Filter */}
-                  <Grid item xs={12} sm={6} lg={3}>
+                  <Grid item xs={12} sm={6} lg={2.4}>
                     <FormControl fullWidth size="medium">
-                      <InputLabel sx={{ fontWeight: 500 }}>Status</InputLabel>
                       <Select
                         multiple
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        input={<OutlinedInput label="Status" />}
+                        displayEmpty
+                        size="medium"
                         renderValue={(selected) => (
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {selected.map((value) => (
-                              <Chip 
-                                key={value} 
-                                label={value.toUpperCase()} 
-                                size="small"
-                                sx={{ fontSize: '0.7rem', height: 20 }}
-                              />
-                            ))}
-                          </Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {selected.length > 0 ? `Status (${selected.length})` : "Status"}
+                          </Typography>
                         )}
                       >
                         {getUniqueValues('projectStatus').map((status) => (
@@ -440,25 +514,18 @@ const ProjectsList = () => {
                   </Grid>
 
                   {/* Type Filter */}
-                  <Grid item xs={12} sm={6} lg={3}>
+                  <Grid item xs={12} sm={6} lg={2.4}>
                     <FormControl fullWidth size="medium">
-                      <InputLabel sx={{ fontWeight: 500 }}>Type</InputLabel>
                       <Select
                         multiple
                         value={typeFilter}
                         onChange={(e) => setTypeFilter(e.target.value)}
-                        input={<OutlinedInput label="Type" />}
+                        displayEmpty
+                        size="medium"
                         renderValue={(selected) => (
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {selected.map((value) => (
-                              <Chip 
-                                key={value} 
-                                label={value} 
-                                size="small"
-                                sx={{ fontSize: '0.7rem', height: 20 }}
-                              />
-                            ))}
-                          </Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {selected.length > 0 ? `Type (${selected.length})` : "Type"}
+                          </Typography>
                         )}
                       >
                         {getUniqueValues('projectType').map((type) => (
@@ -471,64 +538,59 @@ const ProjectsList = () => {
                   </Grid>
 
                   {/* Training Recipient Filter */}
-                  <Grid item xs={12} sm={6} lg={3}>
-                    <Autocomplete
-                      multiple
-                      size="medium"
-                      options={getUniqueValues('training_recipient')}
-                      value={trainingRecipientFilter}
-                      onChange={(event, newValue) => setTrainingRecipientFilter(newValue)}
-                      renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          label="Training Recipient" 
-                          sx={{ 
-                            '& .MuiInputLabel-root': { fontWeight: 500 }
-                          }}
-                        />
-                      )}
-                      renderTags={(value, getTagProps) =>
-                        value.map((option, index) => (
-                          <Chip
-                            variant="outlined"
-                            label={option}
-                            size="small"
-                            sx={{ fontSize: '0.7rem', height: 20 }}
-                            {...getTagProps({ index })}
-                          />
-                        ))
-                      }
-                    />
+                  <Grid item xs={12} sm={6} lg={2.4}>
+                    <FormControl fullWidth size="medium">
+                      <Select
+                        multiple
+                        value={trainingRecipientFilter}
+                        onChange={(e) => setTrainingRecipientFilter(e.target.value)}
+                        displayEmpty
+                        size="medium"
+                        renderValue={(selected) => (
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {selected.length > 0 ? `Training Recipient (${selected.length})` : "Training Recipient"}
+                          </Typography>
+                        )}
+                      >
+                        {getUniqueValues('training_recipient').map((recipient) => (
+                          <MenuItem key={recipient} value={recipient}>
+                            {recipient}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </Grid>
 
                   {/* Topics Filter */}
-                  <Grid item xs={12} sm={6} lg={3}>
-                    <Autocomplete
-                      multiple
-                      size="medium"
-                      options={getUniqueValues('tags')}
-                      value={tagFilter}
-                      onChange={(event, newValue) => setTagFilter(newValue)}
-                      renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          label="Topics" 
-                          sx={{ 
-                            '& .MuiInputLabel-root': { fontWeight: 500 }
-                          }}
-                        />
-                      )}
-                      renderTags={(value, getTagProps) =>
-                        value.map((option, index) => (
-                          <Chip
-                            variant="outlined"
-                            label={option}
-                            size="small"
-                            sx={{ fontSize: '0.7rem', height: 20 }}
-                            {...getTagProps({ index })}
-                          />
-                        ))
-                      }
+                  <Grid item xs={12} sm={6} lg={2.4}>
+                    <FormControl fullWidth size="medium">
+                      <Select
+                        multiple
+                        value={tagFilter}
+                        onChange={(e) => setTagFilter(e.target.value)}
+                        displayEmpty
+                        size="medium"
+                        renderValue={(selected) => (
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {selected.length > 0 ? `Topics (${selected.length})` : "Topics"}
+                          </Typography>
+                        )}
+                      >
+                        {getUniqueValues('tags').map((tag) => (
+                          <MenuItem key={tag} value={tag}>
+                            {tag}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  {/* Date Range Filter */}
+                  <Grid item xs={12} sm={6} lg={2.4}>
+                    <DateRangeFilterButton
+                      dateRange={dateRange}
+                      onDateRangeChange={setDateRange}
+                      sx={{ width: '100%' }}
                     />
                   </Grid>
                 </Grid>
@@ -572,7 +634,7 @@ const ProjectsList = () => {
                   style={{ width: '100%', height: '100%' }}
                 >
                   <ProjectCard
-                    Project={projects[index]}
+                    Project={project}
                     projectId={project.id}
                   />
                 </motion.div>

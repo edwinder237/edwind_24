@@ -14,7 +14,6 @@ import {
   Chip
 } from '@mui/material';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers-pro';
-import MainCard from 'components/MainCard';
 import { timeStringToDate, dateToTimeString } from '../utils/timeHelpers';
 import { WORKING_DAY_OPTIONS, TIMEZONE_OPTIONS } from '../utils/constants';
 
@@ -58,8 +57,7 @@ const ProjectScheduleCard = React.memo(({
   );
 
   return (
-    <MainCard title="Project Schedule">
-      <Stack spacing={3}>
+    <Stack spacing={3}>
         <Typography variant="subtitle1">Project Duration</Typography>
         
         {/* Date Pickers */}
@@ -149,8 +147,7 @@ const ProjectScheduleCard = React.memo(({
             {workingDayChips}
           </Box>
         </Stack>
-      </Stack>
-    </MainCard>
+    </Stack>
   );
 });
 

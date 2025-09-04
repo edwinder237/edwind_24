@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  //url      = env("DATABASE_URL_LOCAL")
   url      = env("DATABASE_URL")
 }
 
@@ -31,7 +30,6 @@ model User {
   @@map("users")
 }
 
-
 model organizations {
   id                String             @id @default(uuid())
   title             String
@@ -50,47 +48,45 @@ model organizations {
 }
 
 model sub_organizations {
-  id                  Int                   @id @default(autoincrement())
+  id                  Int                                 @id @default(autoincrement())
   title               String
   description         String?
-  createdAt           DateTime              @default(now())
-  lastUpdated         DateTime              @default(now())
+  createdAt           DateTime                            @default(now())
+  lastUpdated         DateTime                            @default(now())
   updatedby           String
   createdBy           String
-  organizationId      String                @unique
+  organizationId      String                              @unique
   course_tags         course_tags[]
   courses             courses[]
   instructors         instructors[]
   projects            projects[]
-  topics              topics[]
   participant_roles   sub_organization_participant_role[]
-  organization        organizations         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization        organizations                       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  topics              topics[]
   training_recipients training_recipients[]
   users               User[]
 }
 
-
 model sub_organization_participant_role {
-  id                 Int               @id @default(autoincrement())
-  title              String
-  description        String?
-  sub_organizationId Int
-  isActive           Boolean           @default(true)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  createdBy          String
-  updatedBy          String?
-  participants       participants[]
+  id                       Int                        @id @default(autoincrement())
+  title                    String
+  description              String?
+  sub_organizationId       Int
+  isActive                 Boolean                    @default(true)
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  createdBy                String
+  updatedBy                String?
   course_participant_roles course_participant_roles[]
   module_participant_roles module_participant_roles[]
-  sub_organization   sub_organizations @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+  participants             participants[]
+  sub_organization         sub_organizations          @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 
   @@unique([title, sub_organizationId], name: "unique_role_per_organization")
   @@index([sub_organizationId])
   @@index([title])
   @@index([isActive])
 }
-
 
 model training_recipients {
   id                 Int               @id @default(autoincrement())
@@ -109,24 +105,24 @@ model training_recipients {
   createdBy          String
   updatedBy          String?
   sub_organizationId Int
-  projects           projects[]
   participants       participants[]
+  projects           projects[]
   sub_organization   sub_organizations @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 
   @@index([sub_organizationId])
 }
 
 model projects {
-  id                  Int                    @id @default(autoincrement())
+  id                  Int                                 @id @default(autoincrement())
   cuid                String
   sub_organizationId  Int
-  createdAt           DateTime               @default(now())
-  lastUpdated         DateTime               @default(now())
+  createdAt           DateTime                            @default(now())
+  lastUpdated         DateTime                            @default(now())
   updatedby           String?
   CreatedBy           String
-  published           Boolean                @default(false)
+  published           Boolean                             @default(false)
   title               String
-  summary             String?                @db.VarChar(1000)
+  summary             String?                             @db.VarChar(1000)
   duration            Int?
   tags                Json?
   projectType         String?
@@ -136,22 +132,22 @@ model projects {
   endDate             DateTime?
   backgroundImg       String?
   color               String?
-  language            String                 @default("English")
+  language            String                              @default("English")
   location            Json?
   trainingRecipientId Int?
   daily_focus         daily_focus[]
   events              events[]
   groups              groups[]
-  project_curriculums project_curriculums[]
-  project_topics      project_topics[]
-  participants        project_participants[]
-  project_instructors project_instructors[]
-  project_settings    project_settings?
   checklist_progress  project_course_checklist_progress[]
+  project_curriculums project_curriculums[]
+  project_instructors project_instructors[]
+  participants        project_participants[]
+  project_settings    project_settings?
+  project_topics      project_topics[]
+  user                User                                @relation(fields: [CreatedBy], references: [id])
+  sub_organization    sub_organizations                   @relation(fields: [sub_organizationId], references: [id])
+  training_recipient  training_recipients?                @relation(fields: [trainingRecipientId], references: [id])
   training_plans      training_plans[]
-  user                User                   @relation(fields: [CreatedBy], references: [id])
-  sub_organization    sub_organizations      @relation(fields: [sub_organizationId], references: [id])
-  training_recipient  training_recipients?   @relation(fields: [trainingRecipientId], references: [id])
 
   @@index([CreatedBy])
   @@index([sub_organizationId])
@@ -159,28 +155,28 @@ model projects {
 }
 
 model instructors {
-  id                   Int                   @id @default(autoincrement())
-  firstName            String
-  lastName             String
-  email                String                @unique
-  phone                String?
-  bio                  String?
-  expertise            String[]              // Array of expertise areas
-  instructorType       String                @default("main") // main, secondary, assistant, guest
-  status               String                @default("active") // active, inactive, pending
-  profileImage         String?
-  qualifications       Json?                 // Store certifications, degrees, etc.
-  hourlyRate           Float?
-  availability         Json?                 // Store availability schedule
-  sub_organizationId   Int
-  sub_organization     sub_organizations     @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  createdBy            String
-  updatedBy            String?
-  project_instructors  project_instructors[]
-  event_instructors    event_instructors[]
-  course_instructors   course_instructors[]
+  id                  Int                   @id @default(autoincrement())
+  firstName           String
+  lastName            String
+  email               String                @unique
+  phone               String?
+  bio                 String?
+  expertise           String[]
+  instructorType      String                @default("main")
+  status              String                @default("active")
+  profileImage        String?
+  qualifications      Json?
+  hourlyRate          Float?
+  availability        Json?
+  sub_organizationId  Int
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  createdBy           String
+  updatedBy           String?
+  course_instructors  course_instructors[]
+  event_instructors   event_instructors[]
+  sub_organization    sub_organizations     @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+  project_instructors project_instructors[]
 
   @@index([sub_organizationId])
   @@index([instructorType])
@@ -191,13 +187,13 @@ model project_instructors {
   id             Int         @id @default(autoincrement())
   projectId      Int
   instructorId   Int
-  instructorType String      @default("main") // main, assistant, guest, consultant, mentor
+  instructorType String      @default("main")
   createdAt      DateTime    @default(now())
   lastUpdated    DateTime    @default(now())
-  project        projects    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   instructor     instructors @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  project        projects    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@unique([projectId, instructorId], name: "projectId_instructorId") // Prevent duplicate assignments
+  @@unique([projectId, instructorId], name: "projectId_instructorId")
   @@index([projectId])
   @@index([instructorId])
 }
@@ -222,11 +218,11 @@ model project_settings {
 }
 
 model participants {
-  id                  String                 @id @default(uuid())
+  id                  String                             @id @default(uuid())
   firstName           String
   middleName          String?
   lastName            String
-  email               String                 @unique
+  email               String                             @unique
   participantStatus   String?
   participantType     String?
   sub_organization    Int
@@ -237,27 +233,27 @@ model participants {
   profilePrefs        Json
   profileImg          String?
   credentials         Json
-  createdAt           DateTime               @default(now())
-  lastUpdated         DateTime?              @default(now())
+  createdAt           DateTime                           @default(now())
+  lastUpdated         DateTime?                          @default(now())
   updatedby           String?
   createdBy           String?
+  role                sub_organization_participant_role? @relation(fields: [roleId], references: [id])
+  training_recipient  training_recipients?               @relation(fields: [trainingRecipientId], references: [id])
   projects            project_participants[]
   toolAccesses        toolAccesses[]
-  role                sub_organization_participant_role? @relation(fields: [roleId], references: [id])
-  training_recipient  training_recipients? @relation(fields: [trainingRecipientId], references: [id])
 
   @@index([trainingRecipientId])
   @@index([roleId])
 }
 
 model project_curriculums {
-  id                             Int                              @id @default(autoincrement())
-  createdAt                      DateTime                         @default(now())
-  updatedAt                      DateTime                         @default(now())
-  projectId                      Int
-  curriculumId                   Int
-  curriculum                     curriculums                      @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
-  project                        projects                         @relation(fields: [projectId], references: [id])
+  id           Int         @id @default(autoincrement())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @default(now())
+  projectId    Int
+  curriculumId Int
+  curriculum   curriculums @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  project      projects    @relation(fields: [projectId], references: [id])
 
   @@unique([projectId, curriculumId], name: "projectId_curriculumId")
   @@index([curriculumId])
@@ -265,30 +261,29 @@ model project_curriculums {
 }
 
 model project_participants {
-  id                             Int                              @id @default(autoincrement())
-  projectId                      Int
-  participantId                  String
-  status                         String                           @default("active")
-  courses_enrollee_progress      courses_enrollee_progress[]
-  event_attendees                event_attendees[]
-  group                          group_participants[]
-  participant                    participants                     @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  project                        projects                         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                        Int                         @id @default(autoincrement())
+  projectId                 Int
+  participantId             String
+  status                    String                      @default("active")
+  courses_enrollee_progress courses_enrollee_progress[]
+  event_attendees           event_attendees[]
+  group                     group_participants[]
+  participant               participants                @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  project                   projects                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, participantId])
   @@index([projectId])
   @@index([participantId])
 }
 
-
 model groups {
-  id           Int                  @id @default(autoincrement())
+  id                Int                  @id @default(autoincrement())
   groupName         String
   projectId         Int
   chipColor         String
   event_groups      event_groups[]
-  participants      group_participants[]
   group_curriculums group_curriculums[]
+  participants      group_participants[]
   project           projects             @relation(fields: [projectId], references: [id])
 
   @@index([projectId])
@@ -326,7 +321,6 @@ model course_tags {
   @@index([courseId])
 }
 
-
 model courses {
   id                        Int                         @id @default(autoincrement())
   cuid                      String                      @default(cuid())
@@ -361,12 +355,12 @@ model courses {
   rating                    Float?
   code                      String?
   version                   String?
+  course_checklist_items    course_checklist_items[]
+  course_instructors        course_instructors[]
+  course_objectives         course_objectives[]
+  course_participant_roles  course_participant_roles[]
   course_tags               course_tags[]
   course_topics             course_topics[]
-  course_instructors        course_instructors[]
-  course_checklist_items    course_checklist_items[]
-  course_participant_roles  course_participant_roles[]
-  course_objectives         course_objectives[]
   sub_organizationInfo      sub_organizations           @relation(fields: [sub_organizationId], references: [id])
   courses_enrollee_progress courses_enrollee_progress[]
   curriculum_courses        curriculum_courses[]
@@ -396,43 +390,42 @@ model courses_enrollee_progress {
 }
 
 model modules {
-  id               Int                @id @default(autoincrement())
-  createdAt        DateTime           @default(now())
-  lastUpdated      DateTime           @updatedAt
-  published        Boolean
-  title            String
-  summary          String?
-  content          String?
-  JSONContent      Json?
-  duration         Int?
-  customDuration   Int?
-  level            String?
-  moduleStatus     String?
-  backgroundImg    String?
-  courseId         Int
-  moduleOrder      Int?
-  activities             activities[]
-  course_checklist_items course_checklist_items[]
+  id                       Int                        @id @default(autoincrement())
+  createdAt                DateTime                   @default(now())
+  lastUpdated              DateTime                   @updatedAt
+  published                Boolean
+  title                    String
+  summary                  String?
+  content                  String?
+  JSONContent              Json?
+  duration                 Int?
+  customDuration           Int?
+  level                    String?
+  moduleStatus             String?
+  backgroundImg            String?
+  courseId                 Int
+  moduleOrder              Int?
+  activities               activities[]
+  course_checklist_items   course_checklist_items[]
+  module_objectives        module_objectives[]
   module_participant_roles module_participant_roles[]
-  module_objectives      module_objectives[]
-  training_plan_modules  training_plan_modules[]
-  course                 courses            @relation(fields: [courseId], references: [id])
+  event_module_progress    event_module_progress[]
+  course                   courses                    @relation(fields: [courseId], references: [id])
+  training_plan_modules    training_plan_modules[]
 
   @@index([courseId])
 }
 
-
-
 model curriculums {
-  id                  Int                  @id @default(autoincrement())
-  cuid                String               @default(cuid())
+  id                  Int                   @id @default(autoincrement())
+  cuid                String                @default(cuid())
   title               String
   description         String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @default(now())
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @default(now())
   curriculum_courses  curriculum_courses[]
-  project_curriculums project_curriculums[]
   group_curriculums   group_curriculums[]
+  project_curriculums project_curriculums[]
   supportActivities   supportActivities[]
   training_plans      training_plans[]
 }
@@ -449,51 +442,53 @@ model curriculum_courses {
 }
 
 model activities {
-  id                  Int                   @id @default(autoincrement())
-  createdAt           DateTime              @default(now())
-  lastUpdated         DateTime              @default(now())
-  published           Boolean
-  title               String
-  summary             String?
-  content             String?
-  contentUrl          String?               @default("")
-  duration            Int?
-  activityType        String?
-  activityCategory    String?
-  activityStatus      String?
-  backgroundImg       String?
-  moduleId            Int
-  ActivityOrder       Int?
-  module              modules               @relation(fields: [moduleId], references: [id])
+  id                Int                 @id @default(autoincrement())
+  createdAt         DateTime            @default(now())
+  lastUpdated       DateTime            @default(now())
+  published         Boolean
+  title             String
+  summary           String?
+  content           String?
+  contentUrl        String?             @default("")
+  duration          Int?
+  activityType      String?
+  activityCategory  String?
+  activityStatus    String?
+  backgroundImg     String?
+  moduleId          Int
+  ActivityOrder     Int?
+  module                    modules                     @relation(fields: [moduleId], references: [id])
+  event_activity_progress   event_activity_progress[]
 
   @@index([moduleId])
 }
 
-
 model events {
-  id              Int               @id @default(autoincrement())
-  title           String
-  description     String?
-  eventType       String?
-  projectId       Int
-  courseId        Int?
+  id                Int                 @id @default(autoincrement())
+  title             String
+  description       String?
+  eventType         String?
+  projectId         Int
+  courseId          Int?
   supportActivityId Int?
-  start           DateTime
-  end             DateTime
-  allDay          Boolean
-  color           String?
-  textColor       String?
-  backgroundColor String?           @default("#4287f5")
-  borderColor     String?
-  editable        Boolean?
-  eventStatus     String?
-  extendedProps   Json?
-  event_attendees event_attendees[]
-  event_groups    event_groups[]
-  event_instructors event_instructors[]
-  course          courses?          @relation(fields: [courseId], references: [id])
-  supportActivity supportActivities? @relation(fields: [supportActivityId], references: [id])
-  project         projects          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  start             DateTime
+  end               DateTime
+  allDay            Boolean
+  color             String?
+  textColor         String?
+  backgroundColor   String?             @default("#4287f5")
+  borderColor       String?
+  editable          Boolean?
+  eventStatus       String?
+  extendedProps     Json?
+  event_activity_progress event_activity_progress[]
+  event_attendees         event_attendees[]
+  event_groups            event_groups[]
+  event_instructors       event_instructors[]
+  course                  courses?                    @relation(fields: [courseId], references: [id])
+  project                 projects                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supportActivity         supportActivities?          @relation(fields: [supportActivityId], references: [id])
+  event_module_progress   event_module_progress[]
 
   @@index([projectId])
   @@index([courseId])
@@ -545,19 +540,19 @@ model daily_focus {
 }
 
 model supportActivities {
-  id             Int      @id @default(autoincrement())
-  title          String
-  description    String?
-  activityType   String   @default("General")
-  duration       Int?     // Duration in minutes
-  isActive       Boolean  @default(true)
-  curriculumId   Int
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  createdBy      String?
-  updatedBy      String?
-  curriculum     curriculums @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
-  events         events[]
+  id                    Int                     @id @default(autoincrement())
+  title                 String
+  description           String?
+  activityType          String                  @default("General")
+  duration              Int?
+  isActive              Boolean                 @default(true)
+  curriculumId          Int
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  createdBy             String?
+  updatedBy             String?
+  events                events[]
+  curriculum            curriculums             @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
   training_plan_modules training_plan_modules[]
 
   @@index([curriculumId])
@@ -565,7 +560,7 @@ model supportActivities {
 }
 
 model toolAccesses {
-  id              Int      @id @default(autoincrement())
+  id              Int          @id @default(autoincrement())
   tool            String
   toolType        String?
   toolUrl         String?
@@ -573,9 +568,9 @@ model toolAccesses {
   username        String?
   accessCode      String?
   participantId   String
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
   createdBy       String?
   updatedBy       String?
   participant     participants @relation(fields: [participantId], references: [id], onDelete: Cascade)
@@ -588,7 +583,7 @@ model event_instructors {
   id           Int         @id @default(autoincrement())
   eventId      Int
   instructorId Int
-  role         String      @default("main") // main, assistant, guest
+  role         String      @default("main")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   event        events      @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -603,7 +598,7 @@ model course_instructors {
   id           Int         @id @default(autoincrement())
   courseId     Int
   instructorId Int
-  role         String      @default("main") // main, assistant, guest
+  role         String      @default("main")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   course       courses     @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -615,20 +610,20 @@ model course_instructors {
 }
 
 model course_checklist_items {
-  id          Int      @id @default(autoincrement())
+  id          Int                                 @id @default(autoincrement())
   courseId    Int
   title       String
   description String?
-  category    String   @default("general") // general, content, assessment, logistics
-  priority    String   @default("medium") // low, medium, high
+  category    String                              @default("general")
+  priority    String                              @default("medium")
   moduleId    Int?
   itemOrder   Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime                            @default(now())
+  updatedAt   DateTime                            @updatedAt
   createdBy   String?
   updatedBy   String?
-  course      courses  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  module      modules? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  course      courses                             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module      modules?                            @relation(fields: [moduleId], references: [id])
   progress    project_course_checklist_progress[]
 
   @@index([courseId])
@@ -648,8 +643,8 @@ model group_curriculums {
   updatedAt    DateTime    @updatedAt
   createdBy    String?
   updatedBy    String?
-  group        groups      @relation(fields: [groupId], references: [id], onDelete: Cascade)
   curriculum   curriculums @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  group        groups      @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, curriculumId])
   @@index([groupId])
@@ -660,8 +655,8 @@ model topics {
   id                 Int               @id @default(autoincrement())
   title              String
   description        String?
-  color              String?           // Hex color code for visual identification
-  icon               String?           // Icon name or emoji for visual identification
+  color              String?
+  icon               String?
   isActive           Boolean           @default(true)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
@@ -693,16 +688,16 @@ model course_topics {
 }
 
 model course_participant_roles {
-  id         Int                                @id @default(autoincrement())
+  id         Int                               @id @default(autoincrement())
   courseId   Int
   roleId     Int
-  isRequired Boolean                            @default(true)
-  createdAt  DateTime                           @default(now())
-  updatedAt  DateTime                           @updatedAt
+  isRequired Boolean                           @default(true)
+  createdAt  DateTime                          @default(now())
+  updatedAt  DateTime                          @updatedAt
   createdBy  String?
   updatedBy  String?
-  course     courses                            @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  role       sub_organization_participant_role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  course     courses                           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  role       sub_organization_participant_role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, roleId])
   @@index([courseId])
@@ -710,16 +705,16 @@ model course_participant_roles {
 }
 
 model module_participant_roles {
-  id         Int                                @id @default(autoincrement())
+  id         Int                               @id @default(autoincrement())
   moduleId   Int
   roleId     Int
-  isRequired Boolean                            @default(true)
-  createdAt  DateTime                           @default(now())
-  updatedAt  DateTime                           @updatedAt
+  isRequired Boolean                           @default(true)
+  createdAt  DateTime                          @default(now())
+  updatedAt  DateTime                          @updatedAt
   createdBy  String?
   updatedBy  String?
-  module     modules                            @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  role       sub_organization_participant_role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module     modules                           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  role       sub_organization_participant_role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([moduleId, roleId])
   @@index([moduleId])
@@ -737,8 +732,8 @@ model project_course_checklist_progress {
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   createdBy       String?
-  project         projects               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   checklistItem   course_checklist_items @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  project         projects               @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, checklistItemId])
   @@index([projectId])
@@ -747,50 +742,50 @@ model project_course_checklist_progress {
 }
 
 model course_objectives {
-  id          Int      @id @default(autoincrement())
-  courseId    Int
-  objective   String   @db.Text
+  id             Int      @id @default(autoincrement())
+  courseId       Int
+  objective      String
   objectiveOrder Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  course      courses  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  course         courses  @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
   @@index([objectiveOrder])
 }
 
 model module_objectives {
-  id          Int      @id @default(autoincrement())
-  moduleId    Int
-  objective   String   @db.Text
+  id             Int      @id @default(autoincrement())
+  moduleId       Int
+  objective      String
   objectiveOrder Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  module      modules  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String?
+  updatedBy      String?
+  module         modules  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@index([moduleId])
   @@index([objectiveOrder])
 }
 
 model training_plans {
-  id           Int                     @id @default(autoincrement())
+  id           Int                  @id @default(autoincrement())
   curriculumId Int
   projectId    Int?
   title        String
   description  String?
-  totalDays    Int                     @default(5)
-  status       String                  @default("draft") // draft, active, completed, archived
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  totalDays    Int                  @default(5)
+  status       String               @default("draft")
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
   createdBy    String
   updatedBy    String?
-  curriculum   curriculums             @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
-  project      projects?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
   days         training_plan_days[]
+  curriculum   curriculums          @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  project      projects?            @relation(fields: [projectId], references: [id])
 
   @@unique([curriculumId, projectId])
   @@index([curriculumId])
@@ -799,15 +794,15 @@ model training_plans {
 }
 
 model training_plan_days {
-  id             Int                      @id @default(autoincrement())
+  id             Int                     @id @default(autoincrement())
   trainingPlanId Int
   dayNumber      Int
   dayTitle       String?
   dayDescription String?
   date           DateTime?
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
-  trainingPlan   training_plans           @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  trainingPlan   training_plans          @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
   modules        training_plan_modules[]
 
   @@unique([trainingPlanId, dayNumber])
@@ -816,23 +811,23 @@ model training_plan_days {
 }
 
 model training_plan_modules {
-  id                Int                 @id @default(autoincrement())
-  trainingPlanDayId Int
-  moduleId          Int?
-  courseId          Int?
-  supportActivityId Int?
-  customTitle       String?
-  customDuration    Int?
-  moduleOrder       Int
-  activities        Json?               // Store custom activities as JSON
-  learningObjectives Json?              // Store custom learning objectives as JSON
-  notes             String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  day               training_plan_days  @relation(fields: [trainingPlanDayId], references: [id], onDelete: Cascade)
-  module            modules?            @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  course            courses?            @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  supportActivity   supportActivities?  @relation(fields: [supportActivityId], references: [id], onDelete: SetNull)
+  id                 Int                @id @default(autoincrement())
+  trainingPlanDayId  Int
+  moduleId           Int?
+  courseId           Int?
+  supportActivityId  Int?
+  customTitle        String?
+  customDuration     Int?
+  moduleOrder        Int
+  activities         Json?
+  learningObjectives Json?
+  notes              String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  course             courses?           @relation(fields: [courseId], references: [id])
+  module             modules?           @relation(fields: [moduleId], references: [id])
+  supportActivity    supportActivities? @relation(fields: [supportActivityId], references: [id])
+  day                training_plan_days @relation(fields: [trainingPlanDayId], references: [id], onDelete: Cascade)
 
   @@index([trainingPlanDayId])
   @@index([moduleId])
@@ -855,3 +850,34 @@ model project_topics {
   @@index([topicId])
 }
 
+model event_activity_progress {
+  id          Int        @id @default(autoincrement())
+  eventId     Int
+  activityId  Int
+  completed   Boolean    @default(false)
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  event       events     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  activity    activities @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, activityId])
+  @@index([eventId])
+  @@index([activityId])
+}
+
+model event_module_progress {
+  id          Int      @id @default(autoincrement())
+  eventId     Int
+  moduleId    Int
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  event       events   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  module      modules  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, moduleId])
+  @@index([eventId])
+  @@index([moduleId])
+}

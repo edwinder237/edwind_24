@@ -62,7 +62,7 @@ const AgendaTab = () => {
   // Fetch available roles and training plans when project changes
   React.useEffect(() => {
     const fetchProjectData = async () => {
-      if (!project?.id) return;
+      if (!project?.id || rolesLoading || trainingPlansLoading) return;
       
       // Fetch available roles
       setRolesLoading(true);

@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useSelector, useDispatch } from "store";
 import { 
-  getProjectCurriculums, 
   getProjectChecklist,
   updateChecklistProgress 
 } from "store/reducers/projects";
@@ -24,7 +23,6 @@ const ProjectPage = () => {
   const { 
     singleProject: Project, 
     project_participants, 
-    project_curriculums,
     checklistItems,
     checklistLoading 
   } = useSelector((state) => state.projects);
@@ -64,11 +62,10 @@ const ProjectPage = () => {
   };
 
   useEffect(() => {
-    if (Project?.id) {
-      dispatch(getProjectCurriculums(parseInt(Project.id)));
+    if (Project?.id && !checklistLoading && checklistItems.length === 0) {
       dispatch(getProjectChecklist(Project.id));
     }
-  }, [Project?.id, dispatch]);
+  }, [Project?.id, dispatch, checklistLoading, checklistItems]);
 
   const handleChecklistItemToggle = (item) => {
     const newCompletedState = !item.completed;
@@ -128,7 +125,6 @@ const ProjectPage = () => {
         {/* Project Tabs */}
         <ProjectTabs 
           project={Project}
-          projectCurriculums={project_curriculums}
           checklistItems={checklistItems}
           checklistLoading={checklistLoading}
           onChecklistToggle={handleChecklistItemToggle}

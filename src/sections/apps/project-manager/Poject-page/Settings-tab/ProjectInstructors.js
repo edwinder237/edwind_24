@@ -233,19 +233,17 @@ const ProjectInstructors = ({ projectId }) => {
 
   if (loading) {
     return (
-      <MainCard title="Project Instructors">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-          <CircularProgress />
-          <Typography sx={{ ml: 2 }}>Loading instructors...</Typography>
-        </Box>
-      </MainCard>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Loading instructors...</Typography>
+      </Box>
     );
   }
 
   return (
-    <MainCard 
-      title="Project Instructors" 
-      secondary={
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle1">Instructors</Typography>
         <Button
           variant="outlined"
           startIcon={<AddIcon />}
@@ -254,8 +252,7 @@ const ProjectInstructors = ({ projectId }) => {
         >
           Add
         </Button>
-      }
-    >
+      </Box>
       {projectInstructors.length === 0 ? (
         <Alert severity="info" sx={{ mb: 2 }}>
           No instructors assigned to this project yet. Add instructors to help manage and deliver project content.
@@ -428,7 +425,7 @@ const ProjectInstructors = ({ projectId }) => {
           </Stack>
         </MainCard>
       </Dialog>
-    </MainCard>
+    </Box>
   );
 };
 

@@ -37,9 +37,24 @@ export default async function handler(req, res) {
       }
     });
 
+    // Also remove the curriculum from all groups in this project
+    const projectGroups = await prisma.groups.findMany({
+      where: { projectId: parseInt(projectId) },
+      select: { id: true }
+    });
+
+    if (projectGroups.length > 0) {
+      await prisma.group_curriculums.deleteMany({
+        where: {
+          groupId: { in: projectGroups.map(g => g.id) },
+          curriculumId: parseInt(curriculumId)
+        }
+      });
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Curriculum removed from project successfully'
+      message: 'Curriculum removed from project and all groups successfully'
     });
 
   } catch (error) {

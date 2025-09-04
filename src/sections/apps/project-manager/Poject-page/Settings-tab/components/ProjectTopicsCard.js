@@ -31,21 +31,65 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [formError, setFormError] = useState('');
 
-  // Fetch project topics
+  // Fetch project topics from the project's tags field
   const fetchTopics = async () => {
-    if (!projectId) return;
+    if (!singleProject) return;
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/projects/${projectId}/topics`);
-      if (response.ok) {
-        const data = await response.json();
-        setTopics(data || []);
+      // Get topics from the project's tags field instead of separate API
+      if (singleProject.tags) {
+        console.log('ProjectTopicsCard - raw tags:', singleProject.tags);
+        let parsedTags;
+        try {
+          parsedTags = typeof singleProject.tags === 'string' 
+            ? JSON.parse(singleProject.tags) 
+            : singleProject.tags;
+        } catch (error) {
+          console.error('ProjectTopicsCard - Error parsing tags JSON:', error);
+          parsedTags = [];
+        }
+        
+        console.log('ProjectTopicsCard - parsed tags:', parsedTags);
+        
+        // Convert tags array to topics format for display
+        const topicsFromTags = Array.isArray(parsedTags) 
+          ? parsedTags.map((tag, index) => {
+              console.log('ProjectTopicsCard - processing tag:', tag, typeof tag);
+              // Ensure title is always a string, handle all possible formats
+              let title;
+              if (typeof tag === 'string') {
+                title = tag;
+              } else if (tag && typeof tag === 'object') {
+                // Handle object tags with various possible properties
+                title = tag.title || tag.label || tag.name || tag.text;
+                // If still no title found, extract from object structure
+                if (!title && typeof title !== 'string') {
+                  // Try to extract the first string value from the object
+                  const stringValues = Object.values(tag).filter(v => typeof v === 'string' && v.length > 0);
+                  title = stringValues[0] || JSON.stringify(tag);
+                }
+              } else {
+                title = String(tag || 'Unknown');
+              }
+              
+              return {
+                id: `tag-${index}`,
+                title: String(title), // Double ensure it's a string
+                color: '#1976d2', // Default blue color
+                icon: '📝' // Default icon
+              };
+            })
+          : [];
+          
+        console.log('ProjectTopicsCard - final topics:', topicsFromTags);
+        setTopics(topicsFromTags);
       } else {
-        console.error('Failed to fetch topics');
+        setTopics([]);
       }
     } catch (error) {
-      console.error('Error fetching topics:', error);
+      console.error('Error parsing project tags:', error);
+      setTopics([]);
     } finally {
       setLoading(false);
     }
@@ -71,7 +115,7 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
   useEffect(() => {
     fetchTopics();
     fetchAvailableTopics();
-  }, [projectId, singleProject?.sub_organizationId]);
+  }, [singleProject?.id, singleProject?.tags, singleProject?.sub_organizationId]);
 
   const handleOpenDialog = () => {
     setSelectedTopic(null);
@@ -93,16 +137,31 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
 
     try {
       setFormError('');
-      const response = await fetch(`/api/projects/${projectId}/topics`, {
-        method: 'POST',
+      
+      // Get current tags from project
+      const currentTags = singleProject.tags 
+        ? (typeof singleProject.tags === 'string' ? JSON.parse(singleProject.tags) : singleProject.tags)
+        : [];
+      
+      // Add new topic to tags array if it doesn't already exist
+      const newTags = Array.isArray(currentTags) ? [...currentTags] : [];
+      if (!newTags.includes(selectedTopic.title)) {
+        newTags.push(selectedTopic.title);
+      }
+      
+      // Update project with new tags
+      const response = await fetch(`/api/projects/updateProject`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topicId: selectedTopic.id
+          id: singleProject.id,
+          tags: JSON.stringify(newTags)
         })
       });
 
       if (response.ok) {
-        await fetchTopics();
+        // Refresh the project data - this will trigger fetchTopics via useEffect
+        window.location.reload(); // Simple refresh for now
         handleCloseDialog();
         
         dispatch(openSnackbar({
@@ -125,8 +184,28 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
     if (!window.confirm('Are you sure you want to delete this topic?')) return;
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/topics/${topicId}`, {
-        method: 'DELETE'
+      // Get current tags from project
+      const currentTags = singleProject.tags 
+        ? (typeof singleProject.tags === 'string' ? JSON.parse(singleProject.tags) : singleProject.tags)
+        : [];
+      
+      // Find the topic to delete by its ID and get its title
+      const topicToDelete = topics.find(topic => topic.id === topicId);
+      if (!topicToDelete) return;
+      
+      // Remove topic from tags array
+      const newTags = Array.isArray(currentTags) 
+        ? currentTags.filter(tag => tag !== topicToDelete.title)
+        : [];
+      
+      // Update project with new tags
+      const response = await fetch(`/api/projects/updateProject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: singleProject.id,
+          tags: JSON.stringify(newTags)
+        })
       });
 
       if (response.ok) {
@@ -159,9 +238,9 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
 
   return (
     <>
-      <MainCard
-        title="Project Topics"
-        secondary={
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="subtitle1">Topics</Typography>
           <Button
             size="small"
             variant="outlined"
@@ -170,8 +249,7 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
           >
             Add Topic
           </Button>
-        }
-      >
+        </Box>
         <Box sx={{ minHeight: 120 }}>
           {loading ? (
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
@@ -188,8 +266,8 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
                   <Chip
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {topic.icon && <span style={{ fontSize: '14px' }}>{topic.icon}</span>}
-                        {topic.title}
+                        {topic.icon && <span style={{ fontSize: '14px' }}>{String(topic.icon)}</span>}
+                        {String(topic.title || '')}
                       </Box>
                     }
                     variant="outlined"
@@ -226,7 +304,7 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
             </Box>
           )}
         </Box>
-      </MainCard>
+      </Box>
 
       {/* Add/Edit Dialog */}
       <Dialog

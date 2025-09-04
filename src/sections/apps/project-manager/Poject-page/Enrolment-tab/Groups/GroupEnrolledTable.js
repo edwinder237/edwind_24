@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useSelector, useDispatch } from 'store';
 
 // material-ui
 import {
@@ -11,6 +12,11 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  FormControl,
+  Select,
+  MenuItem,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
 
 // third-party
@@ -21,6 +27,14 @@ import Layout from "layout";
 
 import LinearWithLabel from "components/@extended/progress/LinearWithLabel";
 import { TablePagination } from "components/third-party/ReactTable";
+
+// assets
+import { TeamOutlined } from "@ant-design/icons";
+
+// store
+import { openSnackbar } from 'store/reducers/snackbar';
+import { getGroupsDetails, getSingleProject } from 'store/reducers/projects';
+import axios from 'utils/axios';
 
 // ==============================|| REACT TABLE ||============================== //
 
@@ -162,8 +176,12 @@ ProgressCell.propTypes = {
   value: PropTypes.number,
 };
 
-const GroupEnrolledTable = ({ Enrolled }) => {
+const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup }) => {
   console.log(Enrolled);
+  const dispatch = useDispatch();
+  const { groups, singleProject } = useSelector((state) => state.projects);
+  const [assigningParticipant, setAssigningParticipant] = useState(null);
+  
   const attendanceStatusesArray = [
     "Present",
     "Absent",
@@ -190,7 +208,73 @@ const GroupEnrolledTable = ({ Enrolled }) => {
   // Safety check to prevent errors when Enrolled is undefined or null
   const enrolledData = Enrolled || [];
   
-  const participantsWithAttendance = enrolledData.map((person, i) => {
+  // Handle group assignment and removal
+  const handleAssignToGroup = async (participantId, groupId) => {
+    if (!participantId) return;
+    
+    setAssigningParticipant(participantId);
+    try {
+      let response;
+      
+      if (groupId === '' || !groupId) {
+        // Remove from current group
+        if (currentGroup?.id) {
+          response = await axios.post('/api/projects/remove-participant-from-group', {
+            groupId: currentGroup.id,
+            participantId: participantId
+          });
+          
+          if (response.data.success) {
+            dispatch(openSnackbar({
+              open: true,
+              message: 'Participant removed from group successfully',
+              variant: 'alert',
+              alert: { color: 'success' }
+            }));
+          }
+        }
+      } else {
+        // Add to new group
+        response = await axios.post('/api/projects/add-participant-to-group', {
+          projectId: singleProject?.id,
+          groupId: groupId,
+          participantId: participantId
+        });
+        
+        if (response.data.success) {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Participant assigned to group successfully',
+            variant: 'alert',
+            alert: { color: 'success' }
+          }));
+        }
+      }
+      
+      // Refresh the data
+      if (onRefresh) {
+        onRefresh();
+      }
+      
+      // Also refresh Redux state to update UI immediately
+      await dispatch(getGroupsDetails(singleProject.id));
+      await dispatch(getSingleProject(singleProject.id));
+    } catch (error) {
+      console.error('Error updating participant group:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: error.response?.data?.error || 'Failed to update participant group',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setAssigningParticipant(null);
+    }
+  };
+
+  const participantsWithAttendance = enrolledData.filter(person => 
+    person && person.participant && person.participant.participant
+  ).map((person, i) => {
     return { ...person, attendanceStatus: attendanceStatusesArray[i] };
   });
 
@@ -199,9 +283,12 @@ const GroupEnrolledTable = ({ Enrolled }) => {
       {
         Header: "Full Name",
         accessor: "participant.participant",
-        Cell: ({ cell: { value } }) => (
-          <span>{`${value.firstName} ${value.lastName}`}</span>
-        ),
+        Cell: ({ cell: { value } }) => {
+          if (!value || !value.firstName || !value.lastName) {
+            return <span>-</span>;
+          }
+          return <span>{`${value.firstName} ${value.lastName}`}</span>;
+        },
       },
       {
         Header: "Role",
@@ -218,8 +305,59 @@ const GroupEnrolledTable = ({ Enrolled }) => {
         accessor: "participant.participant.progress",
         Cell: ProgressCell,
       },
+      {
+        Header: "Action",
+        accessor: "id",
+        disableFilters: true,
+        disableGroupBy: true,
+        Cell: ({ row }) => {
+          const participant = row.original;
+          const participantId = participant?.id;
+          const isAssigning = assigningParticipant === participantId;
+          
+          return (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <Select
+                  value={currentGroup?.id || ''}
+                  onChange={(e) => handleAssignToGroup(participantId, e.target.value)}
+                  displayEmpty
+                  disabled={isAssigning}
+                  size="small"
+                >
+                  <MenuItem value="">
+                    <em>No Group</em>
+                  </MenuItem>
+                  {groups?.map((group) => (
+                    <MenuItem key={group.id} value={group.id}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <TeamOutlined style={{ fontSize: 14 }} />
+                        <span>{group.groupName}</span>
+                      </Stack>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              {currentGroup && (
+                <Chip
+                  label={currentGroup.groupName}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  style={{ 
+                    backgroundColor: currentGroup.chipColor || '#1976d2',
+                    color: '#fff',
+                    border: 'none'
+                  }}
+                />
+              )}
+            </Stack>
+          );
+        },
+      },
     ],
-    []
+    [groups, assigningParticipant, handleAssignToGroup, currentGroup]
   );
 
   return <ReactTable columns={columns} data={participantsWithAttendance} />;
@@ -227,6 +365,8 @@ const GroupEnrolledTable = ({ Enrolled }) => {
 
 GroupEnrolledTable.propTypes = {
   Enrolled: PropTypes.array,
+  onRefresh: PropTypes.func,
+  currentGroup: PropTypes.object,
 };
 
 GroupEnrolledTable.getLayout = function getLayout(page) {

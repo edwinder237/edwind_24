@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -20,7 +20,28 @@ const OrganizationProfile = ({ focusInput }) => {
   const user = useUser();
 
   const [anchorEl, setAnchorEl] = useState(null);
+  const [organization, setOrganization] = useState(null);
+  const [logoUrl, setLogoUrl] = useState(null);
   const open = Boolean(anchorEl);
+
+  useEffect(() => {
+    fetchOrganization();
+  }, []);
+
+  const fetchOrganization = async () => {
+    try {
+      const response = await fetch('/api/organization/get-organization');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.organization) {
+          setOrganization(data.organization);
+          setLogoUrl(data.organization.logo_url);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching organization:', error);
+    }
+  };
 
   const handleClick = (event) => {
     setAnchorEl(event?.currentTarget);
@@ -42,18 +63,32 @@ const OrganizationProfile = ({ focusInput }) => {
                 width: 100,
                 height: 100,
                 borderRadius: 2,
-                bgcolor: theme.palette.primary.main,
+                bgcolor: logoUrl ? 'transparent' : theme.palette.primary.main,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'white'
+                color: 'white',
+                border: logoUrl ? `1px solid ${theme.palette.divider}` : 'none',
+                overflow: 'hidden'
               }}
             >
-              <BankOutlined style={{ fontSize: '2.5rem' }} />
+              {logoUrl ? (
+                <img 
+                  src={logoUrl} 
+                  alt="Organization Logo" 
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'contain' 
+                  }} 
+                />
+              ) : (
+                <BankOutlined style={{ fontSize: '2.5rem' }} />
+              )}
             </Box>
             <Stack spacing={0.5}>
-              <Typography variant="h5">{user?.organizationName || 'EDWIND Learning Solutions'}</Typography>
-              <Typography color="secondary">{user?.subOrganizationName || 'Training Division'}</Typography>
+              <Typography variant="h5">{organization?.title || user?.organizationName || 'EDWIND Learning Solutions'}</Typography>
+              <Typography color="secondary">{organization?.sub_organizations?.title || user?.subOrganizationName || 'Training Division'}</Typography>
               <Typography variant="body2" color="textSecondary" sx={{ maxWidth: 350 }}>
                 Sub-organization for managing training programs and educational content delivery.
               </Typography>

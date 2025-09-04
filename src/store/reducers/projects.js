@@ -73,6 +73,10 @@ const initialState = {
   checklistLoading: false,
   // Curriculum expansion state management
   expandedCurriculums: {}, // { groupId: Set<curriculumId> }
+  // Module progress tracking
+  moduleProgress: {},
+  activityProgress: {},
+  progressLoading: false
 };
 
 const slice = createSlice({
@@ -354,6 +358,65 @@ const slice = createSlice({
       }
     },
 
+    // MODULE PROGRESS TRACKING
+    setProgressLoading(state, action) {
+      state.progressLoading = action.payload;
+    },
+
+    saveModuleProgressSuccess(state, action) {
+      const { eventId, moduleId, completed } = action.payload;
+      const key = `${eventId}_${moduleId}`;
+      state.moduleProgress[key] = {
+        eventId,
+        moduleId,
+        completed,
+        completedAt: completed ? new Date().toISOString() : null
+      };
+    },
+
+    saveActivityProgressSuccess(state, action) {
+      const { eventId, activityId, completed } = action.payload;
+      const key = `${eventId}_${activityId}`;
+      state.activityProgress[key] = {
+        eventId,
+        activityId,
+        completed,
+        completedAt: completed ? new Date().toISOString() : null
+      };
+    },
+
+    getProgressSuccess(state, action) {
+      const { eventId, data } = action.payload;
+      
+      // Update module progress
+      data.modules.forEach(moduleProgress => {
+        const key = `${eventId}_${moduleProgress.moduleId}`;
+        state.moduleProgress[key] = moduleProgress;
+      });
+
+      // Update activity progress
+      data.modules.forEach(moduleProgress => {
+        moduleProgress.activities.forEach(activityProgress => {
+          const key = `${eventId}_${activityProgress.activityId}`;
+          state.activityProgress[key] = activityProgress;
+        });
+      });
+    },
+
+    resetModuleProgressSuccess(state, action) {
+      const { eventId, moduleId, activityIds } = action.payload;
+      
+      // Remove module progress
+      const moduleKey = `${eventId}_${moduleId}`;
+      delete state.moduleProgress[moduleKey];
+
+      // Remove activity progress for all activities in this module
+      activityIds.forEach(activityId => {
+        const activityKey = `${eventId}_${activityId}`;
+        delete state.activityProgress[activityKey];
+      });
+    },
+
     // CURRICULUM EXPANSION STATE MANAGEMENT
     toggleCurriculumExpansion(state, action) {
       const { groupId, curriculumId } = action.payload;
@@ -550,7 +613,7 @@ export function getGroups(project) {
 }
 
 export function getGroupsDetails(projectId) {
-  return async () => {
+  return async (dispatch) => {
     try {
       dispatch(slice.actions.setLoading(true));
       dispatch(slice.actions.hasError(false));
@@ -908,7 +971,7 @@ export function updateProjectSettings(projectId, settingsData) {
 
 // PROJECT CHECKLIST FUNCTIONS
 export function getProjectChecklist(projectId) {
-  return async () => {
+  return async (dispatch) => {
     try {
       dispatch(slice.actions.getProjectChecklistStart());
       const response = await axios.get(`/api/projects/checklist-progress?projectId=${projectId}`);
@@ -931,7 +994,7 @@ export function getProjectChecklist(projectId) {
 }
 
 export function updateChecklistProgress(progressData) {
-  return async () => {
+  return async (dispatch) => {
     try {
       const response = await axios.post("/api/projects/checklist-progress", progressData);
       
@@ -973,6 +1036,160 @@ export function updateChecklistProgress(progressData) {
           variant: 'filled'
         }
       }));
+    }
+  };
+}
+
+// MODULE PROGRESS TRACKING ACTIONS
+export function saveModuleProgress(eventId, moduleId, activities = []) {
+  return async (dispatch) => {
+    try {
+      dispatch(slice.actions.setProgressLoading(true));
+      dispatch(slice.actions.hasError(false));
+      
+      const response = await axios.post('/api/events/save-module-progress', {
+        eventId,
+        moduleId,
+        activities,
+        completed: true
+      });
+      
+      if (response.data.success) {
+        // Update module progress
+        dispatch(slice.actions.saveModuleProgressSuccess({
+          eventId,
+          moduleId,
+          completed: true
+        }));
+        
+        // Update activity progress for each activity
+        activities.forEach(activityId => {
+          dispatch(slice.actions.saveActivityProgressSuccess({
+            eventId,
+            activityId,
+            completed: true
+          }));
+        });
+        
+        // Show success snackbar
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Module progress saved successfully',
+          variant: 'alert',
+          alert: {
+            color: 'success',
+            variant: 'filled'
+          }
+        }));
+        
+        return { success: true, data: response.data };
+      } else {
+        throw new Error(response.data.message || 'Failed to save module progress');
+      }
+    } catch (error) {
+      console.error('Error saving module progress:', error);
+      dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to save module progress')));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to save module progress'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+      
+      return { success: false, error: getErrorMessage(error) };
+    } finally {
+      dispatch(slice.actions.setProgressLoading(false));
+    }
+  };
+}
+
+export function getEventProgress(eventId) {
+  return async (dispatch) => {
+    try {
+      dispatch(slice.actions.setProgressLoading(true));
+      dispatch(slice.actions.hasError(false));
+      
+      const response = await axios.get(`/api/events/get-progress?eventId=${eventId}`);
+      
+      if (response.data.success) {
+        dispatch(slice.actions.getProgressSuccess({
+          eventId,
+          data: response.data.data
+        }));
+        
+        return { success: true, data: response.data.data };
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch progress');
+      }
+    } catch (error) {
+      console.error('Error fetching event progress:', error);
+      dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to fetch progress')));
+      return { success: false, error: getErrorMessage(error) };
+    } finally {
+      dispatch(slice.actions.setProgressLoading(false));
+    }
+  };
+}
+
+export function resetModuleProgress(eventId, moduleId, activities = []) {
+  return async (dispatch) => {
+    try {
+      dispatch(slice.actions.setProgressLoading(true));
+      dispatch(slice.actions.hasError(false));
+      
+      const response = await axios.post('/api/events/reset-module-progress', {
+        eventId,
+        moduleId
+      });
+      
+      if (response.data.success) {
+        // Get activity IDs for state cleanup
+        const activityIds = activities.map(activity => activity.id);
+        
+        dispatch(slice.actions.resetModuleProgressSuccess({
+          eventId,
+          moduleId,
+          activityIds
+        }));
+        
+        // Show success snackbar
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Module progress reset successfully',
+          variant: 'alert',
+          alert: {
+            color: 'info',
+            variant: 'filled'
+          }
+        }));
+        
+        return { success: true, data: response.data };
+      } else {
+        throw new Error(response.data.message || 'Failed to reset module progress');
+      }
+    } catch (error) {
+      console.error('Error resetting module progress:', error);
+      dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to reset module progress')));
+      
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: getErrorMessage(error, 'Failed to reset module progress'),
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+      
+      return { success: false, error: getErrorMessage(error) };
+    } finally {
+      dispatch(slice.actions.setProgressLoading(false));
     }
   };
 }

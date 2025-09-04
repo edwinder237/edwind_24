@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useDispatch, useSelector } from 'store';
+import { openSnackbar } from 'store/reducers/snackbar';
 
 // material-ui
-import { Box, Button, Step, Stepper, StepContent, StepLabel, Typography, IconButton, Tooltip } from '@mui/material';
-import { OpenInNew, VideocamOutlined, DescriptionOutlined, SlideshowOutlined, GroupOutlined } from '@mui/icons-material';
+import { Box, Button, Step, Stepper, StepContent, StepLabel, Typography, IconButton, Tooltip, CircularProgress } from '@mui/material';
+import { OpenInNew, VideocamOutlined, DescriptionOutlined, SlideshowOutlined, GroupOutlined, EmailOutlined } from '@mui/icons-material';
 
 // project import
 import MainCard from 'components/MainCard';
+import { saveModuleProgress, resetModuleProgress } from 'store/reducers/projects';
 
 const steps = [
   {
@@ -60,22 +63,122 @@ const getActivityColor = (type) => {
 
 // ==============================|| STEPPER - VERTICAL ||============================== //
 
-export default function VerticalLinearStepper({activities, onComplete, moduleIndex}) {
+export default function VerticalLinearStepper({activities, onComplete, onReset, moduleIndex, eventId, moduleId, moduleTitle, eventData}) {
+  const dispatch = useDispatch();
+  const { progressLoading, moduleProgress } = useSelector((state) => state.projects);
   const [activeStep, setActiveStep] = useState(0);
+  const [sendingEmail, setSendingEmail] = useState({});
 
-  const handleNext = () => {
+  // Check if this module is already completed
+  const isModuleCompleted = useMemo(() => {
+    if (eventId && moduleId) {
+      const progressKey = `${eventId}_${moduleId}`;
+      return moduleProgress[progressKey]?.completed || false;
+    }
+    return false;
+  }, [eventId, moduleId, moduleProgress]);
+
+  // Set active step to complete if module is already completed
+  useEffect(() => {
+    if (isModuleCompleted && activeStep < activities.length) {
+      setActiveStep(activities.length);
+    }
+  }, [isModuleCompleted, activities.length, activeStep]);
+
+  const handleNext = async () => {
     const nextStep = activeStep + 1;
     setActiveStep(nextStep);
     
     // Check if all activities are completed
     if (nextStep === activities.length && onComplete) {
-      // Call the onComplete callback immediately for better UX
+      // Save progress for the event if we have the required data
+      if (eventId && moduleId) {
+        try {
+          // Get all activity IDs for this module
+          const activityIds = activities.map(activity => activity.id);
+          
+          // Save progress for this event
+          await dispatch(saveModuleProgress(eventId, moduleId, activityIds));
+        } catch (error) {
+          console.error('Error saving module progress:', error);
+        }
+      }
+      
+      // Call the onComplete callback for UI updates
       onComplete(moduleIndex);
     }
   };
   
   const handleBack = () => setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  const handleReset = () => setActiveStep(0);
+  
+  const handleReset = async () => {
+    // Reset UI state immediately for better UX
+    setActiveStep(0);
+    
+    // Reset progress in database and Redux state if we have the required data
+    if (eventId && moduleId) {
+      try {
+        await dispatch(resetModuleProgress(eventId, moduleId, activities));
+        
+        // Call the parent component's reset handler to update the module state
+        if (onReset) {
+          onReset(moduleIndex);
+        }
+      } catch (error) {
+        console.error('Error resetting module progress:', error);
+      }
+    }
+  };
+
+  const handleSendModuleEmail = async (activity, activityIndex) => {
+    if (!activity.contentUrl || !eventId) return;
+    
+    setSendingEmail(prev => ({ ...prev, [activityIndex]: true }));
+    
+    try {
+      const response = await fetch('/api/email/send-module-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId,
+          moduleTitle: moduleTitle || 'Module',
+          moduleUrl: activity.contentUrl,
+          activityTitle: activity.title
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Module link sent to ${data.summary.emailsSent} participant(s)`,
+          variant: 'alert',
+          alert: {
+            color: 'success'
+          },
+          close: true
+        }));
+      } else {
+        throw new Error(data.message || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error sending module email:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: error.message || 'Failed to send module link',
+        variant: 'alert',
+        alert: {
+          color: 'error'
+        },
+        close: true
+      }));
+    } finally {
+      setSendingEmail(prev => ({ ...prev, [activityIndex]: false }));
+    }
+  };
 
   // Check if activities exist and have length
   if(!activities || activities.length === 0){
@@ -115,23 +218,47 @@ export default function VerticalLinearStepper({activities, onComplete, moduleInd
                 </Box>
                 <Typography>{activitie.title}</Typography>
                 {activitie.contentUrl && activitie.contentUrl.trim() !== '' && (
-                  <Tooltip title="Open content in new tab">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(activitie.contentUrl, '_blank', 'noopener,noreferrer');
-                      }}
-                      sx={{
-                        color: 'primary.main',
-                        '&:hover': {
-                          backgroundColor: 'primary.lighter'
-                        }
-                      }}
-                    >
-                      <OpenInNew fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  <>
+                    <Tooltip title="Open content in new tab">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(activitie.contentUrl, '_blank', 'noopener,noreferrer');
+                        }}
+                        sx={{
+                          color: 'primary.main',
+                          '&:hover': {
+                            backgroundColor: 'primary.lighter'
+                          }
+                        }}
+                      >
+                        <OpenInNew fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Email module URL to participants">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSendModuleEmail(activitie, index);
+                        }}
+                        disabled={sendingEmail[index]}
+                        sx={{
+                          color: 'secondary.main',
+                          '&:hover': {
+                            backgroundColor: 'secondary.lighter'
+                          }
+                        }}
+                      >
+                        {sendingEmail[index] ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          <EmailOutlined fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                  </>
                 )}
               </Box>
             </StepLabel>
@@ -144,8 +271,9 @@ export default function VerticalLinearStepper({activities, onComplete, moduleInd
                     onClick={handleNext}
                     sx={{ mt: 1, mr: 1 }}
                     color={index === activities.length - 1 ? 'success' : 'primary'}
+                    disabled={progressLoading}
                   >
-                    {index === activities.length - 1 ? 'Finish' : 'Continue'}
+                    {progressLoading && index === activities.length - 1 ? 'Saving...' : (index === activities.length - 1 ? 'Finish' : 'Continue')}
                   </Button>
                   <Button disabled={index === 0} onClick={handleBack} sx={{ mt: 1, mr: 1 }}>
                     Back
@@ -159,8 +287,15 @@ export default function VerticalLinearStepper({activities, onComplete, moduleInd
       {activeStep === activities.length && (
         <Box sx={{ pt: 2 }}>
           <Typography sx={{ color: 'success.main' }}>All steps completed - you&apos;re finished</Typography>
-          <Button size="small" variant="contained" color="error" onClick={handleReset} sx={{ mt: 2, mr: 1 }}>
-            Reset
+          <Button 
+            size="small" 
+            variant="contained" 
+            color="error" 
+            onClick={handleReset} 
+            sx={{ mt: 2, mr: 1 }}
+            disabled={progressLoading}
+          >
+            {progressLoading ? 'Resetting...' : 'Reset'}
           </Button>
         </Box>
       )}

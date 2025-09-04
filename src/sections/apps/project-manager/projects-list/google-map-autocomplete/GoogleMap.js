@@ -29,6 +29,7 @@ const throttle = (func, delay) => {
 
 // project import
 import { EnvironmentOutlined } from "@ant-design/icons";
+import axios from "utils/axios";
 
 function loadScript(src, position, id) {
   if (!position) {
@@ -45,7 +46,35 @@ function loadScript(src, position, id) {
 const autocompleteService = { current: null };
 const placesService = { current: null };
 
-// Function to get place details including photos
+// Function to save image to R2 bucket
+const saveImageToR2 = async (imageUrl, placeName) => {
+  if (!imageUrl) {
+    console.warn('⚠️ No image URL provided for R2 upload');
+    return null;
+  }
+  
+  try {
+    console.log(`🔄 Uploading image to R2: ${placeName}`);
+    
+    const response = await axios.post('/api/images/save-from-url', {
+      imageUrl: imageUrl,
+      prefix: 'places'
+    });
+
+    if (response.data.success) {
+      console.log(`✅ Image uploaded to R2: ${response.data.data.r2Key}`);
+      return response.data.data.r2Url;
+    } else {
+      console.error(`❌ R2 upload failed: ${response.data.message}`);
+      return imageUrl; // Fallback to original URL
+    }
+  } catch (error) {
+    console.error(`❌ R2 upload error for ${placeName}:`, error.message);
+    return imageUrl; // Fallback to original URL
+  }
+};
+
+// Function to get place details including photos - fallback to old API for compatibility
 const getPlaceDetails = (placeId) => {
   return new Promise((resolve, reject) => {
     if (!placesService.current || !window.google) {
@@ -90,7 +119,7 @@ const getPlaceDetails = (placeId) => {
 
 // ==============================|| GOOGLE MAP - AUTOCOMPLETE ||============================== //
 
-const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
+const GoogleMaps = React.memo(({ formik, disabled, handleLocationChange }) => {
   const [value, setValue] = React.useState(null);
   const [inputValue, setInputValue] = React.useState("");
   const [options, setOptions] = React.useState([]);
@@ -107,7 +136,7 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
     
     if (!document.querySelector("#google-maps")) {
       loadScript(
-        `https://maps.googleapis.com/maps/api/js?key=${process.env.GOOGLE_MAPS_API_KEY}&libraries=places`,
+        `https://maps.googleapis.com/maps/api/js?key=${process.env.GOOGLE_MAPS_API_KEY}&libraries=places&loading=async`,
         document.querySelector("head"),
         "google-maps"
       );
@@ -125,12 +154,11 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
         }
         try {
           autocompleteService.current.getPlacePredictions(
-            { ...request, types: ['establishment', 'geocode'] }, // Remove country restriction to allow global search
+            { ...request, types: ['establishment', 'geocode'] },
             (predictions, status) => {
               if (status === window.google.maps.places.PlacesServiceStatus.OK) {
                 callback(predictions, null);
               } else {
-                console.warn('Places service status:', status);
                 callback(null, status);
               }
             }
@@ -226,11 +254,21 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
         
         if (newValue) {
           try {
+            console.log(`🌍 Location selected: ${newValue.description}`);
+            
             // Get place details including photos
             const placeDetails = await getPlaceDetails(newValue.place_id);
+            
+            // Save the main image to R2 if it exists
+            let r2ImageUrl = null;
+            if (placeDetails.imageUrl) {
+              r2ImageUrl = await saveImageToR2(placeDetails.imageUrl, newValue.description);
+            }
+            
             const locationWithImage = {
               ...newValue,
-              imageUrl: placeDetails.imageUrl || null,
+              imageUrl: r2ImageUrl || placeDetails.imageUrl || null,
+              originalGoogleImageUrl: placeDetails.imageUrl || null,
               photos: placeDetails.photos || []
             };
             
@@ -262,23 +300,23 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
                   locData.types[0] === "postal_town"
                 ) {
                   locData.long_name !== undefined &&
-                    formik.setFieldValue("city", locData.long_name);
+                    formik?.setFieldValue("city", locData.long_name);
                 }
 
                 if (locData.types[0] === "administrative_area_level_1") {
                   locData.long_name !== undefined &&
-                    formik.setFieldValue("county", locData.long_name);
+                    formik?.setFieldValue("county", locData.long_name);
                 }
 
                 if (locData.types[0] === "country") {
-                  formik.setFieldValue("country", locData.long_name);
+                  formik?.setFieldValue("country", locData.long_name);
                 }
                 if (locData.types[0] === "postal_code") {
                   locData.long_name !== undefined &&
-                    formik.setFieldValue("postCode", locData.long_name);
+                    formik?.setFieldValue("postCode", locData.long_name);
                 }
               });
-              formik.setFieldValue("address1", address1);
+              formik?.setFieldValue("address1", address1);
             }
           } catch (error) {
             console.error('Error processing location:', error);
@@ -296,11 +334,11 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
           {...params}
           placeholder="Search your company address"
           fullWidth
-          loading={isLoading}
           helperText={isLoading ? "Searching locations..." : ""}
         />
       )}
       renderOption={(props, option) => {
+        const { key, ...otherProps } = props;
         const matches =
           option.structured_formatting.main_text_matched_substrings;
         const parts = parse(
@@ -309,7 +347,7 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
         );
 
         return (
-          <li {...props}>
+          <li key={key} {...otherProps}>
             <Grid container alignItems="center">
               <Grid item>
                 <Box
@@ -338,11 +376,14 @@ const GoogleMaps = ({ formik, disabled, handleLocationChange }) => {
       }}
     />
   );
-};
+});
 
 GoogleMaps.propTypes = {
   formik: PropTypes.any,
   disabled: PropTypes.bool,
+  handleLocationChange: PropTypes.func.isRequired
 };
+
+GoogleMaps.displayName = 'GoogleMaps';
 
 export default GoogleMaps;

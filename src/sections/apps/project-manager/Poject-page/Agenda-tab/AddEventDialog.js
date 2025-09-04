@@ -241,8 +241,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   // Fetch support activities when project changes
   useEffect(() => {
     const fetchSupportActivities = async () => {
-      if (!project?.id) {
-        setAvailableSupportActivities([]);
+      if (!project?.id || loadingSupportActivities) {
         return;
       }
 
@@ -741,17 +740,20 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         sx: {
           borderRadius: 2,
           height: 'auto',
-          maxHeight: '60vh',
-          p: 0
+          maxHeight: '90vh',
+          p: 0,
+          m: { xs: 1, sm: 2 },
+          width: { xs: 'calc(100% - 16px)', sm: 'auto' },
+          maxWidth: { xs: 'none', sm: 600 }
         }
       }}
     >
       <MainCard
         title="Add Event"
         secondary={
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
             {selectedDate && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, mb: { xs: 1, sm: 0 } }}>
                 {isTimeEditing ? (
                   <Stack direction="row" alignItems="center" spacing={0.5}>
                     <TextField
@@ -797,8 +799,9 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                       size="small"
                       sx={{
                         cursor: 'pointer',
-                        fontSize: '0.75rem',
+                        fontSize: { xs: '0.7rem', sm: '0.75rem' },
                         height: 28,
+                        maxWidth: { xs: '280px', sm: 'none' },
                         backgroundColor: theme.palette.mode === 'dark' 
                           ? alpha(theme.palette.grey[800], 0.9)
                           : theme.palette.grey[700],
@@ -815,6 +818,11 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                         '& .MuiChip-icon': {
                           fontSize: '0.875rem',
                           color: 'inherit'
+                        },
+                        '& .MuiChip-label': {
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
                         }
                       }}
                     />
@@ -835,17 +843,21 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         }}
       >
         {/* Tabs */}
-        <Box sx={{ px: 3, pt: 1, mb: 2 }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pt: 1, mb: 2 }}>
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
             aria-label="add event tabs"
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
               '& .MuiTab-root': {
                 textTransform: 'none',
                 fontWeight: 500,
-                fontSize: '1rem',
-                minWidth: 120,
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                minWidth: { xs: 100, sm: 120 },
+                px: { xs: 1, sm: 2 },
                 '&.Mui-selected': {
                   fontWeight: 600,
                   color: theme.palette.text.primary
@@ -881,7 +893,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         <Divider />
 
         {/* Search Bar */}
-        <Box sx={{ p:4 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
           <TextField
             fullWidth
             variant="outlined"
@@ -922,7 +934,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         </Box>
 
         {/* Tab Content */}
-        <Box sx={{ px: 3, pb: 3 }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 } }}>
           <TabPanel value={tabValue} index={0}>
             {/* Course Content */}
             {searchQuery || availableCourses.length > 0 ? (
@@ -937,7 +949,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                 )}
                 
                 {/* Course List */}
-                <Box sx={{ maxHeight: '40vh', overflowY: 'auto', p:1 }}>
+                <Box sx={{ maxHeight: { xs: '50vh', sm: '40vh' }, overflowY: 'auto', p: 1 }}>
                   <EventModalCards 
                     items={searchQuery ? filteredCourses : availableCourses}
                     onItemSelect={handleCourseSelect}
@@ -986,7 +998,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                 )}
                 
                 {/* Support Activity List */}
-                <Box sx={{ maxHeight: '40vh', overflowY: 'auto', p:1 }}>
+                <Box sx={{ maxHeight: { xs: '50vh', sm: '40vh' }, overflowY: 'auto', p: 1 }}>
                   <EventModalCards 
                     items={searchQuery ? filteredSupportActivities : availableSupportActivities}
                     onItemSelect={handleSupportActivitySelect}
@@ -1039,7 +1051,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
               )}
               
               {/* Event Suggestions List */}
-              <Box sx={{ maxHeight: '40vh', overflowY: 'auto', p:1 }}>
+              <Box sx={{ maxHeight: { xs: '50vh', sm: '40vh' }, overflowY: 'auto', p: 1 }}>
                 <EventModalCards 
                   items={commonEventSuggestions}
                   onItemSelect={handleOtherEventSelect}

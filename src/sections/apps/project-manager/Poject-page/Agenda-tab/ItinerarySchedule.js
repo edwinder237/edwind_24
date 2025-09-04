@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -52,7 +52,7 @@ import DraggableEventCard from './DraggableEventCard';
 import AddEventDialog from './AddEventDialog';
 import { useDispatch } from 'store';
 import { getEvents } from 'store/reducers/calendar';
-import { getSingleProject } from 'store/reducers/projects';
+import { getSingleProject, getGroupsDetails } from 'store/reducers/projects';
 import { openSnackbar } from 'store/reducers/snackbar';
 
 // Drag types
@@ -64,7 +64,7 @@ const ItemTypes = {
 
 // ==============================|| DROP ZONE TIME SLOT ||============================== //
 
-const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect, onTimeEdit, selectedTimeSlot, theme, localEvents, project, setSelectedEventTime, setSelectedEventDate, setAddEventDialogOpen }) => {
+const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect, onTimeEdit, selectedTimeSlot, theme, localEvents, project, setSelectedEventTime, setSelectedEventDate, setAddEventDialogOpen, onEventUpdate, conflictingEvents }) => {
   const [isHovering, setIsHovering] = useState(false);
   
   const [{ isOver, canDrop }, drop] = useDrop({
@@ -135,11 +135,13 @@ const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect
         <DraggableEventCard
           event={event}
           isSelected={isSelected}
+          isConflicting={conflictingEvents && conflictingEvents.includes(event.id)}
           onSelect={onSelect}
           onTimeEdit={onTimeEdit}
           onMoveToNextDay={onTimeEdit}
           allEvents={localEvents}
           project={project}
+          onEventUpdate={onEventUpdate}
         />
       ) : (
         <Box
@@ -222,17 +224,79 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
   const [expandedDays, setExpandedDays] = useState([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [localEvents, setLocalEvents] = useState(events);
-  const [viewMode, setViewMode] = useState('detailed'); // 'detailed' or 'compact'
+  const [viewMode, setViewMode] = useState('compact'); // 'detailed' or 'compact'
   const [hasInitialized, setHasInitialized] = useState(false);
   const [useProjectTimeRange, setUseProjectTimeRange] = useState(true);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [selectedEventTime, setSelectedEventTime] = useState('');
   const [selectedEventDate, setSelectedEventDate] = useState(null);
+  const [conflictingEvents, setConflictingEvents] = useState([]);
+
+  // Function to detect overlapping/conflicting events
+  const detectConflicts = useCallback((events) => {
+    const conflicts = [];
+    
+    for (let i = 0; i < events.length; i++) {
+      for (let j = i + 1; j < events.length; j++) {
+        const event1 = events[i];
+        const event2 = events[j];
+        
+        const start1 = new Date(event1.start);
+        const end1 = new Date(event1.end);
+        const start2 = new Date(event2.start);
+        const end2 = new Date(event2.end);
+        
+        // Check if events overlap
+        const hasTimeOverlap = 
+          (start1 < end2 && end1 > start2) || 
+          (start2 < end1 && end2 > start1);
+        
+        // Check if they're on the same day for all-day events
+        const sameDay = start1.toDateString() === start2.toDateString();
+        
+        if (hasTimeOverlap || (event1.allDay && event2.allDay && sameDay)) {
+          // Add both events to conflicts if not already there
+          if (!conflicts.find(c => c.id === event1.id)) {
+            conflicts.push(event1);
+          }
+          if (!conflicts.find(c => c.id === event2.id)) {
+            conflicts.push(event2);
+          }
+        }
+      }
+    }
+    
+    return conflicts;
+  }, []);
+
+  // Update conflicts when events change
+  useEffect(() => {
+    const conflicts = detectConflicts(localEvents);
+    setConflictingEvents(conflicts.map(e => e.id));
+  }, [localEvents, detectConflicts]);
+
+  // Load groups when component mounts or project changes
+  useEffect(() => {
+    if (project?.id) {
+      dispatch(getGroupsDetails(project.id));
+    }
+  }, [project?.id, dispatch]);
 
   // Update local events when props change
   React.useEffect(() => {
     setLocalEvents(events);
   }, [events]);
+
+  // Callback to update a specific event in localEvents (for immediate UI updates)
+  const updateLocalEvent = useCallback((eventId, updatedData) => {
+    setLocalEvents(prevEvents => 
+      prevEvents.map(event => 
+        event.id === eventId 
+          ? { ...event, ...updatedData }
+          : event
+      )
+    );
+  }, []);
 
   // Group events by day
   const eventsByDay = useMemo(() => {
@@ -454,6 +518,9 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
   // Day section component
   const DaySection = ({ day, isExpanded, onToggle, isCompact = false }) => {
     const dayEvents = day.events.sort((a, b) => new Date(a.start) - new Date(b.start));
+    
+    // Count conflicts for this day
+    const dayConflicts = dayEvents.filter(event => conflictingEvents.includes(event.id)).length;
 
     // Generate time slots based on project settings or fallback
     const timeSlots = useMemo(() => {
@@ -584,6 +651,23 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
                 size="small"
                 variant="outlined"
               />
+              {dayConflicts > 0 && (
+                <Chip
+                  label={`${dayConflicts} conflicts`}
+                  size="small"
+                  color="error"
+                  variant="filled"
+                  sx={{
+                    animation: 'pulse 2s infinite',
+                    fontWeight: 600,
+                    '@keyframes pulse': {
+                      '0%': { transform: 'scale(1)' },
+                      '50%': { transform: 'scale(1.05)' },
+                      '100%': { transform: 'scale(1)' }
+                    }
+                  }}
+                />
+              )}
               <IconButton size="small">
                 <ExpandMore
                   sx={{
@@ -649,6 +733,7 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
                     <DraggableEventCard
                       event={event}
                       isSelected={selectedTimeSlot === event.id}
+                      isConflicting={conflictingEvents.includes(event.id)}
                       onSelect={(eventId) => {
                         setSelectedTimeSlot(eventId);
                         if (onEventSelect) {
@@ -660,6 +745,7 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
                       allEvents={localEvents}
                       project={project}
                       isCompact={true}
+                      onEventUpdate={updateLocalEvent}
                     />
                   </Box>
                 );
@@ -737,6 +823,8 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
                   setSelectedEventTime={setSelectedEventTime}
                   setSelectedEventDate={setSelectedEventDate}
                   setAddEventDialogOpen={setAddEventDialogOpen}
+                  onEventUpdate={updateLocalEvent}
+                  conflictingEvents={conflictingEvents}
                 />
               ))}
 

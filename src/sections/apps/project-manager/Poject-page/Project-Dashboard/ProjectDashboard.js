@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import React from 'react';
 import {
   Box,
   Chip,
@@ -7,17 +8,90 @@ import {
   Divider,
   LinearProgress,
   Stack,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import MainCard from "components/MainCard";
-import { useSelector } from "store";
+import { useSelector, useDispatch } from "store";
+import { openSnackbar } from 'store/reducers/snackbar';
 import { CalendarOutlined, DashboardOutlined } from "@ant-design/icons";
 
 // ==============================|| PROJECT DASHBOARD ||============================== //
 
 const ProjectDashboard = ({ project, participants, checklistItems, styles }) => {
   const theme = useTheme();
+  const dispatch = useDispatch();
   const { projectSettings } = useSelector((state) => state.projects);
+  
+  // State for status menu
+  const [statusMenuAnchor, setStatusMenuAnchor] = React.useState(null);
+  const statusMenuOpen = Boolean(statusMenuAnchor);
+  
+  // Available project statuses
+  const projectStatuses = [
+    'Planning',
+    'Active',
+    'On Hold',
+    'Completed',
+    'Cancelled'
+  ];
+
+  // Handle status menu open
+  const handleStatusMenuOpen = (event) => {
+    setStatusMenuAnchor(event.currentTarget);
+  };
+
+  // Handle status menu close
+  const handleStatusMenuClose = () => {
+    setStatusMenuAnchor(null);
+  };
+
+  // Handle status change
+  const handleStatusChange = async (newStatus) => {
+    try {
+      const response = await fetch(`/api/projects/update-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          status: newStatus
+        }),
+      });
+
+      if (response.ok) {
+        // Show success notification
+        dispatch(openSnackbar({
+          open: true,
+          message: `Project status updated to ${newStatus}`,
+          variant: 'alert',
+          alert: {
+            color: 'success'
+          },
+          close: true
+        }));
+
+        // Refresh the page to update the status
+        window.location.reload();
+      } else {
+        throw new Error('Failed to update status');
+      }
+    } catch (error) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to update project status',
+        variant: 'alert',
+        alert: {
+          color: 'error'
+        },
+        close: true
+      }));
+    }
+
+    handleStatusMenuClose();
+  };
   
 
   // Helper function to format dates
@@ -108,14 +182,34 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
 
   // Helper function for status chip styles
   const getStatusChipStyles = (status) => {
-    const isCompleted = status === 'Completed';
-    const palette = isCompleted ? theme.palette.success : theme.palette.warning;
+    let palette;
+    switch (status) {
+      case 'Completed':
+        palette = theme.palette.success;
+        break;
+      case 'Active':
+        palette = theme.palette.primary;
+        break;
+      case 'Planning':
+        palette = theme.palette.info;
+        break;
+      case 'On Hold':
+        palette = theme.palette.warning;
+        break;
+      case 'Cancelled':
+        palette = theme.palette.error;
+        break;
+      default:
+        palette = theme.palette.primary;
+    }
+    
     return {
       bgcolor: palette.light,
       color: palette.dark,
       fontWeight: 600,
       '&:hover': {
         bgcolor: palette.main,
+        color: palette.contrastText,
       }
     };
   };
@@ -154,7 +248,7 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
   const projectEndDate = getProjectEndDate();
   
   const projectDuration = (projectStartDate && projectEndDate)
-    ? Math.ceil((new Date(projectEndDate) - new Date(projectStartDate)) / millisecondsPerDay)
+    ? Math.max(1, Math.ceil((new Date(projectEndDate) - new Date(projectStartDate)) / millisecondsPerDay))
     : 30; // Default to 30 days if no dates are available, ignore project.duration field
     
   const daysLeft = projectEndDate 
@@ -210,8 +304,40 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                     <Chip 
                       label={project.projectStatus || 'Active'} 
                       size="small"
-                      sx={getStatusChipStyles(project.projectStatus)}
+                      onClick={handleStatusMenuOpen}
+                      sx={{
+                        ...getStatusChipStyles(project.projectStatus),
+                        cursor: 'pointer',
+                        '&:hover': {
+                          ...getStatusChipStyles(project.projectStatus)['&:hover'],
+                          transform: 'scale(1.05)',
+                        },
+                        transition: 'all 0.2s ease-in-out'
+                      }}
                     />
+                    <Menu
+                      anchorEl={statusMenuAnchor}
+                      open={statusMenuOpen}
+                      onClose={handleStatusMenuClose}
+                      anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'center',
+                      }}
+                      transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'center',
+                      }}
+                    >
+                      {projectStatuses.map((status) => (
+                        <MenuItem 
+                          key={status}
+                          onClick={() => handleStatusChange(status)}
+                          selected={status === (project.projectStatus || 'Active')}
+                        >
+                          {status}
+                        </MenuItem>
+                      ))}
+                    </Menu>
                     <Chip 
                       label={`${projectDuration} days`} 
                       size="small"
@@ -359,7 +485,7 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                 <Box sx={{ flex: 1 }}>
                   <Stack spacing={3}>
                     <ProgressIndicator 
-                      label="Learning Progress" 
+                      label="Passing Rate" 
                       value={Math.round(progressMetrics.learning)} 
                       color="primary" 
                     />

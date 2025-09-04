@@ -42,6 +42,9 @@ import {
 // utils
 import axios from 'utils/axios';
 
+// project components
+import MainCard from 'components/MainCard';
+
 const ToolAccessManager = ({ open, onClose, participantId, participantName, onUpdate }) => {
   const [toolAccesses, setToolAccesses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -202,239 +205,245 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
 
   return (
     <>
-      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <ToolOutlined />
-            <Typography variant="h6">
-              Tool Access Management - {participantName}
-            </Typography>
-          </Stack>
-        </DialogTitle>
-        
-        <DialogContent>
-          <Stack spacing={3}>
-            {/* Success/Error Messages */}
-            {success && (
-              <Alert severity="success" onClose={() => setSuccess('')}>
-                {success}
-              </Alert>
-            )}
-            {error && (
-              <Alert severity="error" onClose={() => setError('')}>
-                {error}
-              </Alert>
-            )}
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+        <MainCard
+          title={
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <ToolOutlined />
+              <Typography variant="h6">
+                Tool Access Management - {participantName}
+              </Typography>
+            </Stack>
+          }
+          content={false}
+          sx={{ m: 0 }}
+        >
+          <DialogContent>
+            <Stack spacing={3}>
+              {/* Success/Error Messages */}
+              {success && (
+                <Alert severity="success" onClose={() => setSuccess('')}>
+                  {success}
+                </Alert>
+              )}
+              {error && (
+                <Alert severity="error" onClose={() => setError('')}>
+                  {error}
+                </Alert>
+              )}
 
-            {/* Add New Tool Access Button */}
-            <Box>
-              <Button
-                variant="contained"
-                startIcon={<PlusOutlined />}
-                onClick={() => handleOpenForm()}
-                disabled={loading}
-              >
-                Add Tool Access
-              </Button>
-            </Box>
-
-            {/* Tool Accesses List */}
-            {loading && !formOpen ? (
-              <Box display="flex" justifyContent="center" p={3}>
-                <CircularProgress />
+              {/* Add New Tool Access Button */}
+              <Box>
+                <Button
+                  variant="contained"
+                  startIcon={<PlusOutlined />}
+                  onClick={() => handleOpenForm()}
+                  disabled={loading}
+                >
+                  Add Tool Access
+                </Button>
               </Box>
-            ) : (
-              <Paper sx={{ maxHeight: 400, overflow: 'auto' }}>
-                {toolAccesses.length === 0 ? (
-                  <Box p={3} textAlign="center">
-                    <Typography variant="body2" color="text.secondary">
-                      No tool accesses configured for this participant.
-                    </Typography>
-                  </Box>
-                ) : (
-                  <List>
-                    {toolAccesses.map((toolAccess, index) => (
-                      <React.Fragment key={toolAccess.id}>
-                        <ListItem>
-                          <ListItemText
-                            primary={
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <Typography variant="subtitle1">
-                                  {toolAccess.tool}
-                                </Typography>
-                                <Chip
-                                  label={toolAccess.toolType || 'Tool'}
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                />
-                              </Stack>
-                            }
-                            secondary={
-                              <Box sx={{ mt: 1 }}>
-                                <Typography variant="body2" color="text.secondary">
-                                  <strong>Username:</strong> {toolAccess.username}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  <strong>Access Code:</strong> {toolAccess.accessCode}
-                                </Typography>
-                                {toolAccess.toolDescription && (
-                                  <Typography variant="body2" color="text.secondary">
-                                    <strong>Description:</strong> {toolAccess.toolDescription}
-                                  </Typography>
-                                )}
-                                {toolAccess.toolUrl && (
-                                  <Typography
-                                    variant="body2"
-                                    color="primary"
-                                    component="a"
-                                    href={toolAccess.toolUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {toolAccess.toolUrl}
-                                  </Typography>
-                                )}
-                              </Box>
-                            }
-                          />
-                          <ListItemSecondaryAction>
-                            <Stack direction="row" spacing={1}>
-                              <Tooltip title="Edit">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleOpenForm(toolAccess)}
-                                  disabled={loading}
-                                >
-                                  <EditOutlined />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Delete">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleDelete(toolAccess)}
-                                  disabled={loading}
-                                >
-                                  <DeleteOutlined />
-                                </IconButton>
-                              </Tooltip>
-                            </Stack>
-                          </ListItemSecondaryAction>
-                        </ListItem>
-                        {index < toolAccesses.length - 1 && <Divider />}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                )}
-              </Paper>
-            )}
-          </Stack>
-        </DialogContent>
 
-        <DialogActions>
-          <Button onClick={handleClose}>Close</Button>
-        </DialogActions>
+              {/* Tool Accesses List */}
+              {loading && !formOpen ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <MainCard content={false} sx={{ maxHeight: 400, overflow: 'auto' }}>
+                  {toolAccesses.length === 0 ? (
+                    <Box p={3} textAlign="center">
+                      <Typography variant="body2" color="text.secondary">
+                        No tool accesses configured for this participant.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <List>
+                      {toolAccesses.map((toolAccess, index) => (
+                        <React.Fragment key={toolAccess.id}>
+                          <ListItem>
+                            <ListItemText
+                              primary={
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <Typography variant="subtitle1">
+                                    {toolAccess.tool}
+                                  </Typography>
+                                  <Chip
+                                    label={toolAccess.toolType || 'Tool'}
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                  />
+                                </Stack>
+                              }
+                              secondary={
+                                <Box sx={{ mt: 1 }}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Username:</strong> {toolAccess.username}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Access Code:</strong> {toolAccess.accessCode}
+                                  </Typography>
+                                  {toolAccess.toolDescription && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      <strong>Description:</strong> {toolAccess.toolDescription}
+                                    </Typography>
+                                  )}
+                                  {toolAccess.toolUrl && (
+                                    <Typography
+                                      variant="body2"
+                                      color="primary"
+                                      component="a"
+                                      href={toolAccess.toolUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      {toolAccess.toolUrl}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                            />
+                            <ListItemSecondaryAction>
+                              <Stack direction="row" spacing={1}>
+                                <Tooltip title="Edit">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleOpenForm(toolAccess)}
+                                    disabled={loading}
+                                  >
+                                    <EditOutlined />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Delete">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleDelete(toolAccess)}
+                                    disabled={loading}
+                                  >
+                                    <DeleteOutlined />
+                                  </IconButton>
+                                </Tooltip>
+                              </Stack>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                          {index < toolAccesses.length - 1 && <Divider />}
+                        </React.Fragment>
+                      ))}
+                    </List>
+                  )}
+                </MainCard>
+              )}
+            </Stack>
+          </DialogContent>
+
+          <DialogActions>
+            <Button onClick={handleClose}>Close</Button>
+          </DialogActions>
+        </MainCard>
       </Dialog>
 
       {/* Add/Edit Form Dialog */}
       <Dialog open={formOpen} onClose={handleCloseForm} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingAccess ? 'Edit Tool Access' : 'Add Tool Access'}
-        </DialogTitle>
-        
-        <DialogContent>
-          <Stack spacing={3} sx={{ mt: 1 }}>
-            {error && (
-              <Alert severity="error">
-                {error}
-              </Alert>
-            )}
+        <MainCard
+          title={editingAccess ? 'Edit Tool Access' : 'Add Tool Access'}
+          content={false}
+          sx={{ m: 0 }}
+        >
+          <DialogContent>
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              {error && (
+                <Alert severity="error">
+                  {error}
+                </Alert>
+              )}
 
-            <FormControl fullWidth>
-              <InputLabel>Tool</InputLabel>
-              <Select
-                value={formData.tool}
-                onChange={(e) => handleToolSelect(e.target.value)}
-                label="Tool"
-                required
-              >
-                {commonTools.map((tool) => (
-                  <MenuItem key={tool.name} value={tool.name}>
-                    {tool.name}
-                  </MenuItem>
-                ))}
-                <MenuItem value="custom">Custom Tool...</MenuItem>
-              </Select>
-            </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Tool</InputLabel>
+                <Select
+                  value={formData.tool}
+                  onChange={(e) => handleToolSelect(e.target.value)}
+                  label="Tool"
+                  required
+                >
+                  {commonTools.map((tool) => (
+                    <MenuItem key={tool.name} value={tool.name}>
+                      {tool.name}
+                    </MenuItem>
+                  ))}
+                  <MenuItem value="custom">Custom Tool...</MenuItem>
+                </Select>
+              </FormControl>
 
-            {formData.tool === 'custom' && (
+              {formData.tool === 'custom' && (
+                <TextField
+                  label="Custom Tool Name"
+                  fullWidth
+                  value={formData.tool === 'custom' ? '' : formData.tool}
+                  onChange={(e) => handleInputChange('tool', e.target.value)}
+                  required
+                />
+              )}
+
               <TextField
-                label="Custom Tool Name"
+                label="Tool Type"
                 fullWidth
-                value={formData.tool === 'custom' ? '' : formData.tool}
-                onChange={(e) => handleInputChange('tool', e.target.value)}
+                value={formData.toolType}
+                onChange={(e) => handleInputChange('toolType', e.target.value)}
+                placeholder="e.g., crm, lms, dashboard"
+              />
+
+              <TextField
+                label="Username"
+                fullWidth
+                value={formData.username}
+                onChange={(e) => handleInputChange('username', e.target.value)}
                 required
               />
-            )}
 
-            <TextField
-              label="Tool Type"
-              fullWidth
-              value={formData.toolType}
-              onChange={(e) => handleInputChange('toolType', e.target.value)}
-              placeholder="e.g., crm, lms, dashboard"
-            />
+              <TextField
+                label="Access Code / Password"
+                fullWidth
+                value={formData.accessCode}
+                onChange={(e) => handleInputChange('accessCode', e.target.value)}
+                required
+              />
 
-            <TextField
-              label="Username"
-              fullWidth
-              value={formData.username}
-              onChange={(e) => handleInputChange('username', e.target.value)}
-              required
-            />
+              <TextField
+                label="Tool URL"
+                fullWidth
+                value={formData.toolUrl}
+                onChange={(e) => handleInputChange('toolUrl', e.target.value)}
+                placeholder="https://example.com"
+              />
 
-            <TextField
-              label="Access Code / Password"
-              fullWidth
-              value={formData.accessCode}
-              onChange={(e) => handleInputChange('accessCode', e.target.value)}
-              required
-            />
+              <TextField
+                label="Description"
+                fullWidth
+                multiline
+                rows={2}
+                value={formData.toolDescription}
+                onChange={(e) => handleInputChange('toolDescription', e.target.value)}
+                placeholder="Brief description of this tool access"
+              />
+            </Stack>
+          </DialogContent>
 
-            <TextField
-              label="Tool URL"
-              fullWidth
-              value={formData.toolUrl}
-              onChange={(e) => handleInputChange('toolUrl', e.target.value)}
-              placeholder="https://example.com"
-            />
-
-            <TextField
-              label="Description"
-              fullWidth
-              multiline
-              rows={2}
-              value={formData.toolDescription}
-              onChange={(e) => handleInputChange('toolDescription', e.target.value)}
-              placeholder="Brief description of this tool access"
-            />
-          </Stack>
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={handleCloseForm} startIcon={<CloseOutlined />}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            startIcon={loading ? <CircularProgress size={16} /> : <SaveOutlined />}
+          <DialogActions>
+            <Button onClick={handleCloseForm} startIcon={<CloseOutlined />}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              variant="contained"
+              startIcon={loading ? <CircularProgress size={16} /> : <SaveOutlined />}
             disabled={loading || !formData.tool || !formData.username || !formData.accessCode}
           >
             {loading ? 'Saving...' : (editingAccess ? 'Update' : 'Create')}
           </Button>
-        </DialogActions>
+          </DialogActions>
+        </MainCard>
       </Dialog>
     </>
   );

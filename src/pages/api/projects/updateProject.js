@@ -43,26 +43,29 @@ export default async function handler(req, res) {
       });
     }
 
+    // Build update data object - only include fields that were provided
+    const updateData = {};
+    
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.summary = description;
+    if (type !== undefined) updateData.projectType = type;
+    if (tags !== undefined) updateData.tags = tags;
+    if (startDate !== undefined) updateData.startDate = new Date(startDate);
+    if (endDate !== undefined) updateData.endDate = new Date(endDate);
+    if (language !== undefined) updateData.language = language;
+    if (location !== undefined) updateData.location = location;
+    if (trainingRecipientId !== undefined) updateData.trainingRecipientId = trainingRecipientId;
+    if (sharing !== undefined) updateData.published = sharing;
+    if (backgroundImg !== undefined) updateData.backgroundImg = backgroundImg;
+    if (color !== undefined) updateData.color = color;
+    if (projectStatus !== undefined) updateData.projectStatus = projectStatus;
+    
     // Update the project
     const updatedProject = await prisma.projects.update({
       where: {
         id: parseInt(id)
       },
-      data: {
-        title: title || existingProject.title,
-        summary: description || existingProject.summary, // Use 'summary' instead of 'description'
-        projectType: type || existingProject.projectType, // Use 'projectType' instead of 'type'
-        tags: tags || existingProject.tags,
-        startDate: startDate ? new Date(startDate) : existingProject.startDate,
-        endDate: endDate ? new Date(endDate) : existingProject.endDate,
-        language: language || existingProject.language,
-        location: location || existingProject.location,
-        trainingRecipientId: trainingRecipientId || existingProject.trainingRecipientId,
-        published: sharing !== undefined ? sharing : existingProject.published, // Use 'published' instead of 'sharing'
-        backgroundImg: backgroundImg || existingProject.backgroundImg,
-        color: color || existingProject.color,
-        projectStatus: projectStatus || existingProject.projectStatus
-      },
+      data: updateData,
       include: {
         participants: true,
         groups: true,

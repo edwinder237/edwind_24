@@ -187,7 +187,7 @@ export const useTableColumns = (onRefresh, availableRoles = [], rolesLoading = f
           <ToolAccessCell 
             value={value} 
             row={row} 
-            onUpdate={onRefresh}
+            onRefresh={onRefresh}
           />
         );
       },
