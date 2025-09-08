@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDispatch } from 'store';
 import { 
   getParticipants, 
-  getEmployees, 
   importParticipantsFromCSV 
 } from 'store/reducers/projects';
 
@@ -11,83 +10,25 @@ import {
  */
 export const useParticipantsData = (projectId) => {
   const dispatch = useDispatch();
-  const [loading, setLoading] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [csvImportLoading, setCsvImportLoading] = useState(false);
-  const isMountedRef = useRef(false);
-  const fetchingRef = useRef(false);
 
-  // Initial data fetch and when projectId changes
-  useEffect(() => {
+  // Manual refresh function
+  const refreshData = useCallback(async () => {
     if (!projectId) return;
-    if (fetchingRef.current) return; // Prevent duplicate fetches
     
-    const fetchData = async () => {
-      if (fetchingRef.current) return;
-      fetchingRef.current = true;
-      
-      try {
-        setLoading(true);
-        await Promise.all([
-          dispatch(getParticipants(projectId)),
-          dispatch(getEmployees(projectId)),
-        ]);
-      } catch (error) {
-        console.error('Error fetching participants data:', error);
-      } finally {
-        setLoading(false);
-        fetchingRef.current = false;
-      }
-    };
-    
-    // Only fetch on mount or when projectId actually changes
-    if (!isMountedRef.current || projectId !== isMountedRef.current) {
-      fetchData();
-      isMountedRef.current = projectId;
+    try {
+      setLoading(true);
+      await dispatch(getParticipants(projectId));
+    } catch (error) {
+      console.error('Error refreshing participants data:', error);
+    } finally {
+      setLoading(false);
     }
   }, [projectId, dispatch]);
 
-  // Separate effect for refresh trigger
-  useEffect(() => {
-    if (refreshTrigger === 0) return; // Skip initial render
-    if (!projectId) return; // Skip if no projectId
-    if (fetchingRef.current) return; // Prevent duplicate fetches
-    
-    const refreshData = async () => {
-      if (fetchingRef.current) return;
-      fetchingRef.current = true;
-      
-      try {
-        setLoading(true);
-        await Promise.all([
-          dispatch(getParticipants(projectId)),
-          dispatch(getEmployees(projectId)),
-        ]);
-      } catch (error) {
-        console.error('Error refreshing participants data:', error);
-      } finally {
-        setLoading(false);
-        fetchingRef.current = false;
-      }
-    };
-    
-    refreshData();
-  }, [refreshTrigger, projectId, dispatch]);
-
-  // Refresh data
-  const refreshData = useCallback(() => {
-    setRefreshTrigger(prev => prev + 1);
-  }, []);
-
-  // Force immediate refresh
-  const forceRefresh = useCallback(async () => {
-    if (projectId) {
-      await Promise.all([
-        dispatch(getParticipants(projectId)),
-        dispatch(getEmployees(projectId))
-      ]);
-    }
-  }, [projectId, dispatch]);
+  // Alias for backward compatibility
+  const forceRefresh = refreshData;
 
   // Handle CSV import
   const handleCsvImportSubmit = useCallback(async (participants) => {

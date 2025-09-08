@@ -128,12 +128,12 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     }
   }, []);
 
-  // Load groups when component mounts or project changes
+  // Load groups when component mounts or project changes (with guard to prevent repeated calls)
   useEffect(() => {
-    if (project?.id) {
+    if (project?.id && (!project.groups || project.groups.length === 0)) {
       dispatch(getGroupsDetails(project.id));
     }
-  }, [project?.id, dispatch]);
+  }, [project?.id, project?.groups?.length, dispatch]);
 
   // Handle navigation
   const handleNavigate = useCallback((action) => {

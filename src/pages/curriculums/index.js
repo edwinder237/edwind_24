@@ -420,25 +420,8 @@ const CurriculumsPage = () => {
   return (
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
-        {/* Breadcrumbs */}
-        <Breadcrumbs sx={{ mb: 2 }}>
-          <Link color="inherit" href="/">
-            Home
-          </Link>
-          <Typography color="text.primary">Curriculums</Typography>
-        </Breadcrumbs>
-
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-          <Box>
-            <Typography variant="h4" fontWeight="bold" gutterBottom>
-              Curriculums
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Manage learning curriculums and their support activities
-            </Typography>
-          </Box>
-          
           <Button 
             variant="contained" 
             startIcon={<AddIcon />}

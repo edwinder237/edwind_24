@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Grid,
@@ -11,35 +11,31 @@ import {
   Select,
   MenuItem,
   FormControl,
-  Chip
+  Chip,
+  CircularProgress
 } from '@mui/material';
 import { EditOutlined, CheckOutlined, CloseOutlined, LocationOnOutlined } from '@mui/icons-material';
 import { formatDisplayDate } from '../utils/timeHelpers';
 import GoogleMapAutocomplete from '../../../projects-list/google-map-autocomplete';
+import axios from 'utils/axios';
 
-const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, onUpdateStatus, onUpdateLocation, onUpdateBackgroundImage }) => {
+const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, onUpdateLocation, onUpdateBackgroundImage, onUpdateTrainingRecipient }) => {
   // State for editing project title
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(project?.title || '');
   const [titleError, setTitleError] = useState('');
-  
-  // State for editing project status
-  const [isEditingStatus, setIsEditingStatus] = useState(false);
-  const [statusValue, setStatusValue] = useState(project?.projectStatus || 'started');
   
   // State for editing project location
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [locationData, setLocationData] = useState(null);
   const [isSavingLocation, setIsSavingLocation] = useState(false);
   
-  // Available project statuses
-  const projectStatuses = [
-    { value: 'started', label: 'Started', color: 'info' },
-    { value: 'ongoing', label: 'Ongoing', color: 'success' },
-    { value: 'pending', label: 'Pending', color: 'warning' },
-    { value: 'completed', label: 'Completed', color: 'success' },
-    { value: 'cancelled', label: 'Cancelled', color: 'error' }
-  ];
+  // State for editing training recipient
+  const [isEditingRecipient, setIsEditingRecipient] = useState(false);
+  const [recipientValue, setRecipientValue] = useState(project?.trainingRecipientId || '');
+  const [trainingRecipients, setTrainingRecipients] = useState([]);
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
+  
 
   // Memoized formatted dates
   const formattedDates = useMemo(() => ({
@@ -52,10 +48,31 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
     setTitleValue(project?.title || '');
   }, [project?.title]);
   
-  // Update statusValue when project changes
+  
+  // Update recipientValue when project changes
   React.useEffect(() => {
-    setStatusValue(project?.projectStatus || 'started');
-  }, [project?.projectStatus]);
+    setRecipientValue(project?.trainingRecipientId || '');
+  }, [project?.trainingRecipientId]);
+  
+  // Fetch training recipients when component mounts
+  React.useEffect(() => {
+    const fetchTrainingRecipients = async () => {
+      if (!project?.sub_organizationId) return;
+      
+      setLoadingRecipients(true);
+      try {
+        const response = await axios.get(`/api/training-recipients/fetchTrainingRecipients?sub_organizationId=${project.sub_organizationId}`);
+        setTrainingRecipients(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch training recipients:', error);
+        setTrainingRecipients([]);
+      } finally {
+        setLoadingRecipients(false);
+      }
+    };
+    
+    fetchTrainingRecipients();
+  }, [project?.sub_organizationId]);
 
   // Handle title editing
   const handleStartEditTitle = () => {
@@ -107,38 +124,6 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
     }
   };
   
-  // Handle status editing
-  const handleStartEditStatus = () => {
-    setIsEditingStatus(true);
-    setStatusValue(project?.projectStatus || 'started');
-  };
-  
-  const handleCancelEditStatus = () => {
-    setIsEditingStatus(false);
-    setStatusValue(project?.projectStatus || 'started');
-  };
-  
-  const handleSaveStatus = async () => {
-    if (statusValue === project?.projectStatus) {
-      setIsEditingStatus(false);
-      return;
-    }
-    
-    try {
-      if (onUpdateStatus) {
-        await onUpdateStatus(statusValue);
-      }
-      setIsEditingStatus(false);
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      // Revert to original value on error
-      setStatusValue(project?.projectStatus || 'started');
-    }
-  };
-  
-  const getStatusConfig = (status) => {
-    return projectStatuses.find(s => s.value === status) || projectStatuses[0];
-  };
   
   // Handle location editing
   const handleStartEditLocation = () => {
@@ -188,6 +173,35 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
         .finally(() => {
           setIsSavingLocation(false);
         });
+    }
+  };
+  
+  // Handle training recipient editing
+  const handleStartEditRecipient = () => {
+    setIsEditingRecipient(true);
+    setRecipientValue(project?.trainingRecipientId || '');
+  };
+  
+  const handleCancelEditRecipient = () => {
+    setIsEditingRecipient(false);
+    setRecipientValue(project?.trainingRecipientId || '');
+  };
+  
+  const handleSaveRecipient = async () => {
+    if (recipientValue === project?.trainingRecipientId) {
+      setIsEditingRecipient(false);
+      return;
+    }
+    
+    try {
+      if (onUpdateTrainingRecipient) {
+        await onUpdateTrainingRecipient(recipientValue || null);
+      }
+      setIsEditingRecipient(false);
+    } catch (error) {
+      console.error('Failed to update training recipient:', error);
+      // Revert to original value on error
+      setRecipientValue(project?.trainingRecipientId || '');
     }
   };
   
@@ -253,7 +267,7 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
   ], [project?.id, formattedDates]);
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} sx={{ width: '100%' }}>
       {/* Editable Project Title */}
       <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -312,27 +326,28 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
           )}
         </Box>
 
-        {/* Editable Project Status */}
+
+        {/* Editable Training Recipient */}
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Project Status
+            Training Recipient
           </Typography>
-          {isEditingStatus ? (
+          {isEditingRecipient ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
+              <FormControl size="small" sx={{ minWidth: 200, flex: 1 }}>
                 <Select
-                  value={statusValue}
-                  onChange={(e) => setStatusValue(e.target.value)}
+                  value={recipientValue}
+                  onChange={(e) => setRecipientValue(e.target.value)}
                   displayEmpty
+                  disabled={loadingRecipients}
+                  startAdornment={loadingRecipients ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
                 >
-                  {projectStatuses.map((status) => (
-                    <MenuItem key={status.value} value={status.value}>
-                      <Chip 
-                        label={status.label} 
-                        color={status.color} 
-                        size="small" 
-                        variant="filled"
-                      />
+                  <MenuItem value="">
+                    <em>No recipient selected</em>
+                  </MenuItem>
+                  {trainingRecipients.map((recipient) => (
+                    <MenuItem key={recipient.id} value={recipient.id}>
+                      {recipient.name}
                     </MenuItem>
                   ))}
                 </Select>
@@ -340,8 +355,9 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
               <Tooltip title="Save changes">
                 <IconButton 
                   size="small" 
-                  onClick={handleSaveStatus}
+                  onClick={handleSaveRecipient}
                   color="primary"
+                  disabled={loadingRecipients}
                 >
                   <CheckOutlined fontSize="small" />
                 </IconButton>
@@ -349,8 +365,9 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
               <Tooltip title="Cancel changes">
                 <IconButton 
                   size="small" 
-                  onClick={handleCancelEditStatus}
+                  onClick={handleCancelEditRecipient}
                   color="secondary"
+                  disabled={loadingRecipients}
                 >
                   <CloseOutlined fontSize="small" />
                 </IconButton>
@@ -358,19 +375,20 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
             </Box>
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Chip 
-                label={getStatusConfig(project?.projectStatus).label} 
-                color={getStatusConfig(project?.projectStatus).color} 
-                size="small" 
-                variant="filled"
-              />
-              <Tooltip title="Edit project status">
+              <Typography variant="body1" sx={{ flex: 1 }}>
+                {(() => {
+                  const selectedRecipient = trainingRecipients.find(r => r.id === project?.trainingRecipientId);
+                  return selectedRecipient ? selectedRecipient.name : 'No recipient selected';
+                })()}
+              </Typography>
+              <Tooltip title="Edit training recipient">
                 <IconButton 
                   size="small" 
-                  onClick={handleStartEditStatus}
+                  onClick={handleStartEditRecipient}
                   color="primary"
+                  disabled={loadingRecipients}
                 >
-                  <EditOutlined fontSize="small" />
+                  {loadingRecipients ? <CircularProgress size={20} /> : <EditOutlined fontSize="small" />}
                 </IconButton>
               </Tooltip>
             </Box>
@@ -436,13 +454,13 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
         </Box>
 
         {/* Project Location */}
-        <Box>
+        <Box sx={{ width: '100%' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Project Location
           </Typography>
           {isEditingLocation ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+              <Box sx={{ flex: 1, width: '100%' }}>
                 <GoogleMapAutocomplete
                   handleLocationChange={handleLocationChange}
                 />
@@ -464,7 +482,7 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
               </Tooltip>
             </Box>
           ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
                 <LocationOnOutlined sx={{ color: 'text.secondary', fontSize: 20 }} />
                 <Typography variant="body1">
@@ -508,15 +526,17 @@ ProjectInfoCard.propTypes = {
     title: PropTypes.string,
     projectStatus: PropTypes.string,
     location: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
-    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
+    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    trainingRecipientId: PropTypes.number,
+    sub_organizationId: PropTypes.number
   }),
   projectSettings: PropTypes.shape({
     updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
   }),
   onUpdateTitle: PropTypes.func,
-  onUpdateStatus: PropTypes.func,
   onUpdateLocation: PropTypes.func,
-  onUpdateBackgroundImage: PropTypes.func
+  onUpdateBackgroundImage: PropTypes.func,
+  onUpdateTrainingRecipient: PropTypes.func
 };
 
 ProjectInfoCard.displayName = 'ProjectInfoCard';

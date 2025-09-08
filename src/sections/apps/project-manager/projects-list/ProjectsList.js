@@ -595,20 +595,20 @@ const ProjectsList = () => {
                   </Grid>
                 </Grid>
               </Box>
-
-              {/* Results Summary */}
-              <Box sx={{ mt: 2, textAlign: 'right' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                  <strong>{userCard.length}</strong> of <strong>{projects?.length || 0}</strong> projects
-                  {getActiveFilterCount() > 0 && (
-                    <span style={{ color: 'var(--mui-palette-primary-main)' }}>
-                      {' '}• {getActiveFilterCount()} filter{getActiveFilterCount() !== 1 ? 's' : ''} active
-                    </span>
-                  )}
-                </Typography>
-              </Box>
             </Box>
           </Collapse>
+
+          {/* Results Summary - Always visible */}
+          <Box sx={{ textAlign: 'right', mt: showFilters ? 2 : 0 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+              <strong>{userCard.length}</strong> of <strong>{projects?.length || 0}</strong> projects
+              {getActiveFilterCount() > 0 && (
+                <span style={{ color: 'var(--mui-palette-primary-main)' }}>
+                  {' '}• {getActiveFilterCount()} filter{getActiveFilterCount() !== 1 ? 's' : ''} active
+                </span>
+              )}
+            </Typography>
+          </Box>
         </Stack>
       </Paper>
       {hasError ? (

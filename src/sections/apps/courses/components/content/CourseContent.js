@@ -318,6 +318,14 @@ const AddActivityDialog = ({ open, onClose, onAddActivity, moduleId }) => {
     contentUrl: ''
   });
 
+  // Extract YouTube video ID from URL
+  const getYouTubeVideoId = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -443,39 +451,39 @@ const AddActivityDialog = ({ open, onClose, onAddActivity, moduleId }) => {
             </Box>
           ) : (
             // Step 2: Fill Activity Details
-            <Box sx={{ p: 4 }}>
-              {/* Selected Type Display */}
-              <Box sx={{ 
-                mb: 4, 
-                p: 2, 
-                backgroundColor: theme.palette.primary.lighter || theme.palette.primary.light, 
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2
-              }}>
-                {(() => {
-                  const selectedType = activityTypes.find(t => t.value === formData.type);
-                  const Icon = selectedType?.icon || DescriptionOutlined;
-                  return (
-                    <>
-                      <Icon sx={{ color: theme.palette.primary.main, fontSize: 24 }} />
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight={600} color={theme.palette.primary.main}>
-                          Creating {selectedType?.label} Activity
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Click "Back" to change activity type
-                        </Typography>
-                      </Box>
-                    </>
-                  );
-                })()}
-              </Box>
+            <Box sx={{ display: 'flex', height: '70vh', p: 0 }}>
+              <Grid container sx={{ height: '100%' }}>
+                {/* Left Column - Form Fields */}
+                <Grid item xs={12} md={6} sx={{ p: 4, overflow: 'auto' }}>
+                  {/* Selected Type Display */}
+                  <Box sx={{ 
+                    mb: 3, 
+                    p: 2, 
+                    backgroundColor: theme.palette.primary.lighter || theme.palette.primary.light, 
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2
+                  }}>
+                    {(() => {
+                      const selectedType = activityTypes.find(t => t.value === formData.type);
+                      const Icon = selectedType?.icon || DescriptionOutlined;
+                      return (
+                        <>
+                          <Icon sx={{ color: theme.palette.primary.main, fontSize: 24 }} />
+                          <Box>
+                            <Typography variant="subtitle1" fontWeight={600} color={theme.palette.primary.main}>
+                              Creating {selectedType?.label} Activity
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Click "Back" to change activity type
+                            </Typography>
+                          </Box>
+                        </>
+                      );
+                    })()}
+                  </Box>
 
-              <Grid container spacing={3}>
-                {/* Left Column */}
-                <Grid item xs={12} md={6}>
                   <Stack spacing={3}>
                     <TextField
                       label="Activity Title"
@@ -543,12 +551,7 @@ const AddActivityDialog = ({ open, onClose, onAddActivity, moduleId }) => {
                         'content'
                       } resource (optional)`}
                     />
-                  </Stack>
-                </Grid>
 
-                {/* Right Column */}
-                <Grid item xs={12} md={6}>
-                  <Stack spacing={3}>
                     <Box>
                       <Typography variant="subtitle2" gutterBottom fontWeight={600} color="text.primary">
                         Duration (minutes)
@@ -571,48 +574,76 @@ const AddActivityDialog = ({ open, onClose, onAddActivity, moduleId }) => {
                         helperText="Estimated time to complete this activity"
                       />
                     </Box>
-
-                    {/* Preview Card */}
-                    <Box sx={{
-                      p: 3,
-                      borderRadius: 2,
-                      backgroundColor: theme.palette.grey[50],
-                      border: `1px dashed ${theme.palette.grey[300]}`,
-                      mt: 2
-                    }}>
-                      <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                        Preview
-                      </Typography>
-                      <Stack direction="row" alignItems="center" spacing={2} mb={2}>
-                        {(() => {
-                          const selectedType = activityTypes.find(t => t.value === formData.type);
-                          const Icon = selectedType?.icon || DescriptionOutlined;
-                          return (
-                            <Box sx={{ 
-                              p: 1, 
-                              borderRadius: 1, 
-                              backgroundColor: theme.palette.primary.main,
-                              color: 'white'
-                            }}>
-                              <Icon sx={{ fontSize: 16 }} />
-                            </Box>
-                          );
-                        })()}
-                        <Typography variant="body2" fontWeight={600}>
-                          {formData.title || 'Activity Title'}
-                        </Typography>
-                      </Stack>
-                      <Typography variant="caption" color="text.secondary">
-                        {formData.description || 'Activity description will appear here...'}
-                      </Typography>
-                      <Chip 
-                        label={`${formData.duration} min`} 
-                        size="small" 
-                        variant="outlined" 
-                        sx={{ mt: 1 }}
-                      />
-                    </Box>
                   </Stack>
+                </Grid>
+
+                {/* Right Column - Full Height Preview */}
+                <Grid item xs={12} md={6} sx={{ 
+                  p: 3, 
+                  bgcolor: theme.palette.grey[50],
+                  borderLeft: `1px solid ${theme.palette.divider}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%'
+                }}>
+                  <Typography variant="h6" gutterBottom color="text.primary" fontWeight={600}>
+                    Preview
+                  </Typography>
+                  
+                  <Box sx={{
+                    flex: 1,
+                    backgroundColor: 'white',
+                    border: `2px dashed ${theme.palette.grey[300]}`,
+                    p: 3,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    position: 'relative'
+                  }}>
+                    {formData.type === 'video' && formData.contentUrl && getYouTubeVideoId(formData.contentUrl) ? (
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src={`https://www.youtube.com/embed/${getYouTubeVideoId(formData.contentUrl)}`}
+                        title="YouTube video preview"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        style={{ borderRadius: 0 }}
+                      />
+                    ) : formData.contentUrl ? (
+                      <Box sx={{ textAlign: 'center', p: 3 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Content URL provided:
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            wordBreak: 'break-all',
+                            color: theme.palette.primary.main,
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          {formData.contentUrl}
+                        </Typography>
+                        {formData.type === 'video' && (
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                            (Preview available for YouTube videos)
+                          </Typography>
+                        )}
+                      </Box>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', p: 3 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {formData.type === 'video' ? 
+                            'Enter a YouTube URL to see video preview' :
+                            'Content preview will appear here when URL is provided'
+                          }
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
                 </Grid>
               </Grid>
             </Box>
@@ -738,7 +769,7 @@ const AlertModuleDelete = ({ title, open, handleClose }) => {
   );
 };
 
-const DraggableActivityCard = ({ activity, index, moduleIndex, getActivityIcon, getActivityColor, toggleActivityExpansion, expandedActivities, activityNotes, handleNotesChange, onDelete, onEdit }) => {
+const DraggableActivityCard = ({ activity, index, moduleIndex, getActivityIcon, getActivityColor, toggleActivityExpansion, expandedActivities, activityNotes, handleNotesChange, onDelete, onEdit, handleSaveNotes, handleDiscardNotes, unsavedNotes }) => {
   const [{ isDragging }, drag] = useDrag({
     type: 'activity',
     item: () => ({ id: activity.id, index }),
@@ -906,9 +937,60 @@ const DraggableActivityCard = ({ activity, index, moduleIndex, getActivityIcon, 
         {/* Expandable Notes Section */}
         <Collapse in={expandedActivities[activity.id]}>
           <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              Notes
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Notes
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {unsavedNotes[activity.id] && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleDiscardNotes(activity.id)}
+                    startIcon={<Cancel />}
+                    sx={{
+                      minWidth: 'auto',
+                      px: 2,
+                      py: 0.5,
+                      fontSize: '0.75rem',
+                      textTransform: 'none',
+                      color: 'text.secondary',
+                      borderColor: 'divider',
+                      '&:hover': {
+                        borderColor: 'error.main',
+                        color: 'error.main'
+                      }
+                    }}
+                  >
+                    Discard
+                  </Button>
+                )}
+                <Button
+                  size="small"
+                  variant={unsavedNotes[activity.id] ? "contained" : "outlined"}
+                  onClick={() => handleSaveNotes(activity.id)}
+                  disabled={!unsavedNotes[activity.id]}
+                  startIcon={<Save />}
+                  sx={{
+                    minWidth: 'auto',
+                    px: 2,
+                    py: 0.5,
+                    fontSize: '0.75rem',
+                    textTransform: 'none',
+                    ...(unsavedNotes[activity.id] && {
+                      '@keyframes pulse': {
+                        '0%': { transform: 'scale(1)' },
+                        '50%': { transform: 'scale(1.05)' },
+                        '100%': { transform: 'scale(1)' }
+                      },
+                      animation: 'pulse 2s infinite'
+                    })
+                  }}
+                >
+                  {unsavedNotes[activity.id] ? 'Save' : 'Saved'}
+                </Button>
+              </Box>
+            </Box>
             <TextField
               fullWidth
               multiline
@@ -969,6 +1051,8 @@ const CourseContent = ({ courseId }) => {
   const [objectivesExpanded, setObjectivesExpanded] = useState(false); // State for collapsible objectives
   const [expandedActivities, setExpandedActivities] = useState({}); // State for expanded activity notes
   const [activityNotes, setActivityNotes] = useState({}); // State for activity notes
+  const [savedActivityNotes, setSavedActivityNotes] = useState({}); // State for last saved notes (for discard functionality)
+  const [unsavedNotes, setUnsavedNotes] = useState({}); // Track which notes have unsaved changes
 
   // Delete dialog states
   const [moduleDeleteDialog, setModuleDeleteDialog] = useState({ open: false, moduleId: null, moduleTitle: '' });
@@ -1145,31 +1229,94 @@ const CourseContent = ({ courseId }) => {
     }));
   };
 
-  const handleNotesChange = async (activityId, notes) => {
+  const handleNotesChange = (activityId, notes) => {
     // Update local state immediately for responsiveness
     setActivityNotes(prev => ({
       ...prev,
       [activityId]: notes
     }));
 
-    // Debounce the database save to avoid too many API calls
-    clearTimeout(notesTimeoutRef.current);
-    notesTimeoutRef.current = setTimeout(async () => {
-      try {
-        await fetch('/api/courses/updateActivity', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            id: activityId,
-            content: notes
-          })
-        });
-      } catch (error) {
-        console.error('Error saving activity notes:', error);
+    // Mark as having unsaved changes
+    setUnsavedNotes(prev => ({
+      ...prev,
+      [activityId]: true
+    }));
+  };
+
+  const handleSaveNotes = async (activityId) => {
+    try {
+      const notes = activityNotes[activityId] || '';
+      await fetch('/api/courses/updateActivity', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: activityId,
+          content: notes
+        })
+      });
+      
+      // Update saved notes state
+      setSavedActivityNotes(prev => ({
+        ...prev,
+        [activityId]: notes
+      }));
+      
+      // Mark as saved
+      setUnsavedNotes(prev => ({
+        ...prev,
+        [activityId]: false
+      }));
+
+      // Show success feedback
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Notes saved successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      console.error('Error saving activity notes:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to save notes',
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+
+  const handleDiscardNotes = (activityId) => {
+    // Revert to last saved state
+    const savedNotes = savedActivityNotes[activityId] || '';
+    setActivityNotes(prev => ({
+      ...prev,
+      [activityId]: savedNotes
+    }));
+    
+    // Mark as no longer having unsaved changes
+    setUnsavedNotes(prev => ({
+      ...prev,
+      [activityId]: false
+    }));
+
+    // Show feedback
+    dispatch(openSnackbar({
+      open: true,
+      message: 'Changes discarded',
+      variant: 'alert',
+      alert: {
+        color: 'info',
+        variant: 'filled'
       }
-    }, 1000); // Save after 1 second of no typing
+    }));
   };
 
   const handleDeleteModule = (moduleId) => {
@@ -1553,13 +1700,11 @@ const CourseContent = ({ courseId }) => {
         ) : (
           /* Modules and Activities Grid */
           <Grid container spacing={{ xs: 1, sm: 2, md: 2, lg: 3, xl: 3 }} sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
-          {/* Left Column (fixed width) */}
-          <Grid item sx={{ 
+          {/* Left Column - Modules (50% width) */}
+          <Grid item xs={12} md={5} sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
-            width: { xs: '100%', md: 350 }, 
-            minWidth: { xs: 'auto', md: 320 }, 
-            flexShrink: 0 
+            minWidth: 0
           }}>
             <MainCard 
               title="Course Modules" 
@@ -1650,13 +1795,11 @@ const CourseContent = ({ courseId }) => {
             </MainCard>
           </Grid>
 
-          {/* Right Column (flexible width) */}
-          <Grid item sx={{ 
+          {/* Right Column - Activities (50% width) */}
+          <Grid item xs={12} md={7} sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
-            minWidth: 0, 
-            flex: 1, 
-            width: { xs: '100%', md: 0 } 
+            minWidth: 0
           }}>
             <MainCard 
               title="Module Activities Editor" 
@@ -1816,122 +1959,118 @@ const CourseContent = ({ courseId }) => {
                   ) : (
                     <>
 
-                      {/* Module Learning Objectives - Interactive Card */}
-                      <Card sx={{ mb: 3 }}>
-                        <CardContent sx={{ p: 3 }}>
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-                            <Stack direction="row" alignItems="center" spacing={2}>
-                              <EmojiEvents style={{ color: theme.palette.warning.main, fontSize: 24 }} />
-                              <Typography variant="h5" fontWeight={600}>
-                                Learning Objectives
-                              </Typography>
-                            </Stack>
-                            {!showAddObjectiveField && (
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={handleShowAddObjectiveField}
-                                startIcon={<Add />}
-                              >
-                                Add
-                              </Button>
-                            )}
+                      {/* Module Objectives - Minimalist */}
+                      <Box sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography variant="subtitle1" fontWeight={600} sx={{ fontSize: '0.9rem' }}>
+                              Module Objectives
+                            </Typography>
+                            <Chip 
+                              label={modules.find(m => m.id === selectedModuleId)?.title || 'Module'}
+                              size="small"
+                              sx={{ 
+                                height: 20,
+                                fontSize: '0.7rem',
+                                fontWeight: 500,
+                                bgcolor: 'primary.lighter',
+                                color: 'primary.dark'
+                              }}
+                            />
                           </Stack>
-                          
-                          <List sx={{ mb: 2 }}>
-                            {getCurrentModuleObjectives().map((objectiveData, index) => (
-                              <ListItem key={objectiveData.id || index} sx={{ pl: 0, pr: 0 }}>
-                                <ListItemIcon>
-                                  <CheckCircleOutline style={{ color: theme.palette.success.main }} />
-                                </ListItemIcon>
-                                {editingObjective === index ? (
-                                  <TextField
-                                    fullWidth
-                                    value={editObjectiveText}
-                                    onChange={(e) => setEditObjectiveText(e.target.value)}
-                                    variant="outlined"
-                                    size="small"
-                                    onKeyPress={(e) => e.key === 'Enter' && handleSaveObjectiveEdit()}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <ListItemText primary={objectiveData.objective} />
-                                )}
-                                <ListItemSecondaryAction>
-                                  {editingObjective === index ? (
-                                    <Stack direction="row" spacing={1}>
-                                      <IconButton
-                                        size="small"
-                                        onClick={handleSaveObjectiveEdit}
-                                        color="primary"
-                                      >
-                                        <Save />
-                                      </IconButton>
-                                      <IconButton
-                                        size="small"
-                                        onClick={handleCancelObjectiveEdit}
-                                        color="secondary"
-                                      >
-                                        <Cancel />
-                                      </IconButton>
-                                    </Stack>
-                                  ) : (
-                                    <Stack direction="row" spacing={1}>
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => handleEditObjective(index)}
-                                        color="primary"
-                                      >
-                                        <EditOutlined />
-                                      </IconButton>
-                                      <IconButton
-                                        size="small"
-                                        onClick={(e) => handleDeleteObjectiveClick(e, index)}
-                                        color="error"
-                                      >
-                                        <DeleteOutlined />
-                                      </IconButton>
-                                    </Stack>
-                                  )}
-                                </ListItemSecondaryAction>
-                              </ListItem>
-                            ))}
-                          </List>
-
-                          {/* Add new objective */}
-                          {showAddObjectiveField && (
-                            <Stack direction="row" spacing={2} alignItems="center">
+                          {!showAddObjectiveField && (
+                            <IconButton
+                              size="small"
+                              onClick={handleShowAddObjectiveField}
+                              sx={{ p: 0.5 }}
+                            >
+                              <Add sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          )}
+                        </Stack>
+                        
+                        {getCurrentModuleObjectives().map((objectiveData, index) => (
+                          <Box key={objectiveData.id || index} sx={{ display: 'flex', alignItems: 'center', py: 0.5, gap: 1 }}>
+                            <CheckCircleOutline sx={{ color: 'success.main', fontSize: 16 }} />
+                            {editingObjective === index ? (
                               <TextField
                                 fullWidth
-                                placeholder="Add new learning objective..."
-                                value={newObjective}
-                                onChange={(e) => setNewObjective(e.target.value)}
+                                value={editObjectiveText}
+                                onChange={(e) => setEditObjectiveText(e.target.value)}
                                 variant="outlined"
                                 size="small"
-                                onKeyPress={(e) => e.key === 'Enter' && handleAddObjective()}
+                                onKeyPress={(e) => e.key === 'Enter' && handleSaveObjectiveEdit()}
                                 autoFocus
+                                sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.85rem' } }}
                               />
-                              <Button
-                                variant="contained"
-                                onClick={handleAddObjective}
-                                startIcon={<Save />}
-                                disabled={!newObjective.trim()}
-                                sx={{ whiteSpace: 'nowrap' }}
-                              >
-                                Save
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                onClick={handleCancelAddObjective}
-                                startIcon={<Cancel />}
-                                sx={{ whiteSpace: 'nowrap' }}
-                              >
-                                Cancel
-                              </Button>
-                            </Stack>
-                          )}
-                        </CardContent>
-                      </Card>
+                            ) : (
+                              <Typography variant="body2" sx={{ flex: 1, fontSize: '0.85rem' }}>
+                                {objectiveData.objective}
+                              </Typography>
+                            )}
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              {editingObjective === index ? (
+                                <>
+                                  <IconButton size="small" onClick={handleSaveObjectiveEdit} sx={{ p: 0.25 }}>
+                                    <Save sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                  <IconButton size="small" onClick={handleCancelObjectiveEdit} sx={{ p: 0.25 }}>
+                                    <Cancel sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                </>
+                              ) : (
+                                <>
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => handleEditObjective(index)}
+                                    sx={{ p: 0.25, opacity: 0.7, '&:hover': { opacity: 1 } }}
+                                  >
+                                    <EditOutlined sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={(e) => handleDeleteObjectiveClick(e, index)}
+                                    sx={{ p: 0.25, opacity: 0.7, '&:hover': { opacity: 1, color: 'error.main' } }}
+                                  >
+                                    <DeleteOutlined sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                </>
+                              )}
+                            </Box>
+                          </Box>
+                        ))}
+
+                        {showAddObjectiveField && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
+                            <TextField
+                              fullWidth
+                              placeholder="Add objective..."
+                              value={newObjective}
+                              onChange={(e) => setNewObjective(e.target.value)}
+                              variant="outlined"
+                              size="small"
+                              onKeyPress={(e) => e.key === 'Enter' && handleAddObjective()}
+                              autoFocus
+                              sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.85rem' } }}
+                            />
+                            <IconButton 
+                              size="small" 
+                              onClick={handleAddObjective}
+                              disabled={!newObjective.trim()}
+                              sx={{ p: 0.25 }}
+                            >
+                              <Save sx={{ fontSize: 14 }} />
+                            </IconButton>
+                            <IconButton 
+                              size="small" 
+                              onClick={handleCancelAddObjective}
+                              sx={{ p: 0.25 }}
+                            >
+                              <Cancel sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Box>
+                        )}
+                      </Box>
 
                       {/* Activities List */}
                       {(() => {
@@ -2016,6 +2155,9 @@ const CourseContent = ({ courseId }) => {
                                   handleNotesChange={handleNotesChange}
                                   onDelete={handleDeleteActivity}
                                   onEdit={handleEditActivity}
+                                  handleSaveNotes={handleSaveNotes}
+                                  handleDiscardNotes={handleDiscardNotes}
+                                  unsavedNotes={unsavedNotes}
                                 />
                                 <EmptyDropZone 
                                   type="activity" 

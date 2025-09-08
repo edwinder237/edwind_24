@@ -48,7 +48,6 @@ export const useTrainingPlan = (trainingPlan, setTrainingPlan, setHasUnsavedChan
     const newModule = {
       id: Date.now(),
       title: '',
-      duration: 60,
       activities: [],
       learningObjectives: [],
       isSupportActivity: moduleType === 'support'

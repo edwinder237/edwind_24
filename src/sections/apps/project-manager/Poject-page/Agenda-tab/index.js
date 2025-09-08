@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography } from '@mui/material';
 import { useSelector, useDispatch } from 'store';
-import { getSingleProject } from 'store/reducers/projects';
+import { getSingleProject, getGroupsDetails } from 'store/reducers/projects';
 import { ViewList, CalendarMonth, DateRange, Add } from '@mui/icons-material';
 
 // Components
@@ -31,6 +31,13 @@ const AgendaTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const { singleProject: project } = useSelector((state) => state.projects);
+  
+  // Fetch groups data when component mounts or project changes
+  useEffect(() => {
+    if (project?.id) {
+      dispatch(getGroupsDetails(project.id));
+    }
+  }, [project?.id, dispatch]);
   
   // Local state for import dialog
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
@@ -62,7 +69,7 @@ const AgendaTab = () => {
   // Fetch available roles and training plans when project changes
   React.useEffect(() => {
     const fetchProjectData = async () => {
-      if (!project?.id || rolesLoading || trainingPlansLoading) return;
+      if (!project?.id || rolesLoading || trainingPlansLoading || availableRoles.length > 0 || availableTrainingPlans.length > 0) return;
       
       // Fetch available roles
       setRolesLoading(true);
@@ -100,7 +107,7 @@ const AgendaTab = () => {
     };
 
     fetchProjectData();
-  }, [project?.id]);
+  }, [project?.id, rolesLoading, trainingPlansLoading, availableRoles.length, availableTrainingPlans.length]); // Add dependencies to prevent loops
 
   // Handle opening import dialog
   const handleOpenImportDialog = () => {
@@ -153,13 +160,6 @@ const AgendaTab = () => {
       height: '100%',
       display: 'flex',
       flexDirection: 'column'
-    },
-    actionStack: {
-      direction: 'row',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      spacing: 1,
-      sx: { mb: 2 }
     },
     mainCard: {
       flex: 1,
@@ -255,29 +255,52 @@ const AgendaTab = () => {
     }
   }), [theme]);
 
-  // Header content - view toggle buttons
+  // Header content - view toggle buttons and import/export buttons
   const headerContent = useMemo(() => (
-    <ToggleButtonGroup
-      value={viewMode}
-      exclusive
-      onChange={handleViewModeChange}
-      size="small"
-      sx={toggleButtonStyles}
-    >
-      <ToggleButton value={VIEW_MODES.AGENDA}>
-        <ViewList sx={{ mr: 0.5, fontSize: '1rem' }} />
-        Agenda
-      </ToggleButton>
-      <ToggleButton value={VIEW_MODES.WEEK}>
-        <DateRange sx={{ mr: 0.5, fontSize: '1rem' }} />
-        Week
-      </ToggleButton>
-      <ToggleButton value={VIEW_MODES.MONTH}>
-        <CalendarMonth sx={{ mr: 0.5, fontSize: '1rem' }} />
-        Month
-      </ToggleButton>
-    </ToggleButtonGroup>
-  ), [viewMode, handleViewModeChange, toggleButtonStyles]);
+    <Stack direction="row" spacing={2} alignItems="center">
+      {/* Import/Export Buttons */}
+      <Stack direction="row" spacing={1}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={handleOpenImportDialog}
+          sx={{ ...buttonStyles.common, ...buttonStyles.outlined }}
+        >
+          Import
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={openViewSchedule}
+          sx={{ ...buttonStyles.common, ...buttonStyles.contained }}
+        >
+          Export
+        </Button>
+      </Stack>
+
+      {/* View Toggle Buttons */}
+      <ToggleButtonGroup
+        value={viewMode}
+        exclusive
+        onChange={handleViewModeChange}
+        size="small"
+        sx={toggleButtonStyles}
+      >
+        <ToggleButton value={VIEW_MODES.AGENDA}>
+          <ViewList sx={{ mr: 0.5, fontSize: '1rem' }} />
+          Agenda
+        </ToggleButton>
+        <ToggleButton value={VIEW_MODES.WEEK}>
+          <DateRange sx={{ mr: 0.5, fontSize: '1rem' }} />
+          Week
+        </ToggleButton>
+        <ToggleButton value={VIEW_MODES.MONTH}>
+          <CalendarMonth sx={{ mr: 0.5, fontSize: '1rem' }} />
+          Month
+        </ToggleButton>
+      </ToggleButtonGroup>
+    </Stack>
+  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles]);
 
   // Render different view modes
   const renderViewContent = () => {
@@ -302,6 +325,7 @@ const AgendaTab = () => {
                   selectedDate={selectedDate}
                   selectedEventId={selectedEventId}
                   project={project}
+                  availableRoles={availableRoles}
                 />
               </Box>
             </Grid>
@@ -337,26 +361,6 @@ const AgendaTab = () => {
 
   return (
     <Box sx={styles.container}>
-      {/* Action Buttons */}
-      <Stack {...styles.actionStack}>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={handleOpenImportDialog}
-          sx={{ ...buttonStyles.common, ...buttonStyles.outlined }}
-        >
-          Import
-        </Button>
-        <Button
-          variant="contained"
-          size="small"
-          onClick={openViewSchedule}
-          sx={{ ...buttonStyles.common, ...buttonStyles.contained }}
-        >
-          Export
-        </Button>
-      </Stack>
-
       {/* Main Content */}
       <MainCard 
         title="Schedule Planning"

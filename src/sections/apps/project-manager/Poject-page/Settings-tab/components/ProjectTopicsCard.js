@@ -129,15 +129,8 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
     setFormError('');
   };
 
-  const handleSubmit = async () => {
-    if (!selectedTopic) {
-      setFormError('Please select a topic');
-      return;
-    }
-
+  const handleAddTopicDirectly = async (topic) => {
     try {
-      setFormError('');
-      
       // Get current tags from project
       const currentTags = singleProject.tags 
         ? (typeof singleProject.tags === 'string' ? JSON.parse(singleProject.tags) : singleProject.tags)
@@ -145,8 +138,8 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
       
       // Add new topic to tags array if it doesn't already exist
       const newTags = Array.isArray(currentTags) ? [...currentTags] : [];
-      if (!newTags.includes(selectedTopic.title)) {
-        newTags.push(selectedTopic.title);
+      if (!newTags.includes(topic.title)) {
+        newTags.push(topic.title);
       }
       
       // Update project with new tags
@@ -160,10 +153,7 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
       });
 
       if (response.ok) {
-        // Refresh the project data - this will trigger fetchTopics via useEffect
-        window.location.reload(); // Simple refresh for now
-        handleCloseDialog();
-        
+        await fetchTopics(); // Refresh topics
         dispatch(openSnackbar({
           open: true,
           message: 'Topic added to project successfully',
@@ -172,8 +162,34 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
         }));
       } else {
         const errorData = await response.json();
-        setFormError(errorData.error || 'Failed to add topic');
+        dispatch(openSnackbar({
+          open: true,
+          message: errorData.error || 'Failed to add topic',
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
       }
+    } catch (error) {
+      console.error('Error adding topic:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to add topic',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedTopic) {
+      setFormError('Please select a topic');
+      return;
+    }
+
+    try {
+      setFormError('');
+      await handleAddTopicDirectly(selectedTopic);
+      handleCloseDialog();
     } catch (error) {
       console.error('Error adding topic:', error);
       setFormError('Failed to add topic');
@@ -256,9 +272,44 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
               Loading topics...
             </Typography>
           ) : topics.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-              No topics added yet. Click "Add Topic" to get started.
-            </Typography>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Choose from popular topics or create your own:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {availableTopics.slice(0, 8).map((topic) => (
+                  <Chip
+                    key={topic.id}
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {topic.icon && <span style={{ fontSize: '14px' }}>{String(topic.icon)}</span>}
+                        {String(topic.title || '')}
+                      </Box>
+                    }
+                    variant="outlined"
+                    clickable
+                    onClick={() => handleAddTopicDirectly(topic)}
+                    sx={{
+                      borderColor: topic.color || 'primary.main',
+                      color: topic.color || 'primary.main',
+                      backgroundColor: `${topic.color}10` || 'primary.lighter',
+                      '& .MuiChip-label': {
+                        px: 1.5,
+                        py: 0.5
+                      },
+                      '&:hover': {
+                        backgroundColor: topic.color ? `${topic.color}20` : 'primary.light'
+                      }
+                    }}
+                  />
+                ))}
+              </Box>
+              {availableTopics.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  No topics available. Click "Add Topic" to create one.
+                </Typography>
+              )}
+            </Box>
           ) : (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {topics.map((topic) => (

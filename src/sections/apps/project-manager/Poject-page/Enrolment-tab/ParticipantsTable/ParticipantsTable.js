@@ -1,12 +1,8 @@
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useSelector, useDispatch } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { TouchBackend } from 'react-dnd-touch-backend';
-import { isMobile } from 'react-device-detect';
-import { Dialog } from '@mui/material';
+import { Dialog, Box } from '@mui/material';
 
 // Project imports
 import MainCard from 'components/MainCard';
@@ -45,15 +41,37 @@ const tableTitle = 'Participant';
  * - ColumnCell: Edit/delete actions component
  */
 const ParticipantsTable = React.memo(({ index }) => {
-  // Redux state and dispatch
+  // Memoized selector for better performance
+  const memoizedSelector = useMemo(
+    () => (state) => ({
+      project_participants: state.projects.project_participants,
+      singleProject: state.projects.singleProject,
+      error: state.projects.error,
+      loading: state.projects.loading,
+    }),
+    []
+  );
+
+  // Redux state and dispatch - optimized selector
   const {
     project_participants,
     singleProject: Project,
     error,
-  } = useSelector((state) => state.projects);
+    globalLoading,
+  } = useSelector(memoizedSelector);
   const dispatch = useDispatch();
   
-  const { title, groups, id: projectId } = Project || {};
+  // Memoized project data extraction
+  const projectData = useMemo(() => {
+    if (!Project) return { title: '', groups: [], projectId: null };
+    return {
+      title: Project.title,
+      groups: Project.groups || [],
+      projectId: Project.id
+    };
+  }, [Project]);
+
+  const { title, groups, projectId } = projectData;
   
   // State for available roles (fetch once for all dropdowns)
   const [availableRoles, setAvailableRoles] = useState([]);
@@ -65,38 +83,55 @@ const ParticipantsTable = React.memo(({ index }) => {
     csvImportLoading,
     refreshData,
     forceRefresh,
-    handleCsvImportSubmit
+    handleCsvImportSubmit,
+    hasData,
+    isEmpty
   } = useParticipantsData(projectId);
 
-  // CRUD operations
-  const crudOperations = useParticipantsCRUD({
+  // Memoized CRUD operations configuration
+  const crudConfig = useMemo(() => ({
     data: project_participants,
     groups,
     projectId,
     index,
     onRefresh: forceRefresh
-  });
+  }), [project_participants, groups, projectId, index, forceRefresh]);
+
+  // CRUD operations
+  const crudOperations = useParticipantsCRUD(crudConfig);
 
   // Table UI state
   const tableState = useTableState();
 
-  // Fetch available roles once for all dropdown cells
+  // Optimized available roles fetching with cache
+  const rolesCache = useRef(new Map());
+  
   useEffect(() => {
     const fetchAvailableRoles = async () => {
       if (!projectId) return;
+      
+      // Check cache first
+      if (rolesCache.current.has(projectId)) {
+        setAvailableRoles(rolesCache.current.get(projectId));
+        return;
+      }
       
       setRolesLoading(true);
       try {
         const response = await fetch(`/api/projects/available-roles?projectId=${projectId}`);
         const data = await response.json();
         
-        if (data.success) {
+        if (data.success && data.roles) {
           setAvailableRoles(data.roles);
+          // Cache the roles for this project
+          rolesCache.current.set(projectId, data.roles);
         } else {
           console.error('Failed to fetch available roles:', data.error);
+          setAvailableRoles([]);
         }
       } catch (error) {
         console.error('Error fetching available roles:', error);
+        setAvailableRoles([]);
       } finally {
         setRolesLoading(false);
       }
@@ -105,10 +140,17 @@ const ParticipantsTable = React.memo(({ index }) => {
     fetchAvailableRoles();
   }, [projectId]);
 
-  // Memoized data
-  const data = useMemo(() => project_participants || [], [project_participants]);
+  // Memoized data with additional optimizations
+  const data = useMemo(() => {
+    if (!project_participants || project_participants.length === 0) {
+      return [];
+    }
+    
+    // Add any data transformations here if needed
+    return project_participants;
+  }, [project_participants]);
   
-  // Table columns configuration - memoized for performance with roles data
+  // Table columns configuration - hook must be called at top level
   const columns = useTableColumns(refreshData, availableRoles, rolesLoading);
 
   // Email sending handler
@@ -184,33 +226,50 @@ const ParticipantsTable = React.memo(({ index }) => {
     handleRemoveMany: crudOperations.handleRemoveMany,
   }), [crudOperations, tableState]);
 
-  // Loading state
+  // Early return for loading state - moved after all hooks
   if (loading) {
     return <Loader />;
   }
 
   return (
     <>
-      <DndProvider backend={isMobile ? TouchBackend : HTML5Backend}>
-        <MainCard
-          title={`${tableTitle}s`}
-          content={false}
-          subheader="This section enables the assignment of employees to groups, facilitates data modifications, and allows for the tracking of learning progress."
-        >
-          <ScrollX>
-            <ReactTable
-              columns={columns}
-              data={data}
-              handleCRUD={handleCRUD}
-              csvImportLoading={csvImportLoading}
-              onSelectionChange={tableState.handleSelectionChange}
-              onEmailAccess={tableState.handleEmailAccessDialog}
-              editableRowIndex={tableState.editableRowIndex}
-              setEditableRowIndex={tableState.setEditableRowIndex}
-            />
-          </ScrollX>
-        </MainCard>
-      </DndProvider>
+      <MainCard
+        title={`${tableTitle}s`}
+        content={false}
+        subheader="This section enables the assignment of employees to groups, facilitates data modifications, and allows for the tracking of learning progress."
+        sx={{ 
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          '& .MuiCardContent-root': {
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <Box sx={{ 
+          flex: 1, 
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: 'hidden'
+        }}>
+          <ReactTable
+            columns={columns}
+            data={data}
+            handleCRUD={handleCRUD}
+            csvImportLoading={csvImportLoading}
+            onSelectionChange={tableState.handleSelectionChange}
+            onEmailAccess={tableState.handleEmailAccessDialog}
+            editableRowIndex={tableState.editableRowIndex}
+            setEditableRowIndex={tableState.setEditableRowIndex}
+          />
+        </Box>
+      </MainCard>
 
       {/* Add Participant Dialog */}
       <Dialog

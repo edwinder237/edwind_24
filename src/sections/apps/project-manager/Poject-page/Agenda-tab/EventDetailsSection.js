@@ -28,7 +28,7 @@ const debounce = (func, wait) => {
   };
 };
 
-const EventDetailsSection = ({ selectedDate, selectedEventId, project }) => {
+const EventDetailsSection = ({ selectedDate, selectedEventId, project, availableRoles = [] }) => {
   const dispatch = useDispatch();
   const Project = project || useSelector((state) => state.projects.singleProject);
   const { calendarView } = useSelector((state) => state.calendar);
@@ -167,24 +167,67 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project }) => {
     if (!updatedEvent) return { participants: [], selectedEvent: null };
     
     const { event_attendees, event_groups } = updatedEvent;
-    const eventAttendees = event_attendees || [];
-    const eventGroupParticipants = event_groups?.flatMap(eventGroup => {
-      // Find the actual group data from the project
-      const groupData = Project.groups?.find(g => g.id === eventGroup.groupId);
-      // Extract participants from group data
-      return groupData?.participants?.map(p => ({
-        ...p.participant,
-        // Add attendance status (groups don't have individual attendance tracking)
-        attendance_status: 'scheduled',
-        // Mark as from group for identification
-        fromGroupId: groupData.id,
-        fromGroupName: groupData.groupName
-      })) || [];
-    }) || [];
-    const allParticipants = [...eventAttendees, ...eventGroupParticipants];
+    
+    // Use a Map to track unique participants by their ID
+    const participantMap = new Map();
+    
+    
+    // Add direct event attendees first
+    event_attendees?.forEach(attendee => {
+      if (attendee.enrollee) {
+        const participantId = attendee.enrollee.id || attendee.enrolleeId;
+        if (participantId && !participantMap.has(participantId)) {
+          // Use the role directly from the participant data
+          const participantRole = attendee.enrollee.participant?.role;
+          
+          
+          participantMap.set(participantId, {
+            ...attendee.enrollee, // This contains the participant data
+            role: participantRole, // Include role from participant data
+            attendance_status: attendee.attendance_status, // Include the attendance status from event_attendees
+            id: attendee.id, // Include the event_attendee record ID
+            enrolleeId: attendee.enrolleeId, // Include the enrollee ID for API calls
+            isDirect: true // Mark as direct attendee
+          });
+        }
+      }
+    });
+    
+    // Add participants from groups
+    if (event_groups?.length > 0) {
+      event_groups.forEach(eventGroup => {
+        // Find the full group data from the project
+        const fullGroup = Project.groups?.find(g => g.id === eventGroup.groupId);
+        
+        if (fullGroup?.participants) {
+          fullGroup.participants.forEach(groupParticipant => {
+            const participantId = groupParticipant.participant?.id || groupParticipant.participantId;
+            
+            // Only add if not already in the map (avoid duplicates)
+            if (participantId && !participantMap.has(participantId) && groupParticipant.participant) {
+              // Use the role directly from the participant data
+              const participantRole = groupParticipant.participant.participant?.role;
+              
+              
+              participantMap.set(participantId, {
+                ...groupParticipant.participant.participant, // The actual participant data (nested structure)
+                role: participantRole, // Include role from participant data
+                attendance_status: 'scheduled', // Default status for group members
+                enrolleeId: groupParticipant.participantId, // Use participantId as enrolleeId
+                fromGroup: fullGroup.groupName, // Track which group they're from
+                isDirect: false // Mark as group member
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    // Convert map to array
+    const allParticipants = Array.from(participantMap.values());
     
     return { participants: allParticipants, selectedEvent: updatedEvent };
-  }, [Project?.events, Project?.groups, scheduleState.selectedEvent?.id]);
+  }, [Project?.events, Project?.groups, scheduleState.selectedEvent?.id, availableRoles]);
 
   // Update participants when project data changes
   useEffect(() => {
@@ -212,23 +255,63 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project }) => {
 
     const { eventType, course, event_attendees, event_groups } = selectedEvent;
 
-    // Get participants from attendees and groups
-    const eventAttendees = event_attendees || [];
-    const eventGroupParticipants = event_groups?.flatMap(eventGroup => {
-      // Find the actual group data from the project
-      const groupData = Project.groups?.find(g => g.id === eventGroup.groupId);
-      // Extract participants from group data
-      return groupData?.participants?.map(p => ({
-        ...p.participant,
-        // Add attendance status (groups don't have individual attendance tracking)
-        attendance_status: 'scheduled',
-        // Mark as from group for identification
-        fromGroupId: groupData.id,
-        fromGroupName: groupData.groupName
-      })) || [];
-    }) || [];
+    // Use a Map to track unique participants by their ID
+    const participantMap = new Map();
     
-    const allParticipants = [...eventAttendees, ...eventGroupParticipants];
+    // Add direct event attendees first
+    event_attendees?.forEach(attendee => {
+      if (attendee.enrollee) {
+        const participantId = attendee.enrollee.id || attendee.enrolleeId;
+        if (participantId && !participantMap.has(participantId)) {
+          // Find the role using roleId
+          const participantRole = availableRoles.find(role => 
+            role.id === attendee.enrollee.roleId
+          );
+          
+          participantMap.set(participantId, {
+            ...attendee.enrollee, // This contains the participant data
+            role: participantRole, // Include role from availableRoles lookup
+            attendance_status: attendee.attendance_status, // Include the attendance status from event_attendees
+            id: attendee.id, // Include the event_attendee record ID
+            enrolleeId: attendee.enrolleeId, // Include the enrollee ID for API calls
+            isDirect: true // Mark as direct attendee
+          });
+        }
+      }
+    });
+    
+    // Add participants from groups
+    if (event_groups?.length > 0) {
+      event_groups.forEach(eventGroup => {
+        // Find the full group data from the project
+        const fullGroup = Project.groups?.find(g => g.id === eventGroup.groupId);
+        
+        if (fullGroup?.participants) {
+          fullGroup.participants.forEach(groupParticipant => {
+            const participantId = groupParticipant.participant?.id || groupParticipant.participantId;
+            
+            // Only add if not already in the map (avoid duplicates)
+            if (participantId && !participantMap.has(participantId) && groupParticipant.participant) {
+              // Use the role directly from the participant data
+              const participantRole = groupParticipant.participant.participant?.role;
+              
+              
+              participantMap.set(participantId, {
+                ...groupParticipant.participant.participant, // The actual participant data (nested structure)
+                role: participantRole, // Include role from participant data
+                attendance_status: 'scheduled', // Default status for group members
+                enrolleeId: groupParticipant.participantId, // Use participantId as enrolleeId
+                fromGroup: fullGroup.groupName, // Track which group they're from
+                isDirect: false // Mark as group member
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    // Convert map to array
+    const allParticipants = Array.from(participantMap.values());
 
     const baseState = {
       selectedEvent: selectedEvent,
@@ -273,7 +356,7 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project }) => {
         }));
         break;
     }
-  }, [Project?.events, Project?.groups]);
+  }, [Project?.events, Project?.groups, availableRoles]);
 
   // Handle selectedEventId changes from parent component
   useEffect(() => {

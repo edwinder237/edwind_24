@@ -275,12 +275,12 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
     setConflictingEvents(conflicts.map(e => e.id));
   }, [localEvents, detectConflicts]);
 
-  // Load groups when component mounts or project changes
+  // Load groups when component mounts or project changes (with guard to prevent repeated calls)
   useEffect(() => {
-    if (project?.id) {
+    if (project?.id && (!project.groups || project.groups.length === 0)) {
       dispatch(getGroupsDetails(project.id));
     }
-  }, [project?.id, dispatch]);
+  }, [project?.id, project?.groups?.length, dispatch]);
 
   // Update local events when props change
   React.useEffect(() => {
@@ -300,29 +300,105 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
 
   // Group events by day
   const eventsByDay = useMemo(() => {
+    // First, determine the project's date range
+    const projectStartDate = project?.startDate ? new Date(project.startDate) : null;
+    const projectEndDate = project?.endDate ? new Date(project.endDate) : null;
+    const projectDuration = project?.duration || 5; // Default to 5 days if no duration specified
+    
+    // Calculate all days in the project range
+    const allDays = [];
+    
+    // Check multiple possible locations for project dates
+    const settings = project?.project_settings;
+    const settingsStartDate = settings?.startDate ? new Date(settings.startDate) : null;
+    const settingsEndDate = settings?.endDate ? new Date(settings.endDate) : null;
+    
+    if (projectStartDate && projectEndDate) {
+      // Use explicit start and end dates from project
+      const currentDate = new Date(projectStartDate);
+      while (currentDate <= projectEndDate) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else if (settingsStartDate && settingsEndDate) {
+      // Use dates from project settings
+      const currentDate = new Date(settingsStartDate);
+      while (currentDate <= settingsEndDate) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else if (projectStartDate && projectDuration) {
+      // Use start date + duration from project
+      const currentDate = new Date(projectStartDate);
+      for (let i = 0; i < projectDuration; i++) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else if (settingsStartDate && projectDuration) {
+      // Use start date from settings + duration from project
+      const currentDate = new Date(settingsStartDate);
+      for (let i = 0; i < projectDuration; i++) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else if (localEvents.length > 0) {
+      // Fallback: use event dates if no project dates available
+      const sortedEvents = [...localEvents].sort((a, b) => new Date(a.start) - new Date(b.start));
+      const firstEventDate = new Date(sortedEvents[0].start);
+      const lastEventDate = new Date(sortedEvents[sortedEvents.length - 1].start);
+      
+      const currentDate = new Date(firstEventDate);
+      while (currentDate <= lastEventDate) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else {
+      // Final fallback: create days based on duration starting from today
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+      for (let i = 0; i < projectDuration; i++) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    // Group events by day
     const grouped = {};
     const sortedEvents = [...localEvents].sort((a, b) => new Date(a.start) - new Date(b.start));
-
+    
+    // Initialize all days with empty events array
+    allDays.forEach(date => {
+      const dayKey = date.toDateString();
+      grouped[dayKey] = {
+        date: new Date(date),
+        events: []
+      };
+    });
+    
+    // Add events to their respective days
     sortedEvents.forEach(event => {
       const date = new Date(event.start);
       const dayKey = date.toDateString();
-      if (!grouped[dayKey]) {
-        grouped[dayKey] = {
-          date,
-          events: []
-        };
+      if (grouped[dayKey]) {
+        grouped[dayKey].events.push(event);
       }
-      grouped[dayKey].events.push(event);
     });
 
     // Convert to array and add day numbers
-    return Object.values(grouped).map((day, index) => ({
-      ...day,
-      dayNumber: index + 1,
-      isToday: new Date().toDateString() === day.date.toDateString(),
-      isPast: day.date < new Date() && !day.isToday
-    }));
-  }, [localEvents]);
+    const result = allDays.map((date, index) => {
+      const dayKey = date.toDateString();
+      const day = grouped[dayKey];
+      return {
+        ...day,
+        dayNumber: index + 1,
+        isToday: new Date().toDateString() === dayKey,
+        isPast: day.date < new Date() && new Date().toDateString() !== dayKey
+      };
+    });
+    
+    
+    return result;
+  }, [localEvents, project?.startDate, project?.endDate, project?.duration, project?.project_settings]);
 
   // Set only today's events as expanded by default on first load and scroll to today
   React.useEffect(() => {
@@ -860,7 +936,7 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
   };
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', pl: 2,pr: 2 }}>
+    <Box sx={{ width: '100%', pl: 2, pr: 2 }}>
       <MainCard
         title="Agenda"
         secondary={

@@ -47,6 +47,7 @@ import MainCard from "components/MainCard";
 import { openSnackbar } from "store/reducers/snackbar";
 import ColorPalette from "../ColorPalette";
 import TransferLists from "./transferLists";
+import { PARTICIPANT_STATUS } from "constants/index";
 
 // assets
 import {
@@ -75,7 +76,7 @@ const getInitialValues = (customer) => {
 };
 // Removed hardcoded roles - will fetch from API
 const filter = createFilterOptions();
-const allStatus = ["Active", "LOA", "Terminated"];
+const allStatus = [PARTICIPANT_STATUS.ACTIVE, PARTICIPANT_STATUS.LOA, PARTICIPANT_STATUS.TERMINATED];
 
 
 

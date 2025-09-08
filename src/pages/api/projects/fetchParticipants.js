@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from '../../../lib/prisma';
 
 export default async function handler(req, res) {
   const { projectId } = req.body;
@@ -34,9 +32,10 @@ export default async function handler(req, res) {
 
     res.status(200).json(projectParticipants);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await prisma.$disconnect();
+    console.error('[fetchParticipants] Error:', error);
+    res.status(500).json({ 
+      error: "Internal Server Error",
+      ...(process.env.NODE_ENV === 'development' && { details: error.message })
+    });
   }
 }

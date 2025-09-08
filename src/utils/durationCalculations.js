@@ -24,31 +24,35 @@ export const calculateModuleDurationFromActivities = (module) => {
 /**
  * Get the display duration for a module (uses customDuration if set, otherwise calculated)
  * @param {Object} module - Module object
- * @returns {number} Duration in minutes
+ * @returns {number} Duration in minutes (no default, returns 0 if no duration)
  */
 export const getModuleDisplayDuration = (module) => {
   if (!module) return 0;
-  const calculatedDuration = calculateModuleDurationFromActivities(module);
-  return module.customDuration || calculatedDuration;
+  // Always calculate duration from activities - ignore incorrect customDuration values
+  return calculateModuleDurationFromActivities(module);
 };
 
 /**
  * Calculate total duration of a course from its modules
  * @param {Array} modules - Array of module objects
- * @returns {number} Total duration in minutes
+ * @returns {number} Total duration in minutes (defaults to 60 if no module durations)
  */
 export const calculateCourseDurationFromModules = (modules) => {
-  if (!modules || modules.length === 0) return 0;
-  return modules.reduce((acc, module) => acc + getModuleDisplayDuration(module), 0);
+  if (!modules || modules.length === 0) return 60;
+  
+  const totalDuration = modules.reduce((acc, module) => acc + getModuleDisplayDuration(module), 0);
+  
+  // If no modules have duration, default to 60 minutes
+  return totalDuration > 0 ? totalDuration : 60;
 };
 
 /**
  * Calculate total duration of a course from a course object with modules
  * @param {Object} course - Course object with modules array
- * @returns {number} Total duration in minutes
+ * @returns {number} Total duration in minutes (defaults to 60 if no module durations)
  */
 export const getCourseTotalDuration = (course) => {
-  if (!course?.modules) return 0;
+  if (!course?.modules) return 60;
   return calculateCourseDurationFromModules(course.modules);
 };
 

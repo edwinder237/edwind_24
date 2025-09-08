@@ -200,8 +200,26 @@ const GoogleMaps = React.memo(({ formik, disabled, handleLocationChange }) => {
       if (active) {
         setIsLoading(false);
         if (error) {
-          setError(`Failed to fetch suggestions: ${error}`);
-          return;
+          // Handle specific Google Maps API statuses
+          if (error === 'ZERO_RESULTS') {
+            // Don't show error for no results, just clear options
+            let newOptions = [];
+            if (value) {
+              newOptions = [value];
+            }
+            setOptions(newOptions);
+            setError(null);
+            return;
+          } else if (error === 'OVER_QUERY_LIMIT') {
+            setError('Search limit reached. Please try again in a moment.');
+            return;
+          } else if (error === 'REQUEST_DENIED') {
+            setError('Location search is not available. Please check API configuration.');
+            return;
+          } else {
+            setError(`Location search error: ${error}`);
+            return;
+          }
         }
         
         let newOptions = [];
@@ -334,7 +352,13 @@ const GoogleMaps = React.memo(({ formik, disabled, handleLocationChange }) => {
           {...params}
           placeholder="Search your company address"
           fullWidth
-          helperText={isLoading ? "Searching locations..." : ""}
+          helperText={
+            isLoading 
+              ? "Searching locations..." 
+              : inputValue && options.length === 0 && !error 
+                ? "No locations found. Try a different search term."
+                : ""
+          }
         />
       )}
       renderOption={(props, option) => {

@@ -825,75 +825,72 @@ const CourseSyllabus = ({ course, modules }) => {
                 )}
               </Stack>
               
-              <List sx={{ p: 0 }}>
+              <Stack spacing={1}>
                 {prerequisites.map((req, index) => (
-                  <ListItem key={index} sx={{ px: 0, py: 0.5 }}>
-                    <ListItemIcon sx={{ minWidth: 24 }}>
-                      <Box 
-                        sx={{ 
-                          width: 6, 
-                          height: 6, 
-                          borderRadius: '50%', 
-                          bgcolor: theme.palette.primary.main 
-                        }} 
-                      />
-                    </ListItemIcon>
-                    {editingPrerequisite === index ? (
-                      <TextField
-                        fullWidth
-                        value={editPrerequisiteText}
-                        onChange={(e) => setEditPrerequisiteText(e.target.value)}
-                        variant="outlined"
-                        size="small"
-                        onKeyPress={(e) => e.key === 'Enter' && handleSavePrerequisiteEdit()}
-                        autoFocus
-                      />
-                    ) : (
-                      <ListItemText 
-                        primary={req}
-                        primaryTypographyProps={{ variant: 'body2', lineHeight: 1.5 }}
-                      />
-                    )}
-                    <ListItemSecondaryAction>
+                  <Box key={index} sx={{ position: 'relative', '&:hover .prerequisite-actions': { opacity: 1 } }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ py: 0.5 }}>
                       {editingPrerequisite === index ? (
-                        <Stack direction="row" spacing={1}>
-                          <IconButton
-                            size="small"
-                            onClick={handleSavePrerequisiteEdit}
-                            color="primary"
-                          >
-                            <SaveOutlined />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={handleCancelPrerequisiteEdit}
-                            color="secondary"
-                          >
-                            <CloseOutlined />
-                          </IconButton>
-                        </Stack>
+                        <TextField
+                          fullWidth
+                          value={editPrerequisiteText}
+                          onChange={(e) => setEditPrerequisiteText(e.target.value)}
+                          variant="outlined"
+                          size="small"
+                          onKeyPress={(e) => e.key === 'Enter' && handleSavePrerequisiteEdit()}
+                          autoFocus
+                          sx={{ mr: 2 }}
+                        />
                       ) : (
-                        <Stack direction="row" spacing={1}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditPrerequisite(index)}
-                            color="primary"
-                          >
-                            <EditOutlined />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleDeletePrerequisiteClick(e, index)}
-                            color="error"
-                          >
-                            <DeleteOutlined />
-                          </IconButton>
-                        </Stack>
+                        <Typography variant="body2" sx={{ lineHeight: 1.5, flexGrow: 1 }}>
+                          {req}
+                        </Typography>
                       )}
-                    </ListItemSecondaryAction>
-                  </ListItem>
+                      <Stack direction="row" spacing={1}>
+                        {editingPrerequisite === index ? (
+                          <>
+                            <IconButton
+                              size="small"
+                              onClick={handleSavePrerequisiteEdit}
+                              color="primary"
+                            >
+                              <SaveOutlined />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={handleCancelPrerequisiteEdit}
+                              color="secondary"
+                            >
+                              <CloseOutlined />
+                            </IconButton>
+                          </>
+                        ) : (
+                          <Stack 
+                            direction="row" 
+                            spacing={1}
+                            className="prerequisite-actions"
+                            sx={{ opacity: 0, transition: 'opacity 0.2s' }}
+                          >
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditPrerequisite(index)}
+                              color="primary"
+                            >
+                              <EditOutlined />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => handleDeletePrerequisiteClick(e, index)}
+                              color="error"
+                            >
+                              <DeleteOutlined />
+                            </IconButton>
+                          </Stack>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </Box>
                 ))}
-              </List>
+              </Stack>
 
               {/* Add new prerequisite */}
               {showAddPrerequisiteField && (
@@ -1134,43 +1131,35 @@ const CourseSyllabus = ({ course, modules }) => {
                 <Stack spacing={1}>
                   {roleAssignments.map((assignment) => (
                     <Box key={assignment.id} sx={{ position: 'relative', '&:hover .role-actions': { opacity: 1 } }}>
-                      <ListItem sx={{ px: 0, py: 1 }}>
-                        <ListItemIcon sx={{ minWidth: 24 }}>
-                          <Box 
-                            sx={{ 
-                              width: 6, 
-                              height: 6, 
-                              borderRadius: '50%', 
-                              bgcolor: assignment.isRequired ? theme.palette.error.main : theme.palette.info.main 
-                            }} 
-                          />
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary={assignment.role.title}
-                          secondary={assignment.role.description || 'No description available'}
-                        />
-                        <ListItemSecondaryAction>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            {assignment.isRequired && (
-                              <Chip 
-                                label="Required" 
-                                size="small" 
-                                color="error" 
-                                variant="outlined" 
-                              />
-                            )}
-                            <IconButton
-                              size="small"
-                              onClick={(e) => handleDeleteRoleClick(e, assignment.id)}
-                              color="error"
-                              className="role-actions"
-                              sx={{ opacity: 0, transition: 'opacity 0.2s' }}
-                            >
-                              <DeleteOutlined />
-                            </IconButton>
-                          </Stack>
-                        </ListItemSecondaryAction>
-                      </ListItem>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ py: 1 }}>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {assignment.role.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {assignment.role.description || 'No description available'}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {assignment.isRequired && (
+                            <Chip 
+                              label="Required" 
+                              size="small" 
+                              color="error" 
+                              variant="outlined" 
+                            />
+                          )}
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleDeleteRoleClick(e, assignment.id)}
+                            color="error"
+                            className="role-actions"
+                            sx={{ opacity: 0, transition: 'opacity 0.2s' }}
+                          >
+                            <DeleteOutlined />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
                     </Box>
                   ))}
 

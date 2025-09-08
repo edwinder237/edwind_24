@@ -77,204 +77,214 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
     <ElevationScroll layout={layout} {...others}>
       <AppBar sx={{ bgcolor: '#1a1a1a', color: 'white', boxShadow: 'none', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <Container maxWidth={false} sx={{ px: 3 }}>
-          <Toolbar sx={{ px: 0, py: 0, minHeight: HEADER_HEIGHT, justifyContent: 'space-between' }}>
-            <Stack direction="row" alignItems="center" spacing={1}>
+          <Toolbar sx={{ px: 0, py: 0, minHeight: HEADER_HEIGHT }}>
+            {/* Logo - Always visible */}
+            <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <img 
                 src="/assets/images/logos/edwind-color-logo.png" 
                 alt="EDWIND" 
                 style={{ height: '40px', width: 'auto' }}
               />
-            </Stack>
-            <Stack
-              direction="row"
-              alignItems="center"
-              sx={{
-                '& .header-link': { 
-                  px: 2, 
-                  py: 1,
-                  fontSize: '0.95rem',
-                  fontWeight: 500,
-                  color: 'rgba(255,255,255,0.8)',
-                  textDecoration: 'none',
-                  borderRadius: 1,
-                  transition: 'all 0.2s',
-                  '&:hover': { 
-                    color: 'white',
-                    bgcolor: 'rgba(255,255,255,0.1)'
-                  } 
-                },
-                display: { xs: 'none', md: 'flex' }
-              }}
-              spacing={0.5}
-            >
-              <Link 
-                href="#features" 
-                className="header-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                Features
-              </Link>
-              <Link 
-                href="#pricing" 
-                className="header-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                Pricing
-              </Link>
-              <Link 
-                href="#demo" 
-                className="header-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                Demo
-              </Link>
-              <Link 
-                href="#contact" 
-                className="header-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                Contact
-              </Link>
-              <Box sx={{ ml: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
-                <AnimateButton>
-                  <Button
-                    variant="contained"
-                    size="medium"
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/auth/signin-url');
-                        const data = await response.json();
-                        if (data.url) {
-                          window.location.href = data.url;
-                        }
-                      } catch (error) {
-                        console.error('Error redirecting to sign-in:', error);
-                      }
-                    }}
-                    sx={{ 
-                      backgroundColor: '#1976d2',
-                      color: 'white',
-                      fontWeight: 500,
-                      minWidth: '100px',
-                      height: '40px',
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      '&:hover': {
-                        backgroundColor: '#1565c0'
-                      }
-                    }}
-                  >
-                    Login
-                  </Button>
-                </AnimateButton>
-                <AnimateButton>
-                  <Button
-                    variant="outlined"
-                    size="medium"
-                    onClick={async () => {
-                      try {
-                        // WorkOS uses the same auth endpoint for both login and signup
-                        const response = await fetch('/api/auth/signin-url');
-                        const data = await response.json();
-                        if (data.url) {
-                          window.location.href = data.url;
-                        }
-                      } catch (error) {
-                        console.error('Error redirecting to sign-up:', error);
-                      }
-                    }}
-                    sx={{ 
-                      borderColor: '#1976d2',
-                      color: '#1976d2',
-                      fontWeight: 500,
-                      minWidth: '100px',
-                      height: '40px',
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      '&:hover': {
-                        borderColor: '#1565c0',
-                        backgroundColor: 'rgba(25, 118, 210, 0.04)'
-                      }
-                    }}
-                  >
-                    Sign Up
-                  </Button>
-                </AnimateButton>
-              </Box>
-            </Stack>
-            <Box
-              sx={{
-                width: '100%',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                display: { xs: 'flex', md: 'none' }
-              }}
-            >
-              <Typography component="div" sx={{ textAlign: 'left', display: 'inline-block' }}>
-                <Logo reverse to="/projects" sx={{ '& svg': { height: 32, width: 'auto' } }} />
-              </Typography>
-              <Stack direction="row" spacing={1}>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
-                  onClick={async () => {
-                    try {
-                      const response = await fetch('/api/auth/signin-url');
-                      const data = await response.json();
-                      if (data.url) {
-                        window.location.href = data.url;
-                      }
-                    } catch (error) {
-                      console.error('Error redirecting to sign-in:', error);
-                    }
-                  }}
-                  sx={{ mt: 0.5, height: 28, borderColor: '#1976d2', color: '#1976d2' }}
-                >
-                  Login
-                </Button>
-                <Button 
-                  variant="contained" 
-                  size="small" 
-                  onClick={async () => {
-                    try {
-                      const response = await fetch('/api/auth/signin-url');
-                      const data = await response.json();
-                      if (data.url) {
-                        window.location.href = data.url;
-                      }
-                    } catch (error) {
-                      console.error('Error redirecting to sign-up:', error);
-                    }
-                  }}
-                  sx={{ mt: 0.5, height: 28, backgroundColor: '#1976d2', color: 'white', '&:hover': { backgroundColor: '#1565c0' } }}
-                >
-                  Sign Up
-                </Button>
+            </Box>
 
-                <IconButton
-                  {...(layout === 'component' ? { onClick: handleDrawerOpen } : { onClick: drawerToggler(true) })}
-                  sx={{ 
-                    color: '#9c27b0',
+            {/* Desktop Navigation */}
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', ml: 'auto' }}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                sx={{
+                  '& .header-link': { 
+                    px: 2, 
+                    py: 1,
+                    fontSize: '0.95rem',
+                    fontWeight: 500,
+                    color: 'rgba(255,255,255,0.8)',
+                    textDecoration: 'none',
+                    borderRadius: 1,
+                    transition: 'all 0.2s',
                     '&:hover': { 
-                      bgcolor: theme.palette.mode === ThemeMode.DARK ? 'rgba(156, 39, 176, 0.08)' : 'rgba(156, 39, 176, 0.12)' 
+                      color: 'white',
+                      bgcolor: 'rgba(255,255,255,0.1)'
                     } 
+                  }
+                }}
+                spacing={0.5}
+              >
+                <Link 
+                  href="#features" 
+                  className="header-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
                   }}
                 >
-                  <MenuOutlined style={{ color: theme.palette.mode === ThemeMode.DARK ? 'inherit' : '#f5f5f5' }} />
-                </IconButton>
+                  Features
+                </Link>
+                <Link 
+                  href="#pricing" 
+                  className="header-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  Pricing
+                </Link>
+                <Link 
+                  href="#demo" 
+                  className="header-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  Demo
+                </Link>
+                <Link 
+                  href="#contact" 
+                  className="header-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  Contact
+                </Link>
+                <Box sx={{ ml: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <AnimateButton>
+                    <Button
+                      variant="contained"
+                      size="medium"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/auth/signin-url');
+                          const data = await response.json();
+                          if (data.url) {
+                            window.location.href = data.url;
+                          }
+                        } catch (error) {
+                          console.error('Error redirecting to sign-in:', error);
+                        }
+                      }}
+                      sx={{ 
+                        backgroundColor: '#1976d2',
+                        color: 'white',
+                        fontWeight: 500,
+                        minWidth: '100px',
+                        height: '40px',
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        '&:hover': {
+                          backgroundColor: '#1565c0'
+                        }
+                      }}
+                    >
+                      Login
+                    </Button>
+                  </AnimateButton>
+                  <AnimateButton>
+                    <Button
+                      variant="outlined"
+                      size="medium"
+                      onClick={async () => {
+                        try {
+                          // WorkOS uses the same auth endpoint for both login and signup
+                          const response = await fetch('/api/auth/signin-url');
+                          const data = await response.json();
+                          if (data.url) {
+                            window.location.href = data.url;
+                          }
+                        } catch (error) {
+                          console.error('Error redirecting to sign-up:', error);
+                        }
+                      }}
+                      sx={{ 
+                        borderColor: '#1976d2',
+                        color: '#1976d2',
+                        fontWeight: 500,
+                        minWidth: '100px',
+                        height: '40px',
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        '&:hover': {
+                          borderColor: '#1565c0',
+                          backgroundColor: 'rgba(25, 118, 210, 0.04)'
+                        }
+                      }}
+                    >
+                      Sign Up
+                    </Button>
+                  </AnimateButton>
+                </Box>
               </Stack>
+            </Box>
+
+            {/* Mobile Navigation */}
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', ml: 'auto', gap: 1 }}>
+              <Button 
+                variant="outlined" 
+                size="small" 
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/auth/signin-url');
+                    const data = await response.json();
+                    if (data.url) {
+                      window.location.href = data.url;
+                    }
+                  } catch (error) {
+                    console.error('Error redirecting to sign-in:', error);
+                  }
+                }}
+                sx={{ 
+                  height: 32, 
+                  minWidth: '60px',
+                  fontSize: '0.8rem',
+                  borderColor: '#1976d2', 
+                  color: '#1976d2',
+                  px: 1.5
+                }}
+              >
+                Login
+              </Button>
+              <Button 
+                variant="contained" 
+                size="small" 
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/auth/signin-url');
+                    const data = await response.json();
+                    if (data.url) {
+                      window.location.href = data.url;
+                    }
+                  } catch (error) {
+                    console.error('Error redirecting to sign-up:', error);
+                  }
+                }}
+                sx={{ 
+                  height: 32, 
+                  minWidth: '60px',
+                  fontSize: '0.8rem',
+                  backgroundColor: '#1976d2', 
+                  color: 'white', 
+                  px: 1.5,
+                  '&:hover': { backgroundColor: '#1565c0' } 
+                }}
+              >
+                Sign Up
+              </Button>
+
+              <IconButton
+                {...(layout === 'component' ? { onClick: handleDrawerOpen } : { onClick: drawerToggler(true) })}
+                sx={{ 
+                  color: 'white',
+                  ml: 0.5,
+                  '&:hover': { 
+                    bgcolor: 'rgba(255,255,255,0.1)' 
+                  } 
+                }}
+              >
+                <MenuOutlined />
+              </IconButton>
               <Drawer
                 anchor="top"
                 open={drawerToggle}

@@ -13,8 +13,10 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import MainCard from "components/MainCard";
+import { PROJECT_STATUS } from "constants";
 import { useSelector, useDispatch } from "store";
 import { openSnackbar } from 'store/reducers/snackbar';
+import { updateProject } from 'store/reducers/projects';
 import { CalendarOutlined, DashboardOutlined } from "@ant-design/icons";
 
 // ==============================|| PROJECT DASHBOARD ||============================== //
@@ -29,13 +31,7 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
   const statusMenuOpen = Boolean(statusMenuAnchor);
   
   // Available project statuses
-  const projectStatuses = [
-    'Planning',
-    'Active',
-    'On Hold',
-    'Completed',
-    'Cancelled'
-  ];
+  const projectStatuses = Object.values(PROJECT_STATUS);
 
   // Handle status menu open
   const handleStatusMenuOpen = (event) => {
@@ -62,6 +58,10 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
       });
 
       if (response.ok) {
+        // Update project in Redux store
+        const updatedProject = { ...project, projectStatus: newStatus };
+        dispatch(updateProject(updatedProject));
+        
         // Show success notification
         dispatch(openSnackbar({
           open: true,
@@ -73,8 +73,8 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
           close: true
         }));
 
-        // Refresh the page to update the status
-        window.location.reload();
+        // Close the status menu
+        handleStatusMenuClose();
       } else {
         throw new Error('Failed to update status');
       }

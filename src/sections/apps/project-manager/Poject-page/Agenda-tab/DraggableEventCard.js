@@ -43,6 +43,7 @@ import {
   ArrowBack,
   Palette,
   Add,
+  Remove,
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
 import { useDispatch, useSelector } from 'store';
@@ -138,6 +139,35 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
     
     return currentDateString !== earliestDateString;
   }, [allEvents, event.start]);
+
+  // Calculate total unique participant count (avoiding duplicates)
+  const totalParticipantCount = useMemo(() => {
+    const uniqueParticipants = new Set();
+    
+    // Add direct attendees
+    if (event.event_attendees?.length > 0) {
+      event.event_attendees.forEach(attendee => {
+        if (attendee.enrolleeId) {
+          uniqueParticipants.add(attendee.enrolleeId);
+        }
+      });
+    }
+    
+    // Add participants from groups (avoiding duplicates)
+    if (event.event_groups?.length > 0) {
+      event.event_groups.forEach(eventGroup => {
+        if (eventGroup.groups?.participants) {
+          eventGroup.groups.participants.forEach(participant => {
+            if (participant.participantId) {
+              uniqueParticipants.add(participant.participantId);
+            }
+          });
+        }
+      });
+    }
+    
+    return uniqueParticipants.size;
+  }, [event.event_attendees, event.event_groups]);
 
   const handleMenuOpen = (event) => {
     event.stopPropagation();
@@ -292,9 +322,20 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         throw new Error('Failed to assign group to event');
       }
 
-      // Refresh events to show the update
+      // Update the local event state immediately for instant UI feedback
+      const selectedGroup = groups.find(g => g.id === parseInt(groupId));
+      if (onEventUpdate && selectedGroup) {
+        const updatedEventData = {
+          event_groups: [{
+            groups: selectedGroup
+          }]
+        };
+        onEventUpdate(event.id, updatedEventData);
+      }
+
+      // Refresh events in background to ensure consistency with database
       if (project?.id) {
-        await dispatch(getEvents(project.id));
+        dispatch(getEvents(project.id));
       }
 
       dispatch(
@@ -484,6 +525,65 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
     handleGroupDropdownClose();
   };
 
+  // Handle group removal
+  const handleRemoveGroup = async () => {
+    try {
+      // Update the event to remove all group assignments
+      const response = await fetch('/api/calendar/db-update-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: event.id,
+          event: {
+            ...event,
+            selectedGroups: [] // Remove all groups
+          }
+        })
+      });
+
+      if (response.ok) {
+        // Update the local event state immediately for instant UI feedback
+        if (onEventUpdate) {
+          const updatedEventData = {
+            event_groups: [] // Remove all groups
+          };
+          onEventUpdate(event.id, updatedEventData);
+        }
+        
+        // Refresh data in background to ensure consistency with database
+        if (project?.id) {
+          Promise.all([
+            dispatch(getSingleProject(project.id)),
+            dispatch(getEvents(project.id)),
+            dispatch(getGroupsDetails(project.id))
+          ]);
+        }
+        
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Group removed from event successfully',
+            variant: 'alert',
+            alert: { color: 'success' },
+            close: false
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error removing group from event:', error);
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Failed to remove group from event',
+          variant: 'alert',
+          alert: { color: 'error' },
+          close: false
+        })
+      );
+    }
+    handleGroupDropdownClose();
+  };
+
   const getEventTypeColor = (event) => {
     // Use event color from database if available, otherwise fall back to type-based colors
     if (event.color) return event.color;
@@ -599,11 +699,11 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                 </Stack>
               )}
 
-              {event.event_attendees && event.event_attendees.length > 0 && (
+              {totalParticipantCount > 0 && (
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <Group sx={{ fontSize: 16, color: 'text.secondary' }} />
                   <Typography variant="body2" color="text.secondary">
-                    {event.event_attendees.length} participants
+                    {totalParticipantCount} participant{totalParticipantCount !== 1 ? 's' : ''}
                   </Typography>
                 </Stack>
               )}
@@ -944,11 +1044,6 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
           </Grid>
         </Popover>
 
-        {event.description && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            {event.description}
-          </Typography>
-        )}
 
         {/* Time Edit Section */}
         <Collapse in={isEditingTime} timeout={300}>
@@ -1240,39 +1335,78 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
             }
             
             // Show groups list
-            return groups.map((group) => (
-              <MenuItem
-                key={group.id}
-                onClick={() => handleGroupChange(group.id)}
-                sx={{
-                  borderRadius: 1,
-                  mx: 0.5,
-                  my: 0.25,
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.primary.main, 0.1)
-                  }
-                }}
-              >
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
-                  <Box
+            const menuItems = [
+              // Add remove group option at the top if event has groups
+              ...(event.event_groups && event.event_groups.length > 0 ? [{
+                id: 'remove',
+                isRemove: true
+              }] : []),
+              // Add all available groups
+              ...groups.map(group => ({ ...group, isRemove: false }))
+            ];
+
+            return menuItems.map((item, index) => {
+              if (item.isRemove) {
+                return (
+                  <React.Fragment key="remove-group-fragment">
+                    <MenuItem
+                      onClick={handleRemoveGroup}
+                      sx={{
+                        borderRadius: 1,
+                        mx: 0.5,
+                        my: 0.25,
+                        color: 'error.main',
+                        '&:hover': {
+                          backgroundColor: alpha(theme.palette.error.main, 0.1)
+                        }
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                        <Remove sx={{ fontSize: 16, color: 'error.main' }} />
+                        <Typography variant="body2" fontWeight={500} color="error.main">
+                          Remove Group
+                        </Typography>
+                      </Stack>
+                    </MenuItem>
+                    <Divider sx={{ my: 0.5 }} />
+                  </React.Fragment>
+                );
+              } else {
+                return (
+                  <MenuItem
+                    key={item.id}
+                    onClick={() => handleGroupChange(item.id)}
                     sx={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: '50%',
-                      backgroundColor: group.chipColor || theme.palette.primary.main
+                      borderRadius: 1,
+                      mx: 0.5,
+                      my: 0.25,
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1)
+                      }
                     }}
-                  />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" fontWeight={500}>
-                      {group.groupName || `Group ${group.id}`}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {group.participants?.length || 0} participants
-                    </Typography>
-                  </Box>
-                </Stack>
-              </MenuItem>
-            ));
+                  >
+                    <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          backgroundColor: item.chipColor || theme.palette.primary.main
+                        }}
+                      />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          {item.groupName || `Group ${item.id}`}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.participants?.length || 0} participants
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </MenuItem>
+                );
+              }
+            });
           })()}
         </Box>
       </Box>

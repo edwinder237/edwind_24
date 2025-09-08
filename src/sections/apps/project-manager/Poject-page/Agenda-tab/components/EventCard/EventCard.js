@@ -70,6 +70,34 @@ const EventCard = React.memo(({
     return colorOption || COLOR_OPTIONS[0];
   }, [event.color]);
 
+  // Calculate total participant count including those from groups, avoiding duplicates
+  const totalParticipantCount = useMemo(() => {
+    // Use a Set to track unique participant IDs
+    const uniqueParticipantIds = new Set();
+    
+    // Add direct event participants
+    if (event.participants?.length > 0) {
+      event.participants.forEach(participant => {
+        const id = participant.id || participant.participantId;
+        if (id) uniqueParticipantIds.add(id);
+      });
+    }
+    
+    // Add participants from groups
+    if (event.groups?.length > 0) {
+      event.groups.forEach(group => {
+        if (group.participants?.length > 0) {
+          group.participants.forEach(participant => {
+            const id = participant.participant?.id || participant.participantId;
+            if (id) uniqueParticipantIds.add(id);
+          });
+        }
+      });
+    }
+    
+    return uniqueParticipantIds.size;
+  }, [event.participants, event.groups]);
+
   // Event handlers
   const handleClick = useCallback((e) => {
     e.stopPropagation();
@@ -165,7 +193,7 @@ const EventCard = React.memo(({
               }}
               noWrap
             >
-              {"event.title "|| 'Untitled Event'}
+              {event.title || 'Untitled Event'}
             </Typography>
             
             <IconButton
@@ -205,18 +233,16 @@ const EventCard = React.memo(({
               )}
 
               {/* Participants/Groups info */}
-              {(event.participants?.length > 0 || event.groups?.length > 0) && (
+              {(totalParticipantCount > 0 || event.groups?.length > 0) && (
                 <Stack direction="row" alignItems="center" spacing={1}>
-                  {event.groups?.length > 0 ? (
-                    <Group sx={{ fontSize: '1rem', color: theme.palette.text.secondary }} />
-                  ) : (
-                    <Person sx={{ fontSize: '1rem', color: theme.palette.text.secondary }} />
-                  )}
+                  <Group sx={{ fontSize: '1rem', color: theme.palette.text.secondary }} />
                   <Typography variant="body2" color="text.secondary">
-                    {event.groups?.length > 0 
-                      ? `${event.groups.length} group(s)`
-                      : `${event.participants?.length || 0} participant(s)`
-                    }
+                    {totalParticipantCount} participant{totalParticipantCount !== 1 ? 's' : ''}
+                    {event.groups?.length > 0 && (
+                      <span style={{ marginLeft: 4 }}>
+                        ({event.groups.map(g => g.name || 'Group').join(', ')})
+                      </span>
+                    )}
                   </Typography>
                 </Stack>
               )}

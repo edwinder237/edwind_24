@@ -19,9 +19,9 @@ const SettingsContent = ({
   onUpdateField,
   onToggleWorkingDay,
   onUpdateTitle,
-  onUpdateStatus,
   onUpdateBackgroundImage,
-  onUpdateLocation
+  onUpdateLocation,
+  onUpdateTrainingRecipient
 }) => {
   const theme = useTheme();
 
@@ -43,9 +43,9 @@ const SettingsContent = ({
               project={project}
               projectSettings={projectSettings}
               onUpdateTitle={onUpdateTitle}
-              onUpdateStatus={onUpdateStatus}
               onUpdateLocation={onUpdateLocation}
               onUpdateBackgroundImage={onUpdateBackgroundImage}
+              onUpdateTrainingRecipient={onUpdateTrainingRecipient}
             />
             <Box sx={{ mt: 3 }}>
               <ProjectInstructors projectId={project?.id} />
@@ -132,9 +132,9 @@ SettingsContent.propTypes = {
   onUpdateField: PropTypes.func,
   onToggleWorkingDay: PropTypes.func,
   onUpdateTitle: PropTypes.func,
-  onUpdateStatus: PropTypes.func,
   onUpdateBackgroundImage: PropTypes.func,
-  onUpdateLocation: PropTypes.func
+  onUpdateLocation: PropTypes.func,
+  onUpdateTrainingRecipient: PropTypes.func
 };
 
 export default SettingsContent;

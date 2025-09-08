@@ -14,10 +14,8 @@ import {
   Typography,
 } from '@mui/material';
 
-// Third-party
-import update from 'immutability-helper';
+// Third-party removed update import as it's no longer needed
 import {
-  useColumnOrder,
   useExpanded,
   useFilters,
   useGroupBy,
@@ -31,7 +29,6 @@ import {
 // Project imports
 import ActionButton from 'components/ActionButton';
 import {
-  DraggableHeader,
   HidingSelect,
   HeaderSort,
   TablePagination,
@@ -212,7 +209,6 @@ const ReactTable = React.memo(({
       pageIndex: 0,
       pageSize: 25,
       hiddenColumns: ['id', 'participant.toolAccesses'],
-      columnOrder: [],
       sortBy: [{ id: 'participant.firstName', desc: false }],
     }),
     []
@@ -227,7 +223,6 @@ const ReactTable = React.memo(({
     rows,
     page,
     prepareRow,
-    setColumnOrder,
     gotoPage,
     setPageSize,
     setHiddenColumns,
@@ -237,7 +232,6 @@ const ReactTable = React.memo(({
       hiddenColumns,
       pageIndex,
       pageSize,
-      columnOrder,
       selectedRowIds,
     },
     preGlobalFilteredRows,
@@ -255,7 +249,6 @@ const ReactTable = React.memo(({
     },
     useGlobalFilter,
     useFilters,
-    useColumnOrder,
     useGroupBy,
     useSortBy,
     useExpanded,
@@ -287,23 +280,7 @@ const ReactTable = React.memo(({
     }
   );
 
-  // Column reorder handler
-  const reorder = useCallback((item, newIndex) => {
-    const { index: currentIndex } = item;
-    let dragRecord = columnOrder[currentIndex];
-    if (!columnOrder.includes(item.id)) {
-      dragRecord = item.id;
-    }
-
-    setColumnOrder(
-      update(columnOrder, {
-        $splice: [
-          [currentIndex, 1],
-          [newIndex, 0, dragRecord],
-        ],
-      })
-    );
-  }, [columnOrder, setColumnOrder]);
+  // Column reorder functionality removed
 
   // CSV export headers
   const headers = useMemo(() => {
@@ -348,14 +325,26 @@ const ReactTable = React.memo(({
   const isEmpty = !data || data.length === 0;
 
   return (
-    <>
+    <Box sx={{ 
+      flex: 1, 
+      display: 'flex', 
+      flexDirection: 'column',
+      minHeight: 0,
+      overflow: 'hidden'
+    }}>
       {!isEmpty && <TableRowSelection selected={Object.keys(selectedRowIds).length} />}
-      <Stack spacing={2}>
+      <Box sx={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column',
+        minHeight: 0,
+        overflow: 'hidden'
+      }}>
         {/* Toolbar */}
         <Stack
           direction="row"
           justifyContent="space-between"
-          sx={{ p: 2, pb: 0 }}
+          sx={{ p: 2, pb: 1, flexShrink: 0 }}
         >
           <Stack direction="row" spacing={2}>
             {!isEmpty && (
@@ -392,8 +381,15 @@ const ReactTable = React.memo(({
               variant="contained"
               startIcon={<PlusOutlined />}
               size="small"
+              sx={{
+                '& .MuiButton-startIcon': {
+                  mr: { xs: 0, sm: 1 }
+                }
+              }}
             >
-              Add Participant
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                Add Participant
+              </Box>
             </Button>
 
             <Button
@@ -402,8 +398,15 @@ const ReactTable = React.memo(({
               startIcon={<UploadOutlined />}
               size="small"
               disabled={csvImportLoading}
+              sx={{
+                '& .MuiButton-startIcon': {
+                  mr: { xs: 0, sm: 1 }
+                }
+              }}
             >
-              Import CSV
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                Import CSV
+              </Box>
             </Button>
 
             {!isEmpty && (
@@ -422,7 +425,12 @@ const ReactTable = React.memo(({
           </Stack>
         </Stack>
 
-        {/* Table */}
+        {/* Table Container */}
+        <Box sx={{ 
+          flex: 1, 
+          overflow: 'auto',
+          minHeight: 0
+        }}>
           {isEmpty ? (
             <Box
               sx={{
@@ -492,35 +500,28 @@ const ReactTable = React.memo(({
                           key={`header-cell-${index}`}
                           {...headerProps}
                         >
-                          <DraggableHeader
-                            reorder={reorder}
-                            key={column.id}
-                            column={column}
-                            index={index}
+                          <Stack
+                            direction="row"
+                            spacing={1.15}
+                            alignItems="center"
+                            sx={{ display: "inline-flex" }}
                           >
-                            <Stack
-                              direction="row"
-                              spacing={1.15}
-                              alignItems="center"
-                              sx={{ display: "inline-flex" }}
-                            >
-                              <HeaderSort column={column} sort />
-                              
-                              <Box sx={{ position: "relative" }}>
-                                {column.canGroupBy ? (
-                                  <Box
-                                    sx={{
-                                      color: column.isGrouped ? "error.main" : "primary.main",
-                                      fontSize: "1rem",
-                                    }}
-                                    {...column.getGroupByToggleProps()}
-                                  >
-                                    {groupIcon}
-                                  </Box>
-                                ) : null}
-                              </Box>
-                            </Stack>
-                          </DraggableHeader>
+                            <HeaderSort column={column} sort />
+                            
+                            <Box sx={{ position: "relative" }}>
+                              {column.canGroupBy ? (
+                                <Box
+                                  sx={{
+                                    color: column.isGrouped ? "error.main" : "primary.main",
+                                    fontSize: "1rem",
+                                  }}
+                                  {...column.getGroupByToggleProps()}
+                                >
+                                  {groupIcon}
+                                </Box>
+                              ) : null}
+                            </Box>
+                          </Stack>
                           
                           {column.canFilter ? column.render("Filter") : null}
                         </TableCell>
@@ -618,19 +619,22 @@ const ReactTable = React.memo(({
               </TableFooter>
             </Table>
           )}
+        </Box>
 
         {/* Pagination */}
         {!isEmpty && (
-          <TablePagination
-            gotoPage={gotoPage}
-            rows={rows}
-            setPageSize={setPageSize}
-            pageIndex={pageIndex}
-            pageSize={pageSize}
-          />
+          <Box sx={{ flexShrink: 0, p: 2 }}>
+            <TablePagination
+              gotoPage={gotoPage}
+              rows={rows}
+              setPageSize={setPageSize}
+              pageIndex={pageIndex}
+              pageSize={pageSize}
+            />
+          </Box>
         )}
-      </Stack>
-    </>
+      </Box>
+    </Box>
   );
 });
 

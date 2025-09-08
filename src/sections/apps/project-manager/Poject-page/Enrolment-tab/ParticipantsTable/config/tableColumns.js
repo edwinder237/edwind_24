@@ -32,15 +32,20 @@ const SelectionCell = ({ row }) => (
 export const useTableColumns = (onRefresh, availableRoles = [], rolesLoading = false) => {
   const theme = useTheme();
 
-  return useMemo(() => [
+  return useMemo(() => {
+    // Memoized cell components to prevent re-renders
+    const memoizedSelectionHeader = (props) => <SelectionHeader {...props} />;
+    const memoizedSelectionCell = (props) => <SelectionCell {...props} />;
+    
+    return [
     {
       title: "Row Selection",
       id: "selection",
-      Header: SelectionHeader,
+      Header: memoizedSelectionHeader,
       Footer: "#",
       accessor: "selection",
       groupByBoundary: true,
-      Cell: SelectionCell,
+      Cell: memoizedSelectionCell,
       disableSortBy: true,
       disableFilters: true,
       disableGroupBy: true,
@@ -163,7 +168,7 @@ export const useTableColumns = (onRefresh, availableRoles = [], rolesLoading = f
       Header: "Notes",
       Footer: "Notes",
       dataType: "text",
-      accessor: "participant.note",
+      accessor: "participant.notes",
       disableGroupBy: true,
       disableFilters: true,
       Cell: ({ value }) => {
@@ -192,5 +197,6 @@ export const useTableColumns = (onRefresh, availableRoles = [], rolesLoading = f
         );
       },
     },
-  ], [onRefresh, theme, availableRoles, rolesLoading]);
+  ];
+  }, [onRefresh, theme, availableRoles, rolesLoading]);
 };

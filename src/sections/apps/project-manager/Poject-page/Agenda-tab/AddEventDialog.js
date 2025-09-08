@@ -78,12 +78,114 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [pendingEventIds, setPendingEventIds] = useState(new Set());
 
-  // Update editableTime when selectedTime prop changes (when user clicks different time slots)
-  useEffect(() => {
-    if (selectedTime) {
-      setEditableTime(selectedTime);
+  // Helper functions for time conversion
+  const convertTo24HourFormat = (time12) => {
+    if (!time12) return '09:00';
+    
+    const [time, period] = time12.split(' ');
+    if (!time || !period) return '09:00';
+    
+    const [hours, minutes = '00'] = time.split(':');
+    let hour = parseInt(hours);
+    
+    if (period === 'PM' && hour !== 12) {
+      hour += 12;
+    } else if (period === 'AM' && hour === 12) {
+      hour = 0;
     }
-  }, [selectedTime]);
+    
+    return `${hour.toString().padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+  };
+
+  const convertTo12HourFormat = (time24) => {
+    if (!time24) return '9:00 AM';
+    
+    const [hours, minutes = '00'] = time24.split(':');
+    let hour = parseInt(hours);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    
+    if (hour > 12) {
+      hour -= 12;
+    } else if (hour === 0) {
+      hour = 12;
+    }
+    
+    return `${hour}:${minutes.padStart(2, '0')} ${period}`;
+  };
+
+  // Function to find next available time slot
+  const findNextAvailableTime = (requestedTime, date, projectEvents) => {
+    // Use projectEvents if available (from project.events), otherwise fall back to calendar events
+    const eventsToCheck = projectEvents || events || [];
+    
+    if (!eventsToCheck.length || !date) {
+      console.log('No events to check or no date provided');
+      return requestedTime;
+    }
+
+    // Convert requested time to 24-hour format for comparison
+    const requestedTime24 = convertTo24HourFormat(requestedTime);
+    const [reqHours, reqMinutes] = requestedTime24.split(':').map(Number);
+    
+    // Filter events for the selected date
+    const dayEvents = eventsToCheck.filter(event => {
+      const eventDate = new Date(event.start || event.start_time);
+      return eventDate.toDateString() === date.toDateString();
+    });
+
+    console.log('Day events found:', dayEvents.length);
+    console.log('Checking time conflicts starting from:', requestedTime);
+
+    // Check each hour starting from requested time
+    for (let hour = reqHours; hour < 24; hour++) {
+      const checkTime = `${hour.toString().padStart(2, '0')}:${reqMinutes.toString().padStart(2, '0')}`;
+      
+      // Check if this time slot conflicts with existing events
+      const hasConflict = dayEvents.some(event => {
+        const eventStart = new Date(event.start || event.start_time);
+        const eventEnd = new Date(event.end || event.end_time);
+        const eventStartHour = eventStart.getHours();
+        const eventStartMin = eventStart.getMinutes();
+        const eventEndHour = eventEnd.getHours();
+        const eventEndMin = eventEnd.getMinutes();
+        
+        // Convert to minutes for easier comparison
+        const checkTimeMinutes = hour * 60 + reqMinutes;
+        const eventStartMinutes = eventStartHour * 60 + eventStartMin;
+        const eventEndMinutes = eventEndHour * 60 + eventEndMin;
+        
+        // Check if proposed time overlaps with this event
+        const overlaps = checkTimeMinutes >= eventStartMinutes && checkTimeMinutes < eventEndMinutes;
+        
+        if (overlaps) {
+          console.log(`Time ${checkTime} conflicts with event from ${eventStartHour}:${eventStartMin.toString().padStart(2, '0')} to ${eventEndHour}:${eventEndMin.toString().padStart(2, '0')}`);
+        }
+        
+        return overlaps;
+      });
+
+      // If no conflict, return this time
+      if (!hasConflict) {
+        const availableTime = convertTo12HourFormat(checkTime);
+        console.log('Found available time:', availableTime);
+        return availableTime;
+      }
+    }
+    
+    // If no available slot found, return original time
+    console.log('No available slot found, using original time');
+    return requestedTime;
+  };
+
+  // Update editableTime when selectedTime prop changes or dialog opens
+  useEffect(() => {
+    if (open && selectedDate) {
+      // Use selectedTime if provided, otherwise default to 9:00 AM
+      const baseTime = selectedTime || '9:00 AM';
+      const nextAvailableTime = findNextAvailableTime(baseTime, selectedDate);
+      setEditableTime(nextAvailableTime);
+    }
+  }, [open, selectedTime, selectedDate, events]);
 
   // Reset editing state when dialog opens/closes
   useEffect(() => {
@@ -170,37 +272,6 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     setTimeInputValue('');
   };
 
-  const convertTo24HourFormat = (time12) => {
-    if (!time12) return '09:00';
-    
-    const [time, period] = time12.split(' ');
-    const [hours, minutes] = time.split(':');
-    let hour = parseInt(hours);
-    
-    if (period === 'PM' && hour !== 12) {
-      hour += 12;
-    } else if (period === 'AM' && hour === 12) {
-      hour = 0;
-    }
-    
-    return `${hour.toString().padStart(2, '0')}:${minutes}`;
-  };
-
-  const convertTo12HourFormat = (time24) => {
-    if (!time24) return '9:00 AM';
-    
-    const [hours, minutes] = time24.split(':');
-    let hour = parseInt(hours);
-    const period = hour >= 12 ? 'PM' : 'AM';
-    
-    if (hour > 12) {
-      hour -= 12;
-    } else if (hour === 0) {
-      hour = 12;
-    }
-    
-    return `${hour}:${minutes} ${period}`;
-  };
 
   const handleKeyPress = (event) => {
     if (event.key === 'Enter') {
@@ -221,10 +292,14 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         curriculum.curriculum_courses.forEach(curriculumCourse => {
           const course = curriculumCourse.course;
           if (course) {
+            // Calculate course duration from modules
+            const duration = calculateCourseDurationFromModules(course.modules || []);
+            
             courses.push({
               ...course,
               curriculumName: curriculum.title,
-              curriculumId: curriculum.id
+              curriculumId: curriculum.id,
+              duration: duration
             });
           }
         });
@@ -638,7 +713,21 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   };
 
   const handleOtherEventSelect = async (eventSuggestion) => {
+    // Prevent multiple clicks
+    if (isCreatingEvent) {
+      return;
+    }
+    
+    // Check if already being added or already exists
+    if (pendingEventIds.has(eventSuggestion.id)) {
+      return;
+    }
+    
     try {
+      // Set creating state and add to pending
+      setIsCreatingEvent(true);
+      setPendingEventIds(prev => new Set([...prev, eventSuggestion.id]));
+      
       // Calculate start and end times using editableTime
       const startDate = new Date(selectedDate);
       if (editableTime) {
@@ -726,6 +815,15 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
           close: false
         })
       );
+    } finally {
+      // Always reset creating state and remove from pending
+      setPendingEventIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(eventSuggestion.id);
+        return newSet;
+      });
+      // Always reset creating state
+      setIsCreatingEvent(false);
     }
   };
 
@@ -1056,6 +1154,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                   items={commonEventSuggestions}
                   onItemSelect={handleOtherEventSelect}
                   type="other"
+                  scheduledItemIds={[]} // Other events don't have scheduled state tracking yet
+                  pendingItemIds={pendingEventIdsArray}
                 />
               </Box>
 

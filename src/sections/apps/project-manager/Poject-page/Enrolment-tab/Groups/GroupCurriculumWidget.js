@@ -31,14 +31,12 @@ import {
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'store';
 import { 
-  getGroupsDetails,
-  toggleCurriculumExpansion,
-  removeCurriculumFromExpansion
+  getGroupsDetails
 } from 'store/reducers/projects';
 
 const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger }) => {
   const dispatch = useDispatch();
-  const { expandedCurriculums, singleProject } = useSelector((state) => state.projects);
+  const { singleProject } = useSelector((state) => state.projects);
   
   // Local state for detailed curriculum data (with courses, events, etc.)
   const [curriculums, setCurriculums] = useState([]);
@@ -50,8 +48,8 @@ const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger })
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [removing, setRemoving] = useState(false);
   
-  // Get expanded curriculums for this group from Redux (for persistence)
-  const groupExpandedCurriculums = expandedCurriculums[groupId] || [];
+  // Use local state for expanded curriculums to avoid Redux re-renders
+  const [expandedCurriculums, setExpandedCurriculums] = useState([]);
 
   // Fetch detailed curriculum data with courses and events
   const fetchGroupCurriculums = async () => {
@@ -69,13 +67,11 @@ const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger })
         setCurriculums(newCurriculums);
         
         // Clean up expansion state - remove any curriculum IDs that no longer exist
-        if (groupExpandedCurriculums.length > 0) {
+        if (expandedCurriculums.length > 0) {
           const existingCurriculumIds = new Set(newCurriculums.map(assignment => assignment.curriculum.id));
-          groupExpandedCurriculums.forEach(curriculumId => {
-            if (!existingCurriculumIds.has(curriculumId)) {
-              dispatch(removeCurriculumFromExpansion({ groupId, curriculumId }));
-            }
-          });
+          setExpandedCurriculums(prev => 
+            prev.filter(curriculumId => existingCurriculumIds.has(curriculumId))
+          );
         }
       } else {
         setError('Failed to fetch curriculums');
@@ -89,7 +85,11 @@ const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger })
   };
 
   const handleToggleCurriculumExpansion = (curriculumId) => {
-    dispatch(toggleCurriculumExpansion({ groupId, curriculumId }));
+    setExpandedCurriculums(prev => 
+      prev.includes(curriculumId) 
+        ? prev.filter(id => id !== curriculumId)
+        : [...prev, curriculumId]
+    );
   };
 
   // Refresh groups data after curriculum changes
@@ -235,7 +235,7 @@ const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger })
       <List dense disablePadding>
         {curriculums.map((assignment) => {
           const curriculum = assignment.curriculum;
-          const isExpanded = groupExpandedCurriculums.includes(curriculum.id);
+          const isExpanded = expandedCurriculums.includes(curriculum.id);
           
           return (
             <React.Fragment key={assignment.assignmentId}>

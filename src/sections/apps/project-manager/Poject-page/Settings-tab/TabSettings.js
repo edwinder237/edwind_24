@@ -77,25 +77,6 @@ const TabSettings = React.memo(() => {
     }
   }, [dispatch, project?.id]);
 
-  const handleUpdateStatus = useCallback(async (newStatus) => {
-    if (!project?.id) return;
-    
-    const result = await dispatch(updateProject({
-      id: project.id,
-      projectStatus: newStatus
-    }));
-    
-    if (result.success) {
-      dispatch(openSnackbar({
-        open: true,
-        message: 'Status updated successfully',
-        variant: 'alert',
-        alert: { color: 'success' }
-      }));
-    } else {
-      throw new Error(result.message || 'Failed to update status');
-    }
-  }, [dispatch, project?.id]);
 
   const handleUpdateLocation = useCallback(async (locationData) => {
     if (!project?.id) return;
@@ -135,15 +116,35 @@ const TabSettings = React.memo(() => {
     }
   }, [dispatch, project?.id]);
 
+  const handleUpdateTrainingRecipient = useCallback(async (recipientId) => {
+    if (!project?.id) return;
+    
+    const result = await dispatch(updateProject({
+      id: project.id,
+      trainingRecipientId: recipientId
+    }));
+    
+    if (result.success) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Training recipient updated successfully',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+    } else {
+      throw new Error(result.message || 'Failed to update training recipient');
+    }
+  }, [dispatch, project?.id]);
+
   // Memoize handlers to prevent unnecessary re-renders
   const handlers = useMemo(() => ({
     onUpdateField: updateField,
     onToggleWorkingDay: toggleWorkingDay,
     onUpdateTitle: handleUpdateTitle,
-    onUpdateStatus: handleUpdateStatus,
     onUpdateBackgroundImage: handleUpdateBackgroundImage,
-    onUpdateLocation: handleUpdateLocation
-  }), [updateField, toggleWorkingDay, handleUpdateTitle, handleUpdateStatus, handleUpdateBackgroundImage, handleUpdateLocation]);
+    onUpdateLocation: handleUpdateLocation,
+    onUpdateTrainingRecipient: handleUpdateTrainingRecipient
+  }), [updateField, toggleWorkingDay, handleUpdateTitle, handleUpdateBackgroundImage, handleUpdateLocation, handleUpdateTrainingRecipient]);
 
   // Loading state
   if (loading) {
@@ -158,30 +159,32 @@ const TabSettings = React.memo(() => {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Grid container spacing={3} sx={{ flex: 1 }}>
-          {/* Left Sidebar Navigation */}
-          <Grid item xs={12} md={4} lg={3}>
-            <SettingsSidebar
-              activeCategory={activeCategory}
-              onCategoryChange={setActiveCategory}
-            />
-          </Grid>
+        <Box sx={{ flex: 1 }}>
+          <Grid container spacing={3}>
+            {/* Left Sidebar Navigation */}
+            <Grid item xs={12} md={4} lg={3}>
+              <SettingsSidebar
+                activeCategory={activeCategory}
+                onCategoryChange={setActiveCategory}
+              />
+            </Grid>
 
-          {/* Main Content Area */}
-          <Grid item xs={12} md={8} lg={9}>
-            <SettingsContent
-              activeCategory={activeCategory}
-              settings={settings}
-              project={project}
-              projectSettings={projectSettings}
-              {...handlers}
-            />
+            {/* Main Content Area */}
+            <Grid item xs={12} md={8} lg={9}>
+              <SettingsContent
+                activeCategory={activeCategory}
+                settings={settings}
+                project={project}
+                projectSettings={projectSettings}
+                {...handlers}
+              />
+            </Grid>
           </Grid>
-        </Grid>
+        </Box>
 
         {/* Action Buttons - Only show when there are changes to save */}
         {hasChanges && (
-          <Box sx={{ mt: 3 }}>
+          <Box sx={{ mt: 3, width: '100%' }}>
             <SettingsActions
               hasChanges={hasChanges}
               saving={saving}

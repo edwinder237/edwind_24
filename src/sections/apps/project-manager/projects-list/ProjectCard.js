@@ -35,17 +35,23 @@ import AlertProjectDelete from "./AlertProjectDelete";
 import MainCard from "components/MainCard";
 import IconButton from "components/@extended/IconButton";
 import Loader from "components/Loader";
+import { PROJECT_STATUS, STATUS_COLORS } from "constants/index";
 
 // ===================|| CONSTANTS ||=================== //
 const { publicRuntimeConfig } = getConfig();
 const basePath = publicRuntimeConfig?.basePath || '';
 
 const PROJECT_STATUSES = [
-  { value: 'started', label: 'Started', color: 'warning' },
-  { value: 'ongoing', label: 'Ongoing', color: 'success' },
-  { value: 'pending', label: 'Pending', color: 'warning' },
-  { value: 'completed', label: 'Completed', color: 'primary' },
-  { value: 'cancelled', label: 'Cancelled', color: 'error' }
+  { value: PROJECT_STATUS.ACTIVE, label: 'Active', color: STATUS_COLORS.active || 'success' },
+  { value: PROJECT_STATUS.ONGOING, label: 'Ongoing', color: STATUS_COLORS.ongoing || 'success' },
+  { value: PROJECT_STATUS.PENDING, label: 'Pending', color: STATUS_COLORS.pending || 'warning' },
+  { value: PROJECT_STATUS.COMPLETED, label: 'Completed', color: STATUS_COLORS.completed || 'primary' },
+  { value: PROJECT_STATUS.CANCELLED, label: 'Cancelled', color: 'error' },
+  { value: PROJECT_STATUS.POSTPONED, label: 'Postponed', color: 'warning' },
+  { value: PROJECT_STATUS.SUSPENDED, label: 'Suspended', color: 'error' },
+  { value: PROJECT_STATUS.ON_HOLD, label: 'On Hold', color: 'warning' },
+  { value: PROJECT_STATUS.DRAFT, label: 'Draft', color: STATUS_COLORS.draft || 'info' },
+  { value: PROJECT_STATUS.ARCHIVED, label: 'Archived', color: STATUS_COLORS.archived || 'default' }
 ];
 
 const FALLBACK_IMAGE = `${basePath}/assets/images/logos/95983458_padded_logo.png`;
@@ -142,20 +148,20 @@ const getStatusConfig = (status) => {
  */
 const useStatusEditor = (project, dispatch) => {
   const [isEditingStatus, setIsEditingStatus] = useState(false);
-  const [statusValue, setStatusValue] = useState(project?.projectStatus || 'started');
+  const [statusValue, setStatusValue] = useState(project?.projectStatus || PROJECT_STATUS.ACTIVE);
 
   useEffect(() => {
-    setStatusValue(project?.projectStatus || 'started');
+    setStatusValue(project?.projectStatus || PROJECT_STATUS.ACTIVE);
   }, [project?.projectStatus]);
 
   const handleStartEdit = useCallback(() => {
     setIsEditingStatus(true);
-    setStatusValue(project?.projectStatus || 'started');
+    setStatusValue(project?.projectStatus || PROJECT_STATUS.ACTIVE);
   }, [project?.projectStatus]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditingStatus(false);
-    setStatusValue(project?.projectStatus || 'started');
+    setStatusValue(project?.projectStatus || PROJECT_STATUS.ACTIVE);
   }, [project?.projectStatus]);
 
   const handleSave = useCallback(async () => {
@@ -180,7 +186,7 @@ const useStatusEditor = (project, dispatch) => {
         }));
       }
     } catch (error) {
-      setStatusValue(project?.projectStatus || 'started');
+      setStatusValue(project?.projectStatus || PROJECT_STATUS.ACTIVE);
       dispatch(openSnackbar({
         open: true,
         message: 'Failed to update project status',

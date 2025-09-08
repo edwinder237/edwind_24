@@ -333,7 +333,7 @@ GroupCell.propTypes = {
 };
 
 const GroupTable = ({ index }) => {
-  const { singleProject: Project, project_participants } = useSelector((state) => state.projects);
+  const { singleProject: Project, project_participants, groups, loading } = useSelector((state) => state.projects);
   const dispatch = useDispatch();
   const { participants } = Project;
 
@@ -351,41 +351,6 @@ const GroupTable = ({ index }) => {
       }
     }
   };
-
-  useEffect(() => {
-    let isMounted = true;
-    let timeoutId;
-    const abortController = new AbortController();
-    
-    const loadGroups = async () => {
-      if (isMounted && Project?.id) {
-        // Always fetch groups with participant data to ensure size is correct
-        console.log('Loading groups with participant data for project:', Project.id);
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(async () => {
-          if (isMounted && !abortController.signal.aborted) {
-            try {
-              await fetchGroupsData();
-            } catch (err) {
-              if (err.name !== 'AbortError') {
-                console.error('Error loading groups:', err);
-              }
-            }
-          }
-        }, 300); // 300ms debounce
-      }
-    };
-    
-    loadGroups();
-    
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-      abortController.abort(); // Cancel any pending requests
-    };
-  }, [Project?.id]);
-
-  const { groups, loading } = useSelector((state) => state.projects);
 
   // Centralized state management - prioritize Redux groups state
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "store";
 import { 
   getProjectChecklist,
@@ -12,7 +12,7 @@ import ProjectDashboard from "./Project-Dashboard/ProjectDashboard";
 import ProjectTabs from "./ProjectTabs";
 
 // material-ui
-import { Grid } from "@mui/material";
+import { Grid, Box } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 
 // ==============================|| PROJECT PAGE ||============================== //
@@ -20,6 +20,7 @@ import { useTheme } from "@mui/material/styles";
 const ProjectPage = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const checklistFetched = useRef(new Set()); // Track which projects we've fetched checklist for
   const { 
     singleProject: Project, 
     project_participants, 
@@ -62,10 +63,12 @@ const ProjectPage = () => {
   };
 
   useEffect(() => {
-    if (Project?.id && !checklistLoading && checklistItems.length === 0) {
+    if (Project?.id && !checklistLoading && !checklistFetched.current.has(Project.id)) {
+      console.log('Fetching checklist for project:', Project.id);
+      checklistFetched.current.add(Project.id);
       dispatch(getProjectChecklist(Project.id));
     }
-  }, [Project?.id, dispatch, checklistLoading, checklistItems]);
+  }, [Project?.id, dispatch, checklistLoading]);
 
   const handleChecklistItemToggle = (item) => {
     const newCompletedState = !item.completed;
@@ -82,55 +85,57 @@ const ProjectPage = () => {
 
   if (Project) {
     return (
-        <Grid container columnSpacing={2.75}>
-        {/* Breadcrumbs */}
-        <Grid item xs={12}>
-          <Breadcrumbs 
-            title={false} 
-            divider={false}
-            card={false}
-            navigation={{ items: [
-              {
-                id: 'project-manager',
-                type: 'group',
-                children: [
-                  {
-                    id: 'pm-projects-list',
-                    title: 'Projects',
-                    type: 'item',
-                    url: '/projects',
-                    breadcrumbs: true
-                  },
-                  {
-                    id: 'pm-project-detail',
-                    title: `${Project.title}`,
-                    type: 'item',
-                    url: `/projects/${Project.id}`,
-                    breadcrumbs: true
-                  }
-                ]
-              }
-            ]}}
-          />
-        </Grid>
-        
-        {/* Project Dashboard */}
-        <ProjectDashboard 
-          project={Project}
-          participants={project_participants.length}
-          checklistItems={checklistItems}
-          styles={styles}
-        />
+        <Box sx={{ width: '100%' }}>
+          {/* Breadcrumbs */}
+          <Box sx={{ mb: 2 }}>
+            <Breadcrumbs 
+              title={false} 
+              divider={false}
+              card={false}
+              navigation={{ items: [
+                {
+                  id: 'project-manager',
+                  type: 'group',
+                  children: [
+                    {
+                      id: 'pm-projects-list',
+                      title: 'Projects',
+                      type: 'item',
+                      url: '/projects',
+                      breadcrumbs: true
+                    },
+                    {
+                      id: 'pm-project-detail',
+                      title: `${Project.title}`,
+                      type: 'item',
+                      url: `/projects/${Project.id}`,
+                      breadcrumbs: true
+                    }
+                  ]
+                }
+              ]}}
+            />
+          </Box>
+          
+          {/* Project Dashboard */}
+          <Box sx={{ mb: 2 }}>
+            <ProjectDashboard 
+              project={Project}
+              participants={project_participants.length}
+              checklistItems={checklistItems}
+              styles={styles}
+            />
+          </Box>
 
-        {/* Project Tabs */}
-        <ProjectTabs 
-          project={Project}
-          checklistItems={checklistItems}
-          checklistLoading={checklistLoading}
-          onChecklistToggle={handleChecklistItemToggle}
-          styles={styles}
-        />
-        </Grid>
+          {/* Project Tabs */}
+          <ProjectTabs 
+            project={Project}
+            checklistItems={checklistItems}
+            checklistLoading={checklistLoading}
+            onChecklistToggle={handleChecklistItemToggle}
+            styles={styles}
+          />
+        </Box>
     );
   } else return <ProjectNotFound/>;
 };

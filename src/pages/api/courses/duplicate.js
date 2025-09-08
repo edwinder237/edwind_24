@@ -22,7 +22,7 @@ export default async function handler(req, res) {
           },
           orderBy: { moduleOrder: 'asc' }
         },
-        course_checklists: true
+        course_checklist_items: true
       }
     });
 
@@ -71,7 +71,7 @@ export default async function handler(req, res) {
             summary: module.summary,
             content: module.content,
             JSONContent: module.JSONContent,
-            customDuration: module.customDuration,
+            // Skip customDuration and duration to let them be calculated from activities
             moduleStatus: module.moduleStatus,
             backgroundImg: module.backgroundImg,
             moduleOrder: module.moduleOrder,
@@ -101,16 +101,18 @@ export default async function handler(req, res) {
       }
     }
 
-    // Duplicate course checklists
-    if (originalCourse.course_checklists.length > 0) {
-      await prisma.course_checklists.createMany({
-        data: originalCourse.course_checklists.map(checklist => ({
-          title: checklist.title,
-          description: checklist.description,
-          items: checklist.items,
-          isActive: checklist.isActive,
+    // Duplicate course checklist items
+    if (originalCourse.course_checklist_items.length > 0) {
+      await prisma.course_checklist_items.createMany({
+        data: originalCourse.course_checklist_items.map(checklistItem => ({
+          title: checklistItem.title,
+          description: checklistItem.description,
+          category: checklistItem.category,
+          priority: checklistItem.priority,
+          itemOrder: checklistItem.itemOrder,
+          moduleId: checklistItem.moduleId,
           courseId: duplicatedCourse.id,
-          createdBy: checklist.createdBy
+          createdBy: checklistItem.createdBy
         }))
       });
     }
@@ -124,7 +126,7 @@ export default async function handler(req, res) {
             activities: true
           }
         },
-        course_checklists: true
+        course_checklist_items: true
       }
     });
 
@@ -133,7 +135,7 @@ export default async function handler(req, res) {
       ...completeDuplicatedCourse,
       moduleCount: completeDuplicatedCourse.modules.length,
       activityCount: completeDuplicatedCourse.modules.reduce((total, module) => total + module.activities.length, 0),
-      checklistCount: completeDuplicatedCourse.course_checklists.length
+      checklistCount: completeDuplicatedCourse.course_checklist_items.length
     };
 
     res.status(200).json({ 

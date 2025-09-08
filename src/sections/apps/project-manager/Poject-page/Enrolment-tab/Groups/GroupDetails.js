@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from 'store';
 import axios from 'utils/axios';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -30,6 +30,9 @@ import {
   FormControlLabel,
   Radio,
   Alert,
+  Autocomplete,
+  TextField,
+  Checkbox,
 } from "@mui/material";
 
 // third-party
@@ -60,13 +63,22 @@ const GroupDetails = ({ Group }) => {
   const [curriculumDialogOpen, setCurriculumDialogOpen] = useState(false);
   const [addParticipantDialogOpen, setAddParticipantDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [selectedParticipant, setSelectedParticipant] = useState('');
+  const [selectedParticipants, setSelectedParticipants] = useState([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignmentAction, setAssignmentAction] = useState('add'); // 'add' or 'move'
   
   const { singleProject, project_participants } = useSelector((state) => state.projects);
 
   const backColor = alpha(theme.palette.primary.lighter, 0.1);
+
+  // Function to normalize accents for search
+  const normalizeText = (text) => {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .normalize('NFD') // Decompose accented characters
+      .replace(/[\u0300-\u036f]/g, ''); // Remove accent marks
+  };
 
   const handleCurriculumManage = () => {
     setCurriculumDialogOpen(true);
@@ -81,20 +93,19 @@ const GroupDetails = ({ Group }) => {
   };
 
   const handleAddParticipant = () => {
+    setSelectedParticipants([]); // Clear any previous selections
+    setAssignmentAction('add'); // Reset action
     setAddParticipantDialogOpen(true);
   };
 
   const handleAddParticipantDialogClose = () => {
     setAddParticipantDialogOpen(false);
-    setSelectedParticipant('');
+    setSelectedParticipants([]);
     setAssignmentAction('add');
   };
 
   // Get all project participants with their group information
   const { groups } = useSelector((state) => state.projects);
-  
-  console.log('All project_participants:', project_participants);
-  console.log('All groups:', groups);
   
   const availableParticipants = project_participants?.map(pp => {
     // Find which group this participant is in
@@ -102,68 +113,109 @@ const GroupDetails = ({ Group }) => {
       g.participants?.some(gp => gp.participantId === pp.id)
     );
     
-    console.log(`Participant ${pp.id} (${pp.participant?.firstName}):`, {
-      projectParticipantId: pp.id,
-      participantId: pp.participant?.id,
-      inGroup: participantGroup?.groupName
-    });
-    
     return {
       ...pp,
       currentGroup: participantGroup
     };
   }).filter(pp => {
     // Only show participants not in this specific group
-    const isInThisGroup = Group?.participants?.some(gp => gp.participantId === pp.id);
+    const isInThisGroup = Group?.participants?.some(gp => {
+      // Check both participantId and participant.id for safety
+      return gp.participantId === pp.id || gp.participantId === pp.participant?.id;
+    });
+    
     return !isInThisGroup;
-  }) || [];
+  }).reduce((unique, participant) => {
+    // Remove duplicates based on participant ID
+    if (!unique.some(p => p.id === participant.id)) {
+      unique.push(participant);
+    }
+    return unique;
+  }, []) || [];
 
-  const handleAssignParticipant = async () => {
-    if (!selectedParticipant || !Group?.id) return;
-    
-    const selectedParticipantData = availableParticipants.find(p => p.id === parseInt(selectedParticipant));
-    const currentGroup = selectedParticipantData?.currentGroup;
-    
-    console.log('Selected participant data:', selectedParticipantData);
-    console.log('Selected participant ID:', selectedParticipant);
-    console.log('Current group:', currentGroup);
+  // Clear selected participants when they're no longer available (after assignment)
+  useEffect(() => {
+    if (selectedParticipants.length > 0) {
+      const stillAvailable = selectedParticipants.filter(selected => 
+        availableParticipants.some(available => available.id === selected.id)
+      );
+      
+      if (stillAvailable.length !== selectedParticipants.length) {
+        setSelectedParticipants(stillAvailable);
+      }
+    }
+  }, [availableParticipants.length]); // Only trigger when the count changes
+
+  const handleAssignParticipants = async () => {
+    if (!selectedParticipants.length || !Group?.id) return;
     
     setIsAssigning(true);
     try {
-      // If moving and participant is in another group, remove from current group first
-      if (assignmentAction === 'move' && currentGroup?.id) {
-        await axios.post('/api/projects/remove-participant-from-group', {
-          groupId: currentGroup.id,
-          participantId: parseInt(selectedParticipant)
-        });
+      let successCount = 0;
+      const errors = [];
+      
+      // Process each selected participant
+      for (const participant of selectedParticipants) {
+        try {
+          const currentGroup = participant.currentGroup;
+          
+          // If moving and participant is in another group, remove from current group first
+          if (assignmentAction === 'move' && currentGroup?.id) {
+            await axios.post('/api/projects/remove-participant-from-group', {
+              groupId: currentGroup.id,
+              participantId: parseInt(participant.id)
+            });
+          }
+          
+          // Add to new group  
+          const response = await axios.post('/api/projects/add-participant-to-group', {
+            projectId: singleProject?.id,
+            groupId: Group.id,
+            participantId: parseInt(participant.id)
+          });
+          
+          if (response.data.success) {
+            successCount++;
+          } else {
+            errors.push(`${participant.participant?.firstName} ${participant.participant?.lastName}: ${response.data.error || 'Failed to assign'}`);
+          }
+        } catch (error) {
+          errors.push(`${participant.participant?.firstName} ${participant.participant?.lastName}: ${error.response?.data?.error || error.message}`);
+        }
       }
       
-      // Add to new group  
-      const response = await axios.post('/api/projects/add-participant-to-group', {
-        projectId: singleProject?.id,
-        groupId: Group.id,
-        participantId: parseInt(selectedParticipant)
-      });
-      
-      if (response.data.success) {
+      // Show results
+      if (successCount > 0) {
         const actionText = assignmentAction === 'move' ? 'moved to' : 'added to';
         dispatch(openSnackbar({
           open: true,
-          message: `Participant ${actionText} group successfully`,
+          message: `${successCount} participant${successCount > 1 ? 's' : ''} ${actionText} group successfully`,
           variant: 'alert',
           alert: { color: 'success' }
         }));
         
-        // Refresh both local state and global groups data
+        // Refresh data
         handleRefresh();
         await dispatch(getGroupsDetails(singleProject.id));
         await dispatch(getSingleProject(singleProject.id));
+      }
+      
+      if (errors.length > 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Failed to assign ${errors.length} participant${errors.length > 1 ? 's' : ''}`,
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
+      }
+      
+      if (successCount === selectedParticipants.length) {
         handleAddParticipantDialogClose();
       }
     } catch (error) {
       dispatch(openSnackbar({
         open: true,
-        message: error.response?.data?.error || 'Failed to update participant group',
+        message: error.message || 'Failed to assign participants',
         variant: 'alert',
         alert: { color: 'error' }
       }));
@@ -181,12 +233,12 @@ const GroupDetails = ({ Group }) => {
         "&:hover": { bgcolor: `${backColor} !important` },
       }}
     >
-      <TableCell colSpan={8} sx={{ p: 2.5 }}>
+      <TableCell colSpan={8} sx={{ p: 2.5, position: 'relative' }}>
         <Grid
           container
           spacing={2.5}
           justifyContent="center"
-          sx={{ pl: { xs: 0, sm: 2, md: 2, lg: 2, xl: 2 } }}
+          sx={{ pl: { xs: 0, sm: 2, md: 2, lg: 2, xl: 2 }, minHeight: '200px' }}
         >
           <Grid
             item
@@ -265,55 +317,93 @@ const GroupDetails = ({ Group }) => {
                 </Typography>
               ) : (
                 <Stack spacing={3}>
-                  <FormControl fullWidth>
-                    <InputLabel>Select Participant</InputLabel>
-                    <Select
-                      value={selectedParticipant}
-                      onChange={(e) => {
-                        setSelectedParticipant(e.target.value);
-                        setAssignmentAction('add'); // Reset to default when selection changes
-                      }}
-                      label="Select Participant"
-                    >
-                      {availableParticipants.map((pp) => (
-                        <MenuItem key={pp.id} value={pp.id}>
-                          <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                            <Typography>
-                              {pp.participant?.firstName} {pp.participant?.lastName}
-                            </Typography>
+                  <Autocomplete
+                    multiple
+                    fullWidth
+                    options={availableParticipants}
+                    value={selectedParticipants}
+                    onChange={(event, newValue) => {
+                      // Ensure no duplicates in the selected values
+                      const uniqueValues = newValue.reduce((unique, participant) => {
+                        if (!unique.some(p => p.id === participant.id)) {
+                          unique.push(participant);
+                        }
+                        return unique;
+                      }, []);
+                      
+                      setSelectedParticipants(uniqueValues);
+                      setAssignmentAction('add'); // Reset to default when selection changes
+                    }}
+                    disableCloseOnSelect
+                    getOptionLabel={(option) => 
+                      `${option.participant?.firstName} ${option.participant?.lastName}`.trim()
+                    }
+                    filterOptions={(options, { inputValue }) => {
+                      const normalizedInput = normalizeText(inputValue);
+                      return options.filter((option) => {
+                        const fullName = `${option.participant?.firstName} ${option.participant?.lastName}`;
+                        const roleName = option.participant?.role?.title || '';
+                        const groupName = option.currentGroup?.groupName || '';
+                        
+                        return normalizeText(fullName).includes(normalizedInput) ||
+                               normalizeText(roleName).includes(normalizedInput) ||
+                               normalizeText(groupName).includes(normalizedInput);
+                      });
+                    }}
+                    renderOption={(props, option, { selected }) => (
+                      <Box component="li" {...props}>
+                        <Checkbox
+                          style={{ marginRight: 8 }}
+                          checked={selected}
+                        />
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                          <Typography>
+                            {option.participant?.firstName} {option.participant?.lastName}
+                          </Typography>
+                          <Chip 
+                            label={option.participant?.role?.title || 'No Role'} 
+                            size="small" 
+                            variant="outlined" 
+                          />
+                          {option.currentGroup && (
                             <Chip 
-                              label={pp.participant?.role?.title || 'No Role'} 
+                              label={`In ${option.currentGroup.groupName}`}
                               size="small" 
-                              variant="outlined" 
+                              variant="filled"
+                              style={{ 
+                                backgroundColor: option.currentGroup.chipColor || '#1976d2',
+                                color: '#fff'
+                              }}
                             />
-                            {pp.currentGroup && (
-                              <Chip 
-                                label={`In ${pp.currentGroup.groupName}`}
-                                size="small" 
-                                variant="filled"
-                                style={{ 
-                                  backgroundColor: pp.currentGroup.chipColor || '#1976d2',
-                                  color: '#fff'
-                                }}
-                              />
-                            )}
-                          </Stack>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                          )}
+                        </Stack>
+                      </Box>
+                    )}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Search and Select Participants"
+                        placeholder="Type to search by name, role, or current group..."
+                      />
+                    )}
+                    noOptionsText="No participants found"
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    getOptionKey={(option) => option.id}
+                  />
 
-                  {/* Show action selection if participant is in another group */}
-                  {selectedParticipant && (() => {
-                    const selectedParticipantData = availableParticipants.find(p => p.id === parseInt(selectedParticipant));
-                    return selectedParticipantData?.currentGroup;
-                  })() && (
+                  {/* Show action selection if any participant is in another group */}
+                  {selectedParticipants.some(p => p.currentGroup) && (
                     <Box>
                       <Alert severity="info" sx={{ mb: 2 }}>
-                        This participant is currently in {(() => {
-                          const selectedParticipantData = availableParticipants.find(p => p.id === parseInt(selectedParticipant));
-                          return selectedParticipantData?.currentGroup?.groupName;
-                        })()} group.
+                        {(() => {
+                          const participantsWithGroups = selectedParticipants.filter(p => p.currentGroup);
+                          const count = participantsWithGroups.length;
+                          if (count === 1) {
+                            return `${participantsWithGroups[0].participant?.firstName} ${participantsWithGroups[0].participant?.lastName} is currently in ${participantsWithGroups[0].currentGroup.groupName} group.`;
+                          } else {
+                            return `${count} selected participants are currently in other groups.`;
+                          }
+                        })()}
                       </Alert>
                       
                       <Typography variant="subtitle2" gutterBottom>
@@ -327,12 +417,12 @@ const GroupDetails = ({ Group }) => {
                           <FormControlLabel
                             value="add"
                             control={<Radio />}
-                            label="Add to additional group (participant will be in both groups)"
+                            label="Add to additional group (participants will be in both groups)"
                           />
                           <FormControlLabel
                             value="move"
                             control={<Radio />}
-                            label="Move to this group (remove from current group)"
+                            label="Move to this group (remove from current groups)"
                           />
                         </RadioGroup>
                       </FormControl>
@@ -350,12 +440,14 @@ const GroupDetails = ({ Group }) => {
                 {availableParticipants.length > 0 && (
                   <Button
                     variant="contained"
-                    onClick={handleAssignParticipant}
-                    disabled={!selectedParticipant || isAssigning}
+                    onClick={handleAssignParticipants}
+                    disabled={!selectedParticipants.length || isAssigning}
                   >
                     {isAssigning 
                       ? (assignmentAction === 'move' ? 'Moving...' : 'Adding...') 
-                      : (assignmentAction === 'move' ? 'Move to Group' : 'Add to Group')
+                      : selectedParticipants.length > 1
+                        ? (assignmentAction === 'move' ? `Move ${selectedParticipants.length} to Group` : `Add ${selectedParticipants.length} to Group`)
+                        : (assignmentAction === 'move' ? 'Move to Group' : 'Add to Group')
                     }
                   </Button>
                 )}

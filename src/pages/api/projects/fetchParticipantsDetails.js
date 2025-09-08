@@ -1,11 +1,15 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from '../../../lib/prisma';
 
 export default async function handler(req, res) {
   const { projectId } = req.body;
 
+  // Validate projectId
+  if (!projectId || isNaN(parseInt(projectId))) {
+    return res.status(400).json({ error: "Invalid project ID" });
+  }
+
   try {
+    // Optimized query with includes to fetch related data
     const projectParticipants = await prisma.project_participants.findMany({
       where: {
         projectId: parseInt(projectId),
@@ -14,7 +18,7 @@ export default async function handler(req, res) {
       include: {
         participant: {
           include: {
-            training_recipient: true, // Include training recipient instead of sub_organization
+            training_recipient: true, // Include training recipient
             role: true, // Include role information
             toolAccesses: {
               where: {
@@ -33,15 +37,18 @@ export default async function handler(req, res) {
         },
       },
       orderBy: {
-        id: 'desc', // or 'asc' for ascending order
-      },
+        id: 'desc' // Most recent first for better UX
+      }
     });
 
+    // Set cache headers for better performance
+    res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate');
     res.status(200).json(projectParticipants);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await prisma.$disconnect();
+    console.error('[fetchParticipantsDetails] Error:', error);
+    res.status(500).json({ 
+      error: "Internal Server Error",
+      ...(process.env.NODE_ENV === 'development' && { details: error.message })
+    });
   }
 }

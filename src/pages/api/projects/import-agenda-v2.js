@@ -514,8 +514,8 @@ function parseWorkingHours(projectSettings) {
 }
 
 function resolveDuration(itemInfo) {
-  // Priority: duration already set > default 60 minutes
-  return itemInfo.duration || 60;
+  // Return actual duration or 0 if not set
+  return itemInfo.duration || 0;
 }
 
 function getRequiredRoles(itemInfo, assignByRole, selectedRoles) {

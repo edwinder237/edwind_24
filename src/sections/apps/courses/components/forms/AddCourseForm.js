@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useDispatch } from 'react-redux';
 import { createCourse, updateCourse, getCourses } from 'store/reducers/courses';
+import { COURSE_STATUS } from 'constants/index';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -98,7 +99,7 @@ const getInitialValues = (course) => {
   return newCourse;
 };
 
-const courseStatuses = ['draft', 'review', 'approved', 'published', 'archived'];
+const courseStatuses = Object.values(COURSE_STATUS);
 const courseLevels = ['beginner', 'intermediate', 'advanced', 'expert'];
 const deliveryMethods = ['online', 'in-person', 'hybrid', 'self-paced'];
 const courseTypes = ['training', 'certification', 'workshop', 'seminar', 'conference'];

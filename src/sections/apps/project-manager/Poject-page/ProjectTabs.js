@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import PropTypes from 'prop-types';
 import dynamic from "next/dynamic";
 import {
@@ -11,9 +11,17 @@ import {
   Drawer,
   IconButton,
   Typography,
+  Card,
+  CircularProgress,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
+import { isMobile } from 'react-device-detect';
 import MainCard from 'components/MainCard';
+import { useDispatch } from "store";
+import { getParticipants, getGroupsDetails } from "store/reducers/projects";
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -23,12 +31,14 @@ import {
   ExperimentOutlined,
   UserOutlined,
   CloseOutlined,
+  MenuOutlined,
 } from "@ant-design/icons";
 import Loader from "components/Loader";
 import TabSettings from "./Settings-tab/TabSettings";
 import ProjectChecklist from "./ProjectChecklist";
 import AgendaTab from "./Agenda-tab";
 import getTabIcons from "utils/getTabIcons";
+import GroupTable from "./Enrolment-tab/Groups";
 
 // Dynamic imports
 const EnrolmentTAB = dynamic(() =>
@@ -36,6 +46,11 @@ const EnrolmentTAB = dynamic(() =>
     (err) => console.error(err)
   )
 );
+
+// Lazy load the Participants table for better performance
+const ParticipantTable = dynamic(() => import("./Enrolment-tab/ParticipantsTable").catch(
+  (err) => console.error(err)
+));
 
 const OverviewTab = dynamic(() =>
   import("./Overview-tab").catch(
@@ -85,20 +100,66 @@ const ProjectTabs = ({
   styles
 }) => {
   const theme = useTheme();
+  const dispatch = useDispatch();
   const [tabValue, setTabValue] = React.useState(0);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [participantTabValue, setParticipantTabValue] = React.useState(0);
+  const [hasLoadedParticipantsData, setHasLoadedParticipantsData] = React.useState(false);
 
   const handleChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  const handleOpenDrawer = () => {
+  const handleOpenDrawer = async () => {
     setDrawerOpen(true);
+    
+    // Fetch participants data only once when drawer is first opened
+    if (!hasLoadedParticipantsData && project?.id) {
+      await Promise.all([
+        dispatch(getParticipants(project.id)),
+        dispatch(getGroupsDetails(project.id))
+      ]);
+      setHasLoadedParticipantsData(true);
+    }
   };
 
   const handleCloseDrawer = () => {
     setDrawerOpen(false);
   };
+
+  const handleParticipantTabChange = (event, newValue) => {
+    setParticipantTabValue(newValue);
+  };
+
+  // Loading fallback component
+  const LoadingFallback = () => (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+      <CircularProgress />
+      <Typography sx={{ ml: 2 }}>Loading...</Typography>
+    </Box>
+  );
+
+  // Tab Panel Component for drawer
+  function DrawerTabPanel({ children, value, index, ...other }) {
+    return (
+      <div
+        role="tabpanel"
+        hidden={value !== index}
+        id={`drawer-tabpanel-${index}`}
+        aria-labelledby={`drawer-tab-${index}`}
+        style={{ 
+          flex: 1, 
+          display: value === index ? 'flex' : 'none',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: 'hidden'
+        }}
+        {...other}
+      >
+        {children}
+      </div>
+    );
+  }
 
   return (
     <MainCard
@@ -106,10 +167,11 @@ const ProjectTabs = ({
       border={false}
       boxShadow
       sx={{
-        borderRadius: 0
+        borderRadius: 0,
+        width: '100%'
       }}
     >
-      <Grid item xs={12}>
+      <Box sx={{ width: '100%' }}>
         <Stack 
           direction="row" 
           justifyContent="space-between" 
@@ -117,7 +179,8 @@ const ProjectTabs = ({
           sx={{ 
             borderBottom: 1, 
             borderColor: 'divider',
-            minHeight: '48px'
+            minHeight: '48px',
+            width: '100%'
           }}
         >
           <Tabs
@@ -141,24 +204,6 @@ const ProjectTabs = ({
           <Tab 
             label={
               <Box sx={styles.tabLabel}>
-                <DashboardOutlined />
-                <span>Overview</span>
-              </Box>
-            }
-            {...a11yProps(1)} 
-          />
-          <Tab 
-            label={
-              <Box sx={styles.tabLabel}>
-                <TeamOutlined />
-                <span>Enrollment</span>
-              </Box>
-            }
-            {...a11yProps(2)} 
-          />
-          <Tab 
-            label={
-              <Box sx={styles.tabLabel}>
                 <CheckSquareOutlined />
                 <span>Checklist</span>
                 {checklistItems.length > 0 && getTabIcons(
@@ -167,7 +212,7 @@ const ProjectTabs = ({
                 )}
               </Box>
             }
-            {...a11yProps(3)} 
+            {...a11yProps(1)} 
           />
           <Tab 
             label={
@@ -176,37 +221,26 @@ const ProjectTabs = ({
                 <span>Settings</span>
               </Box>
             }
-            {...a11yProps(4)} 
+            {...a11yProps(2)} 
           />
         </Tabs>
 
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<UserOutlined />}
+        <IconButton
           onClick={handleOpenDrawer}
           sx={{
             ml: 2,
             mr: 1,
-            whiteSpace: 'nowrap',
-            minWidth: 'auto',
-            borderRadius: 0
           }}
         >
-          Manage Participants
-        </Button>
+          <TeamOutlined />
+        </IconButton>
+
       </Stack>
 
         <TabPanel value={tabValue} index={0}>
           <AgendaTab />
         </TabPanel>
         <TabPanel value={tabValue} index={1}>
-          <OverviewTab />
-        </TabPanel>
-        <TabPanel value={tabValue} index={2}>
-          <EnrolmentTAB index={0} />
-        </TabPanel>
-        <TabPanel value={tabValue} index={3}>
           <ProjectChecklist 
             checklistItems={checklistItems}
             checklistLoading={checklistLoading}
@@ -214,10 +248,10 @@ const ProjectTabs = ({
             styles={styles}
           />
         </TabPanel>
-        <TabPanel value={tabValue} index={4}>
+        <TabPanel value={tabValue} index={2}>
           <TabSettings />
         </TabPanel>
-      </Grid>
+      </Box>
 
       {/* Bottom Drawer for Manage Participants */}
       <Drawer
@@ -226,35 +260,96 @@ const ProjectTabs = ({
         onClose={handleCloseDrawer}
         PaperProps={{
           sx: {
-            height: '70vh',
+            height: '80vh',
             borderRadius: 0,
+            display: 'flex',
+            flexDirection: 'column'
           }
         }}
       >
-        <Box sx={{ p: 3 }}>
-          {/* Header */}
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-            <Typography variant="h5" fontWeight="600">
-              Manage Participants
-            </Typography>
-            <IconButton onClick={handleCloseDrawer} size="large">
-              <CloseOutlined />
-            </IconButton>
-          </Stack>
-          
-          {/* Placeholder content */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            height: '50vh',
-            color: 'text.secondary' 
-          }}>
-            <Typography variant="h6">
-              Participants management content will go here
-            </Typography>
+        <MainCard
+          title={
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
+              <Typography variant="h5" fontWeight="600">
+                Manage Participants
+              </Typography>
+              <IconButton onClick={handleCloseDrawer} size="large">
+                <CloseOutlined />
+              </IconButton>
+            </Stack>
+          }
+          content={false}
+          border={false}
+          boxShadow={false}
+          sx={{ 
+            flex: 1,
+            borderRadius: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            '& .MuiCardHeader-root': {
+              pb: 2,
+              flexShrink: 0
+            },
+            '& .MuiCardContent-root': {
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }
+          }}
+        >
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+              <Tabs 
+                value={participantTabValue} 
+                onChange={handleParticipantTabChange} 
+                aria-label="participants management tabs"
+                sx={{ px: 2 }}
+              >
+                <Tab 
+                  label="Groups" 
+                  icon={<TeamOutlined />} 
+                  iconPosition="start"
+                  id="drawer-tab-0"
+                  aria-controls="drawer-tabpanel-0"
+                />
+                <Tab 
+                  label="Participants" 
+                  icon={<UserOutlined />} 
+                  iconPosition="start"
+                  id="drawer-tab-1"
+                  aria-controls="drawer-tabpanel-1"
+                />
+              </Tabs>
+            </Box>
+            
+            <DrawerTabPanel value={participantTabValue} index={0}>
+              <Box sx={{ 
+                flex: 1,
+                overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0
+              }}>
+                <GroupTable index={0} />
+              </Box>
+            </DrawerTabPanel>
+            
+            <DrawerTabPanel value={participantTabValue} index={1}>
+              <Box sx={{ 
+                flex: 1,
+                overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0
+              }}>
+                <Suspense fallback={<LoadingFallback />}>
+                  <ParticipantTable index={0} />
+                </Suspense>
+              </Box>
+            </DrawerTabPanel>
           </Box>
-        </Box>
+        </MainCard>
       </Drawer>
     </MainCard>
   );

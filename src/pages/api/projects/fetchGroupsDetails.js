@@ -1,10 +1,14 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from '../../../lib/prisma';
 
 // Helper function to calculate individual participant progress
 async function calculateIndividualParticipantProgress(participantId, projectParticipantId, groupId, projectId) {
   try {
+    // Ensure we have valid parameters
+    if (!groupId || !participantId) {
+      console.warn('Missing required parameters for progress calculation');
+      return { totalActivities: 0, completedActivities: 0, overallProgress: 0 };
+    }
+
     // Get curriculums assigned to this group
     const groupCurriculumData = await prisma.group_curriculums.findMany({
       where: {
@@ -304,9 +308,10 @@ export default async function handler(req, res) {
 
     res.status(200).json(groupsWithProgress);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await prisma.$disconnect();
+    console.error('[fetchGroupsDetails] Error:', error);
+    res.status(500).json({ 
+      error: "Internal Server Error",
+      ...(process.env.NODE_ENV === 'development' && { details: error.message })
+    });
   }
 }

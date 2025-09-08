@@ -412,8 +412,7 @@ const CurriculumEditPage = () => {
     }
     
     updatedPlan[dayIndex].modules.push({
-      ...module,
-      duration: module.duration || 60 // Default 60 minutes
+      ...module
     });
     setTrainingPlan(updatedPlan);
   };
@@ -524,7 +523,7 @@ const CurriculumEditPage = () => {
               courseId: module.courseId,
               supportActivityId: module.supportActivityId,
               title: module.customTitle || module.module?.title || module.course?.title || module.supportActivity?.title || '',
-              duration: module.customDuration || module.module?.duration || module.supportActivity?.duration || 60,
+              duration: module.customDuration || module.module?.duration || module.supportActivity?.duration,
               activities: module.activities || [],
               learningObjectives: module.learningObjectives || [],
               notes: module.notes,
@@ -1751,7 +1750,7 @@ const CurriculumEditPage = () => {
                                           color: 'text.primary'
                                         }}
                                       >
-                                        {module.duration || 60}
+                                        {module.duration || 0}
                                       </Typography>
                                     </TableCell>
 
@@ -1813,8 +1812,7 @@ const CurriculumEditPage = () => {
                                             addModuleToDay(dayIndex, {
                                               courseId: '',
                                               courseName: '',
-                                              title: 'New Module',
-                                              duration: 60
+                                              title: 'New Module'
                                             });
                                           }}
                                       sx={{ 

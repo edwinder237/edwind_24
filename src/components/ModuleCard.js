@@ -155,8 +155,6 @@ const ModuleCard = ({ module, index, onUpdateTitle, onCancelEdit, onDelete, onDu
         position: 'relative',
         borderLeft: `4px solid ${getLevelColor(module.level)}`, // Color indicator on left edge
         width: '100%',
-        maxWidth: 320,
-        minWidth: 280,
         '&:hover': {
           elevation: 4, // Increased shadow on hover
           transform: 'translateY(-2px)', // Slight lift effect
@@ -193,8 +191,14 @@ const ModuleCard = ({ module, index, onUpdateTitle, onCancelEdit, onDelete, onDu
             />
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="subtitle1" noWrap>{module.title}</Typography>
-              {isSelected && <CheckCircle sx={{ color: 'success.main', fontSize: 16, ml: 1 }} />}
+              <Typography 
+                variant="subtitle1" 
+                noWrap
+                onDoubleClick={handleEdit}
+                sx={{ cursor: 'text' }}
+              >
+                {module.title}
+              </Typography>
             </Box>
           )}
           <Stack direction="column" spacing={0.5} sx={{ mt: 0.5 }}>

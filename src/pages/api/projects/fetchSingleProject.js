@@ -25,7 +25,8 @@ export default async function handler(req, res) {
             courses_enrollee_progress: true,
             participant: {
               include: {
-                training_recipient: true
+                training_recipient: true,
+                role: true // Include role from participants table
               }
             },
           },
@@ -38,7 +39,8 @@ export default async function handler(req, res) {
                   include: {
                     participant: {
                       include: {
-                        training_recipient: true
+                        training_recipient: true,
+                        role: true // Include role from participants table
                       }
                     }
                   }
@@ -66,12 +68,20 @@ export default async function handler(req, res) {
               }
             },
             event_attendees: {
-              include: {
+              select: {
+                id: true,
+                eventsId: true,
+                enrolleeId: true,
+                attendance_status: true, // Include attendance status
                 enrollee: {
                   select: {
+                    id: true,
+                    participantId: true,
+                    status: true,
                     participant: {
                       include: {
-                        training_recipient: true
+                        training_recipient: true,
+                        role: true // Include role from participants table
                       }
                     },
                   },

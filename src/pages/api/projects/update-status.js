@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma';
+import { PROJECT_STATUS } from '../../../constants';
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
@@ -13,7 +14,7 @@ export default async function handler(req, res) {
     }
 
     // Validate status
-    const validStatuses = ['Planning', 'Active', 'On Hold', 'Completed', 'Cancelled'];
+    const validStatuses = Object.values(PROJECT_STATUS);
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
