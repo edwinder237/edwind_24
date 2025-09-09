@@ -689,23 +689,48 @@ const GroupTable = ({ index }) => {
             <CSVExport data={data} filename={"expanding-details-table.csv"} />
           </Stack>
         }
+        sx={{ 
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          '& .MuiCardContent-root': {
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            overflow: 'hidden'
+          }
+        }}
       >
-        {error ? (
-          <ErrorDisplay />
-        ) : loading ? (
-          <LoadingDisplay />
-        ) : (
-          <ScrollX>
-            <ReactTable
-              columns={columns}
-              data={Array.isArray(data) ? data : []}
-              renderRowSubComponent={renderRowSubComponent}
-              handleRemoveGroup={handleRemoveGroup}
-              handleManageCurriculums={handleManageCurriculums}
-              handleEditGroup={handleEditGroup}
-            />
-          </ScrollX>
-        )}
+        <Box sx={{ 
+          flex: 1, 
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: 'hidden'
+        }}>
+          {error ? (
+            <ErrorDisplay />
+          ) : loading ? (
+            <LoadingDisplay />
+          ) : (
+            <Box sx={{ 
+              flex: 1, 
+              overflow: 'auto',
+              minHeight: 0
+            }}>
+              <ReactTable
+                columns={columns}
+                data={Array.isArray(data) ? data : []}
+                renderRowSubComponent={renderRowSubComponent}
+                handleRemoveGroup={handleRemoveGroup}
+                handleManageCurriculums={handleManageCurriculums}
+                handleEditGroup={handleEditGroup}
+              />
+            </Box>
+          )}
+        </Box>
       </MainCard>
       <Dialog
         maxWidth="sm"

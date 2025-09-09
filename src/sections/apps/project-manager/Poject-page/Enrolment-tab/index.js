@@ -86,13 +86,29 @@ const EnrolmentTAB = ({ index }) => {
             </Box>
             
             <TabPanel value={tabValue} index={0}>
-              <GroupTable index={index} />
+              <Box sx={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column',
+                minHeight: 0,
+                height: 'calc(100vh - 300px)' // Adjust based on your layout
+              }}>
+                <GroupTable index={index} />
+              </Box>
             </TabPanel>
             
             <TabPanel value={tabValue} index={1}>
-              <Suspense fallback={<LoadingFallback />}>
-                <ParticipantTable index={index} />
-              </Suspense>
+              <Box sx={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column',
+                minHeight: 0,
+                height: 'calc(100vh - 300px)' // Adjust based on your layout
+              }}>
+                <Suspense fallback={<LoadingFallback />}>
+                  <ParticipantTable index={index} />
+                </Suspense>
+              </Box>
             </TabPanel>
           </Card>
         </Grid>
