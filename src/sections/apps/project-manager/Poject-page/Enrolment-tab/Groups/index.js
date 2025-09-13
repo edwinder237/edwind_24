@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useCallback, useMemo, Fragment, useState, useEffect } from "react";
+import React, { useCallback, useMemo, Fragment, useState, useEffect, Suspense } from "react";
 
 import {
   Box,
@@ -29,6 +29,8 @@ import ScrollX from "components/ScrollX";
 import GroupDetails from "./GroupDetails";
 import { CSVExport } from "components/third-party/ReactTable";
 import LinearWithLabel from "components/@extended/progress/LinearWithLabel";
+import GroupsErrorBoundary from "components/GroupsErrorBoundary";
+import PerformanceMonitor from "components/PerformanceMonitor";
 // ADD BUTTON DEPS
 import { PopupTransition } from "components/@extended/Transitions";
 
@@ -48,10 +50,11 @@ import {
   CheckCircleOutlined,
 } from "@ant-design/icons";
 import AddButton from "components/StyledButtons";
-import AddGroupOptimized from "./AddGroupOptimized";
-import ManageGroupSlider from "./ManageGroupSlider";
-import CurriculumManageDialog from "./CurriculumManageDialog";
-import EditGroupDialog from "./components/EditGroupDialog";
+// Dynamic imports for heavy components to reduce bundle size
+const AddGroupOptimized = React.lazy(() => import("./AddGroupOptimized"));
+const ManageGroupSlider = React.lazy(() => import("./ManageGroupSlider"));
+const CurriculumManageDialog = React.lazy(() => import("./CurriculumManageDialog"));
+const EditGroupDialog = React.lazy(() => import("./components/EditGroupDialog"));
 
 import { useDispatch } from "store";
 import {
@@ -60,10 +63,12 @@ import {
   removeGroup,
   getGroupsDetails,
   getSingleProject,
+  clearProgressCache,
 } from "store/reducers/projects";
 import { openSnackbar } from "store/reducers/snackbar";
 import { useSelector } from "store";
 import axios from "utils/axios";
+import { debounce } from "utils/debounce";
 
 // ==============================|| REACT TABLE ||============================== //
 
@@ -275,7 +280,7 @@ ReactTable.propTypes = {
 
 // ==============================|| REACT TABLE - EXPANDING TABLE ||============================== //
 
-const CellExpander = ({ row }) => {
+const CellExpander = React.memo(({ row }) => {
   const collapseIcon = row.isExpanded ? <DownOutlined /> : <RightOutlined />;
   return (
     <Box
@@ -285,13 +290,13 @@ const CellExpander = ({ row }) => {
       {collapseIcon}
     </Box>
   );
-};
+});
 
 CellExpander.propTypes = {
   row: PropTypes.object,
 };
 
-const GroupCell = ({ value, groups }) => {
+const GroupCell = React.memo(({ value, groups }) => {
   // Safety check for value
   if (typeof value !== 'string' && typeof value !== 'number') {
     return <Chip color="error" label="Invalid" size="small" />;
@@ -325,7 +330,7 @@ const GroupCell = ({ value, groups }) => {
   }
   // Handle the case when the value is falsy (null, undefined, etc.)
   return <Chip color="default" label="None" size="small" />;
-};
+});
 
 GroupCell.propTypes = {
   value: PropTypes.string,
@@ -339,6 +344,7 @@ const GroupTable = ({ index }) => {
 
   const [data, setData] = useState([]);
   const [error, setError] = useState(null);
+  const [progressData, setProgressData] = useState({}); // Separate state for progress to avoid re-renders
 
   const fetchGroupsData = async () => {
     if (Project && Project.id) {
@@ -351,6 +357,12 @@ const GroupTable = ({ index }) => {
       }
     }
   };
+
+  // Debounced version to prevent excessive API calls during rapid operations
+  const debouncedFetchGroupsData = useMemo(
+    () => debounce(fetchGroupsData, 300),
+    [Project?.id]
+  );
 
   // Centralized state management - prioritize Redux groups state
   useEffect(() => {
@@ -409,8 +421,8 @@ const GroupTable = ({ index }) => {
       group && typeof group === 'object' && !group.error && group.projectId === Project?.id
     ) : []);
     
-    // Ensure groups are fetched before opening the slider
-    if (Project?.id && (!groups || groups.length === 0)) {
+    // Only fetch if groups are completely empty/null
+    if (Project?.id && !groups) {
       console.log('Fetching groups before opening ManageGroup slider...');
       await fetchGroupsData();
     }
@@ -437,10 +449,9 @@ const GroupTable = ({ index }) => {
       // Small delay to ensure database deletion is fully processed
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Refresh data from server to ensure consistency
+      // Single refresh to update project data (includes groups)
       if (Project?.id) {
         console.log('Refreshing data after group deletion...');
-        await dispatch(getGroupsDetails(Project.id));
         await dispatch(getSingleProject(Project.id));
         console.log('Data refresh completed');
       }
@@ -553,9 +564,7 @@ const GroupTable = ({ index }) => {
       }
 
       if (response?.data?.success) {
-        // Refresh the groups details first to update participant counts
-        await dispatch(getGroupsDetails(Project.id));
-        // Then refresh the project data to update all components
+        // Single refresh to update all project data (includes groups)
         await dispatch(getSingleProject(Project.id));
         console.log(response.data.message);
       } else {
@@ -567,6 +576,99 @@ const GroupTable = ({ index }) => {
     }
   }
 
+  // Handle lazy loading of progress when group is expanded
+  const handleProgressLoad = useCallback(async (groupId) => {
+    if (!Project?.id || !groupId) return;
+    
+    // Skip if already loaded
+    if (progressData[groupId]) return;
+    
+    try {
+      const response = await axios.post('/api/groups/calculate-progress', {
+        groupId,
+        projectId: Project.id
+      });
+      
+      if (response.data) {
+        // Update progress in separate state to avoid table re-render
+        setProgressData(prev => ({
+          ...prev,
+          [groupId]: {
+            groupProgress: response.data.groupProgress,
+            participantProgress: response.data.participantProgress
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading group progress:', error);
+    }
+  }, [Project?.id, progressData]);
+
+  // Function to handle progress cache clearing and refresh
+  const handleProgressCacheInvalidation = useCallback(async () => {
+    if (!Project?.id) return;
+    
+    try {
+      console.log('Handling progress cache invalidation for project:', Project.id);
+      
+      // Clear server-side and client-side cache
+      await dispatch(clearProgressCache(Project.id));
+      
+      // Clear local progress state to force re-fetch
+      setProgressData({});
+      
+      // Optionally refresh the groups data as well
+      // This ensures any new attendance data is reflected
+      await dispatch(getGroupsDetails(Project.id));
+      
+    } catch (error) {
+      console.error('Error handling progress cache invalidation:', error);
+    }
+  }, [Project?.id, dispatch]);
+
+  // Listen for attendance updates from other tabs/components
+  useEffect(() => {
+    const handleAttendanceUpdate = (event) => {
+      if (event.detail?.projectId === Project?.id) {
+        console.log('Received attendance update event for project:', Project.id);
+        handleProgressCacheInvalidation();
+      }
+    };
+
+    // Listen for custom event
+    window.addEventListener('attendanceUpdated', handleAttendanceUpdate);
+    
+    return () => {
+      window.removeEventListener('attendanceUpdated', handleAttendanceUpdate);
+    };
+  }, [Project?.id, handleProgressCacheInvalidation]);
+
+  // Performance monitoring and cleanup
+  useEffect(() => {
+    const startTime = performance.now();
+    
+    return () => {
+      const endTime = performance.now();
+      const renderTime = endTime - startTime;
+      
+      // Log performance metrics in development
+      if (process.env.NODE_ENV === 'development' && renderTime > 100) {
+        console.warn(`Groups tab render took ${renderTime.toFixed(2)}ms - consider optimizing`);
+      }
+      
+      // Cleanup: Clear progress data when component unmounts to prevent memory leaks
+      setProgressData({});
+    };
+  }, []);
+
+  // Memory cleanup when project changes
+  useEffect(() => {
+    // Clear progress data when switching projects to prevent memory accumulation
+    setProgressData({});
+    setError(null);
+  }, [Project?.id]);
+
+  // Memoize column definitions with optimized dependencies
   const columns = useMemo(
     () => [
       {
@@ -585,7 +687,6 @@ const GroupTable = ({ index }) => {
         Header: "Size",
         accessor: "participants",
         Cell: ({ value, row }) => {
-          console.log('Size cell - value:', value, 'row:', row.original);
           const count = value && Array.isArray(value) ? value.length : 0;
           return count === 0 ? <span>⚠️</span> : <span>{count}</span>;
         },
@@ -609,10 +710,28 @@ const GroupTable = ({ index }) => {
       {
         Header: "Curriculum Progress",
         accessor: "progress",
-        Cell: ProgressCell,
+        Cell: ({ value, row }) => {
+          const groupId = row.original.id;
+          const loadedProgress = progressData[groupId]?.groupProgress;
+          
+          // Use loaded progress if available, otherwise use original value
+          const actualProgress = loadedProgress !== undefined ? loadedProgress : value;
+          
+          if (actualProgress === null || actualProgress === undefined) {
+            // Show loading or "expand to view" for lazy loading
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="caption" color="text.secondary">
+                  {row.isExpanded ? <CircularProgress size={16} /> : "Expand to view"}
+                </Typography>
+              </Box>
+            );
+          }
+          return <LinearWithLabel value={actualProgress} sx={{ minWidth: 75 }} />;
+        },
       },
     ],
-    [data]
+    [data.length, Object.keys(progressData).length] // Only re-render when counts change, not entire objects
   );
 
   const renderRowSubComponent = useCallback(
@@ -622,9 +741,16 @@ const GroupTable = ({ index }) => {
       if (!groupData || typeof groupData === 'object' && groupData.error) {
         return <div>Unable to load group details</div>;
       }
-      return <GroupDetails Group={groupData} />;
+      
+      // Merge progress data with group data for the details component
+      const groupWithProgress = {
+        ...groupData,
+        progressData: progressData[groupData.id]
+      };
+      
+      return <GroupDetails Group={groupWithProgress} onProgressLoad={handleProgressLoad} />;
     },
-    [data]
+    [data, progressData, handleProgressLoad]
   );
 
   // Error Display Component
@@ -637,7 +763,7 @@ const GroupTable = ({ index }) => {
           <Button
             color="inherit"
             size="small"
-            onClick={fetchGroupsData}
+            onClick={debouncedFetchGroupsData}
             startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <ReloadOutlined />}
             disabled={loading}
           >
@@ -661,6 +787,7 @@ const GroupTable = ({ index }) => {
   );
 
   return (
+    <GroupsErrorBoundary>
     <Fragment>
       <MainCard
         title={tableName}
@@ -740,57 +867,67 @@ const GroupTable = ({ index }) => {
         open={add}
         sx={{ "& .MuiDialog-paper": { p: 0, maxWidth: 600 } }}
       >
-        <AddGroupOptimized
-          customer={customer}
-          onCancel={handleAdd}
-          handleAddParticipant={handleAddGroup}
-          groupsInState={groups}
-          participants={project_participants || participants}
-        />
+        <Suspense fallback={<Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>}>
+          <AddGroupOptimized
+            customer={customer}
+            onCancel={handleAdd}
+            handleAddParticipant={handleAddGroup}
+            groupsInState={groups}
+            participants={project_participants || participants}
+          />
+        </Suspense>
       </Dialog>
       
-      <ManageGroupSlider
-        open={manageGroup}
-        onClose={handleManageGroup}
-        groups={(() => {
-          const filteredGroups = Array.isArray(groups) ? groups.filter(group => 
-            group && typeof group === 'object' && !group.error && group.projectId === Project?.id
-          ) : [];
-          return filteredGroups;
-        })()}
-        participants={(() => {
-          // Use project_participants from Redux state which includes role data
-          const mapped = project_participants ? project_participants.map(p => {
-            return {
-              ...p.participant,
-              projectParticipantId: p.id // Include the project_participants.id for API calls
-            };
-          }).filter(Boolean) : [];
-          return mapped;
-        })()}
-        onUpdateGroup={handleUpdateGroup}
-        error={error}
-        onRetry={fetchGroupsData}
-        loading={loading}
-      />
+      <Suspense fallback={<Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>}>
+        <ManageGroupSlider
+          open={manageGroup}
+          onClose={handleManageGroup}
+          groups={(() => {
+            const filteredGroups = Array.isArray(groups) ? groups.filter(group => 
+              group && typeof group === 'object' && !group.error && group.projectId === Project?.id
+            ) : [];
+            return filteredGroups;
+          })()}
+          participants={(() => {
+            // Use project_participants from Redux state which includes role data
+            const mapped = project_participants ? project_participants.map(p => {
+              return {
+                ...p.participant,
+                projectParticipantId: p.id // Include the project_participants.id for API calls
+              };
+            }).filter(Boolean) : [];
+            return mapped;
+          })()}
+          onUpdateGroup={handleUpdateGroup}
+          error={error}
+          onRetry={fetchGroupsData}
+          loading={loading}
+        />
+      </Suspense>
       
       {/* Curriculum Management Dialog */}
-      <CurriculumManageDialog
-        open={curriculumDialogOpen}
-        onClose={handleCurriculumDialogClose}
-        group={selectedGroup}
-        onRefresh={handleRefreshAfterCurriculumChange}
-      />
+      <Suspense fallback={<Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>}>
+        <CurriculumManageDialog
+          open={curriculumDialogOpen}
+          onClose={handleCurriculumDialogClose}
+          group={selectedGroup}
+          onRefresh={handleRefreshAfterCurriculumChange}
+        />
+      </Suspense>
 
       {/* Edit Group Dialog */}
-      <EditGroupDialog
-        open={editGroupDialog}
-        onClose={handleEditGroupClose}
-        group={groupToEdit}
-        onUpdate={handleUpdateGroupDetails}
-        existingGroupNames={(data || []).map(group => group.groupName).filter(name => name !== groupToEdit?.groupName)}
-      />
+      <Suspense fallback={<Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>}>
+        <EditGroupDialog
+          open={editGroupDialog}
+          onClose={handleEditGroupClose}
+          group={groupToEdit}
+          onUpdate={handleUpdateGroupDetails}
+          existingGroupNames={(data || []).map(group => group.groupName).filter(name => name !== groupToEdit?.groupName)}
+        />
+      </Suspense>
     </Fragment>
+    <PerformanceMonitor />
+    </GroupsErrorBoundary>
   );
 };
 
@@ -811,4 +948,4 @@ ProgressCell.propTypes = {
   value: PropTypes.number,
 };
 
-export default GroupTable;
+export default React.memo(GroupTable);

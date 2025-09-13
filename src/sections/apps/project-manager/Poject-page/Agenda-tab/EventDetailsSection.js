@@ -32,8 +32,10 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project, available
   const dispatch = useDispatch();
   const Project = project || useSelector((state) => state.projects.singleProject);
   const { calendarView } = useSelector((state) => state.calendar);
+  const { loading: projectLoading } = useSelector((state) => state.projects);
 
   const [scheduleState, setScheduleState] = useState({ participants: [] });
+  const [isGroupOperationLoading, setIsGroupOperationLoading] = useState(false);
 
   // Centralized participant management functions - memoized to prevent re-renders
   const handleAddParticipants = useCallback(async (participants, groups) => {
@@ -240,6 +242,11 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project, available
     }
   }, [participantsData]);
 
+  // Monitor project loading state for group operations
+  useEffect(() => {
+    setIsGroupOperationLoading(projectLoading);
+  }, [projectLoading]);
+
   // Memoized event details calculation
   const getSelectedEventDetails = useCallback((event) => {
     const { title: eventTitle, extendedProps, id } = event;
@@ -397,6 +404,7 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project, available
             onAddParticipants={handleAddParticipants}
             onRemoveParticipant={handleRemoveParticipant}
             onMoveParticipant={handleMoveParticipant}
+            isGroupOperationLoading={isGroupOperationLoading}
             course={scheduleState.course}
           />
           

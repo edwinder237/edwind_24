@@ -156,7 +156,7 @@ export default function InstructorPicker({
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
             
-          filtered.push({
+          filtered.unshift({
             id: 'create-new',
             firstName: camelCaseName,
             lastName: '',
@@ -174,14 +174,31 @@ export default function InstructorPicker({
       renderOption={(props, option) => {
         if (option.isNew) {
           return (
-            <li {...props}>
-              <Box>
-                <Typography variant="body2" color="primary">
-                  Create "{option.name}"
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Add new instructor
-                </Typography>
+            <li {...props} style={{ ...props.style, backgroundColor: 'rgba(25, 118, 210, 0.08)' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', p: 1 }}>
+                <Box 
+                  sx={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    fontSize: 18
+                  }}
+                >
+                  +
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="primary.main" fontWeight={600}>
+                    Create "{option.name}"
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Add new instructor
+                  </Typography>
+                </Box>
               </Box>
             </li>
           );

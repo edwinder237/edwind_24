@@ -311,6 +311,9 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   const handleQuickGroupAssign = async (groupId, e) => {
     e?.stopPropagation();
     
+    // Set loading state
+    setIsLoadingGroups(true);
+    
     try {
       const response = await fetch('/api/projects/addEventGroup', {
         method: 'POST',
@@ -333,9 +336,12 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         onEventUpdate(event.id, updatedEventData);
       }
 
-      // Refresh events in background to ensure consistency with database
+      // Refresh events and project data in background to ensure consistency with database
       if (project?.id) {
-        dispatch(getEvents(project.id));
+        await Promise.all([
+          dispatch(getEvents(project.id)),
+          dispatch(getSingleProject(project.id))
+        ]);
       }
 
       dispatch(
@@ -362,6 +368,8 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
           anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
         })
       );
+    } finally {
+      setIsLoadingGroups(false);
     }
   };
 
@@ -463,6 +471,9 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   };
 
   const handleGroupChange = async (newGroupId) => {
+    // Set loading state
+    setIsLoadingGroups(true);
+    
     try {
       // Update the event with the new group assignment
       const response = await fetch('/api/calendar/db-update-event', {
@@ -493,7 +504,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         // Refresh data in background to ensure consistency with database
         if (project?.id) {
           // Run these in parallel for better performance
-          Promise.all([
+          await Promise.all([
             dispatch(getSingleProject(project.id)),
             dispatch(getEvents(project.id)),
             dispatch(getGroupsDetails(project.id))
@@ -521,12 +532,17 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
           close: false
         })
       );
+    } finally {
+      setIsLoadingGroups(false);
     }
     handleGroupDropdownClose();
   };
 
   // Handle group removal
   const handleRemoveGroup = async () => {
+    // Set loading state
+    setIsLoadingGroups(true);
+    
     try {
       // Update the event to remove all group assignments
       const response = await fetch('/api/calendar/db-update-event', {
@@ -552,7 +568,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         
         // Refresh data in background to ensure consistency with database
         if (project?.id) {
-          Promise.all([
+          await Promise.all([
             dispatch(getSingleProject(project.id)),
             dispatch(getEvents(project.id)),
             dispatch(getGroupsDetails(project.id))
@@ -580,6 +596,8 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
           close: false
         })
       );
+    } finally {
+      setIsLoadingGroups(false);
     }
     handleGroupDropdownClose();
   };
@@ -708,8 +726,8 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                 </Stack>
               )}
 
-              {/* Group chips or quick assignment dropdown */}
-              {(() => {
+              {/* Group chips or quick assignment dropdown - only for course events */}
+              {event.eventType === 'course' && (() => {
                 // Check if event has any actual groups assigned
                 const hasActualGroups = event.event_groups && 
                   event.event_groups.length > 0 && 

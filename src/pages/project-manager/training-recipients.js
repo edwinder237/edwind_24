@@ -383,6 +383,9 @@ const TrainingRecipients = () => {
               data={trainingRecipients}
               handleAdd={handleClickOpen}
               addButtonText="Add Training Recipient"
+              addButtonVariant="emphasized"
+              addButtonDescription="Register a new organization as a training recipient to enroll their participants in projects"
+              showFloatingActionButton={true}
               initialSortBy={{ id: "name", desc: false }}
               initialHiddenColumns={["id"]}
               responsiveHiddenColumns={["address", "taxId", "website"]}

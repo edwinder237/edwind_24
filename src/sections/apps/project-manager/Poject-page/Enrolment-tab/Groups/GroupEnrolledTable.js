@@ -176,7 +176,7 @@ ProgressCell.propTypes = {
   value: PropTypes.number,
 };
 
-const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup }) => {
+const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData }) => {
   console.log(Enrolled);
   const dispatch = useDispatch();
   const { groups, singleProject } = useSelector((state) => state.projects);
@@ -256,8 +256,7 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup }) => {
         onRefresh();
       }
       
-      // Also refresh Redux state to update UI immediately
-      await dispatch(getGroupsDetails(singleProject.id));
+      // Refresh Redux state to update UI immediately
       await dispatch(getSingleProject(singleProject.id));
     } catch (error) {
       console.error('Error updating participant group:', error);
@@ -303,7 +302,20 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup }) => {
       {
         Header: "Individual Progress",
         accessor: "participant.participant.progress",
-        Cell: ProgressCell,
+        Cell: ({ value, row }) => {
+          // Try to get progress from progressData if available
+          const participantId = row.original?.participant?.id;
+          const loadedProgress = progressData?.participantProgress?.find(
+            p => p.participantId === participantId
+          )?.progress;
+          
+          const actualProgress = loadedProgress !== undefined ? loadedProgress : value;
+          
+          if (actualProgress === null || actualProgress === undefined) {
+            return <span>-</span>;
+          }
+          return <LinearWithLabel value={actualProgress} sx={{ minWidth: 75 }} />;
+        },
       },
       {
         Header: "Action",
@@ -357,7 +369,7 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup }) => {
         },
       },
     ],
-    [groups, assigningParticipant, handleAssignToGroup, currentGroup]
+    [groups, assigningParticipant, handleAssignToGroup, currentGroup, progressData]
   );
 
   return <ReactTable columns={columns} data={participantsWithAttendance} />;
@@ -367,6 +379,7 @@ GroupEnrolledTable.propTypes = {
   Enrolled: PropTypes.array,
   onRefresh: PropTypes.func,
   currentGroup: PropTypes.object,
+  progressData: PropTypes.object,
 };
 
 GroupEnrolledTable.getLayout = function getLayout(page) {

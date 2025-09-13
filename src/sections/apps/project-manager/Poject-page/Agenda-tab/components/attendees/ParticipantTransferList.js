@@ -250,6 +250,17 @@ const ParticipantTransferList = ({
       });
 
       if (response.ok) {
+        // Dispatch custom event to notify Groups tab of attendance change
+        const attendanceUpdateEvent = new CustomEvent('attendanceUpdated', {
+          detail: { 
+            projectId: selectedEvent.projectId || singleProject?.id,
+            eventId: eventId,
+            participantId: participant.id,
+            newStatus: newStatus
+          }
+        });
+        window.dispatchEvent(attendanceUpdateEvent);
+
         // Update local state immediately
         setEventAttendees(prev => prev.map(attendee => 
           attendee.id === participant.id 

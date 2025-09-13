@@ -29,6 +29,7 @@ import {
 // project imports
 import MainCard from "components/MainCard";
 import AddParticipantSlider from "./AddParticipantSlider";
+import ParticipantDrawer from "./ParticipantDrawer";
 import { useSelector, useDispatch } from "store";
 import { getSingleProject, getEvents } from "store/reducers/projects";
 import { openSnackbar } from "store/reducers/snackbar";
@@ -41,7 +42,7 @@ const Avatar1 = "/assets/images/users/avatar-1.png";
 
 // ===========================||  ||=========================== //
 
-const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selectedEvent, onAddParticipants, onRemoveParticipant, onMoveParticipant, course = null }) => {
+const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selectedEvent, onAddParticipants, onRemoveParticipant, onMoveParticipant, course = null, isGroupOperationLoading = false }) => {
   const dispatch = useDispatch();
   const { singleProject } = useSelector((state) => state.projects);
   const [sliderOpen, setSliderOpen] = useState(false);
@@ -52,6 +53,10 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
   
   // Track which participant is currently being updated to prevent multiple simultaneous changes
   const [updatingParticipant, setUpdatingParticipant] = useState(null);
+  
+  // State for participant drawer
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState(null);
 
   // Initialize statuses when eventParticipants changes (prevent looping)
   useEffect(() => {
@@ -82,6 +87,16 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
 
   const handleCloseSlider = () => {
     setSliderOpen(false);
+  };
+
+  const handleParticipantClick = (participant) => {
+    setSelectedParticipant(participant);
+    setDrawerOpen(true);
+  };
+
+  const handleDrawerClose = () => {
+    setDrawerOpen(false);
+    setSelectedParticipant(null);
   };
 
   const handleStatusChange = async (participantId, newStatus) => {
@@ -145,6 +160,17 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
           if (!updateResponse.ok) {
             throw new Error('Failed to update attendance status after adding participant');
           }
+
+          // Dispatch custom event to notify Groups tab of attendance change
+          const attendanceUpdateEvent = new CustomEvent('attendanceUpdated', {
+            detail: { 
+              projectId: selectedEvent.projectId || singleProject?.id,
+              eventId: selectedEvent.id,
+              participantId: participantId,
+              newStatus: newStatus
+            }
+          });
+          window.dispatchEvent(attendanceUpdateEvent);
 
           // Update local state
           setParticipantStatuses(prev => ({
@@ -212,6 +238,17 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
 
         const result = await response.json();
         console.log(`Successfully updated participant ${participantId} to ${newStatus}:`, result);
+
+        // Dispatch custom event to notify Groups tab of attendance change
+        const attendanceUpdateEvent = new CustomEvent('attendanceUpdated', {
+          detail: { 
+            projectId: selectedEvent.projectId || singleProject?.id,
+            eventId: selectedEvent.id,
+            participantId: participantId,
+            newStatus: newStatus
+          }
+        });
+        window.dispatchEvent(attendanceUpdateEvent);
         
         // Show success toast
         dispatch(openSnackbar({
@@ -406,7 +443,31 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
         }
       }}
     >
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 2, position: 'relative' }}>
+        {/* Loading Overlay */}
+        {isGroupOperationLoading && (
+          <Box sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(2px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            borderRadius: 2
+          }}>
+            <CircularProgress size={24} sx={{ mb: 1 }} />
+            <Typography variant="caption" sx={{ color: 'text.secondary', textAlign: 'center' }}>
+              Updating participants...
+            </Typography>
+          </Box>
+        )}
+
         {uniqueParticipants.length > 0 ? (
           <Stack spacing={2}>
             {/* Participants List with integrated stats */}
@@ -473,8 +534,34 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                       }}
                     >
                       {/* Name and Role */}
-                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0, flex: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <Box 
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'baseline', 
+                          gap: 1, 
+                          minWidth: 0, 
+                          flex: 1,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            '& .participant-name': {
+                              color: 'primary.main',
+                              textDecoration: 'underline'
+                            }
+                          }
+                        }}
+                        onClick={() => handleParticipantClick(participant)}
+                      >
+                        <Typography 
+                          className="participant-name"
+                          variant="body2" 
+                          sx={{ 
+                            fontWeight: 500, 
+                            whiteSpace: 'nowrap', 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis',
+                            transition: 'all 0.2s'
+                          }}
+                        >
                           {`${participant.firstName || ''} ${participant.lastName || ''}`.trim() || participant.name || 'Unknown'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -595,6 +682,13 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
         onRemoveParticipant={handleRemoveParticipant}
         onMoveParticipant={handleMoveParticipant}
         course={course}
+      />
+      
+      {/* Participant Report Card Drawer */}
+      <ParticipantDrawer
+        open={drawerOpen}
+        onClose={handleDrawerClose}
+        participant={selectedParticipant}
       />
     </MainCard>
   );

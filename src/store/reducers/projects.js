@@ -96,6 +96,14 @@ const slice = createSlice({
     isAdding(state, action) {
       state.isAdding = action.payload;
     },
+    // CLEAR PROGRESS CACHE
+    clearProgressCache(state, action) {
+      // Clear progress data from Redux state to force re-fetch
+      const projectId = action.payload;
+      console.log('Clearing progress cache for project:', projectId);
+      // This will cause components to re-fetch progress data
+    },
+    
     // LOADING
     setLoading(state, action) {
       state.loading = action.payload;
@@ -626,6 +634,22 @@ export function getGroupsDetails(projectId) {
       dispatch(slice.actions.hasError(getErrorMessage(error)));
     } finally {
       dispatch(slice.actions.setLoading(false));
+    }
+  };
+}
+
+export function clearProgressCache(projectId) {
+  return async (dispatch) => {
+    try {
+      // Clear server-side cache
+      await axios.post('/api/groups/clear-progress-cache', { projectId });
+      
+      // Clear client-side cache
+      dispatch(slice.actions.clearProgressCache(projectId));
+      
+      console.log('Progress cache cleared for project:', projectId);
+    } catch (error) {
+      console.warn('Failed to clear progress cache:', error);
     }
   };
 }

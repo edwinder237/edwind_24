@@ -188,9 +188,11 @@ const ManageGroupSlider = ({
             maxWidth: '1200px', 
             width: '100%', 
             mx: 'auto', 
-            height: 'calc(100% - 60px)' 
+            height: 'calc(100% - 60px)',
+            display: 'flex',
+            flexDirection: 'column'
           }}>
-            <Stack direction="row" spacing={3} sx={{ flex: 1, overflow: 'hidden', height: '100%' }}>
+            <Stack direction="row" spacing={3} sx={{ flex: 1, overflow: 'hidden', height: '100%', minHeight: 0 }}>
             {/* Available Participants */}
             <Box sx={{ flex: 1 }}>
               <MainCard 
@@ -207,6 +209,7 @@ const ManageGroupSlider = ({
                   height: '100%', 
                   display: 'flex', 
                   flexDirection: 'column',
+                  minHeight: 0,
                   '& .MuiCardHeader-root': {
                     backgroundColor: 'grey.50',
                     borderBottom: '1px solid',
@@ -217,7 +220,8 @@ const ManageGroupSlider = ({
               >
                 <Box sx={{ 
                   flex: 1,
-                  height: '100%',
+                  minHeight: 0,
+                  maxHeight: 300,
                   overflow: 'auto',
                   pt: 1,
                   pb: 1,
@@ -292,6 +296,7 @@ const ManageGroupSlider = ({
                   height: '100%', 
                   display: 'flex', 
                   flexDirection: 'column',
+                  minHeight: 0,
                   '& .MuiCardHeader-root': {
                     backgroundColor: 'grey.50',
                     borderBottom: '1px solid',
@@ -302,7 +307,8 @@ const ManageGroupSlider = ({
               >
                 <Box sx={{ 
                   flex: 1,
-                  height: '100%',
+                  minHeight: 0,
+                  maxHeight: 300,
                   overflow: 'auto',
                   pt: 1,
                   pb: 1,

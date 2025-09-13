@@ -14,7 +14,9 @@ import {
   Box,
   Typography,
   IconButton,
-  Stack
+  Stack,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import MainCard from 'components/MainCard';
@@ -34,6 +36,7 @@ const ChecklistItemForm = ({
     priority: 'medium',
     moduleId: '',
     itemOrder: '',
+    participantOnly: false,
   });
 
   const [errors, setErrors] = useState({});
@@ -47,6 +50,7 @@ const ChecklistItemForm = ({
         priority: item.priority || 'medium',
         moduleId: item.moduleId || '',
         itemOrder: item.itemOrder || '',
+        participantOnly: item.participantOnly || false,
       });
     } else {
       setFormData({
@@ -56,6 +60,7 @@ const ChecklistItemForm = ({
         priority: 'medium',
         moduleId: '',
         itemOrder: '',
+        participantOnly: false,
       });
     }
     setErrors({});
@@ -74,6 +79,13 @@ const ChecklistItemForm = ({
         [field]: ''
       }));
     }
+  };
+
+  const handleSwitchChange = (field) => (event) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: event.target.checked
+    }));
   };
 
   const validateForm = () => {
@@ -228,6 +240,30 @@ const ChecklistItemForm = ({
                 onChange={handleChange('itemOrder')}
                 helperText="Display order within category"
               />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Box sx={{ mt: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.participantOnly}
+                      onChange={handleSwitchChange('participantOnly')}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1" component="span">
+                        Participant Only
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" display="block">
+                        Only participants can see this checklist item
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Box>
             </Grid>
 
             <Grid item xs={12}>

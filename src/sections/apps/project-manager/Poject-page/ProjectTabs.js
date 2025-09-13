@@ -195,11 +195,20 @@ const ProjectTabs = ({
           <Tab 
             label={
               <Box sx={styles.tabLabel}>
+                <DashboardOutlined />
+                <span>Overview</span>
+              </Box>
+            }
+            {...a11yProps(0)} 
+          />
+          <Tab 
+            label={
+              <Box sx={styles.tabLabel}>
                 <CalendarOutlined />
                 <span>Agenda</span>
               </Box>
             }
-            {...a11yProps(0)} 
+            {...a11yProps(1)} 
           />
           <Tab 
             label={
@@ -212,7 +221,7 @@ const ProjectTabs = ({
                 )}
               </Box>
             }
-            {...a11yProps(1)} 
+            {...a11yProps(2)} 
           />
           <Tab 
             label={
@@ -221,7 +230,7 @@ const ProjectTabs = ({
                 <span>Settings</span>
               </Box>
             }
-            {...a11yProps(2)} 
+            {...a11yProps(3)} 
           />
         </Tabs>
 
@@ -238,9 +247,14 @@ const ProjectTabs = ({
       </Stack>
 
         <TabPanel value={tabValue} index={0}>
-          <AgendaTab />
+          <Suspense fallback={<LoadingFallback />}>
+            <OverviewTab project={project} />
+          </Suspense>
         </TabPanel>
         <TabPanel value={tabValue} index={1}>
+          <AgendaTab />
+        </TabPanel>
+        <TabPanel value={tabValue} index={2}>
           <ProjectChecklist 
             checklistItems={checklistItems}
             checklistLoading={checklistLoading}
@@ -248,7 +262,7 @@ const ProjectTabs = ({
             styles={styles}
           />
         </TabPanel>
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={3}>
           <TabSettings />
         </TabPanel>
       </Box>

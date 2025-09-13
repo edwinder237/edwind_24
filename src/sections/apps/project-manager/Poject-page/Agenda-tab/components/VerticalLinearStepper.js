@@ -78,12 +78,12 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
     return false;
   }, [eventId, moduleId, moduleProgress]);
 
-  // Set active step to complete if module is already completed
+  // Set active step to complete if module is already completed (only on initial load)
   useEffect(() => {
     if (isModuleCompleted && activeStep < activities.length) {
       setActiveStep(activities.length);
     }
-  }, [isModuleCompleted, activities.length, activeStep]);
+  }, [isModuleCompleted, activities.length]); // Removed activeStep dependency to prevent reset interference
 
   const handleNext = async () => {
     const nextStep = activeStep + 1;
@@ -112,10 +112,7 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
   const handleBack = () => setActiveStep((prevActiveStep) => prevActiveStep - 1);
   
   const handleReset = async () => {
-    // Reset UI state immediately for better UX
-    setActiveStep(0);
-    
-    // Reset progress in database and Redux state if we have the required data
+    // Reset progress in database and Redux state first if we have the required data
     if (eventId && moduleId) {
       try {
         await dispatch(resetModuleProgress(eventId, moduleId, activities));
@@ -126,8 +123,14 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
         }
       } catch (error) {
         console.error('Error resetting module progress:', error);
+        // Reset UI state anyway even if there's an error
+        setActiveStep(0);
+        return;
       }
     }
+    
+    // Reset UI state after successful database reset
+    setActiveStep(0);
   };
 
   const handleSendModuleEmail = async (activity, activityIndex) => {
@@ -273,7 +276,7 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
                     color={index === activities.length - 1 ? 'success' : 'primary'}
                     disabled={progressLoading}
                   >
-                    {progressLoading && index === activities.length - 1 ? 'Saving...' : (index === activities.length - 1 ? 'Finish' : 'Continue')}
+                    {progressLoading && index === activities.length - 1 ? 'Saving...' : (index === activities.length - 1 ? 'Mark Complete' : 'Continue')}
                   </Button>
                   <Button disabled={index === 0} onClick={handleBack} sx={{ mt: 1, mr: 1 }}>
                     Back

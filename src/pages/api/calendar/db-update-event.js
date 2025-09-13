@@ -42,31 +42,112 @@ export default async function handler(req, res) {
 
       // Handle group assignments if selectedGroups is provided
       if (event.selectedGroups !== undefined) {
-        // First, delete existing group assignments
+        // Get current group assignments before deleting them
+        const currentGroupAssignments = await tx.event_groups.findMany({
+          where: {
+            eventsId: parseInt(eventId)
+          },
+          select: {
+            groupId: true
+          }
+        });
+
+        const currentGroupIds = currentGroupAssignments.map(eg => eg.groupId);
+        const newGroupIds = event.selectedGroups.map(id => parseInt(id)).filter(id => !isNaN(id));
+        
+        // Find which groups are being removed
+        const groupsToRemove = currentGroupIds.filter(currentId => !newGroupIds.includes(currentId));
+        
+        // Find which groups are being added
+        const groupsToAdd = newGroupIds.filter(newId => !currentGroupIds.includes(newId));
+
+        // Remove attendees from groups that are being removed
+        if (groupsToRemove.length > 0) {
+          for (const removedGroupId of groupsToRemove) {
+            // Get participants from the group being removed
+            const groupParticipants = await tx.group_participants.findMany({
+              where: {
+                groupId: removedGroupId
+              },
+              select: {
+                participantId: true
+              }
+            });
+
+            if (groupParticipants.length > 0) {
+              const participantIds = groupParticipants.map(gp => gp.participantId);
+              
+              // Remove attendees that match the participants from this group
+              await tx.event_attendees.deleteMany({
+                where: {
+                  eventsId: parseInt(eventId),
+                  enrolleeId: {
+                    in: participantIds
+                  }
+                }
+              });
+            }
+          }
+        }
+
+        // Update group assignments
         await tx.event_groups.deleteMany({
           where: {
             eventsId: parseInt(eventId)
           }
         });
 
-        // Then create new group assignments
-        if (event.selectedGroups.length > 0) {
-          const groupAssignments = event.selectedGroups
-            .filter(groupId => {
-              // Filter out invalid group IDs
-              const parsed = parseInt(groupId);
-              return !isNaN(parsed) && parsed > 0;
-            })
-            .map(groupId => ({
-              eventsId: parseInt(eventId),
-              groupId: parseInt(groupId)
-            }));
+        // Create new group assignments
+        if (newGroupIds.length > 0) {
+          const groupAssignments = newGroupIds.map(groupId => ({
+            eventsId: parseInt(eventId),
+            groupId: groupId
+          }));
 
-          // Only create if there are valid group assignments
-          if (groupAssignments.length > 0) {
-            await tx.event_groups.createMany({
-              data: groupAssignments
+          await tx.event_groups.createMany({
+            data: groupAssignments
+          });
+
+          // Add attendees from newly assigned groups
+          for (const groupId of groupsToAdd) {
+            // Get all participants from this group
+            const groupParticipants = await tx.group_participants.findMany({
+              where: {
+                groupId: groupId
+              },
+              select: {
+                participantId: true
+              }
             });
+
+            // Create event attendees for each group participant
+            if (groupParticipants.length > 0) {
+              const attendeeData = groupParticipants.map(gp => ({
+                eventsId: parseInt(eventId),
+                enrolleeId: gp.participantId,
+                attendance_status: "scheduled",
+                createdBy: updatedEvent.updatedby || updatedEvent.createdBy,
+                updatedby: updatedEvent.updatedby || updatedEvent.createdBy
+              }));
+
+              // Use upsert to avoid duplicate attendees
+              for (const attendee of attendeeData) {
+                await tx.event_attendees.upsert({
+                  where: {
+                    eventsId_enrolleeId: {
+                      eventsId: attendee.eventsId,
+                      enrolleeId: attendee.enrolleeId
+                    }
+                  },
+                  update: {
+                    attendance_status: attendee.attendance_status,
+                    updatedby: attendee.updatedby,
+                    lastUpdated: new Date()
+                  },
+                  create: attendee
+                });
+              }
+            }
           }
         }
       }

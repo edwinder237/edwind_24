@@ -64,6 +64,7 @@ async function createChecklistItem(req, res) {
     priority = 'medium', 
     moduleId, 
     itemOrder,
+    participantOnly = false,
     createdBy 
   } = req.body;
 
@@ -80,6 +81,7 @@ async function createChecklistItem(req, res) {
       priority,
       moduleId: moduleId ? parseInt(moduleId) : null,
       itemOrder,
+      participantOnly,
       createdBy
     },
     include: {
@@ -105,6 +107,7 @@ async function updateChecklistItem(req, res) {
     priority, 
     moduleId, 
     itemOrder,
+    participantOnly,
     updatedBy 
   } = req.body;
 
@@ -121,6 +124,7 @@ async function updateChecklistItem(req, res) {
       priority,
       moduleId: moduleId ? parseInt(moduleId) : null,
       itemOrder,
+      participantOnly,
       updatedBy,
       updatedAt: new Date()
     },

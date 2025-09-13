@@ -80,7 +80,9 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
+  UnorderedListOutlined,
 } from "@ant-design/icons";
+import { Person } from '@mui/icons-material';
 //import { getModules } from "utils/getModules";
 
 
@@ -440,10 +442,11 @@ const CourseEditPage = ({ courseId }) => {
                       }}
                     >
                       <ListItemIcon>
-                        <Checkbox 
-                          checked={false}
-                          disabled
-                          color="primary"
+                        <UnorderedListOutlined 
+                          style={{ 
+                            fontSize: '18px', 
+                            color: '#666' 
+                          }}
                         />
                       </ListItemIcon>
                       <ListItemText
@@ -452,12 +455,35 @@ const CourseEditPage = ({ courseId }) => {
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
                               {item.title}
                             </Typography>
-                            <Chip 
-                              label={item.priority} 
-                              size="small" 
-                              color={getPriorityColor(item.priority)}
-                              variant="outlined"
-                            />
+                            {item.participantOnly && (
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                  px: 0.75,
+                                  py: 0.25,
+                                  borderRadius: 1,
+                                  bgcolor: 'info.lighter',
+                                  border: '1px solid',
+                                  borderColor: 'info.light'
+                                }}
+                              >
+                                <Person sx={{ fontSize: 12, color: 'info.main' }} />
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    fontSize: '0.6rem', 
+                                    color: 'info.main', 
+                                    fontWeight: 600,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.5
+                                  }}
+                                >
+                                  Participant Only
+                                </Typography>
+                              </Box>
+                            )}
                             {item.module && (
                               <Chip 
                                 label={`Module: ${item.module.title}`} 

@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSelector, useDispatch } from 'store';
 import axios from 'utils/axios';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -56,7 +56,7 @@ import IconButton from "components/@extended/IconButton";
 
 // ==============================|| EXPANDING TABLE - USER DETAILS ||============================== //
 
-const GroupDetails = ({ Group }) => {
+const GroupDetails = ({ Group, onProgressLoad }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const matchDownMD = useMediaQuery(theme.breakpoints.down("md"));
@@ -68,6 +68,13 @@ const GroupDetails = ({ Group }) => {
   const [assignmentAction, setAssignmentAction] = useState('add'); // 'add' or 'move'
   
   const { singleProject, project_participants } = useSelector((state) => state.projects);
+
+  // Trigger progress loading when component mounts
+  useEffect(() => {
+    if (Group?.id && !Group?.progressData && onProgressLoad) {
+      onProgressLoad(Group.id);
+    }
+  }, [Group?.id, Group?.progressData, onProgressLoad]);
 
   const backColor = alpha(theme.palette.primary.lighter, 0.1);
 
@@ -88,9 +95,9 @@ const GroupDetails = ({ Group }) => {
     setCurriculumDialogOpen(false);
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     setRefreshKey(prev => prev + 1);
-  };
+  }, []);
 
   const handleAddParticipant = () => {
     setSelectedParticipants([]); // Clear any previous selections
@@ -104,34 +111,38 @@ const GroupDetails = ({ Group }) => {
     setAssignmentAction('add');
   };
 
-  // Get all project participants with their group information
+  // Get all project participants with their group information - memoized for performance
   const { groups } = useSelector((state) => state.projects);
   
-  const availableParticipants = project_participants?.map(pp => {
-    // Find which group this participant is in
-    const participantGroup = groups?.find(g => 
-      g.participants?.some(gp => gp.participantId === pp.id)
-    );
+  const availableParticipants = useMemo(() => {
+    if (!project_participants || !groups) return [];
     
-    return {
-      ...pp,
-      currentGroup: participantGroup
-    };
-  }).filter(pp => {
-    // Only show participants not in this specific group
-    const isInThisGroup = Group?.participants?.some(gp => {
-      // Check both participantId and participant.id for safety
-      return gp.participantId === pp.id || gp.participantId === pp.participant?.id;
-    });
-    
-    return !isInThisGroup;
-  }).reduce((unique, participant) => {
-    // Remove duplicates based on participant ID
-    if (!unique.some(p => p.id === participant.id)) {
-      unique.push(participant);
-    }
-    return unique;
-  }, []) || [];
+    return project_participants.map(pp => {
+      // Find which group this participant is in
+      const participantGroup = groups.find(g => 
+        g.participants?.some(gp => gp.participantId === pp.id)
+      );
+      
+      return {
+        ...pp,
+        currentGroup: participantGroup
+      };
+    }).filter(pp => {
+      // Only show participants not in this specific group
+      const isInThisGroup = Group?.participants?.some(gp => {
+        // Check both participantId and participant.id for safety
+        return gp.participantId === pp.id || gp.participantId === pp.participant?.id;
+      });
+      
+      return !isInThisGroup;
+    }).reduce((unique, participant) => {
+      // Remove duplicates based on participant ID
+      if (!unique.some(p => p.id === participant.id)) {
+        unique.push(participant);
+      }
+      return unique;
+    }, []);
+  }, [project_participants?.length, groups?.length, Group?.participants?.length]);
 
   // Clear selected participants when they're no longer available (after assignment)
   useEffect(() => {
@@ -196,7 +207,6 @@ const GroupDetails = ({ Group }) => {
         
         // Refresh data
         handleRefresh();
-        await dispatch(getGroupsDetails(singleProject.id));
         await dispatch(getSingleProject(singleProject.id));
       }
       
@@ -282,7 +292,12 @@ const GroupDetails = ({ Group }) => {
               sx={{ "& .MuiCardHeader-root": { p: 1.75 } }}
             >
               <ScrollX>
-                {true && <GroupEnrolledTable Enrolled={participants} onRefresh={handleRefresh} currentGroup={Group} />}
+                {true && <GroupEnrolledTable 
+                  Enrolled={participants} 
+                  onRefresh={handleRefresh} 
+                  currentGroup={Group} 
+                  progressData={Group?.progressData}
+                />}
               </ScrollX>
             </MainCard>
           </Grid>
@@ -297,7 +312,15 @@ const GroupDetails = ({ Group }) => {
         />
 
         {/* Add Participant Dialog */}
-        <Dialog open={addParticipantDialogOpen} onClose={handleAddParticipantDialogClose} maxWidth="sm" fullWidth>
+        <Dialog 
+          open={addParticipantDialogOpen} 
+          onClose={handleAddParticipantDialogClose} 
+          maxWidth="sm" 
+          fullWidth
+          PaperProps={{
+            sx: { height: '70vh', maxHeight: '600px' }
+          }}
+        >
           <MainCard
             title={
               <Stack direction="row" alignItems="center" spacing={1}>
@@ -308,9 +331,9 @@ const GroupDetails = ({ Group }) => {
               </Stack>
             }
             content={false}
-            sx={{ m: 0 }}
+            sx={{ m: 0, height: '100%', display: 'flex', flexDirection: 'column' }}
           >
-            <Box sx={{ p: 3 }}>
+            <Box sx={{ p: 3, flex: 1, overflow: 'auto' }}>
               {availableParticipants.length === 0 ? (
                 <Typography color="text.secondary" textAlign="center">
                   All project participants are already assigned to this group
@@ -335,6 +358,9 @@ const GroupDetails = ({ Group }) => {
                       setAssignmentAction('add'); // Reset to default when selection changes
                     }}
                     disableCloseOnSelect
+                    ListboxProps={{
+                      style: { maxHeight: '200px', overflow: 'auto' }
+                    }}
                     getOptionLabel={(option) => 
                       `${option.participant?.firstName} ${option.participant?.lastName}`.trim()
                     }
@@ -432,7 +458,7 @@ const GroupDetails = ({ Group }) => {
               )}
             </Box>
             
-            <Box sx={{ p: 3, pt: 0 }}>
+            <Box sx={{ p: 3, pt: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
               <Stack direction="row" spacing={2} justifyContent="flex-end">
                 <Button color="error" onClick={handleAddParticipantDialogClose}>
                   Cancel
@@ -461,7 +487,8 @@ const GroupDetails = ({ Group }) => {
 };
 
 GroupDetails.propTypes = {
-  data: PropTypes.object,
+  Group: PropTypes.object,
+  onProgressLoad: PropTypes.func,
 };
 
 export default GroupDetails;

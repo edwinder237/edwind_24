@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 
 // material-ui
 import { 
-  Autocomplete, 
   TextField, 
   Typography, 
   Box,
@@ -13,6 +12,7 @@ import {
 
 // project imports
 import axios from 'utils/axios';
+import EnhancedAutocomplete from 'components/EnhancedAutocomplete';
 
 // ==============================|| AUTOCOMPLETE - TRAINING RECIPIENTS ||============================== //
 
@@ -97,11 +97,12 @@ export default function TrainingRecipientPicker({
   };
 
   return (
-    <Autocomplete
+    <EnhancedAutocomplete
       id="training-recipient-autocomplete"
       options={trainingRecipients}
       value={selectedRecipient}
       onChange={handleChange}
+      createOptionText="Add new training recipient"
       getOptionLabel={(option) => {
         // Handle string inputs (when user types)
         if (typeof option === 'string') {
@@ -133,7 +134,7 @@ export default function TrainingRecipientPicker({
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
             
-          filtered.push({
+          filtered.unshift({
             id: 'create-new',
             name: camelCaseName,
             isNew: true
@@ -146,37 +147,6 @@ export default function TrainingRecipientPicker({
       clearOnBlur
       handleHomeEndKeys
       freeSolo
-      renderOption={(props, option) => {
-        if (option.isNew) {
-          return (
-            <li {...props}>
-              <Box>
-                <Typography variant="body2" color="primary">
-                  Create "{option.name}"
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Add new training recipient
-                </Typography>
-              </Box>
-            </li>
-          );
-        }
-
-        return (
-          <li {...props}>
-            <Box>
-              <Typography variant="body2">
-                {option.name}
-              </Typography>
-              {option.description && (
-                <Typography variant="caption" color="text.secondary">
-                  {option.description}
-                </Typography>
-              )}
-            </Box>
-          </li>
-        );
-      }}
       renderTags={(value, getTagProps) => {
         // Since this is single select, we don't need this
         return null;

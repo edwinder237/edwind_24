@@ -1,4 +1,9 @@
 import prisma from '../../../lib/prisma';
+const { getProgressCache, getCacheDuration } = require('../../../utils/progressCache');
+
+// Use shared cache instance
+const progressCache = getProgressCache();
+const CACHE_DURATION = getCacheDuration();
 
 // Helper function to calculate individual participant progress
 async function calculateIndividualParticipantProgress(participantId, projectParticipantId, groupId, projectId) {
@@ -187,94 +192,100 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   
-  const { projectId } = req.body;
+  const { groupId, projectId } = req.body;
 
   try {
-    
-    if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+    if (!groupId || !projectId) {
+      return res.status(400).json({ error: 'Group ID and Project ID are required' });
     }
 
-    // OPTIMIZED: Fast query without progress calculation
-    const groups = await prisma.groups.findMany({
-      where: {
-        projectId: parseInt(projectId),
-      },
-      select: {
-        id: true,
-        groupName: true,
-        chipColor: true,
-        projectId: true,
+    // Check cache first
+    const cacheKey = `${groupId}-${projectId}`;
+    const cached = progressCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log('Returning cached progress for group:', groupId);
+      return res.status(200).json(cached.data);
+    }
+
+    console.log('Calculating fresh progress for group:', groupId);
+
+    // Get group with participants
+    const group = await prisma.groups.findUnique({
+      where: { id: parseInt(groupId) },
+      include: {
         participants: {
-          select: {
-            id: true,
-            participantId: true,
+          include: {
             participant: {
-              select: {
-                id: true,
+              include: {
                 participant: {
                   select: {
                     id: true,
                     firstName: true,
                     lastName: true,
-                    email: true,
-                    derpartement: true,
-                    roleId: true,
-                    profileImg: true,
-                    role: {
-                      select: {
-                        id: true,
-                        title: true
-                      }
-                    }
                   }
                 }
               }
             }
           }
-        },
-        group_curriculums: {
-          where: {
-            isActive: true
-          },
-          select: {
-            id: true,
-            curriculum: {
-              select: {
-                id: true,
-                title: true,
-                description: true,
-              }
-            }
-          }
         }
-      },
+      }
     });
 
-    // Return groups WITHOUT expensive progress calculations
-    const optimizedGroups = groups.map(group => ({
-      ...group,
-      progress: null, // Will be calculated lazily when expanded
-      participants: group.participants.map(p => ({
-        ...p,
-        participant: {
-          ...p.participant,
-          participant: {
-            ...p.participant.participant,
-            progress: null // Will be calculated lazily when expanded
-          }
-        }
-      })),
-      // Ensure all required fields have default values
-      id: group.id || null,
-      groupName: group.groupName || '',
-      chipColor: group.chipColor || '#1976d2',
-      projectId: group.projectId || parseInt(projectId)
-    }));
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
 
-    res.status(200).json(optimizedGroups);
+    // Calculate group progress
+    const groupProgress = await calculateGroupCurriculumProgress(parseInt(groupId), projectId);
+    
+    // Calculate individual participant progress
+    const participantsWithProgress = await Promise.all(
+      group.participants.map(async (participantRelation) => {
+        try {
+          const participantId = participantRelation.participant.participant.id; // UUID
+          const projectParticipantId = participantRelation.participant.id; // Integer ID
+          const individualProgress = await calculateIndividualParticipantProgress(participantId, projectParticipantId, parseInt(groupId), projectId);
+          
+          return {
+            participantId: projectParticipantId,
+            progress: individualProgress || 0
+          };
+        } catch (error) {
+          console.error(`Error calculating progress for participant:`, error);
+          return {
+            participantId: participantRelation.participant.id,
+            progress: 0
+          };
+        }
+      })
+    );
+
+    const result = {
+      groupId: parseInt(groupId),
+      groupProgress: groupProgress || 0,
+      participantProgress: participantsWithProgress
+    };
+
+    // Cache the result
+    progressCache.set(cacheKey, {
+      data: result,
+      timestamp: Date.now()
+    });
+
+    // Clean up old cache entries periodically
+    if (progressCache.size > 100) {
+      const now = Date.now();
+      for (const [key, value] of progressCache.entries()) {
+        if ((now - value.timestamp) > CACHE_DURATION) {
+          progressCache.delete(key);
+        }
+      }
+    }
+
+    res.status(200).json(result);
   } catch (error) {
-    console.error('[fetchGroupsDetails] Error:', error);
+    console.error('[calculate-progress] Error:', error);
     res.status(500).json({ 
       error: "Internal Server Error",
       ...(process.env.NODE_ENV === 'development' && { details: error.message })

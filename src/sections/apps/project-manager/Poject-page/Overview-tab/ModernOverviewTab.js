@@ -38,6 +38,11 @@ import {
 import { useSelector } from 'store';
 import MainCard from 'components/MainCard';
 import ChartWrapper from 'components/ChartWrapper';
+import DailyNotes from './DailyNotes';
+import SessionNotes from './SessionNotes';
+import RoleDistributionChart from './RoleDistributionChart';
+import LearningObjectives from './LearningObjectives';
+import KPIMetrics from './KPIMetrics';
 
 
 
@@ -294,21 +299,45 @@ const ModernOverviewTab = () => {
       {/* Main Content Grid */}
       <Grid container spacing={3}>
 
-        {/* First Row - Upcoming Events and Recent Activity */}
-        <Grid item xs={12} md={6}>
-          <UpcomingEvents />
+        {/* First Row - Session Notes (Full Width) */}
+        <Grid item xs={12}>
+          <SessionNotes project={project} />
         </Grid>
-        
+
+        {/* Second Row - Daily Notes (Full Width) */}
+        <Grid item xs={12}>
+          <DailyNotes project={project} />
+        </Grid>
+
+        {/* Third Row - Role Distribution (Full Width) */}
+        <Grid item xs={12}>
+          <RoleDistributionChart project={project} />
+        </Grid>
+
+        {/* Fourth Row - Recent Activity and Upcoming Events */}
         <Grid item xs={12} md={6}>
           <RecentActivity project={project} />
         </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <UpcomingEvents />
+        </Grid>
 
-        {/* Second Row - Attendance Chart */}
+        {/* Fifth Row - Learning Objectives and KPIs */}
+        <Grid item xs={12} md={6}>
+          <LearningObjectives project={project} />
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <KPIMetrics project={project} />
+        </Grid>
+
+        {/* Sixth Row - Attendance Chart */}
         <Grid item xs={12}>
           <AttendanceChart />
         </Grid>
 
-        {/* Third Row - Alerts & Notifications */}
+        {/* Seventh Row - Alerts & Notifications */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
             <Typography variant="h6" fontWeight="bold" mb={3}>Alerts & Notifications</Typography>

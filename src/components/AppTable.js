@@ -16,6 +16,9 @@ import {
   Menu,
   MenuItem,
   Divider,
+  Fab,
+  Tooltip,
+  Typography,
 } from "@mui/material";
 
 // third-party
@@ -73,6 +76,10 @@ function AppTable({
   onBulkDelete,
   onBulkEdit,
   customMenuItems = [],
+  // Enhanced add button props
+  showFloatingActionButton = false,
+  addButtonVariant = "emphasized", // "emphasized", "contained", "outlined"
+  addButtonDescription = null,
 }) {
   const theme = useTheme();
   const matchDownSM = useMediaQuery(theme.breakpoints.down("sm"));
@@ -174,6 +181,46 @@ function AppTable({
     <>
       {showRowSelection && (
         <TableRowSelection selected={Object.keys(selectedRowIds).length} />
+      )}
+      
+      {/* Add button description if provided */}
+      {addButtonDescription && showAddButton && handleAdd && (
+        <Box sx={{ 
+          p: 2, 
+          background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+          borderRadius: 2,
+          mb: 2,
+          border: '1px solid',
+          borderColor: 'primary.light',
+        }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <PlusOutlined style={{ fontSize: 24, color: theme.palette.primary.main }} />
+            <Box flex={1}>
+              <Typography variant="subtitle1" fontWeight={600} color="primary.main">
+                {addButtonText}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {addButtonDescription}
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              onClick={handleAdd}
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                fontWeight: 600,
+                px: 3,
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  transform: 'translateY(-1px)',
+                },
+              }}
+            >
+              Create Now
+            </Button>
+          </Stack>
+        </Box>
       )}
       
       <Stack spacing={3}>
@@ -282,13 +329,27 @@ function AppTable({
             {/* Custom actions */}
             {customActions && customActions}
 
-            {/* Add button */}
+            {/* Add button - Enhanced styling based on variant */}
             {showAddButton && handleAdd && (
               <Button
-                variant="contained"
+                variant={addButtonVariant === "emphasized" ? "contained" : addButtonVariant}
                 startIcon={<PlusOutlined />}
                 onClick={handleAdd}
-                size="small"
+                size={addButtonVariant === "emphasized" ? "medium" : "small"}
+                sx={addButtonVariant === "emphasized" ? {
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  fontWeight: 600,
+                  px: 3,
+                  py: 1,
+                  boxShadow: '0 4px 14px 0 rgba(102, 126, 234, 0.4)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+                    transform: 'translateY(-1px)',
+                  },
+                  transition: 'all 0.3s ease',
+                } : {}}
               >
                 {addButtonText}
               </Button>
@@ -308,7 +369,54 @@ function AppTable({
           </Stack>
         </Stack>
 
+        {/* Empty State with prominent Add button */}
+        {data.length === 0 && showAddButton && handleAdd && (
+          <Box
+            sx={{
+              textAlign: 'center',
+              py: 8,
+              px: 3,
+              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%)',
+              borderRadius: 2,
+              border: '1px dashed',
+              borderColor: 'divider',
+            }}
+          >
+            <PlusOutlined style={{ fontSize: 48, color: theme.palette.primary.light, marginBottom: 16 }} />
+            <Typography variant="h5" gutterBottom color="text.primary">
+              {emptyMessage}
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+              Get started by creating your first item
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<PlusOutlined />}
+              onClick={handleAdd}
+              size="large"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                fontWeight: 600,
+                px: 4,
+                py: 1.5,
+                fontSize: '1rem',
+                boxShadow: '0 4px 14px 0 rgba(102, 126, 234, 0.4)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              {addButtonText}
+            </Button>
+          </Box>
+        )}
+
         {/* Table */}
+        {data.length > 0 && (
         <Table {...getTableProps()}>
           <TableHead>
             {headerGroups.map((headerGroup, index) => (
@@ -396,7 +504,38 @@ function AppTable({
             )}
           </TableBody>
         </Table>
+        )}
       </Stack>
+      
+      {/* Floating Action Button */}
+      {showFloatingActionButton && showAddButton && handleAdd && (
+        <Tooltip title={addButtonText} placement="left">
+          <Fab
+            color="primary"
+            aria-label="add"
+            onClick={handleAdd}
+            sx={{
+              position: 'fixed',
+              bottom: 24,
+              right: 24,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              width: 64,
+              height: 64,
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 8px 28px rgba(102, 126, 234, 0.5)',
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.3s ease',
+              zIndex: theme.zIndex.speedDial,
+            }}
+          >
+            <PlusOutlined style={{ fontSize: 28 }} />
+          </Fab>
+        </Tooltip>
+      )}
     </>
   );
 }
@@ -435,6 +574,10 @@ AppTable.propTypes = {
       disabled: PropTypes.bool,
     })
   ),
+  // Enhanced add button props
+  showFloatingActionButton: PropTypes.bool,
+  addButtonVariant: PropTypes.oneOf(['emphasized', 'contained', 'outlined']),
+  addButtonDescription: PropTypes.string,
 };
 
 // ==============================|| HELPER COMPONENTS ||============================== //

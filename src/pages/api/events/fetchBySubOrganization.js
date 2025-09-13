@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     if (!sub_organizationId) {
       return res.status(400).json({ error: 'sub_organizationId is required' });
     }
-
+console.log("SUB ID",sub_organizationId)
     // Fetch all events for projects belonging to the sub-organization
     const events = await prisma.events.findMany({
       where: {
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
           select: {
             id: true,
             title: true,
-            description: true
+            summary: true
           }
         },
         event_attendees: {
