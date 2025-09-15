@@ -36,9 +36,6 @@ export const useParticipantsData = (projectId) => {
       setCsvImportLoading(true);
       const result = await dispatch(importParticipantsFromCSV(projectId, participants));
       
-      // Trigger data refresh
-      refreshData();
-      
       return result;
     } catch (error) {
       console.error('Import failed:', error);
@@ -46,7 +43,7 @@ export const useParticipantsData = (projectId) => {
     } finally {
       setCsvImportLoading(false);
     }
-  }, [projectId, dispatch, refreshData]);
+  }, [projectId, dispatch]);
 
   return {
     loading,

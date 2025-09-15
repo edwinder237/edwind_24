@@ -1258,20 +1258,63 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
       onClose={handleDeleteCancel}
       aria-labelledby="delete-dialog-title"
       aria-describedby="delete-dialog-description"
+      PaperProps={{
+        sx: {
+          backgroundColor: theme.palette.background.paper,
+          backgroundImage: 'none',
+          borderRadius: 0,
+          minWidth: 400
+        }
+      }}
     >
-      <DialogTitle id="delete-dialog-title">
+      <DialogTitle 
+        id="delete-dialog-title"
+        sx={{
+          color: theme.palette.text.primary,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          pb: 2
+        }}
+      >
         Delete Event
       </DialogTitle>
-      <DialogContent>
-        <DialogContentText id="delete-dialog-description">
+      <DialogContent sx={{ pb: 3, px: 3 }}>
+        <DialogContentText 
+          id="delete-dialog-description"
+          sx={{
+            color: theme.palette.text.secondary,
+            mt: 3
+          }}
+        >
           Are you sure you want to delete "{event.title}"? This action cannot be undone.
         </DialogContentText>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleDeleteCancel} color="primary">
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button 
+          onClick={handleDeleteCancel}
+          variant="outlined"
+          sx={{
+            color: theme.palette.primary.main,
+            borderColor: theme.palette.divider,
+            '&:hover': {
+              borderColor: theme.palette.primary.main,
+              backgroundColor: alpha(theme.palette.primary.main, 0.08)
+            }
+          }}
+        >
           Cancel
         </Button>
-        <Button onClick={handleDeleteConfirm} color="error" autoFocus>
+        <Button 
+          onClick={handleDeleteConfirm}
+          variant="contained"
+          color="error"
+          autoFocus
+          sx={{
+            boxShadow: 'none',
+            '&:hover': {
+              boxShadow: 'none'
+            }
+          }}
+        >
           Delete
         </Button>
       </DialogActions>

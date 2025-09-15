@@ -51,7 +51,7 @@ import {
 } from "@ant-design/icons";
 import AddButton from "components/StyledButtons";
 // Dynamic imports for heavy components to reduce bundle size
-const AddGroupOptimized = React.lazy(() => import("./AddGroupOptimized"));
+import AddGroupOptimized from "./AddGroupOptimized";
 const ManageGroupSlider = React.lazy(() => import("./ManageGroupSlider"));
 const CurriculumManageDialog = React.lazy(() => import("./CurriculumManageDialog"));
 const EditGroupDialog = React.lazy(() => import("./components/EditGroupDialog"));
@@ -867,15 +867,13 @@ const GroupTable = ({ index }) => {
         open={add}
         sx={{ "& .MuiDialog-paper": { p: 0, maxWidth: 600 } }}
       >
-        <Suspense fallback={<Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>}>
-          <AddGroupOptimized
-            customer={customer}
-            onCancel={handleAdd}
-            handleAddParticipant={handleAddGroup}
-            groupsInState={groups}
-            participants={project_participants || participants}
-          />
-        </Suspense>
+        <AddGroupOptimized
+          customer={customer}
+          onCancel={handleAdd}
+          handleAddParticipant={handleAddGroup}
+          groupsInState={groups}
+          participants={project_participants || participants}
+        />
       </Dialog>
       
       <Suspense fallback={<Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={20} /></Box>}>

@@ -248,7 +248,7 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
   const projectEndDate = getProjectEndDate();
   
   const projectDuration = (projectStartDate && projectEndDate)
-    ? Math.max(1, Math.ceil((new Date(projectEndDate) - new Date(projectStartDate)) / millisecondsPerDay))
+    ? Math.max(1, Math.ceil((new Date(projectEndDate) - new Date(projectStartDate)) / millisecondsPerDay) + 1)
     : 30; // Default to 30 days if no dates are available, ignore project.duration field
     
   const daysLeft = projectEndDate 

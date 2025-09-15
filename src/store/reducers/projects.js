@@ -854,6 +854,7 @@ export function importParticipantsFromCSV(projectId, participants) {
         await dispatch(getSingleProject(projectId));
         
         dispatch(slice.actions.importParticipantsSuccess(response.data));
+        dispatch(slice.actions.setLoading(false));
         console.log('CSV Import completed:', response.data.message);
         return response.data;
       } else {

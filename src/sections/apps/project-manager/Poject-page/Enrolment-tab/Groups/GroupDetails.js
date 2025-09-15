@@ -95,9 +95,15 @@ const GroupDetails = ({ Group, onProgressLoad }) => {
     setCurriculumDialogOpen(false);
   };
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     setRefreshKey(prev => prev + 1);
-  }, []);
+    // Also refresh the Redux state to get latest data
+    if (singleProject?.id) {
+      await dispatch(getSingleProject(singleProject.id));
+      // Also refresh groups data specifically
+      await dispatch(getGroupsDetails(singleProject.id));
+    }
+  }, [dispatch, singleProject?.id]);
 
   const handleAddParticipant = () => {
     setSelectedParticipants([]); // Clear any previous selections
@@ -206,8 +212,7 @@ const GroupDetails = ({ Group, onProgressLoad }) => {
         }));
         
         // Refresh data
-        handleRefresh();
-        await dispatch(getSingleProject(singleProject.id));
+        await handleRefresh();
       }
       
       if (errors.length > 0) {

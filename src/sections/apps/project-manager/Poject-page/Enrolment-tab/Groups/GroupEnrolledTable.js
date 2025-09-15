@@ -253,11 +253,8 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData })
       
       // Refresh the data
       if (onRefresh) {
-        onRefresh();
+        await onRefresh();
       }
-      
-      // Refresh Redux state to update UI immediately
-      await dispatch(getSingleProject(singleProject.id));
     } catch (error) {
       console.error('Error updating participant group:', error);
       dispatch(openSnackbar({
@@ -311,10 +308,10 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData })
           
           const actualProgress = loadedProgress !== undefined ? loadedProgress : value;
           
-          if (actualProgress === null || actualProgress === undefined) {
-            return <span>-</span>;
-          }
-          return <LinearWithLabel value={actualProgress} sx={{ minWidth: 75 }} />;
+          // Default to 0% for new participants instead of showing "-"
+          const displayProgress = actualProgress !== null && actualProgress !== undefined ? actualProgress : 0;
+          
+          return <LinearWithLabel value={displayProgress} sx={{ minWidth: 75 }} />;
         },
       },
       {

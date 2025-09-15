@@ -73,8 +73,11 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [editableTime, setEditableTime] = useState(selectedTime || '9:00 AM');
+  const [editableEndTime, setEditableEndTime] = useState('');
   const [isTimeEditing, setIsTimeEditing] = useState(false);
+  const [isEndTimeEditing, setIsEndTimeEditing] = useState(false);
   const [timeInputValue, setTimeInputValue] = useState('');
+  const [endTimeInputValue, setEndTimeInputValue] = useState('');
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [pendingEventIds, setPendingEventIds] = useState(new Set());
 
@@ -119,62 +122,52 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     const eventsToCheck = projectEvents || events || [];
     
     if (!eventsToCheck.length || !date) {
-      console.log('No events to check or no date provided');
       return requestedTime;
     }
-
-    // Convert requested time to 24-hour format for comparison
-    const requestedTime24 = convertTo24HourFormat(requestedTime);
-    const [reqHours, reqMinutes] = requestedTime24.split(':').map(Number);
     
-    // Filter events for the selected date
+    // Filter events for the selected date and sort by start time
     const dayEvents = eventsToCheck.filter(event => {
       const eventDate = new Date(event.start || event.start_time);
       return eventDate.toDateString() === date.toDateString();
+    }).sort((a, b) => {
+      const startA = new Date(a.start || a.start_time);
+      const startB = new Date(b.start || b.start_time);
+      return startA - startB;
     });
 
-    console.log('Day events found:', dayEvents.length);
-    console.log('Checking time conflicts starting from:', requestedTime);
+    if (dayEvents.length === 0) {
+      return requestedTime;
+    }
 
-    // Check each hour starting from requested time
-    for (let hour = reqHours; hour < 24; hour++) {
-      const checkTime = `${hour.toString().padStart(2, '0')}:${reqMinutes.toString().padStart(2, '0')}`;
-      
-      // Check if this time slot conflicts with existing events
-      const hasConflict = dayEvents.some(event => {
-        const eventStart = new Date(event.start || event.start_time);
-        const eventEnd = new Date(event.end || event.end_time);
-        const eventStartHour = eventStart.getHours();
-        const eventStartMin = eventStart.getMinutes();
-        const eventEndHour = eventEnd.getHours();
-        const eventEndMin = eventEnd.getMinutes();
-        
-        // Convert to minutes for easier comparison
-        const checkTimeMinutes = hour * 60 + reqMinutes;
-        const eventStartMinutes = eventStartHour * 60 + eventStartMin;
-        const eventEndMinutes = eventEndHour * 60 + eventEndMin;
-        
-        // Check if proposed time overlaps with this event
-        const overlaps = checkTimeMinutes >= eventStartMinutes && checkTimeMinutes < eventEndMinutes;
-        
-        if (overlaps) {
-          console.log(`Time ${checkTime} conflicts with event from ${eventStartHour}:${eventStartMin.toString().padStart(2, '0')} to ${eventEndHour}:${eventEndMin.toString().padStart(2, '0')}`);
-        }
-        
-        return overlaps;
-      });
+    // Find the end time of the last event of the day
+    const lastEvent = dayEvents[dayEvents.length - 1];
+    const lastEventEnd = new Date(lastEvent.end || lastEvent.end_time);
+    
+    // Get the end time in 24-hour format
+    const endHour = lastEventEnd.getHours();
+    const endMinutes = lastEventEnd.getMinutes();
+    
+    // Return the end time of the last event as the next available time
+    const nextAvailableTime = `${endHour.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+    return convertTo12HourFormat(nextAvailableTime);
+  };
 
-      // If no conflict, return this time
-      if (!hasConflict) {
-        const availableTime = convertTo12HourFormat(checkTime);
-        console.log('Found available time:', availableTime);
-        return availableTime;
-      }
+  // Calculate default end time (1 hour after start time)
+  const calculateDefaultEndTime = (startTime) => {
+    const start24 = convertTo24HourFormat(startTime);
+    const [hours, minutes] = start24.split(':').map(Number);
+    
+    // Add 1 hour for default duration
+    let endHours = hours + 1;
+    let endMinutes = minutes;
+    
+    // Handle day overflow
+    if (endHours >= 24) {
+      endHours = 23;
+      endMinutes = 59;
     }
     
-    // If no available slot found, return original time
-    console.log('No available slot found, using original time');
-    return requestedTime;
+    return convertTo12HourFormat(`${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`);
   };
 
   // Update editableTime when selectedTime prop changes or dialog opens
@@ -182,10 +175,13 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     if (open && selectedDate) {
       // Use selectedTime if provided, otherwise default to 9:00 AM
       const baseTime = selectedTime || '9:00 AM';
-      const nextAvailableTime = findNextAvailableTime(baseTime, selectedDate);
+      // Pass project events if available
+      const nextAvailableTime = findNextAvailableTime(baseTime, selectedDate, project?.events);
       setEditableTime(nextAvailableTime);
+      // Set default end time (1 hour after start)
+      setEditableEndTime(calculateDefaultEndTime(nextAvailableTime));
     }
-  }, [open, selectedTime, selectedDate, events]);
+  }, [open, selectedTime, selectedDate, events, project?.events]);
 
   // Reset editing state when dialog opens/closes
   useEffect(() => {
@@ -247,6 +243,9 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       day: 'numeric'
     });
     
+    if (editableEndTime) {
+      return `${date} • ${editableTime} - ${editableEndTime}`;
+    }
     return `${date} at ${editableTime}`;
   };
 
@@ -267,17 +266,52 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       // Convert 24-hour format back to 12-hour format with AM/PM
       const time12 = convertTo12HourFormat(timeInputValue);
       setEditableTime(time12);
+      // Update end time to maintain duration if end time is set
+      if (editableEndTime) {
+        const newEndTime = calculateDefaultEndTime(time12);
+        setEditableEndTime(newEndTime);
+      }
     }
     setIsTimeEditing(false);
     setTimeInputValue('');
   };
 
+  const handleEndTimeEditStart = () => {
+    setIsEndTimeEditing(true);
+    // Convert current time to 24-hour format for input field
+    const time24 = convertTo24HourFormat(editableEndTime);
+    setEndTimeInputValue(time24);
+  };
 
-  const handleKeyPress = (event) => {
+  const handleEndTimeEditCancel = () => {
+    setIsEndTimeEditing(false);
+    setEndTimeInputValue('');
+  };
+
+  const handleEndTimeEditSave = () => {
+    if (endTimeInputValue) {
+      // Convert 24-hour format back to 12-hour format with AM/PM
+      const time12 = convertTo12HourFormat(endTimeInputValue);
+      setEditableEndTime(time12);
+    }
+    setIsEndTimeEditing(false);
+    setEndTimeInputValue('');
+  };
+
+
+  const handleKeyPress = (event, isEndTime = false) => {
     if (event.key === 'Enter') {
-      handleTimeEditSave();
+      if (isEndTime) {
+        handleEndTimeEditSave();
+      } else {
+        handleTimeEditSave();
+      }
     } else if (event.key === 'Escape') {
-      handleTimeEditCancel();
+      if (isEndTime) {
+        handleEndTimeEditCancel();
+      } else {
+        handleTimeEditCancel();
+      }
     }
   };
 
@@ -502,10 +536,23 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         startDate.setHours(9, 0, 0, 0);
       }
 
-      // Calculate end time based on course duration
-      const calculatedDuration = calculateCourseDurationFromModules(course.modules || []);
-      const duration = calculatedDuration || 60; // Default to 60 minutes if no modules
-      const endDate = new Date(startDate.getTime() + duration * 60000);
+      // Calculate end time based on editableEndTime or course duration
+      let endDate;
+      if (editableEndTime) {
+        // Use the user-specified end time
+        endDate = new Date(selectedDate);
+        const [endTime, endPeriod] = editableEndTime.split(' ');
+        const [endHours, endMinutes] = endTime.split(':');
+        let endHour = parseInt(endHours);
+        if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+        if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+        endDate.setHours(endHour, parseInt(endMinutes), 0, 0);
+      } else {
+        // Fallback to duration-based calculation
+        const calculatedDuration = calculateCourseDurationFromModules(course.modules || []);
+        const duration = calculatedDuration || 60; // Default to 60 minutes if no modules
+        endDate = new Date(startDate.getTime() + duration * 60000);
+      }
 
       // Create event data matching the format expected by the calendar reducer
       const eventData = {
@@ -625,9 +672,22 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         startDate.setHours(9, 0, 0, 0);
       }
 
-      // Calculate end time based on activity duration
-      const duration = activity.duration || 60; // Default to 60 minutes
-      const endDate = new Date(startDate.getTime() + duration * 60000);
+      // Calculate end time based on editableEndTime or activity duration
+      let endDate;
+      if (editableEndTime) {
+        // Use the user-specified end time
+        endDate = new Date(selectedDate);
+        const [endTime, endPeriod] = editableEndTime.split(' ');
+        const [endHours, endMinutes] = endTime.split(':');
+        let endHour = parseInt(endHours);
+        if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+        if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+        endDate.setHours(endHour, parseInt(endMinutes), 0, 0);
+      } else {
+        // Fallback to duration-based calculation
+        const duration = activity.duration || 60; // Default to 60 minutes
+        endDate = new Date(startDate.getTime() + duration * 60000);
+      }
 
       // Create event data matching the format expected by the calendar reducer
       const eventData = {
@@ -742,9 +802,22 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         startDate.setHours(9, 0, 0, 0);
       }
 
-      // Calculate end time based on duration
-      const duration = eventSuggestion.duration || 60; // Default to 60 minutes
-      const endDate = new Date(startDate.getTime() + duration * 60000);
+      // Calculate end time based on editableEndTime or duration
+      let endDate;
+      if (editableEndTime) {
+        // Use the user-specified end time
+        endDate = new Date(selectedDate);
+        const [endTime, endPeriod] = editableEndTime.split(' ');
+        const [endHours, endMinutes] = endTime.split(':');
+        let endHour = parseInt(endHours);
+        if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+        if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+        endDate.setHours(endHour, parseInt(endMinutes), 0, 0);
+      } else {
+        // Fallback to duration-based calculation
+        const duration = eventSuggestion.duration || 60; // Default to 60 minutes
+        endDate = new Date(startDate.getTime() + duration * 60000);
+      }
 
       // Create event data
       const eventData = {
@@ -851,82 +924,151 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         secondary={
           <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
             {selectedDate && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, mb: { xs: 1, sm: 0 } }}>
-                {isTimeEditing ? (
-                  <Stack direction="row" alignItems="center" spacing={0.5}>
-                    <TextField
-                      type="time"
-                      value={timeInputValue}
-                      onChange={(e) => setTimeInputValue(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      size="small"
-                      sx={{
-                        '& .MuiInputBase-input': {
-                          fontSize: '0.75rem',
-                          py: 0.25,
-                          px: 1
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          height: 28,
-                          minWidth: 80
-                        }
-                      }}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={handleTimeEditSave}
-                      sx={{ color: 'success.main', p: 0.25 }}
-                    >
-                      <Check fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={handleTimeEditCancel}
-                      sx={{ color: 'error.main', p: 0.25 }}
-                    >
-                      <Cancel fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                ) : (
-                  <Tooltip title="Click to edit time">
-                    <Chip
-                      icon={<AccessTime sx={{ fontSize: '0.875rem' }} />}
-                      label={formatDateTime()}
-                      onClick={handleTimeEditStart}
-                      variant="filled"
-                      size="small"
-                      sx={{
-                        cursor: 'pointer',
-                        fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                        height: 28,
-                        maxWidth: { xs: '280px', sm: 'none' },
-                        backgroundColor: theme.palette.mode === 'dark' 
-                          ? alpha(theme.palette.grey[800], 0.9)
-                          : theme.palette.grey[700],
-                        color: theme.palette.mode === 'dark'
-                          ? theme.palette.grey[100]
-                          : theme.palette.common.white,
-                        border: 'none',
-                        '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark'
-                            ? alpha(theme.palette.grey[700], 0.9)
-                            : theme.palette.grey[800],
-                          color: theme.palette.common.white
-                        },
-                        '& .MuiChip-icon': {
-                          fontSize: '0.875rem',
-                          color: 'inherit'
-                        },
-                        '& .MuiChip-label': {
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }
-                      }}
-                    />
-                  </Tooltip>
-                )}
-              </Box>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                {/* Start Time */}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {isTimeEditing ? (
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <TextField
+                        type="time"
+                        value={timeInputValue}
+                        onChange={(e) => setTimeInputValue(e.target.value)}
+                        onKeyDown={(e) => handleKeyPress(e, false)}
+                        size="small"
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            fontSize: '0.75rem',
+                            py: 0.25,
+                            px: 1
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            height: 28,
+                            minWidth: 80
+                          }
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={handleTimeEditSave}
+                        sx={{ color: 'success.main', p: 0.25 }}
+                      >
+                        <Check fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={handleTimeEditCancel}
+                        sx={{ color: 'error.main', p: 0.25 }}
+                      >
+                        <Cancel fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  ) : (
+                    <Tooltip title="Click to edit start time">
+                      <TextField
+                        value={editableTime}
+                        onClick={handleTimeEditStart}
+                        size="small"
+                        InputProps={{
+                          readOnly: true,
+                          sx: { cursor: 'pointer' }
+                        }}
+                        sx={{
+                          width: 100,
+                          '& .MuiInputBase-input': {
+                            fontSize: '0.75rem',
+                            py: 0.5,
+                            px: 1,
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            height: 28,
+                            '&:hover': {
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: theme.palette.primary.main
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                </Box>
+
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  -
+                </Typography>
+
+                {/* End Time */}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {isEndTimeEditing ? (
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <TextField
+                        type="time"
+                        value={endTimeInputValue}
+                        onChange={(e) => setEndTimeInputValue(e.target.value)}
+                        onKeyDown={(e) => handleKeyPress(e, true)}
+                        size="small"
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            fontSize: '0.75rem',
+                            py: 0.25,
+                            px: 1
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            height: 28,
+                            minWidth: 80
+                          }
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={handleEndTimeEditSave}
+                        sx={{ color: 'success.main', p: 0.25 }}
+                      >
+                        <Check fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={handleEndTimeEditCancel}
+                        sx={{ color: 'error.main', p: 0.25 }}
+                      >
+                        <Cancel fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  ) : (
+                    <Tooltip title="Click to edit end time">
+                      <TextField
+                        value={editableEndTime}
+                        onClick={handleEndTimeEditStart}
+                        size="small"
+                        InputProps={{
+                          readOnly: true,
+                          sx: { cursor: 'pointer' }
+                        }}
+                        sx={{
+                          width: 100,
+                          '& .MuiInputBase-input': {
+                            fontSize: '0.75rem',
+                            py: 0.5,
+                            px: 1,
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            height: 28,
+                            '&:hover': {
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: theme.palette.primary.main
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                </Box>
+              </Stack>
             )}
             <IconButton onClick={handleClose} size="small">
               <Close />

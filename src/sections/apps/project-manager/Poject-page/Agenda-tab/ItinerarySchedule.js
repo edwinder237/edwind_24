@@ -300,6 +300,7 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
 
   // Group events by day
   const eventsByDay = useMemo(() => {
+    
     // First, determine the project's date range
     const projectStartDate = project?.startDate ? new Date(project.startDate) : null;
     const projectEndDate = project?.endDate ? new Date(project.endDate) : null;
@@ -313,36 +314,49 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
     const settingsStartDate = settings?.startDate ? new Date(settings.startDate) : null;
     const settingsEndDate = settings?.endDate ? new Date(settings.endDate) : null;
     
-    if (projectStartDate && projectEndDate) {
-      // Use explicit start and end dates from project
-      const currentDate = new Date(projectStartDate);
-      while (currentDate <= projectEndDate) {
-        allDays.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-    } else if (settingsStartDate && settingsEndDate) {
-      // Use dates from project settings
+    
+    // Enhanced date validation - check for valid dates (not Unix epoch 0 and not 1969/1970)
+    const isValidDate = (date) => {
+      if (!date) return false;
+      const time = date.getTime();
+      const year = date.getFullYear();
+      // Reject Unix epoch 0, dates before 2000, and invalid dates
+      return time !== 0 && year >= 2000 && !isNaN(time);
+    };
+    
+    // Prioritize settings dates over project dates since settings dates are more reliable
+    if (isValidDate(settingsStartDate) && isValidDate(settingsEndDate)) {
+      // Use dates from project settings (most reliable)
       const currentDate = new Date(settingsStartDate);
       while (currentDate <= settingsEndDate) {
         allDays.push(new Date(currentDate));
         currentDate.setDate(currentDate.getDate() + 1);
       }
-    } else if (projectStartDate && projectDuration) {
-      // Use start date + duration from project
-      const currentDate = new Date(projectStartDate);
-      for (let i = 0; i < projectDuration; i++) {
-        allDays.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-    } else if (settingsStartDate && projectDuration) {
+    } else if (isValidDate(settingsStartDate) && projectDuration) {
       // Use start date from settings + duration from project
       const currentDate = new Date(settingsStartDate);
       for (let i = 0; i < projectDuration; i++) {
         allDays.push(new Date(currentDate));
         currentDate.setDate(currentDate.getDate() + 1);
       }
-    } else if (localEvents.length > 0) {
-      // Fallback: use event dates if no project dates available
+    } else if (isValidDate(projectStartDate) && isValidDate(projectEndDate)) {
+      // Use explicit start and end dates from project (fallback)
+      const currentDate = new Date(projectStartDate);
+      while (currentDate <= projectEndDate) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else if (isValidDate(projectStartDate) && projectDuration) {
+      // Use start date + duration from project (fallback)
+      const currentDate = new Date(projectStartDate);
+      for (let i = 0; i < projectDuration; i++) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+    
+    // If we have events but no days calculated yet, use event dates
+    if (allDays.length === 0 && localEvents.length > 0) {
       const sortedEvents = [...localEvents].sort((a, b) => new Date(a.start) - new Date(b.start));
       const firstEventDate = new Date(sortedEvents[0].start);
       const lastEventDate = new Date(sortedEvents[sortedEvents.length - 1].start);
@@ -352,7 +366,10 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
         allDays.push(new Date(currentDate));
         currentDate.setDate(currentDate.getDate() + 1);
       }
-    } else {
+    }
+    
+    // Final fallback if still no days
+    if (allDays.length === 0) {
       // Final fallback: create days based on duration starting from today
       const currentDate = new Date();
       currentDate.setHours(0, 0, 0, 0);
@@ -365,6 +382,40 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
     // Group events by day
     const grouped = {};
     const sortedEvents = [...localEvents].sort((a, b) => new Date(a.start) - new Date(b.start));
+    
+    // Check if any events fall outside the calculated date range
+    let hasEventsOutsideRange = false;
+    const eventDatesOutsideRange = new Set();
+    
+    sortedEvents.forEach(event => {
+      const eventDate = new Date(event.start);
+      const eventDateStr = eventDate.toDateString();
+      const isInRange = allDays.some(day => day.toDateString() === eventDateStr);
+      
+      if (!isInRange) {
+        hasEventsOutsideRange = true;
+        eventDatesOutsideRange.add(eventDateStr);
+      }
+    });
+    
+    // If events are outside the calculated range, use event dates instead
+    if (hasEventsOutsideRange && sortedEvents.length > 0) {
+      // Clear allDays and rebuild from event dates
+      allDays.length = 0;
+      
+      // Get the date range from events
+      const firstEventDate = new Date(sortedEvents[0].start);
+      const lastEventDate = new Date(sortedEvents[sortedEvents.length - 1].start);
+      
+      // Create days from first to last event date
+      const currentDate = new Date(firstEventDate);
+      currentDate.setHours(0, 0, 0, 0);
+      
+      while (currentDate <= lastEventDate) {
+        allDays.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
     
     // Initialize all days with empty events array
     allDays.forEach(date => {

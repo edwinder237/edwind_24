@@ -29,7 +29,7 @@ const SelectionCell = ({ row }) => (
 /**
  * Hook to generate table column configuration
  */
-export const useTableColumns = (onRefresh, availableRoles = [], rolesLoading = false) => {
+export const useTableColumns = (onRefresh) => {
   const theme = useTheme();
 
   return useMemo(() => {
@@ -82,17 +82,18 @@ export const useTableColumns = (onRefresh, availableRoles = [], rolesLoading = f
       Header: "Role",
       Footer: "Role",
       dataType: "text",
-      accessor: "participant.role",
+      accessor: "participant.role.title",
       disableFilters: true,
       disableGroupBy: true,
       Cell: ({ value, row }) => {
+        // Role data is included in participant object, show it immediately
+        const roleObject = row.original.participant?.role;
+        
         return (
           <RoleDropdownCell 
-            value={value} 
+            value={roleObject} 
             row={row} 
-            onUpdate={onRefresh} 
-            availableRoles={availableRoles}
-            rolesLoading={rolesLoading}
+            onUpdate={onRefresh}
           />
         );
       },
@@ -198,5 +199,5 @@ export const useTableColumns = (onRefresh, availableRoles = [], rolesLoading = f
       },
     },
   ];
-  }, [onRefresh, theme, availableRoles, rolesLoading]);
+  }, [onRefresh, theme]);
 };

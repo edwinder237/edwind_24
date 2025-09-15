@@ -12,6 +12,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  CircularProgress,
 } from '@mui/material';
 
 // Third-party removed update import as it's no longer needed
@@ -63,6 +64,7 @@ const ReactTable = React.memo(({
   data,
   handleCRUD,
   csvImportLoading,
+  globalLoading,
   onSelectionChange,
   onEmailAccess,
   editableRowIndex,
@@ -323,6 +325,7 @@ const ReactTable = React.memo(({
   }, [selectedRowIds, data, selectedParticipants, selectedIds]); // Remove onSelectionChange from deps
 
   const isEmpty = !data || data.length === 0;
+  const showLoadingState = (csvImportLoading || (globalLoading && isEmpty));
 
   return (
     <Box sx={{ 
@@ -431,7 +434,35 @@ const ReactTable = React.memo(({
           overflow: 'auto',
           minHeight: 0
         }}>
-          {isEmpty ? (
+          {showLoadingState ? (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 400,
+                p: 3,
+                bgcolor: 'transparent'
+              }}
+            >
+              <CircularProgress size={60} sx={{ mb: 2 }} />
+              <Typography 
+                variant="h6" 
+                color="primary" 
+                sx={{ mb: 1, textAlign: 'center' }}
+              >
+                Importing participants...
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ textAlign: 'center', maxWidth: 300 }}
+              >
+                Please wait while we process your CSV file and add the participants to your project.
+              </Typography>
+            </Box>
+          ) : isEmpty ? (
             <Box
               sx={{
                 display: 'flex',
@@ -643,6 +674,7 @@ ReactTable.propTypes = {
   data: PropTypes.array.isRequired,
   handleCRUD: PropTypes.object.isRequired,
   csvImportLoading: PropTypes.bool,
+  globalLoading: PropTypes.bool,
   onSelectionChange: PropTypes.func,
   onEmailAccess: PropTypes.func,
   editableRowIndex: PropTypes.number,

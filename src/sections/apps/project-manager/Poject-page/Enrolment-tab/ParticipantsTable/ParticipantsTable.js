@@ -57,7 +57,7 @@ const ParticipantsTable = React.memo(({ index }) => {
     project_participants,
     singleProject: Project,
     error,
-    globalLoading,
+    loading: globalLoading,
   } = useSelector(memoizedSelector);
   const dispatch = useDispatch();
   
@@ -73,9 +73,6 @@ const ParticipantsTable = React.memo(({ index }) => {
 
   const { title, groups, projectId } = projectData;
   
-  // State for available roles (fetch once for all dropdowns)
-  const [availableRoles, setAvailableRoles] = useState([]);
-  const [rolesLoading, setRolesLoading] = useState(false);
 
   // Custom hooks for data management
   const {
@@ -103,42 +100,6 @@ const ParticipantsTable = React.memo(({ index }) => {
   // Table UI state
   const tableState = useTableState();
 
-  // Optimized available roles fetching with cache
-  const rolesCache = useRef(new Map());
-  
-  useEffect(() => {
-    const fetchAvailableRoles = async () => {
-      if (!projectId) return;
-      
-      // Check cache first
-      if (rolesCache.current.has(projectId)) {
-        setAvailableRoles(rolesCache.current.get(projectId));
-        return;
-      }
-      
-      setRolesLoading(true);
-      try {
-        const response = await fetch(`/api/projects/available-roles?projectId=${projectId}`);
-        const data = await response.json();
-        
-        if (data.success && data.roles) {
-          setAvailableRoles(data.roles);
-          // Cache the roles for this project
-          rolesCache.current.set(projectId, data.roles);
-        } else {
-          console.error('Failed to fetch available roles:', data.error);
-          setAvailableRoles([]);
-        }
-      } catch (error) {
-        console.error('Error fetching available roles:', error);
-        setAvailableRoles([]);
-      } finally {
-        setRolesLoading(false);
-      }
-    };
-
-    fetchAvailableRoles();
-  }, [projectId]);
 
   // Memoized data with additional optimizations
   const data = useMemo(() => {
@@ -151,7 +112,7 @@ const ParticipantsTable = React.memo(({ index }) => {
   }, [project_participants]);
   
   // Table columns configuration - hook must be called at top level
-  const columns = useTableColumns(refreshData, availableRoles, rolesLoading);
+  const columns = useTableColumns(refreshData);
 
   // Email sending handler
   const handleSendEmail = useCallback(async ({ participants, credentials }) => {
@@ -263,6 +224,7 @@ const ParticipantsTable = React.memo(({ index }) => {
             data={data}
             handleCRUD={handleCRUD}
             csvImportLoading={csvImportLoading}
+            globalLoading={globalLoading}
             onSelectionChange={tableState.handleSelectionChange}
             onEmailAccess={tableState.handleEmailAccessDialog}
             editableRowIndex={tableState.editableRowIndex}
