@@ -184,18 +184,22 @@ const CourseEditPage = ({ courseId }) => {
   // Calculate total duration - must be before conditional returns
   const totalDuration = React.useMemo(() => {
     if (!modules || modules.length === 0) return 0;
-    const duration = calculateCourseDurationFromModules(modules);
+    // Filter out any undefined/null modules before calculating
+    const validModules = modules.filter(m => m != null);
+    if (validModules.length === 0) return 0;
+    
+    const duration = calculateCourseDurationFromModules(validModules);
     console.log('Calculating course duration:', {
-      modulesCount: modules.length,
-      modules: modules.map(m => ({
-        title: m.title,
-        activities: m.activities?.length || 0,
-        activityDurations: m.activities?.map(a => ({ 
-          title: a.title, 
-          duration: a.duration, 
-          type: typeof a.duration 
+      modulesCount: validModules.length,
+      modules: validModules.map(m => ({
+        title: m?.title || 'Untitled Module',
+        activities: m?.activities?.length || 0,
+        activityDurations: m?.activities?.map(a => ({ 
+          title: a?.title || 'Untitled Activity', 
+          duration: a?.duration || 0, 
+          type: typeof a?.duration 
         })) || [],
-        customDuration: m.customDuration
+        customDuration: m?.customDuration || 0
       })),
       totalDuration: duration,
       courseDuration: course?.duration,

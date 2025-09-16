@@ -1027,22 +1027,26 @@ const CourseContent = ({ courseId }) => {
   
   // Extract all activities from modules - memoized for performance
   const activities = useMemo(() => {
-    return reduxModules.flatMap(module => 
-      (module.activities || []).map(activity => ({
+    // Filter out any null/undefined modules first
+    const validModules = reduxModules.filter(module => module != null);
+    return validModules.flatMap(module => 
+      (module?.activities || []).filter(activity => activity != null).map(activity => ({
         ...activity,
-        moduleId: module.id,
+        moduleId: module?.id,
         // Ensure we have the right field mappings for the UI
-        type: activity.type || activity.activityType || 'presentation',
-        description: activity.description || activity.summary || 'No description available'
+        type: activity?.type || activity?.activityType || 'presentation',
+        description: activity?.description || activity?.summary || 'No description available'
       }))
     );
   }, [reduxModules]);
   
-  // Use Redux modules directly
+  // Use Redux modules directly with null safety
   const modules = useMemo(() => {
-    return reduxModules.map(module => ({
+    // Filter out any null/undefined modules first
+    const validModules = reduxModules.filter(module => module != null);
+    return validModules.map(module => ({
       ...module,
-      numActivities: (activities || []).filter(activity => activity.moduleId === module.id).length
+      numActivities: (activities || []).filter(activity => activity?.moduleId === module?.id).length
     }));
   }, [reduxModules, activities]);
 
@@ -1521,16 +1525,26 @@ const CourseContent = ({ courseId }) => {
   const moveModule = (dragIndex, dropIndex) => {
     if (dragIndex === dropIndex || modules.length === 0) return;
     
-    const reorderedModules = [...modules];
+    // Filter out any undefined/null modules first
+    const validModules = modules.filter(m => m != null);
+    if (validModules.length === 0) return;
+    
+    const reorderedModules = [...validModules];
     const [removed] = reorderedModules.splice(dragIndex, 1);
     
     // Adjust drop index if moving from earlier position
     const adjustedDropIndex = dragIndex < dropIndex ? dropIndex - 1 : dropIndex;
     reorderedModules.splice(adjustedDropIndex, 0, removed);
     
+    // Update module order for each module
+    const modulesWithUpdatedOrder = reorderedModules.map((module, index) => ({
+      ...module,
+      moduleOrder: index + 1
+    }));
+    
     // Dispatch Redux action to update state and sync with database
     if (courseId) {
-      dispatch(updateModulesOrder(reorderedModules, courseId));
+      dispatch(updateModulesOrder(modulesWithUpdatedOrder, courseId));
     }
   };
 
@@ -1769,11 +1783,11 @@ const CourseContent = ({ courseId }) => {
                   index={-1} 
                   onDrop={moveModule}
                 />
-                {modules.map((module, index) => (
+                {modules.filter(module => module != null).map((module, index) => (
                   <React.Fragment key={module.id}>
                     <DraggableModuleCard
                       module={module}
-                      index={module.moduleOrder || (index + 1)}
+                      index={index}
                       onUpdateTitle={handleUpdateModuleTitle}
                       onCancelEdit={handleCancelModuleEdit}
                       onDelete={handleDeleteModule}

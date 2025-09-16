@@ -39,7 +39,11 @@ export const getModuleDisplayDuration = (module) => {
 export const calculateCourseDurationFromModules = (modules) => {
   if (!modules || modules.length === 0) return 60;
   
-  const totalDuration = modules.reduce((acc, module) => acc + getModuleDisplayDuration(module), 0);
+  // Filter out any null/undefined modules before calculating
+  const validModules = modules.filter(module => module != null);
+  if (validModules.length === 0) return 60;
+  
+  const totalDuration = validModules.reduce((acc, module) => acc + getModuleDisplayDuration(module), 0);
   
   // If no modules have duration, default to 60 minutes
   return totalDuration > 0 ? totalDuration : 60;

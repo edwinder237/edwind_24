@@ -194,6 +194,14 @@ const EventCard = React.memo(({
               noWrap
             >
               {event.title || 'Untitled Event'}
+              <span style={{ 
+                fontSize: '0.7rem', 
+                fontWeight: 'normal', 
+                color: theme.palette.text.secondary,
+                marginLeft: '8px'
+              }}>
+                (ID: {event.id})
+              </span>
             </Typography>
             
             <IconButton

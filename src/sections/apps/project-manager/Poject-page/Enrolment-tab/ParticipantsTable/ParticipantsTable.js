@@ -120,7 +120,7 @@ const ParticipantsTable = React.memo(({ index }) => {
       console.log('Sending email to participants:', participants.length);
       console.log('Selected credentials:', credentials);
       
-      const response = await fetch('/api/email/send-credentials', {
+      const response = await fetch('/api/email/send-credentials-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -140,6 +140,9 @@ const ParticipantsTable = React.memo(({ index }) => {
       let message = `✅ Email sending completed!\n\n`;
       message += `📧 Emails sent: ${summary.emailsSent}\n`;
       message += `❌ Failed: ${summary.emailsFailed}\n`;
+      if (summary.emailsSkipped > 0) {
+        message += `⏭️ Skipped: ${summary.emailsSkipped}\n`;
+      }
       message += `👥 Total participants: ${summary.totalParticipants}\n`;
       message += `🔑 Credential types: ${summary.credentialTypes}`;
 
@@ -156,7 +159,7 @@ const ParticipantsTable = React.memo(({ index }) => {
         open: true,
         message: message,
         variant: 'alert',
-        alert: { color: 'success' },
+        alert: { color: summary.emailsFailed > 0 ? 'warning' : 'success' },
         close: false
       }));
       console.log('Email sending result:', result);

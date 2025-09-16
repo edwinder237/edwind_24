@@ -695,6 +695,14 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
               )}
               <Typography variant="subtitle1" fontWeight={600} sx={{ lineHeight: 1 }}>
                 {event.title}
+                <span style={{ 
+                  fontSize: '0.65rem', 
+                  fontWeight: 'normal', 
+                  color: theme.palette.text.secondary,
+                  marginLeft: '6px'
+                }}>
+                  (ID: {event.id})
+                </span>
               </Typography>
             </Stack>
 
