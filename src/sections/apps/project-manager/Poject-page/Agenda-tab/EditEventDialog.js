@@ -44,8 +44,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   
-  // Get groups from Redux store
-  const { groups } = useSelector((state) => state.projects);
+  // Get groups from project data
+  const groups = project?.groups || [];
   
   // Form state
   const [formData, setFormData] = useState({
@@ -97,18 +97,28 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     { id: 4, name: 'Emily Davis', email: 'emily@example.com' }
   ];
 
+  // Helper function to format date for datetime-local input
+  const formatDateTimeLocal = (date) => {
+    const d = new Date(date);
+    // Get local date and time components
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   // Initialize form data when event changes
   useEffect(() => {
-    if (event && open) {
-      const startDate = new Date(event.start);
-      const endDate = new Date(event.end);
-      
+    if (event && open) {      
       setFormData({
         title: event.title || '',
         description: event.description || '',
         eventType: event.eventType || 'other',
-        start: startDate.toISOString().slice(0, 16), // Format for datetime-local input
-        end: endDate.toISOString().slice(0, 16),
+        start: formatDateTimeLocal(event.start), // Use local time formatting
+        end: formatDateTimeLocal(event.end),
         allDay: event.allDay || false,
         location: event.location || '',
         instructor: event.instructor || null,
@@ -425,7 +435,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                         return (
                           <Chip
                             key={groupId}
-                            label={group?.name || `Group ${groupId}`}
+                            label={group?.groupName || `Group ${groupId}`}
                             size="small"
                             sx={{ 
                               bgcolor: alpha(formData.color, 0.1),
@@ -441,24 +451,28 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 >
                   {groups?.map((group) => (
                     <MenuItem key={group.id} value={group.id}>
-                      <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
-                        <Avatar 
-                          sx={{ 
-                            width: 32, 
-                            height: 32, 
-                            bgcolor: alpha(formData.color, 0.1),
-                            color: formData.color,
-                            fontSize: '0.875rem'
+                      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ width: '100%' }}>
+                        <Chip
+                          label={group.groupName?.charAt(0) || 'G'}
+                          size="small"
+                          sx={{
+                            width: 28,
+                            height: 28,
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            backgroundColor: group.chipColor || theme.palette.primary.main,
+                            color: theme.palette.getContrastText(group.chipColor || theme.palette.primary.main),
+                            '& .MuiChip-label': {
+                              px: 0.5
+                            }
                           }}
-                        >
-                          {group.name?.charAt(0) || 'G'}
-                        </Avatar>
+                        />
                         <Box sx={{ flex: 1 }}>
                           <Typography variant="body2" fontWeight={500}>
-                            {group.name || `Group ${group.id}`}
+                            {group.groupName || `Group ${group.id}`}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {group.participants?.length || 0} participants
+                            {group.participants?.length || 0} participant{(group.participants?.length || 0) !== 1 ? 's' : ''}
                           </Typography>
                         </Box>
                       </Stack>

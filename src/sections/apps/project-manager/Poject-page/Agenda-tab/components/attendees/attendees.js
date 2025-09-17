@@ -24,18 +24,29 @@ import {
   Select,
   MenuItem,
   CircularProgress,
+  alpha,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Tabs,
+  Tab,
+  Menu,
 } from "@mui/material";
+import { Remove, Person, Group, Add, ChevronRight, ArrowRight } from "@mui/icons-material";
+import { Dropdown, DropdownMenuItem, DropdownNestedMenuItem } from "components/Dropdown";
 
 // project imports
 import MainCard from "components/MainCard";
-import AddParticipantSlider from "./AddParticipantSlider";
 import ParticipantDrawer from "./ParticipantDrawer";
 import { useSelector, useDispatch } from "store";
 import { getSingleProject, getEvents } from "store/reducers/projects";
 import { openSnackbar } from "store/reducers/snackbar";
 
 // assets
-import { SettingOutlined, UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, BulbOutlined } from "@ant-design/icons";
 
 // assets
 const Avatar1 = "/assets/images/users/avatar-1.png";
@@ -44,9 +55,13 @@ const Avatar1 = "/assets/images/users/avatar-1.png";
 
 const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selectedEvent, onAddParticipants, onRemoveParticipant, onMoveParticipant, course = null, isGroupOperationLoading = false }) => {
   const dispatch = useDispatch();
-  const { singleProject } = useSelector((state) => state.projects);
-  const [sliderOpen, setSliderOpen] = useState(false);
+  const { singleProject, project_participants } = useSelector((state) => state.projects);
   const [loading, setLoading] = useState(false);
+  const [addParticipantOpen, setAddParticipantOpen] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState([]);
+  const [selectedParticipants, setSelectedParticipants] = useState([]);
+  const [dialogLoading, setDialogLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
   
   // Initialize participant statuses from eventParticipants
   const [participantStatuses, setParticipantStatuses] = useState({});
@@ -57,6 +72,7 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
   // State for participant drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
+  
 
   // Initialize statuses when eventParticipants changes (prevent looping)
   useEffect(() => {
@@ -81,13 +97,137 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
     }
   }, [eventParticipants?.length, selectedEvent?.id]); // Use length and event ID to prevent unnecessary updates
 
-  const handleOpenSlider = () => {
-    setSliderOpen(true);
+
+  const handleAddParticipant = () => {
+    setAddParticipantOpen(true);
   };
 
-  const handleCloseSlider = () => {
-    setSliderOpen(false);
+  const handleCloseAddParticipant = () => {
+    setAddParticipantOpen(false);
+    setSelectedGroups([]);
+    setSelectedParticipants([]);
+    setActiveTab(0);
   };
+
+  // Handle toggle group selection
+  const handleToggleGroup = (group) => {
+    setSelectedGroups(prev => {
+      const isSelected = prev.some(g => g.id === group.id);
+      if (isSelected) {
+        return prev.filter(g => g.id !== group.id);
+      } else {
+        return [...prev, group];
+      }
+    });
+  };
+
+  // Handle toggle participant selection
+  const handleToggleParticipant = (participant) => {
+    setSelectedParticipants(prev => {
+      const isSelected = prev.some(p => p.id === participant.id);
+      if (isSelected) {
+        return prev.filter(p => p.id !== participant.id);
+      } else {
+        return [...prev, participant];
+      }
+    });
+  };
+
+  // Handle applying multiple selections
+  const handleApplySelections = async () => {
+    if (selectedGroups.length === 0 && selectedParticipants.length === 0) {
+      return;
+    }
+
+    setDialogLoading(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      // Add selected groups
+      for (const group of selectedGroups) {
+        try {
+          const response = await fetch('/api/projects/addEventGroup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eventId: selectedEvent.id, groupId: group.id })
+          });
+
+          if (response.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          errorCount++;
+          console.error('Error adding group:', error);
+        }
+      }
+
+      // Add selected participants
+      for (const participant of selectedParticipants) {
+        try {
+          const response = await fetch('/api/projects/addEventParticipant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eventId: selectedEvent.id, participantId: participant.id })
+          });
+
+          if (response.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          errorCount++;
+          console.error('Error adding participant:', error);
+        }
+      }
+
+      // Show summary message
+      if (successCount > 0 && errorCount === 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Successfully added ${successCount} ${successCount === 1 ? 'item' : 'items'} to event`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+      } else if (successCount > 0 && errorCount > 0) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Added ${successCount} items, ${errorCount} failed`,
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+      } else {
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Failed to add items to event',
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
+      }
+
+      // Refresh project data
+      if (singleProject?.id) {
+        await dispatch(getSingleProject(singleProject.id));
+        await dispatch(getEvents(singleProject.id));
+      }
+
+      handleCloseAddParticipant();
+    } catch (error) {
+      console.error('Error applying selections:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to add items to event',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setDialogLoading(false);
+    }
+  };
+
 
   const handleParticipantClick = (participant) => {
     setSelectedParticipant(participant);
@@ -289,6 +429,66 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
     }
   };
 
+  // Handle removing participant from event via dropdown
+  const handleRemoveParticipantFromEvent = async (participantId, participant) => {
+    if (!selectedEvent?.id) {
+      console.error('No event ID available for participant removal');
+      return;
+    }
+
+    const participantName = participant?.participant ? 
+      `${participant.participant.firstName || ''} ${participant.participant.lastName || ''}`.trim() :
+      `Participant ${participantId}`;
+
+    try {
+      const response = await fetch('/api/projects/removeEventParticipant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: selectedEvent.id,
+          participantId: participantId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove participant from event');
+      }
+
+      // Refresh project data to update the UI
+      if (singleProject?.id) {
+        await dispatch(getSingleProject(singleProject.id));
+        await dispatch(getEvents(singleProject.id));
+      }
+
+      // Show success notification
+      dispatch(openSnackbar({
+        open: true,
+        message: `${participantName} removed from event`,
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
+    } catch (error) {
+      console.error('Error removing participant from event:', error);
+      
+      // Show error notification
+      dispatch(openSnackbar({
+        open: true,
+        message: `Failed to remove ${participantName} from event`,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  };
+
   // Memoize unique participants calculation
   const uniqueParticipants = useMemo(() => {
     return eventParticipants.filter((participant, index, self) => {
@@ -350,6 +550,93 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
     }
   }, [onMoveParticipant]);
 
+  // Handle moving participant to a different group
+  const handleMoveParticipantToGroup = useCallback(async (participantId, participant, targetGroup) => {
+    if (!targetGroup?.id || !singleProject?.id) {
+      console.error('Missing target group or project for participant move');
+      return;
+    }
+
+    const participantName = participant?.participant ? 
+      `${participant.participant.firstName || ''} ${participant.participant.lastName || ''}`.trim() :
+      `Participant ${participantId}`;
+
+    try {
+      // Find the participant's current group
+      const currentGroup = singleProject.groups?.find(group => 
+        group.participants?.some(p => p.participantId === participantId)
+      );
+
+      // Step 1: Remove participant from their current group (if they have one)
+      if (currentGroup?.id) {
+        const removeFromGroupResponse = await fetch('/api/projects/remove-participant-from-group', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            groupId: currentGroup.id,
+            participantId: parseInt(participantId)
+          })
+        });
+
+        if (!removeFromGroupResponse.ok) {
+          throw new Error(`Failed to remove participant from current group: ${currentGroup.groupName}`);
+        }
+      }
+
+      // Step 2: Add participant to the target group
+      const addToGroupResponse = await fetch('/api/projects/add-participant-to-group', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: singleProject.id,
+          groupId: targetGroup.id,
+          participantId: parseInt(participantId)
+        })
+      });
+
+      if (!addToGroupResponse.ok) {
+        throw new Error(`Failed to add participant to target group: ${targetGroup.groupName}`);
+      }
+
+      // Refresh project data to update the UI
+      if (singleProject?.id) {
+        await dispatch(getSingleProject(singleProject.id));
+        await dispatch(getEvents(singleProject.id));
+      }
+
+      // Show success notification
+      dispatch(openSnackbar({
+        open: true,
+        message: currentGroup 
+          ? `${participantName} moved from ${currentGroup.groupName} to ${targetGroup.groupName}` 
+          : `${participantName} added to ${targetGroup.groupName}`,
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+
+    } catch (error) {
+      console.error('Error moving participant to group:', error);
+      
+      // Show error notification
+      dispatch(openSnackbar({
+        open: true,
+        message: `Failed to move ${participantName} to ${targetGroup.groupName}`,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    }
+  }, [singleProject, dispatch]);
+
   // Memoize participant details calculation
   const eventParticipantsDetails = useMemo(() => {
     return uniqueParticipants.map((participant) => {
@@ -396,18 +683,21 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
               />
             )}
           </Stack>
-          <IconButton 
-            size="small" 
-            onClick={handleOpenSlider}
-            sx={{
-              color: 'primary.main',
-              '&:hover': {
-                backgroundColor: 'primary.lighter'
-              }
-            }}
-          >
-            <SettingOutlined style={{ fontSize: '1.1rem' }} />
-          </IconButton>
+          <Stack direction="row" spacing={0.5}>
+            <IconButton 
+              size="small" 
+              onClick={handleAddParticipant}
+              sx={{
+                color: 'success.main',
+                '&:hover': {
+                  backgroundColor: 'success.lighter'
+                }
+              }}
+              title="Add Participant"
+            >
+              <UserOutlined style={{ fontSize: '1.1rem' }} />
+            </IconButton>
+          </Stack>
         </Stack>
       }
       subheader={eventCourse && (
@@ -569,38 +859,27 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                         </Typography>
                       </Box>
 
-                      {/* Status Dropdown */}
-                      <Select
-                        value={participantStatuses[participantId] || 'scheduled'}
-                        onChange={(e) => handleStatusChange(participantId, e.target.value)}
-                        size="small"
-                        variant="standard"
-                        disabled={updatingParticipant !== null} // Disable all dropdowns while any participant is updating
-                        sx={{
-                          fontSize: '0.75rem',
-                          minWidth: 90,
-                          opacity: updatingParticipant && updatingParticipant !== participantId ? 0.5 : 1, // Reduce opacity for non-updating participants
-                          '& .MuiSelect-select': {
-                            py: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                          },
-                          '&:before': {
-                            display: 'none'
-                          },
-                          '&:after': {
-                            display: 'none'
-                          },
-                          '& .MuiSelect-icon': {
-                            fontSize: '1rem'
-                          },
-                          '&.Mui-disabled': {
-                            opacity: updatingParticipant === participantId ? 1 : 0.5
-                          }
-                        }}
-                        renderValue={(value) => (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {/* Status Dropdown with Nested Options */}
+                      <Dropdown
+                        trigger={
+                          <Box 
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              py: 0.5,
+                              px: 1,
+                              borderRadius: 1,
+                              border: '1px solid transparent',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              minWidth: 90,
+                              opacity: updatingParticipant && updatingParticipant !== participantId ? 0.5 : 1,
+                              '&:hover': {
+                                backgroundColor: 'action.hover'
+                              }
+                            }}
+                          >
                             {updatingParticipant === participantId ? (
                               <CircularProgress size={10} sx={{ color: 'primary.main' }} />
                             ) : (
@@ -609,9 +888,9 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                                   width: 6, 
                                   height: 6, 
                                   borderRadius: '50%',
-                                  bgcolor: value === 'present' ? 'success.main' : 
-                                           value === 'late' ? 'warning.main' : 
-                                           value === 'absent' ? 'error.main' : 'info.main'
+                                  bgcolor: (participantStatuses[participantId] || 'scheduled') === 'present' ? 'success.main' : 
+                                           (participantStatuses[participantId] || 'scheduled') === 'late' ? 'warning.main' : 
+                                           (participantStatuses[participantId] || 'scheduled') === 'absent' ? 'error.main' : 'info.main'
                                 }} 
                               />
                             )}
@@ -619,42 +898,138 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                               sx={{ 
                                 fontSize: '0.7rem',
                                 color: updatingParticipant === participantId ? 'primary.main' :
-                                       value === 'present' ? 'success.main' : 
-                                       value === 'late' ? 'warning.main' : 
-                                       value === 'absent' ? 'error.main' : 'info.main',
+                                       (participantStatuses[participantId] || 'scheduled') === 'present' ? 'success.main' : 
+                                       (participantStatuses[participantId] || 'scheduled') === 'late' ? 'warning.main' : 
+                                       (participantStatuses[participantId] || 'scheduled') === 'absent' ? 'error.main' : 'info.main',
                                 textTransform: 'capitalize'
                               }}
                             >
-                              {updatingParticipant === participantId ? 'Updating...' : value}
+                              {updatingParticipant === participantId ? 'Updating...' : (participantStatuses[participantId] || 'scheduled')}
                             </Typography>
                           </Box>
-                        )}
-                      >
-                        <MenuItem value="scheduled" sx={{ fontSize: '0.75rem' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'info.main' }} />
-                            Scheduled
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="present" sx={{ fontSize: '0.75rem' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />
-                            Present
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="late" sx={{ fontSize: '0.75rem' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'warning.main' }} />
-                            Late
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="absent" sx={{ fontSize: '0.75rem' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />
-                            Absent
-                          </Box>
-                        </MenuItem>
-                      </Select>
+                        }
+                        menu={[
+                          <DropdownMenuItem
+                            key="scheduled"
+                            onClick={() => {
+                              if (updatingParticipant === null) {
+                                handleStatusChange(participantId, 'scheduled');
+                              }
+                            }}
+                            disabled={updatingParticipant !== null}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'info.main' }} />
+                              Scheduled
+                            </Box>
+                          </DropdownMenuItem>,
+                          <DropdownMenuItem
+                            key="present"
+                            onClick={() => {
+                              if (updatingParticipant === null) {
+                                handleStatusChange(participantId, 'present');
+                              }
+                            }}
+                            disabled={updatingParticipant !== null}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />
+                              Present
+                            </Box>
+                          </DropdownMenuItem>,
+                          <DropdownMenuItem
+                            key="late"
+                            onClick={() => {
+                              if (updatingParticipant === null) {
+                                handleStatusChange(participantId, 'late');
+                              }
+                            }}
+                            disabled={updatingParticipant !== null}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'warning.main' }} />
+                              Late
+                            </Box>
+                          </DropdownMenuItem>,
+                          <DropdownMenuItem
+                            key="absent"
+                            onClick={() => {
+                              if (updatingParticipant === null) {
+                                handleStatusChange(participantId, 'absent');
+                              }
+                            }}
+                            disabled={updatingParticipant !== null}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />
+                              Absent
+                            </Box>
+                          </DropdownMenuItem>,
+                          <DropdownNestedMenuItem
+                            key="move-to-group"
+                            label={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <TeamOutlined style={{ fontSize: 14, color: 'inherit' }} />
+                                Move to Group
+                              </Box>
+                            }
+                            rightIcon={<ArrowRight style={{ fontSize: 16 }} />}
+                            menu={
+                              singleProject?.groups?.length > 0 ? 
+                                singleProject.groups.map((group) => (
+                                  <DropdownMenuItem
+                                    key={`move-to-${group.id}`}
+                                    onClick={() => {
+                                      handleMoveParticipantToGroup(
+                                        participantId, 
+                                        eventParticipant, 
+                                        group
+                                      );
+                                    }}
+                                  >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <TeamOutlined style={{ fontSize: 16, color: '#1976d2' }} />
+                                      {group.groupName || `Group ${group.id}`}
+                                    </Box>
+                                  </DropdownMenuItem>
+                                )) : [
+                                  <DropdownMenuItem key="no-groups" disabled>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <TeamOutlined style={{ fontSize: 16, color: 'rgba(0,0,0,0.26)' }} />
+                                      No groups available
+                                    </Box>
+                                  </DropdownMenuItem>
+                                ]
+                            }
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              color: 'info.main',
+                              '&:hover': {
+                                backgroundColor: (theme) => alpha(theme.palette.info.main, 0.08)
+                              }
+                            }}
+                          />,
+                          <DropdownMenuItem
+                            key="remove"
+                            onClick={() => {
+                              handleRemoveParticipantFromEvent(participantId, participant);
+                            }}
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              color: 'error.main',
+                              '&:hover': {
+                                backgroundColor: (theme) => alpha(theme.palette.error.main, 0.08)
+                              }
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Remove sx={{ fontSize: 14, color: 'error.main' }} />
+                              Remove from Event
+                            </Box>
+                          </DropdownMenuItem>
+                        ]}
+                        minWidth={180}
+                      />
                     </Box>
                   );
                 })}
@@ -671,18 +1046,6 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
         )}
       </Box>
       
-      {/* Manage Participants Slider */}
-      <AddParticipantSlider
-        open={sliderOpen}
-        onClose={handleCloseSlider}
-        eventId={selectedEvent?.id}
-        onAddParticipants={handleAddParticipants}
-        loading={loading}
-        sessionTitle={selectedEvent?.title || eventCourse}
-        onRemoveParticipant={handleRemoveParticipant}
-        onMoveParticipant={handleMoveParticipant}
-        course={course}
-      />
       
       {/* Participant Report Card Drawer */}
       <ParticipantDrawer
@@ -690,6 +1053,594 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
         onClose={handleDrawerClose}
         participant={selectedParticipant}
       />
+
+
+      {/* Add Participant Dialog */}
+      <Dialog 
+        open={addParticipantOpen} 
+        onClose={handleCloseAddParticipant}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { 
+            maxHeight: '90vh',
+            height: 'auto',
+            maxWidth: '480px'
+          }
+        }}
+      >
+        <MainCard
+          title={
+            <Stack direction="column" spacing={0.5}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Add color="primary" />
+                <Typography variant="h6">Add Attendee(s)</Typography>
+              </Stack>
+              {selectedEvent?.title && (
+                <Typography variant="body2" color="text.secondary" sx={{ pl: 3 }}>
+                  {selectedEvent.title}
+                </Typography>
+              )}
+            </Stack>
+          }
+          content={false}
+          sx={{ m: 0, boxShadow: 'none' }}
+        >
+          <Stack spacing={0}>
+            {/* Tab Navigation */}
+            <Tabs
+              value={activeTab}
+              onChange={(event, newValue) => setActiveTab(newValue)}
+              aria-label="add participant tabs"
+              sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}
+            >
+              <Tab 
+                label="Groups" 
+                icon={<TeamOutlined />} 
+                iconPosition="start"
+                sx={{ textTransform: 'none' }}
+              />
+              <Tab 
+                label="Participants" 
+                icon={<Person />} 
+                iconPosition="start"
+                sx={{ textTransform: 'none' }}
+              />
+              <Tab 
+                label="Suggested" 
+                icon={<BulbOutlined />} 
+                iconPosition="start"
+                sx={{ textTransform: 'none' }}
+              />
+            </Tabs>
+
+            {/* Tab Content */}
+            <Box sx={{ 
+              maxHeight: 'calc(90vh - 160px)', 
+              overflowY: 'auto',
+              p: 3 
+            }}>
+              {/* Groups Tab */}
+              {activeTab === 0 && (
+                <Stack spacing={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    Select multiple groups to add to this event.
+                  </Typography>
+
+                  {(() => {
+                    const projectGroups = singleProject?.groups || [];
+                    const eventGroups = selectedEvent?.event_groups || [];
+                    const availableGroups = projectGroups.filter(group =>
+                      !eventGroups.some(eg => eg.groupId === group.id)
+                    );
+
+                    if (availableGroups.length === 0) {
+                      return (
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                          No available groups to add
+                        </Typography>
+                      );
+                    }
+
+                    return (
+                      <Stack spacing={3}>
+                        {/* Selection Summary */}
+                        {selectedGroups.length > 0 && (
+                          <Box sx={{ 
+                            p: 2, 
+                            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08), 
+                            borderRadius: 1, 
+                            border: 1, 
+                            borderColor: 'primary.main' 
+                          }}>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                              <Typography variant="body2" color="primary.main" fontWeight={500}>
+                                {selectedGroups.length} group{selectedGroups.length > 1 ? 's' : ''} selected
+                              </Typography>
+                              <Chip 
+                                label={`${selectedGroups.length} group${selectedGroups.length > 1 ? 's' : ''}`}
+                                size="small"
+                                color="primary"
+                                variant="filled"
+                              />
+                            </Stack>
+                          </Box>
+                        )}
+
+                        {/* Available Groups */}
+                        <Box>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                            <Typography variant="subtitle1" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                              Available Groups ({availableGroups.length})
+                            </Typography>
+                            {availableGroups.length > 1 && (
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => {
+                                  const allSelected = availableGroups.every(group => 
+                                    selectedGroups.some(sg => sg.id === group.id)
+                                  );
+                                  if (allSelected) {
+                                    setSelectedGroups([]);
+                                  } else {
+                                    setSelectedGroups(availableGroups);
+                                  }
+                                }}
+                                sx={{
+                                  color: 'primary.main',
+                                  textTransform: 'none',
+                                  fontSize: '0.8rem',
+                                  '&:hover': {
+                                    backgroundColor: 'primary.lighter'
+                                  }
+                                }}
+                              >
+                                {availableGroups.every(group => selectedGroups.some(sg => sg.id === group.id)) 
+                                  ? 'Deselect All' : 'Select All'}
+                              </Button>
+                            )}
+                          </Stack>
+                          <Stack spacing={1}>
+                            {availableGroups.map((group) => {
+                              const isSelected = selectedGroups.some(sg => sg.id === group.id);
+                              return (
+                                <Box
+                                  key={group.id}
+                                  onClick={() => handleToggleGroup(group)}
+                                  sx={{
+                                    p: 1,
+                                    border: 1,
+                                    borderColor: isSelected ? 'primary.main' : 'divider',
+                                    borderRadius: 1,
+                                    cursor: 'pointer',
+                                    backgroundColor: isSelected ? (theme) => alpha(theme.palette.primary.main, 0.08) : 'transparent',
+                                    '&:hover': {
+                                      backgroundColor: isSelected ? (theme) => alpha(theme.palette.primary.main, 0.12) : 'action.hover',
+                                      borderColor: 'primary.main'
+                                    }
+                                  }}
+                                >
+                                  <Stack direction="row" alignItems="center" spacing={1.5}>
+                                    <Checkbox 
+                                      checked={isSelected} 
+                                      color="primary"
+                                      size="small"
+                                    />
+                                    <Box
+                                      sx={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        bgcolor: group.chipColor || 'primary.main'
+                                      }}
+                                    />
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography variant="body2" fontWeight={500} noWrap>
+                                        {group.groupName}
+                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                          • {group.participants?.length || 0} members
+                                        </Typography>
+                                      </Typography>
+                                    </Box>
+                                  </Stack>
+                                </Box>
+                              );
+                            })}
+                          </Stack>
+                        </Box>
+                      </Stack>
+                    );
+                  })()}
+                </Stack>
+              )}
+
+              {/* Individual Participants Tab */}
+              {activeTab === 1 && (
+                <Stack spacing={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    Select individual participants to add to this event.
+                  </Typography>
+
+                  {(() => {
+                    const projectParticipants = project_participants || [];
+                    const currentEventParticipants = eventParticipants || [];
+                    const availableParticipants = projectParticipants.filter(pp => 
+                      !currentEventParticipants.some(ep => ep.enrolleeId === pp.id)
+                    );
+
+                    if (availableParticipants.length === 0) {
+                      return (
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                          No available participants to add
+                        </Typography>
+                      );
+                    }
+
+                    return (
+                      <Stack spacing={3}>
+                        {/* Selection Summary */}
+                        {selectedParticipants.length > 0 && (
+                          <Box sx={{ 
+                            p: 2, 
+                            bgcolor: (theme) => alpha(theme.palette.secondary.main, 0.08), 
+                            borderRadius: 1, 
+                            border: 1, 
+                            borderColor: 'secondary.main' 
+                          }}>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                              <Typography variant="body2" color="secondary.main" fontWeight={500}>
+                                {selectedParticipants.length} participant{selectedParticipants.length > 1 ? 's' : ''} selected
+                              </Typography>
+                              <Chip 
+                                label={`${selectedParticipants.length} participant${selectedParticipants.length > 1 ? 's' : ''}`}
+                                size="small"
+                                color="secondary"
+                                variant="filled"
+                              />
+                            </Stack>
+                          </Box>
+                        )}
+
+                        {/* Available Participants */}
+                        <Box>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                            <Typography variant="subtitle1" sx={{ color: 'secondary.main', fontWeight: 600 }}>
+                              Available Participants ({availableParticipants.length})
+                            </Typography>
+                            {availableParticipants.length > 1 && (
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => {
+                                  const allSelected = availableParticipants.every(participant => 
+                                    selectedParticipants.some(sp => sp.id === participant.id)
+                                  );
+                                  if (allSelected) {
+                                    setSelectedParticipants([]);
+                                  } else {
+                                    setSelectedParticipants(availableParticipants);
+                                  }
+                                }}
+                                sx={{
+                                  color: 'secondary.main',
+                                  textTransform: 'none',
+                                  fontSize: '0.8rem',
+                                  '&:hover': {
+                                    backgroundColor: 'secondary.lighter'
+                                  }
+                                }}
+                              >
+                                {availableParticipants.every(participant => selectedParticipants.some(sp => sp.id === participant.id)) 
+                                  ? 'Deselect All' : 'Select All'}
+                              </Button>
+                            )}
+                          </Stack>
+                          <Stack spacing={1}>
+                            {availableParticipants.map((participant) => {
+                              const isSelected = selectedParticipants.some(sp => sp.id === participant.id);
+                              return (
+                                <Box
+                                  key={participant.id}
+                                  onClick={() => handleToggleParticipant(participant)}
+                                  sx={{
+                                    p: 1,
+                                    border: 1,
+                                    borderColor: isSelected ? 'secondary.main' : 'divider',
+                                    borderRadius: 1,
+                                    cursor: 'pointer',
+                                    backgroundColor: isSelected ? (theme) => alpha(theme.palette.secondary.main, 0.08) : 'transparent',
+                                    '&:hover': {
+                                      backgroundColor: isSelected ? (theme) => alpha(theme.palette.secondary.main, 0.12) : 'action.hover',
+                                      borderColor: 'secondary.main'
+                                    }
+                                  }}
+                                >
+                                  <Stack direction="row" alignItems="center" spacing={1.5}>
+                                    <Checkbox 
+                                      checked={isSelected} 
+                                      color="secondary"
+                                      size="small"
+                                    />
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography variant="body2" fontWeight={500} noWrap>
+                                        {participant.participant ? 
+                                          `${participant.participant.firstName || ''} ${participant.participant.lastName || ''}`.trim() :
+                                          'Unknown Participant'
+                                        }
+                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                          • {participant.participant?.role?.title || 'Participant'}
+                                        </Typography>
+                                      </Typography>
+                                    </Box>
+                                  </Stack>
+                                </Box>
+                              );
+                            })}
+                          </Stack>
+                        </Box>
+                      </Stack>
+                    );
+                  })()}
+                </Stack>
+              )}
+
+              {/* Suggested Tab */}
+              {activeTab === 2 && (
+                <Stack spacing={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    Participants suggested based on course role requirements.
+                  </Typography>
+
+                  {(() => {
+                    // Get course role requirements from selectedEvent.course.course_participant_roles
+                    const courseRoleIds = selectedEvent?.course?.course_participant_roles?.map(cpr => cpr.role?.id).filter(Boolean) || [];
+                    
+                    if (courseRoleIds.length === 0) {
+                      return (
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                          <BulbOutlined style={{ fontSize: '2rem', color: '#ccc', marginBottom: '1rem' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            No role requirements defined for this course
+                          </Typography>
+                          {selectedEvent?.courseId && (
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                              Course ID: {selectedEvent.courseId}
+                            </Typography>
+                          )}
+                        </Box>
+                      );
+                    }
+
+                    const projectParticipants = project_participants || [];
+                    const currentEventParticipants = eventParticipants || [];
+                    
+                    // Filter participants who match course role requirements and are not already in the event
+                    const suggestedParticipants = projectParticipants.filter(pp => {
+                      // Check if participant is already in the event
+                      const isInEvent = currentEventParticipants.some(ep => ep.enrolleeId === pp.id);
+                      if (isInEvent) return false;
+                      
+                      // Check if participant's role matches course requirements
+                      const participantRoleId = pp.participant?.role?.id;
+                      return participantRoleId && courseRoleIds.includes(participantRoleId);
+                    });
+
+                    if (suggestedParticipants.length === 0) {
+                      return (
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                          <BulbOutlined style={{ fontSize: '2rem', color: '#ccc', marginBottom: '1rem' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            No participants match the course role requirements
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                            Required roles: {courseRoleIds.map(id => {
+                              // Try to find role title from existing participants
+                              const roleExample = projectParticipants.find(p => 
+                                (p.participant?.roleId === id || p.participant?.role?.id === id)
+                              );
+                              return roleExample?.participant?.role?.title || `Role ${id}`;
+                            }).join(', ')}
+                          </Typography>
+                        </Box>
+                      );
+                    }
+
+                    return (
+                      <Stack spacing={3}>
+                        {/* Selection Summary */}
+                        {selectedParticipants.length > 0 && (
+                          <Box sx={{ 
+                            p: 2, 
+                            bgcolor: (theme) => alpha(theme.palette.success.main, 0.08), 
+                            borderRadius: 1, 
+                            border: 1, 
+                            borderColor: 'success.main' 
+                          }}>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                              <Typography variant="body2" color="success.main" fontWeight={500}>
+                                {selectedParticipants.length} suggested participant{selectedParticipants.length > 1 ? 's' : ''} selected
+                              </Typography>
+                              <Chip 
+                                label={`${selectedParticipants.length} participant${selectedParticipants.length > 1 ? 's' : ''}`}
+                                size="small"
+                                color="success"
+                                variant="filled"
+                              />
+                            </Stack>
+                          </Box>
+                        )}
+
+                        {/* Course Role Requirements Info */}
+                        <Box sx={{ 
+                          p: 2, 
+                          bgcolor: (theme) => alpha(theme.palette.info.main, 0.08), 
+                          borderRadius: 1, 
+                          border: 1, 
+                          borderColor: 'info.main' 
+                        }}>
+                          <Typography variant="caption" color="info.main" fontWeight={500}>
+                            Course requires: {courseRoleIds.map(id => {
+                              const roleExample = projectParticipants.find(p => 
+                                (p.participant?.roleId === id || p.participant?.role?.id === id)
+                              );
+                              return roleExample?.participant?.role?.title || `Role ${id}`;
+                            }).join(', ')}
+                          </Typography>
+                        </Box>
+
+                        {/* Suggested Participants */}
+                        <Box>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                            <Typography variant="subtitle1" sx={{ color: 'success.main', fontWeight: 600 }}>
+                              Suggested Participants ({suggestedParticipants.length})
+                            </Typography>
+                            {suggestedParticipants.length > 1 && (
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => {
+                                  const allSelected = suggestedParticipants.every(participant => 
+                                    selectedParticipants.some(sp => sp.id === participant.id)
+                                  );
+                                  if (allSelected) {
+                                    setSelectedParticipants(prev => 
+                                      prev.filter(sp => !suggestedParticipants.some(suggested => suggested.id === sp.id))
+                                    );
+                                  } else {
+                                    setSelectedParticipants(prev => {
+                                      const newSelections = suggestedParticipants.filter(suggested => 
+                                        !prev.some(sp => sp.id === suggested.id)
+                                      );
+                                      return [...prev, ...newSelections];
+                                    });
+                                  }
+                                }}
+                                sx={{
+                                  color: 'success.main',
+                                  textTransform: 'none',
+                                  fontSize: '0.8rem',
+                                  '&:hover': {
+                                    backgroundColor: 'success.lighter'
+                                  }
+                                }}
+                              >
+                                {suggestedParticipants.every(participant => selectedParticipants.some(sp => sp.id === participant.id)) 
+                                  ? 'Deselect All' : 'Select All'}
+                              </Button>
+                            )}
+                          </Stack>
+                          <Stack spacing={1}>
+                            {suggestedParticipants.map((participant) => {
+                              const isSelected = selectedParticipants.some(sp => sp.id === participant.id);
+                              return (
+                                <Box
+                                  key={participant.id}
+                                  onClick={() => handleToggleParticipant(participant)}
+                                  sx={{
+                                    p: 1,
+                                    border: 1,
+                                    borderColor: isSelected ? 'success.main' : 'divider',
+                                    borderRadius: 1,
+                                    cursor: 'pointer',
+                                    backgroundColor: isSelected ? (theme) => alpha(theme.palette.success.main, 0.08) : 'transparent',
+                                    '&:hover': {
+                                      backgroundColor: isSelected ? (theme) => alpha(theme.palette.success.main, 0.12) : 'action.hover',
+                                      borderColor: 'success.main'
+                                    }
+                                  }}
+                                >
+                                  <Stack direction="row" alignItems="center" spacing={1.5}>
+                                    <Checkbox 
+                                      checked={isSelected} 
+                                      color="success"
+                                      size="small"
+                                    />
+                                    <BulbOutlined style={{ fontSize: '16px', color: '#4caf50' }} />
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography variant="body2" fontWeight={500} noWrap>
+                                        {participant.participant ? 
+                                          `${participant.participant.firstName || ''} ${participant.participant.lastName || ''}`.trim() :
+                                          'Unknown Participant'
+                                        }
+                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                          • {participant.participant?.role?.title || 'Participant'}
+                                        </Typography>
+                                      </Typography>
+                                    </Box>
+                                  </Stack>
+                                </Box>
+                              );
+                            })}
+                          </Stack>
+                        </Box>
+                      </Stack>
+                    );
+                  })()}
+                </Stack>
+              )}
+            </Box>
+
+            {/* Actions - Fixed at bottom */}
+            <Stack 
+              direction="row" 
+              justifyContent="flex-end" 
+              spacing={2} 
+              sx={{ 
+                p: 3, 
+                pt: 2,
+                borderTop: 1, 
+                borderColor: 'divider',
+                backgroundColor: 'background.paper',
+                position: 'sticky',
+                bottom: 0
+              }}
+            >
+              <Button 
+                onClick={handleCloseAddParticipant}
+                disabled={dialogLoading}
+                variant="outlined"
+                sx={{
+                  borderColor: 'grey.300',
+                  color: 'text.secondary',
+                  '&:hover': {
+                    borderColor: 'grey.400',
+                    backgroundColor: 'grey.50'
+                  },
+                  textTransform: 'none',
+                  px: 3,
+                  py: 1
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="contained"
+                onClick={handleApplySelections}
+                disabled={(selectedGroups.length === 0 && selectedParticipants.length === 0) || dialogLoading}
+                startIcon={dialogLoading ? <CircularProgress size={16} color="inherit" /> : null}
+                sx={{
+                  backgroundColor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark'
+                  },
+                  '&:disabled': {
+                    backgroundColor: 'grey.300',
+                    color: 'grey.500'
+                  },
+                  textTransform: 'none',
+                  px: 3,
+                  py: 1,
+                  fontWeight: 500
+                }}
+              >
+                {dialogLoading ? 'Adding...' : `Add ${selectedGroups.length + selectedParticipants.length} Attendee(s)`}
+              </Button>
+            </Stack>
+          </Stack>
+        </MainCard>
+      </Dialog>
     </MainCard>
   );
 });

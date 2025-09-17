@@ -28,6 +28,15 @@ export default async function handler(req, res) {
             id: true,
             title: true,
             summary: true,
+            course_participant_roles: {
+              select:{
+                role:{
+                  select:{
+                    id:true
+                  }
+                }
+              }
+            }
           },
         },
         event_attendees: {
@@ -52,6 +61,12 @@ export default async function handler(req, res) {
                     firstName: true,
                     lastName: true,
                     email: true,
+                    role:{
+                      select:{
+                        id:true,
+                        title:true
+                      }
+                    }
                     
                   },
                 },

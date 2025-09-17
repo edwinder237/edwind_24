@@ -387,9 +387,10 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to assign group to event');
       }
 
-      // Refresh events to show the update
+      // Refresh both calendar events and project data to show the update
       if (project?.id) {
         await dispatch(getEvents(project.id));
+        await dispatch(getSingleProject(project.id));
       }
 
       dispatch(
@@ -596,7 +597,8 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
                   onClick={(e) => e.stopPropagation()}
                   sx={{
                     fontSize: '0.65rem',
-                    bgcolor: 'rgba(255, 255, 255, 0.9)',
+                    bgcolor: alpha(theme.palette.background.paper, 0.95),
+                    color: theme.palette.text.primary,
                     borderRadius: '12px',
                     '& .MuiSelect-select': {
                       py: 0.5,
@@ -605,13 +607,17 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
                       fontWeight: 500,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 0.5
+                      gap: 0.5,
+                      color: theme.palette.text.primary
                     },
                     '& .MuiOutlinedInput-notchedOutline': {
-                      border: '1px solid rgba(255, 255, 255, 0.5)'
+                      border: `1px solid ${alpha(theme.palette.divider, 0.3)}`
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      border: '1px solid rgba(255, 255, 255, 0.8)'
+                      border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`
+                    },
+                    '& .MuiSvgIcon-root': {
+                      color: theme.palette.text.secondary
                     }
                   }}
                   renderValue={() => (

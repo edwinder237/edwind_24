@@ -64,6 +64,16 @@ export default async function handler(req, res) {
                   orderBy: {
                     moduleOrder: 'asc'
                   }
+                },
+                course_participant_roles: {
+                  include: {
+                    role: {
+                      select: {
+                        id: true,
+                        title: true
+                      }
+                    }
+                  }
                 }
               }
             },

@@ -61,7 +61,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   const theme = useTheme();
   const dispatch = useDispatch();
   const { events } = useSelector((state) => state.calendar);
-  const { groups, loading: groupsLoading } = useSelector((state) => state.projects);
+  const { groups, loading: groupsLoading, project_participants } = useSelector((state) => state.projects);
   
   
   const [startTime, setStartTime] = useState('');
@@ -370,6 +370,56 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
       );
     } finally {
       setIsLoadingGroups(false);
+    }
+  };
+
+  // Handle quick participant assignment
+  const handleQuickParticipantAssign = async (participantId, e) => {
+    e?.stopPropagation();
+    
+    try {
+      const response = await fetch('/api/projects/addEventParticipant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.id, participantId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to assign participant to event');
+      }
+
+      // Refresh events and project data to ensure consistency with database
+      if (project?.id) {
+        await Promise.all([
+          dispatch(getEvents(project.id)),
+          dispatch(getSingleProject(project.id))
+        ]);
+      }
+
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Participant assigned to event successfully',
+          variant: 'alert',
+          alert: { color: 'success' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+          autoHideDuration: 2000
+        })
+      );
+    } catch (error) {
+      console.error('Error assigning participant to event:', error);
+      
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Failed to assign participant to event',
+          variant: 'alert',
+          alert: { color: 'error' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+        })
+      );
     }
   };
 
@@ -742,10 +792,14 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                   event.event_groups.some(eg => eg.groups);
                 
                 
-                if (hasActualGroups) {
+                const hasIndividualParticipants = event.event_participants && 
+                  event.event_participants.length > 0;
+
+                if (hasActualGroups || hasIndividualParticipants) {
                   return (
                     <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-                      {event.event_groups.map((eventGroup, index) => 
+                      {/* Group chips */}
+                      {hasActualGroups && event.event_groups.map((eventGroup, index) => 
                         eventGroup.groups ? (
                           <Chip
                             key={`group-${eventGroup.groups.id}-${index}`}
@@ -771,6 +825,39 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                           />
                         ) : null
                       )}
+                      
+                      {/* Individual participant chips */}
+                      {hasIndividualParticipants && event.event_participants.map((eventParticipant, index) => 
+                        eventParticipant.participant ? (
+                          <Chip
+                            key={`participant-${eventParticipant.participant_id}-${index}`}
+                            label={`${eventParticipant.participant.firstName} ${eventParticipant.participant.lastName}`}
+                            size="small"
+                            icon={<Person sx={{ fontSize: '14px !important' }} />}
+                            onClick={handleGroupClick}
+                            sx={{
+                              backgroundColor: alpha(theme.palette.secondary.main, 0.1),
+                              color: theme.palette.secondary.main,
+                              border: `1px solid ${alpha(theme.palette.secondary.main, 0.3)}`,
+                              fontWeight: 500,
+                              fontSize: '0.75rem',
+                              height: 22,
+                              cursor: 'pointer',
+                              '& .MuiChip-label': {
+                                px: 1
+                              },
+                              '& .MuiChip-icon': {
+                                fontSize: 14,
+                                color: 'inherit'
+                              },
+                              '&:hover': {
+                                backgroundColor: alpha(theme.palette.secondary.main, 0.2),
+                                boxShadow: 1
+                              }
+                            }}
+                          />
+                        ) : null
+                      )}
                     </Stack>
                   );
                 } else {
@@ -778,83 +865,148 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                     <Box sx={{ 
                       mt: 0.5
                     }}>
-                      {isLoadingGroups || groupsLoading ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <CircularProgress size={12} />
-                          <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                            Loading groups...
-                          </Typography>
-                        </Box>
-                      ) : groups.length > 0 ? (
-                        <FormControl size="small" sx={{ minWidth: 100 }}>
-                          <Select
-                            displayEmpty
-                            value=""
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                handleQuickGroupAssign(e.target.value, e);
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            variant="outlined"
-                            sx={{
-                              fontSize: '0.7rem',
-                              bgcolor: 'transparent',
-                              border: `1px dashed ${alpha(theme.palette.divider, 0.6)}`,
-                              borderRadius: 1,
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                border: 'none'
-                              },
-                              '& .MuiSelect-select': {
-                                py: 0.25,
-                                px: 0.75,
-                                fontSize: '0.7rem',
-                                fontWeight: 400,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                                color: 'text.secondary'
-                              },
-                              '&:hover': {
-                                border: `1px dashed ${alpha(theme.palette.primary.main, 0.5)}`,
-                                '& .MuiSelect-select': {
-                                  color: 'primary.main'
+                      {/* Combined Add Groups & Participants Dropdown */}
+                      {(() => {
+                        const projectParticipants = project_participants || [];
+                        const eventParticipants = event.event_participants || [];
+                        const availableParticipants = projectParticipants.filter(pp => 
+                          !eventParticipants.some(ep => ep.enrolleeId === pp.id)
+                        );
+
+                        const hasGroups = groups.length > 0;
+                        const hasParticipants = availableParticipants.length > 0;
+
+                        if (isLoadingGroups || groupsLoading) {
+                          return (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <CircularProgress size={12} />
+                              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                                Loading...
+                              </Typography>
+                            </Box>
+                          );
+                        }
+
+                        if (!hasGroups && !hasParticipants) {
+                          return (
+                            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                              No groups or participants available
+                            </Typography>
+                          );
+                        }
+
+                        return (
+                          <FormControl size="small" sx={{ minWidth: 100 }}>
+                            <Select
+                              displayEmpty
+                              value=""
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  const [type, id] = e.target.value.split('-');
+                                  if (type === 'group') {
+                                    handleQuickGroupAssign(id, e);
+                                  } else if (type === 'participant') {
+                                    handleQuickParticipantAssign(id, e);
+                                  }
                                 }
-                              }
-                            }}
-                            renderValue={() => (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Add sx={{ fontSize: 12, color: 'inherit', opacity: 0.7 }} />
-                                <Typography sx={{ fontSize: '0.7rem', color: 'inherit' }}>
-                                  Add Group
-                                </Typography>
-                              </Box>
-                            )}
-                          >
-                            {groups.map((group) => (
-                              <MenuItem key={group.id} value={group.id}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Box
-                                    sx={{
-                                      width: 8,
-                                      height: 8,
-                                      borderRadius: '50%',
-                                      bgcolor: group.chipColor || theme.palette.primary.main
-                                    }}
-                                  />
-                                  <Typography sx={{ fontSize: '0.8rem' }}>
-                                    {group.groupName}
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              variant="outlined"
+                              sx={{
+                                fontSize: '0.7rem',
+                                bgcolor: 'transparent',
+                                border: `1px dashed ${alpha(theme.palette.divider, 0.6)}`,
+                                borderRadius: 1,
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  border: 'none'
+                                },
+                                '& .MuiSelect-select': {
+                                  py: 0.25,
+                                  px: 0.75,
+                                  fontSize: '0.7rem',
+                                  fontWeight: 400,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                  color: 'text.secondary'
+                                },
+                                '&:hover': {
+                                  border: `1px dashed ${alpha(theme.palette.primary.main, 0.5)}`,
+                                  '& .MuiSelect-select': {
+                                    color: 'primary.main'
+                                  }
+                                }
+                              }}
+                              renderValue={() => (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Add sx={{ fontSize: 12, color: 'inherit', opacity: 0.7 }} />
+                                  <Typography sx={{ fontSize: '0.7rem', color: 'inherit' }}>
+                                    Add Group/Participant
                                   </Typography>
                                 </Box>
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      ) : (
-                        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                          No groups available
-                        </Typography>
-                      )}
+                              )}
+                            >
+                              {/* Groups Section */}
+                              {hasGroups && groups.map((group) => (
+                                <MenuItem key={`group-${group.id}`} value={`group-${group.id}`}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                    <Group sx={{ fontSize: 14, color: theme.palette.primary.main }} />
+                                    <Box
+                                      sx={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        bgcolor: group.chipColor || theme.palette.primary.main
+                                      }}
+                                    />
+                                    <Box sx={{ flex: 1 }}>
+                                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                                        {group.groupName}
+                                      </Typography>
+                                      <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
+                                        Group • {group.participants?.length || 0} members
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                </MenuItem>
+                              ))}
+                              
+                              {/* Divider */}
+                              {hasGroups && hasParticipants && (
+                                <Divider sx={{ my: 0.5 }} />
+                              )}
+                              
+                              {/* Participants Section */}
+                              {hasParticipants && availableParticipants.map((participant) => (
+                                <MenuItem key={`participant-${participant.id}`} value={`participant-${participant.id}`}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                    <Person sx={{ fontSize: 14, color: theme.palette.secondary.main }} />
+                                    <Box
+                                      sx={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        bgcolor: theme.palette.secondary.main
+                                      }}
+                                    />
+                                    <Box sx={{ flex: 1 }}>
+                                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                                        {participant.participant ? 
+                                          `${participant.participant.firstName || ''} ${participant.participant.lastName || ''}`.trim() :
+                                          'Unknown Participant'
+                                        }
+                                      </Typography>
+                                      <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
+                                        {participant.participant?.role?.title || 'Participant'} • Individual
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        );
+                      })()}
                     </Box>
                   );
                 }

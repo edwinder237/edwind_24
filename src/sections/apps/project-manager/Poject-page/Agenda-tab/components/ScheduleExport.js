@@ -57,6 +57,8 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [sendingInvites, setSendingInvites] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
+  const [onlyAssignedEvents, setOnlyAssignedEvents] = useState(true);
+  const [includeZoomLinks, setIncludeZoomLinks] = useState(true);
 
   // Fetch daily focus data
   useEffect(() => {
@@ -155,6 +157,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
     setInviteResult(null);
 
     try {
+      // Filter events based on the onlyAssignedEvents option
+      const eventsToSend = onlyAssignedEvents 
+        ? projectEvents.filter(event => 
+            event.event_groups?.some(eg => selectedGroups.includes(eg.groupId))
+          )
+        : projectEvents;
+
       const response = await fetch('/api/projects/send-calendar-invites', {
         method: 'POST',
         headers: {
@@ -163,9 +172,11 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
         body: JSON.stringify({
           projectId: project.id,
           groupIds: selectedGroups,
-          events: projectEvents,
+          events: eventsToSend,
           projectTitle,
-          dailyFocusData
+          dailyFocusData,
+          onlyAssignedEvents,
+          includeZoomLinks
         }),
       });
 
@@ -305,7 +316,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
                 {/* Events */}
                 <CardContent>
                   <Stack spacing={2}>
-                    {dayEvents.map((event) => {
+                    {dayEvents
+                      .sort((a, b) => {
+                        const startA = typeof a.start === 'string' ? parseISO(a.start) : new Date(a.start);
+                        const startB = typeof b.start === 'string' ? parseISO(b.start) : new Date(b.start);
+                        return startA - startB;
+                      })
+                      .map((event) => {
                       const startDate = typeof event.start === 'string' ? parseISO(event.start) : new Date(event.start);
                       const endDate = event.end ? (typeof event.end === 'string' ? parseISO(event.end) : new Date(event.end)) : null;
                       const startTime = format(startDate, 'HH:mm');
@@ -404,7 +421,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
               const dayEvents = groupedEvents[dateKey];
               const eventDate = parseISO(dateKey + 'T12:00:00');
               
-              return dayEvents.map((event, index) => {
+              return dayEvents
+                .sort((a, b) => {
+                  const startA = typeof a.start === 'string' ? parseISO(a.start) : new Date(a.start);
+                  const startB = typeof b.start === 'string' ? parseISO(b.start) : new Date(b.start);
+                  return startA - startB;
+                })
+                .map((event, index) => {
                 const startDate = typeof event.start === 'string' ? parseISO(event.start) : new Date(event.start);
                 const endDate = event.end ? (typeof event.end === 'string' ? parseISO(event.end) : new Date(event.end)) : null;
                 const startTime = format(startDate, 'HH:mm');
@@ -509,17 +532,68 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
         onClose={handleCloseGroupSelection} 
         maxWidth="sm" 
         fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: theme => theme.palette.background.paper,
+            backgroundImage: 'none'
+          }
+        }}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ 
+          borderBottom: theme => `1px solid ${theme.palette.divider}`,
+          pb: 2
+        }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Email color="primary" />
-            <Typography variant="h6">Send Calendar Invites</Typography>
+            <Typography variant="h5" fontWeight={500}>Send Calendar Invites</Typography>
           </Stack>
         </DialogTitle>
         
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Choose which groups should receive individual calendar invites for all scheduled events.
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Choose which groups should receive individual calendar invites.
+          </Typography>
+          
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 3, 
+            mb: 2,
+            pb: 2,
+            borderBottom: theme => `1px solid ${theme.palette.divider}`
+          }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={onlyAssignedEvents}
+                  onChange={(e) => setOnlyAssignedEvents(e.target.checked)}
+                  color="primary"
+                  size="small"
+                />
+              }
+              label={<Typography variant="body2">Send only events assigned to selected groups</Typography>}
+              sx={{ m: 0 }}
+            />
+            
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={includeZoomLinks}
+                  onChange={(e) => setIncludeZoomLinks(e.target.checked)}
+                  color="primary"
+                  size="small"
+                />
+              }
+              label={<Typography variant="body2">Include Zoom meeting links</Typography>}
+              sx={{ m: 0 }}
+            />
+          </Box>
+          
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3, fontStyle: 'italic' }}>
+            {onlyAssignedEvents 
+              ? "Only events specifically assigned to the selected groups will be included in the invites."
+              : "All scheduled events will be included in the invites for all selected groups."
+            }
+            {!includeZoomLinks && " Zoom meeting links will be excluded for in-person sessions."}
           </Typography>
           
           {inviteResult && (
@@ -533,40 +607,70 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
           )}
           
           {project?.groups && project.groups.length > 0 ? (
-            <FormGroup>
-              {project.groups.map((group) => (
-                <Stack key={group.id} direction="row" alignItems="center" spacing={2} sx={{ mb: 1, p: 1, borderRadius: 1, '&:hover': { backgroundColor: 'action.hover' } }}>
-                  <Checkbox
-                    checked={selectedGroups.includes(group.id)}
-                    onChange={() => handleGroupToggle(group.id)}
-                    color="primary"
-                  />
-                  <Box
-                    sx={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: '50%',
-                      backgroundColor: group.chipColor || '#1976d2'
-                    }}
-                  />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                      {group.groupName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {group.participants?.length || 0} participant{(group.participants?.length || 0) !== 1 ? 's' : ''}
-                    </Typography>
-                  </Box>
-                  <Chip 
-                    label={`${projectEvents.filter(event => 
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {project.groups.map((group) => {
+                const eventCount = onlyAssignedEvents 
+                  ? projectEvents.filter(event => 
                       event.event_groups?.some(eg => eg.groupId === group.id)
-                    ).length} events`}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Stack>
-              ))}
-            </FormGroup>
+                    ).length
+                  : projectEvents.length;
+                
+                return (
+                  <Stack 
+                    key={group.id} 
+                    direction="row" 
+                    alignItems="center" 
+                    spacing={2} 
+                    sx={{ 
+                      p: 1.5, 
+                      borderRadius: 1, 
+                      border: theme => `1px solid ${theme.palette.divider}`,
+                      backgroundColor: theme => selectedGroups.includes(group.id) 
+                        ? theme.palette.action.selected 
+                        : theme.palette.background.paper,
+                      '&:hover': { 
+                        backgroundColor: theme => theme.palette.action.hover 
+                      },
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <Checkbox
+                      checked={selectedGroups.includes(group.id)}
+                      onChange={() => handleGroupToggle(group.id)}
+                      color="primary"
+                      size="small"
+                    />
+                    <Box
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        backgroundColor: group.chipColor || '#1976d2',
+                        flexShrink: 0
+                      }}
+                    />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        {group.groupName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {group.participants?.length || 0} participant{(group.participants?.length || 0) !== 1 ? 's' : ''}
+                      </Typography>
+                    </Box>
+                    <Chip 
+                      label={`${eventCount} event${eventCount !== 1 ? 's' : ''}`}
+                      size="small"
+                      variant={selectedGroups.includes(group.id) ? "filled" : "outlined"}
+                      color={selectedGroups.includes(group.id) ? "primary" : "default"}
+                      sx={{ 
+                        fontWeight: selectedGroups.includes(group.id) ? 600 : 400,
+                        minWidth: '80px'
+                      }}
+                    />
+                  </Stack>
+                );
+              })}
+            </Box>
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
               No groups found for this project.
@@ -574,17 +678,34 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
           )}
         </DialogContent>
         
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseGroupSelection} disabled={sendingInvites}>
+        <DialogActions sx={{ 
+          p: 2, 
+          borderTop: theme => `1px solid ${theme.palette.divider}`,
+          backgroundColor: theme => theme.palette.grey[50]
+        }}>
+          <Button 
+            onClick={handleCloseGroupSelection} 
+            disabled={sendingInvites}
+            color="inherit"
+          >
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleSendCalendarInvites}
             disabled={selectedGroups.length === 0 || sendingInvites}
-            startIcon={sendingInvites ? <CircularProgress size={20} /> : <Send />}
+            startIcon={sendingInvites ? <CircularProgress size={16} color="inherit" /> : <Send />}
           >
-            {sendingInvites ? 'Sending...' : `Send Invites (${selectedGroups.length} groups)`}
+            {sendingInvites ? 'Sending...' : (() => {
+              const eventsToSend = onlyAssignedEvents 
+                ? projectEvents.filter(event => 
+                    event.event_groups?.some(eg => selectedGroups.includes(eg.groupId))
+                  ).length
+                : projectEvents.length;
+              const groupText = selectedGroups.length === 1 ? 'Group' : 'Groups';
+              const eventText = eventsToSend === 1 ? 'Event' : 'Events';
+              return `Send Invites (${selectedGroups.length} ${groupText}, ${eventsToSend} ${eventText})`;
+            })()}
           </Button>
         </DialogActions>
       </Dialog>

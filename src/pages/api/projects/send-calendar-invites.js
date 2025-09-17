@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId, groupIds, events, projectTitle, dailyFocusData } = req.body;
+    const { projectId, groupIds, events, projectTitle, dailyFocusData, includeZoomLinks = true } = req.body;
 
     if (!projectId || !groupIds || !Array.isArray(groupIds) || groupIds.length === 0) {
       return res.status(400).json({ message: 'Missing required fields: projectId and groupIds' });
@@ -93,15 +93,17 @@ export default async function handler(req, res) {
       const eventGroups = event.event_groups || [];
       const groupNames = eventGroups.map(eventGroup => eventGroup.groups?.groupName).filter(Boolean);
 
-      // Mock Zoom meeting link for testing
-      const zoomLink = `https://us02web.zoom.us/j/${Math.floor(Math.random() * 900000000) + 100000000}?pwd=${Math.random().toString(36).substring(2, 15)}`;
+      // Generate Zoom meeting link only if includeZoomLinks is true
+      const zoomLink = includeZoomLinks 
+        ? `https://us02web.zoom.us/j/${Math.floor(Math.random() * 900000000) + 100000000}?pwd=${Math.random().toString(36).substring(2, 15)}`
+        : null;
 
       return {
         title: event.title || 'Training Event',
-        description: createEventDescription(event, dailyFocus, groupNames, zoomLink),
+        description: createEventDescription(event, dailyFocus, groupNames, zoomLink, includeZoomLinks),
         startTime: startDate,
         endTime: endDate || new Date(startDate.getTime() + 60 * 60 * 1000), // Default 1 hour if no end time
-        location: event.location || zoomLink,
+        location: includeZoomLinks ? (event.location || zoomLink) : (event.location || 'TBD'),
         course: event.course?.title || null,
         zoomLink: zoomLink
       };
@@ -207,7 +209,7 @@ export default async function handler(req, res) {
   }
 }
 
-function createEventDescription(event, dailyFocus, groupNames, zoomLink) {
+function createEventDescription(event, dailyFocus, groupNames, zoomLink, includeZoomLinks = true) {
   let description = '';
   
   if (event.course) {
@@ -226,7 +228,7 @@ function createEventDescription(event, dailyFocus, groupNames, zoomLink) {
     description += `Daily Focus: ${dailyFocus}\n\n`;
   }
   
-  if (zoomLink) {
+  if (includeZoomLinks && zoomLink) {
     description += `Join Zoom Meeting: ${zoomLink}\n\n`;
     description += `Meeting ID: ${zoomLink.match(/\/j\/(\d+)/)?.[1] || 'N/A'}\n`;
     description += `Passcode: Available in meeting link\n\n`;
@@ -313,7 +315,7 @@ function generateEventInviteTemplate({ participantName, event, projectTitle, gro
               <p style="margin: 5px 0; font-size: 0.9em; color: #6c757d;">
                 <strong>Meeting ID:</strong> ${event.zoomLink.match(/\/j\/(\d+)/)?.[1] || 'N/A'}
               </p>
-            ` : ''}
+            ` : (event.location ? `<p style="margin: 5px 0;"><strong>📍 Location:</strong> ${event.location}</p>` : '')}
           </div>
           
           ${event.description ? `

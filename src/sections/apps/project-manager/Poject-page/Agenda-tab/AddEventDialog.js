@@ -173,13 +173,21 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   // Update editableTime when selectedTime prop changes or dialog opens
   useEffect(() => {
     if (open && selectedDate) {
-      // Use selectedTime if provided, otherwise default to 9:00 AM
-      const baseTime = selectedTime || '9:00 AM';
-      // Pass project events if available
-      const nextAvailableTime = findNextAvailableTime(baseTime, selectedDate, project?.events);
-      setEditableTime(nextAvailableTime);
+      // If selectedTime is explicitly provided (from Week/Month view clicks), use it directly
+      // If selectedTime is empty/null (from Agenda view "Add Event" buttons), find next available
+      let timeToUse;
+      if (selectedTime) {
+        // Week/Month view: use the clicked time directly
+        timeToUse = selectedTime;
+      } else {
+        // Agenda view: find next available time slot
+        const baseTime = '9:00 AM';
+        timeToUse = findNextAvailableTime(baseTime, selectedDate, project?.events);
+      }
+      
+      setEditableTime(timeToUse);
       // Set default end time (1 hour after start)
-      setEditableEndTime(calculateDefaultEndTime(nextAvailableTime));
+      setEditableEndTime(calculateDefaultEndTime(timeToUse));
     }
   }, [open, selectedTime, selectedDate, events, project?.events]);
 
