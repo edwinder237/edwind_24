@@ -11,6 +11,9 @@ import Avatar from 'components/@extended/Avatar';
 import MainCard from 'components/MainCard';
 import { facebookColor, linkedInColor, twitterColor } from 'config';
 
+// constants
+import { EXPERIENCE_CHOICES, PHONE_CODE_CHOICES } from 'constants';
+
 // assets
 import { FacebookFilled, LinkedinFilled, TwitterSquareFilled, CameraOutlined } from '@ant-design/icons';
 
@@ -135,15 +138,11 @@ const TabPersonal = () => {
               <Stack spacing={1.25}>
                 <InputLabel htmlFor="personal-experience">Experiance</InputLabel>
                 <Select fullWidth id="personal-experience" value={experience} onChange={handleChange} MenuProps={MenuProps}>
-                  <MenuItem value="0">Start Up</MenuItem>
-                  <MenuItem value="0.5">6 Months</MenuItem>
-                  <MenuItem value="1">1 Year</MenuItem>
-                  <MenuItem value="2">2 Years</MenuItem>
-                  <MenuItem value="3">3 Years</MenuItem>
-                  <MenuItem value="4">4 Years</MenuItem>
-                  <MenuItem value="5">5 Years</MenuItem>
-                  <MenuItem value="6">6 Years</MenuItem>
-                  <MenuItem value="10">10+ Years</MenuItem>
+                  {EXPERIENCE_CHOICES.map((choice) => (
+                    <MenuItem key={choice.value} value={choice.value}>
+                      {choice.text}
+                    </MenuItem>
+                  ))}
                 </Select>
               </Stack>
             </Grid>
@@ -201,18 +200,11 @@ const TabPersonal = () => {
                     <InputLabel htmlFor="personal-phone">Phone Number</InputLabel>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
                       <Select defaultValue="1-876">
-                        <MenuItem value="91">+91</MenuItem>
-                        <MenuItem value="1-671">1-671</MenuItem>
-                        <MenuItem value="36">+36</MenuItem>
-                        <MenuItem value="225">(255)</MenuItem>
-                        <MenuItem value="39">+39</MenuItem>
-                        <MenuItem value="1-876">1-876</MenuItem>
-                        <MenuItem value="7">+7</MenuItem>
-                        <MenuItem value="254">(254)</MenuItem>
-                        <MenuItem value="373">(373)</MenuItem>
-                        <MenuItem value="1-664">1-664</MenuItem>
-                        <MenuItem value="95">+95</MenuItem>
-                        <MenuItem value="264">(264)</MenuItem>
+                        {PHONE_CODE_CHOICES.map((choice) => (
+                          <MenuItem key={choice.value} value={choice.value}>
+                            {choice.text}
+                          </MenuItem>
+                        ))}
                       </Select>
   
                     </Stack>

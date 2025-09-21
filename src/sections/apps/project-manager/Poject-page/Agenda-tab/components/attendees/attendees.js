@@ -45,6 +45,9 @@ import { useSelector, useDispatch } from "store";
 import { getSingleProject, getEvents } from "store/reducers/projects";
 import { openSnackbar } from "store/reducers/snackbar";
 
+// constants
+import { ATTENDANCE_STATUS_CHOICES, PARTICIPANT_ACTION_CHOICES } from "constants";
+
 // assets
 import { UserOutlined, TeamOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, BulbOutlined } from "@ant-design/icons";
 
@@ -909,62 +912,22 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                           </Box>
                         }
                         menu={[
-                          <DropdownMenuItem
-                            key="scheduled"
-                            onClick={() => {
-                              if (updatingParticipant === null) {
-                                handleStatusChange(participantId, 'scheduled');
-                              }
-                            }}
-                            disabled={updatingParticipant !== null}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'info.main' }} />
-                              Scheduled
-                            </Box>
-                          </DropdownMenuItem>,
-                          <DropdownMenuItem
-                            key="present"
-                            onClick={() => {
-                              if (updatingParticipant === null) {
-                                handleStatusChange(participantId, 'present');
-                              }
-                            }}
-                            disabled={updatingParticipant !== null}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />
-                              Present
-                            </Box>
-                          </DropdownMenuItem>,
-                          <DropdownMenuItem
-                            key="late"
-                            onClick={() => {
-                              if (updatingParticipant === null) {
-                                handleStatusChange(participantId, 'late');
-                              }
-                            }}
-                            disabled={updatingParticipant !== null}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'warning.main' }} />
-                              Late
-                            </Box>
-                          </DropdownMenuItem>,
-                          <DropdownMenuItem
-                            key="absent"
-                            onClick={() => {
-                              if (updatingParticipant === null) {
-                                handleStatusChange(participantId, 'absent');
-                              }
-                            }}
-                            disabled={updatingParticipant !== null}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />
-                              Absent
-                            </Box>
-                          </DropdownMenuItem>,
+                          ...ATTENDANCE_STATUS_CHOICES.map((status) => (
+                            <DropdownMenuItem
+                              key={status.value}
+                              onClick={() => {
+                                if (updatingParticipant === null) {
+                                  handleStatusChange(participantId, status.value);
+                                }
+                              }}
+                              disabled={updatingParticipant !== null}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: status.color }} />
+                                {status.text}
+                              </Box>
+                            </DropdownMenuItem>
+                          )),
                           <DropdownNestedMenuItem
                             key="move-to-group"
                             label={

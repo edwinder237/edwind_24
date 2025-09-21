@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -96,7 +94,5 @@ export default async function handler(req, res) {
       message: 'Failed to create training plan',
       error: error.message 
     });
-  } finally {
-    await prisma.$disconnect();
   }
 }

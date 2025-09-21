@@ -256,6 +256,75 @@ export const LANGUAGES = {
  // AR: 'ar'
 };
 
+// Choice Options (with text/value structure for dropdowns)
+export const PARTICIPANT_ROLE_CHOICES = [
+  { text: 'Participant', value: 'Participant' },
+  { text: 'Team Leader', value: 'Team Leader' },
+  { text: 'Observer', value: 'Observer' }
+];
+
+export const EXPERIENCE_CHOICES = [
+  { text: 'Start Up', value: '0' },
+  { text: '6 Months', value: '0.5' },
+  { text: '1 Year', value: '1' },
+  { text: '2 Years', value: '2' },
+  { text: '3 Years', value: '3' },
+  { text: '4 Years', value: '4' },
+  { text: '5 Years', value: '5' },
+  { text: '6 Years', value: '6' },
+  { text: '10+ Years', value: '10' }
+];
+
+export const PHONE_CODE_CHOICES = [
+  { text: '+91', value: '91' },
+  { text: '1-671', value: '1-671' },
+  { text: '+36', value: '36' },
+  { text: '(255)', value: '225' },
+  { text: '+39', value: '39' },
+  { text: '1-876', value: '1-876' },
+  { text: '1-664', value: '1-664' },
+  { text: '+95', value: '95' },
+  { text: '(264)', value: '264' },
+  { text: '+7', value: '7' },
+  { text: '(254)', value: '254' },
+  { text: '(373)', value: '373' }
+];
+
+export const PROJECT_STATUS_CHOICES = Object.entries(PROJECT_STATUS).map(([key, value]) => ({
+  text: value.charAt(0).toUpperCase() + value.slice(1),
+  value: value
+}));
+
+export const PARTICIPANT_STATUS_CHOICES = Object.entries(PARTICIPANT_STATUS).map(([key, value]) => ({
+  text: value.charAt(0).toUpperCase() + value.slice(1),
+  value: value
+}));
+
+export const USER_ROLE_CHOICES = Object.entries(USER_ROLES).map(([key, value]) => ({
+  text: value,
+  value: value
+}));
+
+export const TRAINING_STATUS_CHOICES = Object.entries(TRAINING_STATUS).map(([key, value]) => ({
+  text: value,
+  value: value
+}));
+
+// Attendance Status Options
+export const ATTENDANCE_STATUS_CHOICES = [
+  { text: 'Scheduled', value: 'scheduled', color: 'info.main' },
+  { text: 'Present', value: 'present', color: 'success.main' },
+  { text: 'Late', value: 'late', color: 'warning.main' },
+  { text: 'Not Needed', value: 'not_needed', color: 'warning.main' },
+  { text: 'Absent', value: 'absent', color: 'error.main' }
+];
+
+// Participant Action Options
+export const PARTICIPANT_ACTION_CHOICES = [
+  { text: 'Move to Group', value: 'move_to_group', icon: 'TeamOutlined' },
+  { text: 'Remove from Event', value: 'remove_from_event', icon: 'Remove', color: 'error.main' }
+];
+
 // Export all constants as default
 export default {
   PROJECT_STATUS,
@@ -282,5 +351,14 @@ export default {
   VALIDATION,
   DURATION_UNITS,
   PRIORITY_LEVELS,
-  LANGUAGES
+  LANGUAGES,
+  PARTICIPANT_ROLE_CHOICES,
+  EXPERIENCE_CHOICES,
+  PHONE_CODE_CHOICES,
+  PROJECT_STATUS_CHOICES,
+  PARTICIPANT_STATUS_CHOICES,
+  USER_ROLE_CHOICES,
+  TRAINING_STATUS_CHOICES,
+  ATTENDANCE_STATUS_CHOICES,
+  PARTICIPANT_ACTION_CHOICES
 };

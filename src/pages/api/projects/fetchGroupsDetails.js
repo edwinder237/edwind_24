@@ -1,4 +1,4 @@
-import prisma from '../../../lib/prisma';
+import prisma from "../../../lib/prisma";
 
 // Helper function to calculate individual participant progress
 async function calculateIndividualParticipantProgress(participantId, projectParticipantId, groupId, projectId) {

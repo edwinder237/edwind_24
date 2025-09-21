@@ -6,6 +6,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Update API received body:', req.body);
+    
     const { 
       id,
       name, 
@@ -18,12 +20,21 @@ export default async function handler(req, res) {
       industry,
       taxId,
       notes,
+      location,
+      img,
       updatedBy = 'system'
     } = req.body;
 
-    if (!id || !name || !contactPerson) {
+    console.log('Extracted fields:', { id, name, contactPerson });
+
+    if (!id || !name) {
+      console.log('Validation failed - missing required fields:', {
+        id: !!id,
+        name: !!name,
+        contactPerson: !!contactPerson
+      });
       return res.status(400).json({ 
-        error: 'ID, name, and contact person are required' 
+        error: 'ID and name are required' 
       });
     }
 
@@ -67,6 +78,8 @@ export default async function handler(req, res) {
         industry,
         taxId,
         notes,
+        location: location ? JSON.stringify(location) : null,
+        img,
         updatedBy,
         updatedAt: new Date()
       },

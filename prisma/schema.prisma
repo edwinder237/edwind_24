@@ -100,6 +100,8 @@ model training_recipients {
   industry           String?
   taxId              String?
   notes              String?
+  location           Json?
+  img                String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   createdBy          String

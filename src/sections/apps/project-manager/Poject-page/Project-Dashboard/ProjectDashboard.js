@@ -10,6 +10,7 @@ import {
   Stack,
   Menu,
   MenuItem,
+  useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import MainCard from "components/MainCard";
@@ -24,6 +25,8 @@ import { CalendarOutlined, DashboardOutlined } from "@ant-design/icons";
 const ProjectDashboard = ({ project, participants, checklistItems, styles }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
+  const matchDownMD = useMediaQuery(theme.breakpoints.down('md'));
   const { projectSettings } = useSelector((state) => state.projects);
   
   // State for status menu
@@ -269,38 +272,80 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
             sx={{
               background: `linear-gradient(135deg, ${theme.palette.grey[100]} 0%, ${theme.palette.grey[200]} 100%)`,
               position: 'relative',
-              p: { xs: 2.5, md: 3.5 },
+              p: matchDownSM ? 1.5 : { xs: 2.5, md: 3.5 },
               borderRadius: 0,
               overflow: 'hidden',
-              minHeight: 300
+              minHeight: matchDownSM ? 'auto' : 300
             }}
           >
-            <Stack spacing={3} height="100%" justifyContent="space-between">
+            <Stack spacing={matchDownSM ? 1.5 : 3} height="100%" justifyContent="space-between">
               {/* Header Section */}
               <Box>
-                <Box sx={{ ...styles.flexBetween, gap: 2, mb: 2, flexWrap: 'wrap' }}>
-                  <Box sx={{ ...styles.flexCenter, gap: 2, flexWrap: 'wrap' }}>
-                    <Typography variant="h3" color="text.primary" fontWeight={700} sx={{ letterSpacing: '-0.5px' }}>
+                <Box sx={{ 
+                  ...styles.flexBetween, 
+                  gap: matchDownSM ? 0.5 : 2, 
+                  mb: matchDownSM ? 1 : 2, 
+                  flexWrap: 'wrap',
+                  flexDirection: matchDownSM ? 'column' : 'row',
+                  alignItems: matchDownSM ? 'flex-start' : 'center'
+                }}>
+                  <Box sx={{ 
+                    ...styles.flexCenter, 
+                    gap: matchDownSM ? 0.5 : 2, 
+                    flexWrap: 'wrap',
+                    flexDirection: matchDownSM ? 'column' : 'row',
+                    alignItems: matchDownSM ? 'flex-start' : 'center',
+                    width: matchDownSM ? '100%' : 'auto'
+                  }}>
+                    <Typography variant={matchDownSM ? "h6" : "h3"} color="text.primary" fontWeight={700} sx={{ letterSpacing: '-0.5px', fontSize: matchDownSM ? '1.1rem' : 'inherit' }}>
                       {project.title}
                     </Typography>
+                    {project.training_recipient && (
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{ 
+                          display: matchDownSM ? 'block' : 'none',
+                          mt: 0.5
+                        }}
+                      >
+                        for {project.training_recipient.name}
+                      </Typography>
+                    )}
                     {project.training_recipient && (
                       <Chip 
                         label={`for ${project.training_recipient.name}`}
                         size="medium"
                         variant="outlined"
+                        component="a"
+                        href={`/project-manager/training-recipients/${project.training_recipient.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        clickable
                         sx={{ 
                           color: theme.palette.text.primary,
                           fontWeight: 600,
                           borderColor: theme.palette.divider,
+                          textDecoration: 'none',
+                          cursor: 'pointer',
+                          display: matchDownSM ? 'none' : 'inline-flex',
                           '&:hover': {
                             borderColor: theme.palette.primary.main,
-                            bgcolor: 'rgba(0,0,0,0.04)'
-                          }
+                            bgcolor: 'rgba(0,0,0,0.04)',
+                            transform: 'scale(1.02)'
+                          },
+                          transition: 'all 0.2s ease-in-out'
                         }}
                       />
                     )}
                   </Box>
-                  <Box sx={{ ...styles.flexCenter, gap: 1.5, flexWrap: 'wrap' }}>
+                  <Box sx={{ 
+                    ...styles.flexCenter, 
+                    gap: 1, 
+                    flexWrap: 'wrap',
+                    marginTop: matchDownSM ? 0.5 : 0,
+                    alignSelf: matchDownSM ? 'flex-start' : 'center'
+                  }}>
                     <Chip 
                       label={project.projectStatus || 'Active'} 
                       size="small"
@@ -346,97 +391,103 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                   </Box>
                 </Box>
                 
-                {/* Date Section */}
-                <Box sx={{ 
-                  ...styles.flexBetween,
-                  gap: 2, 
-                  mb: 2, 
-                  flexWrap: 'wrap'
-                }}>
+                {/* Date Section - Hide on mobile */}
+                {!matchDownSM && (
                   <Box sx={{ 
-                    ...styles.flexCenter,
-                    gap: 2,
-                    p: 1.5,
-                    bgcolor: theme.palette.background.paper,
-                    borderRadius: 1,
-                    boxShadow: 1
+                    ...styles.flexBetween,
+                    gap: 2, 
+                    mb: 2, 
+                    flexWrap: 'wrap'
                   }}>
-                    <Box sx={{ ...styles.flexCenter, gap: 1 }}>
-                      <CalendarOutlined style={{ fontSize: 18, color: theme.palette.text.secondary }} />
-                      <Typography variant="body1" color="text.primary" fontWeight={500}>
-                        {formatDate(getProjectStartDate()) || 'TBD'}
-                      </Typography>
+                    <Box sx={{ 
+                      ...styles.flexCenter,
+                      gap: 2,
+                      p: 1.5,
+                      bgcolor: theme.palette.background.paper,
+                      borderRadius: 1,
+                      boxShadow: 1
+                    }}>
+                      <Box sx={{ ...styles.flexCenter, gap: 1 }}>
+                        <CalendarOutlined style={{ fontSize: 18, color: theme.palette.text.secondary }} />
+                        <Typography variant="body1" color="text.primary" fontWeight={500}>
+                          {formatDate(getProjectStartDate()) || 'TBD'}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>—</Typography>
+                      <Box sx={{ ...styles.flexCenter, gap: 1 }}>
+                        <CalendarOutlined style={{ fontSize: 18, color: theme.palette.text.secondary }} />
+                        <Typography variant="body1" color="text.primary" fontWeight={500}>
+                          {formatDate(getProjectEndDate()) || 'TBD'}
+                        </Typography>
+                      </Box>
                     </Box>
-                    <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>—</Typography>
-                    <Box sx={{ ...styles.flexCenter, gap: 1 }}>
-                      <CalendarOutlined style={{ fontSize: 18, color: theme.palette.text.secondary }} />
-                      <Typography variant="body1" color="text.primary" fontWeight={500}>
-                        {formatDate(getProjectEndDate()) || 'TBD'}
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Lead: {getMainInstructor()}
+                    </Typography>
                   </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Lead: {getMainInstructor()}
-                  </Typography>
-                </Box>
+                )}
               </Box>
               
               {/* Footer Section */}
               <Box>
-                <Stack spacing={2}>
-                  <Box sx={{ ...styles.flexBetween, gap: 3 }}>
-                    {/* Project Stats */}
-                    <Box sx={{ ...styles.flexCenter, gap: 3 }}>
-                      <Box sx={styles.statBox}>
-                        <Typography variant="h6" color="text.primary" fontWeight={700}>
-                          {participants}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Participants
-                        </Typography>
+                <Stack spacing={matchDownSM ? 1 : 2}>
+                  <Box sx={{ ...styles.flexBetween, gap: matchDownSM ? 2 : 3, flexWrap: matchDownSM ? 'wrap' : 'nowrap' }}>
+                    {/* Project Stats - Hide on mobile */}
+                    {!matchDownSM && (
+                      <Box sx={{ ...styles.flexCenter, gap: 3 }}>
+                        <Box sx={styles.statBox}>
+                          <Typography variant="h6" color="text.primary" fontWeight={700}>
+                            {participants}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Participants
+                          </Typography>
+                        </Box>
+                        <Divider orientation="vertical" flexItem sx={{ bgcolor: theme.palette.divider }} />
+                        <Box sx={styles.statBox}>
+                          <Typography variant="h6" color="text.primary" fontWeight={700}>
+                            {project.events?.length || 0}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Sessions
+                          </Typography>
+                        </Box>
+                        <Divider orientation="vertical" flexItem sx={{ bgcolor: theme.palette.divider }} />
+                        <Box sx={styles.statBox}>
+                          <Typography variant="h6" color="text.primary" fontWeight={700}>
+                            {project.groups?.length || 0}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Groups
+                          </Typography>
+                        </Box>
                       </Box>
-                      <Divider orientation="vertical" flexItem sx={{ bgcolor: theme.palette.divider }} />
-                      <Box sx={styles.statBox}>
-                        <Typography variant="h6" color="text.primary" fontWeight={700}>
-                          {project.events?.length || 0}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Sessions
-                        </Typography>
-                      </Box>
-                      <Divider orientation="vertical" flexItem sx={{ bgcolor: theme.palette.divider }} />
-                      <Box sx={styles.statBox}>
-                        <Typography variant="h6" color="text.primary" fontWeight={700}>
-                          {project.groups?.length || 0}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Groups
-                        </Typography>
-                      </Box>
-                    </Box>
+                    )}
                     
-                    {/* Progress Text */}
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="h5" color="text.primary" fontWeight={600}>
-                        {Math.round(progressMetrics.overall)}% Complete
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {daysLeft > 0 
-                          ? `${daysLeft} days left` 
-                          : getProjectStartDate() && getProjectEndDate() 
-                            ? `${Math.round(calculateTimeElapsed(getProjectStartDate(), getProjectEndDate()))}% elapsed`
-                            : 'Timeline TBD'
-                        }
-                      </Typography>
-                    </Box>
+                    {/* Progress Text - Hide on mobile */}
+                    {!matchDownSM && (
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="h5" color="text.primary" fontWeight={600}>
+                          {Math.round(progressMetrics.overall)}% Complete
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {daysLeft > 0 
+                            ? `${daysLeft} days left` 
+                            : getProjectStartDate() && getProjectEndDate() 
+                              ? `${Math.round(calculateTimeElapsed(getProjectStartDate(), getProjectEndDate()))}% elapsed`
+                              : 'Timeline TBD'
+                          }
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
                   
                   {/* Progress Bar */}
                   <LinearProgress 
                     variant="determinate" 
                     sx={{ 
-                      height: 10, 
-                      borderRadius: 5,
+                      height: matchDownSM ? 6 : 10, 
+                      borderRadius: matchDownSM ? 3 : 5,
                       backgroundColor: theme.palette.action.hover,
                       '& .MuiLinearProgress-bar': {
                         backgroundColor: theme.palette.success.main,
@@ -448,16 +499,18 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                 </Stack>
               </Box>
               
-              {/* Background Decoration */}
-              <Box sx={{ 
-                position: 'absolute', 
-                bottom: -40, 
-                right: -40, 
-                opacity: 0.08,
-                transform: 'rotate(-15deg)'
-              }}>
-                <DashboardOutlined style={{ fontSize: '200px', color: theme.palette.text.primary }} />
-              </Box>
+              {/* Background Decoration - Hide on mobile */}
+              {!matchDownSM && (
+                <Box sx={{ 
+                  position: 'absolute', 
+                  bottom: -40, 
+                  right: -40, 
+                  opacity: 0.08,
+                  transform: 'rotate(-15deg)'
+                }}>
+                  <DashboardOutlined style={{ fontSize: '200px', color: theme.palette.text.primary }} />
+                </Box>
+              )}
             </Stack>
           </Grid>
           

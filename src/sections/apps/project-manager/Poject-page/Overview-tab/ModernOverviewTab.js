@@ -290,11 +290,57 @@ const UpcomingEvents = () => (
 
 
 const ModernOverviewTab = () => {
-  const { singleProject: project } = useSelector((state) => state.projects);
+  const { singleProject: project, project_participants } = useSelector((state) => state.projects);
+  const hasParticipants = project_participants && project_participants.length > 0;
+  
+  const handleOpenParticipantDrawer = () => {
+    // Trigger the participant drawer opening
+    const participantButton = document.querySelector('[aria-label="participants management"]');
+    if (participantButton) {
+      participantButton.click();
+    }
+  };
 
   return (
     <Box sx={{ p: 3 }}>
-
+      {/* Show alert banner when no participants */}
+      {!hasParticipants && (
+        <Alert 
+          severity="info" 
+          sx={{ 
+            mb: 3,
+            alignItems: 'center',
+            '& .MuiAlert-message': {
+              width: '100%'
+            }
+          }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              variant="outlined"
+              onClick={handleOpenParticipantDrawer}
+              sx={{ 
+                whiteSpace: 'nowrap',
+                borderColor: 'currentColor',
+                '&:hover': {
+                  borderColor: 'currentColor',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Add Participants Now
+            </Button>
+          }
+        >
+          <Typography variant="body1" fontWeight="500">
+            Get Started: Your project needs participants!
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            Add team members to begin tracking progress, scheduling sessions, and managing your training project effectively.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Main Content Grid */}
       <Grid container spacing={3}>
@@ -309,17 +355,16 @@ const ModernOverviewTab = () => {
           <DailyNotes project={project} />
         </Grid>
 
-        {/* Third Row - Role Distribution (Full Width) */}
-        <Grid item xs={12}>
+        {/* Third Row - Role Distribution, Recent Activity, and Upcoming Events */}
+        <Grid item xs={12} md={4}>
           <RoleDistributionChart project={project} />
         </Grid>
-
-        {/* Fourth Row - Recent Activity and Upcoming Events */}
-        <Grid item xs={12} md={6}>
+        
+        <Grid item xs={12} md={4}>
           <RecentActivity project={project} />
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <UpcomingEvents />
         </Grid>
 

@@ -81,13 +81,6 @@ const ProjectManager = {
           breadcrumbs: true
         },
         {
-          id: 'pm-resources-instructor-availability',
-          title: <FormattedMessage id="Instructor Availability" />,
-          type: 'item',
-          url: '/project-manager/resources/instructor-availability',
-          breadcrumbs: true
-        },
-        {
           id: 'pm-resources-training-recipients',
           title: <FormattedMessage id="Training Recipients" />,
           type: 'item',

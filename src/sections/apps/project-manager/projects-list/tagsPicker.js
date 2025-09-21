@@ -1,9 +1,23 @@
 import { useState, useEffect } from 'react';
 
 // material-ui
-import { Autocomplete, Checkbox, TextField, Chip, Box, Typography, CircularProgress } from '@mui/material';
+import { 
+  Autocomplete, 
+  TextField, 
+  Chip, 
+  Box, 
+  Typography, 
+  CircularProgress, 
+  Stack,
+  createFilterOptions 
+} from '@mui/material';
 
-// ==============================|| AUTOCOMPLETE - CHECKBOXES ||============================== //
+// assets
+import { CloseOutlined } from '@ant-design/icons';
+
+// ==============================|| TOPICS PICKER WITH SUGGESTIONS ||============================== //
+
+const filter = createFilterOptions();
 
 export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
   // Ensure initialValue is always an array of strings
@@ -45,17 +59,13 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
 
   // Set initial value if provided (for editing existing projects)
   useEffect(() => {
-    if (sanitizedInitialValue.length > 0 && topics.length > 0) {
-      // Find matching topics from the database
-      const matchingTopics = topics.filter(topic => 
-        sanitizedInitialValue.includes(topic.title)
-      );
-      setSelectedTopics(matchingTopics);
-    } else if (sanitizedInitialValue.length === 0) {
-      // Clear selected topics if no initial value
+    if (sanitizedInitialValue.length > 0) {
+      setSelectedTopics(sanitizedInitialValue);
+      handleTagsChange(sanitizedInitialValue);
+    } else {
       setSelectedTopics([]);
     }
-  }, [sanitizedInitialValue, topics]);
+  }, [sanitizedInitialValue]);
 
   const fetchTopics = async () => {
     setLoading(true);
@@ -63,16 +73,9 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
       const response = await fetch('/api/topics');
       if (response.ok) {
         const data = await response.json();
-        // Transform topics to match expected format
-        const transformedTopics = data.map(topic => ({
-          id: topic.id,
-          label: topic.title,
-          title: topic.title,
-          description: topic.description,
-          color: topic.color,
-          icon: topic.icon
-        }));
-        setTopics(transformedTopics);
+        // Transform topics to match expected format - convert to string array
+        const topicTitles = data.map(topic => topic.title).filter(Boolean);
+        setTopics(topicTitles);
       } else {
         console.error('Failed to load topics');
       }
@@ -103,21 +106,12 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
 
       if (response.ok) {
         const newTopic = await response.json();
-        
-        // Transform to match expected format
-        const transformedTopic = {
-          id: newTopic.id,
-          label: newTopic.title,
-          title: newTopic.title,
-          description: newTopic.description,
-          color: newTopic.color,
-          icon: newTopic.icon
-        };
+        const topicTitle = newTopic.title;
         
         // Add to the topics list
-        setTopics(prev => [...prev, transformedTopic]);
+        setTopics(prev => [...prev, topicTitle]);
         
-        return transformedTopic;
+        return topicTitle;
       } else {
         const errorData = await response.json();
         console.error('Failed to create topic:', errorData.error);
@@ -128,228 +122,154 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
     return null;
   };
 
-  const handleChange = async (event, value) => {
-    console.log('TagsPicker handleChange - value:', value);
-    // Handle creating new topics
+  const handleChange = async (event, newValue) => {
+    // Process new values to handle creation of new topics
     const processedValue = [];
     
-    for (const item of value) {
-      if (item && item.isNew) {
-        // Create new topic
-        const newTopic = await handleCreateNewTopic(item.title);
-        if (newTopic) {
-          processedValue.push(newTopic);
+    for (const item of newValue) {
+      if (typeof item === 'string') {
+        // Check if it's a new topic (not in existing topics list)
+        if (!topics.includes(item)) {
+          const newTopic = await handleCreateNewTopic(item);
+          if (newTopic) {
+            processedValue.push(newTopic);
+          }
+        } else {
+          processedValue.push(item);
         }
-      } else if (item) {
-        // Existing topic
-        processedValue.push(item);
       }
     }
     
-    console.log('TagsPicker processedValue:', processedValue);
     setSelectedTopics(processedValue);
-    // Convert topic objects to simple string array for parent component
-    const topicTitles = processedValue.map(topic => {
-      if (typeof topic === 'string') return topic;
-      return topic?.title || topic?.label || '';
-    }).filter(Boolean); // Remove empty strings
-    console.log('TagsPicker topicTitles:', topicTitles);
-    handleTagsChange(topicTitles);
+    handleTagsChange(processedValue);
   };
 
+  // Handle clicking on suggestion chips
+  const handleSuggestionClick = (topic) => {
+    if (!selectedTopics.includes(topic)) {
+      const newSelection = [...selectedTopics, topic];
+      setSelectedTopics(newSelection);
+      handleTagsChange(newSelection);
+    }
+  };
+
+  // Filter out already selected topics from suggestions
+  const availableSuggestions = topics
+    .filter(topic => !selectedTopics.includes(topic))
+    .slice(0, 8); // Show max 8 suggestions
+
   return (
-    <Autocomplete
-      multiple
-      id="topics-picker"
-      options={topics}
-      loading={loading}
-      value={selectedTopics || []}
-      disableCloseOnSelect
-      getOptionLabel={(option) => {
-        // Handle string inputs (when user types)
-        if (typeof option === 'string') {
-          return String(option).toUpperCase();
-        }
-        // Handle object options (existing topics)
-        const label = option?.label || option?.title || '';
-        const result = String(label).toUpperCase();
-        
-        // Extra safety check
-        if (typeof result !== 'string') {
-          console.error('getOptionLabel returning non-string:', result, 'from option:', option);
-          return 'ERROR';
-        }
-        
-        return result;
-      }}
-      onChange={handleChange}
-      filterOptions={(options, params) => {
-        const { inputValue } = params;
-        
-        // If no input, return all options
-        if (!inputValue || inputValue.trim() === '') {
-          return options;
-        }
-
-        // Filter existing options based on input
-        const filtered = options.filter(option =>
-          option.title.toLowerCase().includes(inputValue.toLowerCase())
-        );
-
-        // Check if exact match exists
-        const isExisting = options.some((option) => 
-          inputValue.toLowerCase() === option.title.toLowerCase()
-        );
-        
-        // Add "Create" option if input doesn't match any existing option
-        if (!isExisting && inputValue.trim().length > 0) {
-          filtered.push({
-            id: 'create-new',
-            title: inputValue.trim().toUpperCase(),
-            label: inputValue.trim().toUpperCase(),
-            isNew: true
-          });
-        }
-
-        return filtered;
-      }}
-      selectOnFocus
-      clearOnBlur
-      handleHomeEndKeys
-      freeSolo
-      filterSelectedOptions
-      renderOption={(props, option, { selected }) => {
-        if (option.isNew) {
+    <Box>
+      <Autocomplete
+        multiple
+        id="topics-picker"
+        options={topics}
+        loading={loading}
+        value={selectedTopics}
+        freeSolo
+        autoHighlight
+        disableCloseOnSelect
+        onChange={handleChange}
+        filterOptions={(options, params) => {
+          const filtered = filter(options, params);
+          const { inputValue } = params;
+          const isExisting = options.some((option) => inputValue === option);
+          if (inputValue !== '' && !isExisting) {
+            filtered.push(inputValue);
+          }
+          return filtered;
+        }}
+        getOptionLabel={(option) => option}
+        renderOption={(props, option) => {
+          const { key, ...otherProps } = props;
           return (
-            <li {...props}>
-              <Checkbox 
-                style={{ marginRight: 8 }} 
-                checked={false}
-              />
-              <Box>
-                <Typography variant="body2" color="primary">
-                  Create "<span style={{ textTransform: 'uppercase' }}>{option.title}</span>"
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Add new topic
-                </Typography>
-              </Box>
-            </li>
-          );
-        }
-
-        return (
-          <li {...props}>
-            <Checkbox 
-              id={`topic-${option.id}`} 
-              style={{ marginRight: 8 }} 
-              checked={selected} 
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {option.icon && (
-                <span style={{ fontSize: '14px' }}>{option.icon}</span>
-              )}
-              <Box>
-                <Typography variant="body2" sx={{ textTransform: 'uppercase' }}>
-                  {option.label}
-                </Typography>
-                {option.description && (
-                  <Typography variant="caption" color="text.secondary">
-                    {option.description}
-                  </Typography>
-                )}
-              </Box>
+            <Box component="li" key={key} {...otherProps}>
+              {!topics.includes(option) ? `Add "${option}"` : option}
             </Box>
-          </li>
-        );
-      }}
-      renderTags={(value, getTagProps) => {
-        console.log('TagsPicker renderTags - value:', value);
-        if (!Array.isArray(value)) {
-          console.error('TagsPicker renderTags received non-array value:', value);
-          return [];
-        }
-        
-        return value.map((option, index) => {
-          // Extra safety check to prevent objects from being rendered
-          if (option == null) {
-            console.warn('TagsPicker renderTags - null/undefined option at index', index);
-            return null;
-          }
-
-          // Ensure option is always an object and not accidentally a primitive
-          const safeOption = option && typeof option === 'object' ? option : { 
-            id: `fallback-${index}`, 
-            label: String(option || ''), 
-            title: String(option || ''),
-            color: null,
-            icon: null
-          };
-
-          const displayLabel = String(safeOption.label || safeOption.title || '');
-          
-          // Double check we're not accidentally passing an object as the label
-          if (typeof displayLabel !== 'string') {
-            console.error('TagsPicker - displayLabel is not a string:', displayLabel);
-            return null;
-          }
-          
-          return (
-            <Chip
-              {...getTagProps({ index })}
-              key={String(safeOption.id || `topic-${index}`)}
-              label={displayLabel.toUpperCase()}
-              sx={{
-                bgcolor: safeOption.color ? `${safeOption.color}20` : 'primary.lighter',
-                border: '1px solid',
-                borderColor: safeOption.color || 'primary.light',
-                color: safeOption.color || 'primary.main',
-                '& .MuiSvgIcon-root': {
-                  color: safeOption.color || 'primary.main',
-                  '&:hover': {
-                    color: safeOption.color || 'primary.dark'
+          );
+        }}
+        renderTags={(value, getTagProps) =>
+          value.map((option, index) => {
+            const { key, ...tagProps } = getTagProps({ index });
+            return (
+              <Chip
+                key={key || index}
+                {...tagProps}
+                variant="combined"
+                color="primary"
+                label={
+                  <Typography variant="caption" color="primary.dark">
+                    {option.toUpperCase()}
+                  </Typography>
+                }
+                deleteIcon={<CloseOutlined style={{ fontSize: '0.875rem' }} />}
+                size="small"
+                sx={{
+                  bgcolor: 'primary.lighter',
+                  border: '1px solid',
+                  borderColor: 'primary.light',
+                  '& .MuiSvgIcon-root': {
+                    color: 'primary.main',
+                    '&:hover': {
+                      color: 'primary.dark'
+                    }
                   }
+                }}
+              />
+            );
+          })
+        }
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            placeholder="Add topics for your project"
+            InputProps={{
+              ...params.InputProps,
+              endAdornment: (
+                <>
+                  {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                  {params.InputProps.endAdornment}
+                </>
+              ),
+            }}
+          />
+        )}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            p: 1
+          }
+        }}
+      />
+      
+      {/* Clickable Suggestions */}
+      {availableSuggestions.length > 0 && (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ mt: 1.5, flexWrap: 'wrap', gap: 1 }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Suggestions:
+          </Typography>
+          {availableSuggestions.map((topic, index) => (
+            <Chip
+              key={index}
+              variant="outlined"
+              onClick={() => handleSuggestionClick(topic)}
+              label={<Typography variant="caption">{topic}</Typography>}
+              size="small"
+              sx={{
+                cursor: 'pointer',
+                '&:hover': {
+                  bgcolor: 'primary.lighter',
+                  borderColor: 'primary.main'
                 }
               }}
             />
-          );
-        }).filter(Boolean); // Remove any null entries
-      }}
-      renderInput={(params) => (
-        <TextField 
-          {...params} 
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? <CircularProgress color="inherit" size={20} /> : null}
-                {params.InputProps.endAdornment}
-              </>
-            ),
-          }}
-          inputProps={{
-            ...params.inputProps,
-            style: { textTransform: 'uppercase' },
-            onChange: (e) => {
-              // Convert input to uppercase in real-time
-              e.target.value = e.target.value.toUpperCase();
-              // Call the original onChange if it exists
-              if (params.inputProps.onChange) {
-                params.inputProps.onChange(e);
-              }
-            }
-          }}
-        />
+          ))}
+        </Stack>
       )}
-      sx={{
-        '& .MuiOutlinedInput-root': {
-          p: 1
-        }
-      }}
-      isOptionEqualToValue={(option, value) => {
-        if (!option || !value) return false;
-        return option.id === value.id;
-      }}
-    />
+    </Box>
   );
 }

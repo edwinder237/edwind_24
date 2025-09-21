@@ -73,8 +73,9 @@ export default function CurriculumPicker({
         return filtered;
       }}
       renderOption={(props, option) => {
+        const { key, ...otherProps } = props;
         return (
-          <li {...props}>
+          <li key={key} {...otherProps}>
             <Box sx={{ width: '100%' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2">

@@ -1,4 +1,4 @@
-import prisma from '../../../lib/prisma';
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -91,6 +91,55 @@ async function handleGet(req, res) {
       progressMap[progress.checklistItemId] = progress;  
     });
 
+    // Get participant progress for participant-only items
+    const participantOnlyItemIds = [];
+    project.project_curriculums.forEach(projectCurriculum => {
+      projectCurriculum.curriculum.curriculum_courses.forEach(curriculumCourse => {
+        curriculumCourse.course.course_checklist_items.forEach(item => {
+          if (item.participantOnly) {
+            participantOnlyItemIds.push(item.id);
+          }
+        });
+      });
+    });
+
+    // Get active participant data for participant-only items
+    const [participantProgress, totalActiveParticipants] = await Promise.all([
+      // Participant progress (only from active participants)
+      prisma.project_participants_course_checklist_progress.findMany({
+        where: {
+          projectId: parseInt(projectId),
+          checklistItemId: { in: participantOnlyItemIds },
+          participant: { status: 'active' }
+        }
+      }),
+      // Total active participants count
+      prisma.project_participants.count({
+        where: { 
+          projectId: parseInt(projectId),
+          status: 'active'
+        }
+      })
+    ]);
+
+    // Create participant progress map for quick lookup
+    const participantProgressMap = {};
+    
+    // Initialize all participant-only items with default values
+    participantOnlyItemIds.forEach(itemId => {
+      participantProgressMap[itemId] = { 
+        completed: 0, 
+        total: totalActiveParticipants 
+      };
+    });
+    
+    // Count completed participants for each item
+    participantProgress.forEach(progress => {
+      if (progress.completed && participantProgressMap[progress.checklistItemId]) {
+        participantProgressMap[progress.checklistItemId].completed++;
+      }
+    });
+
     // Flatten all checklist items from all courses in all curriculums
     const checklistItems = [];
     
@@ -98,15 +147,57 @@ async function handleGet(req, res) {
       projectCurriculum.curriculum.curriculum_courses.forEach(curriculumCourse => {
         curriculumCourse.course.course_checklist_items.forEach(item => {
           const progress = progressMap[item.id] || null;
+          const participantCompletion = participantProgressMap[item.id];
+          
+          // Determine completion status
+          let isCompleted = progress?.completed || false;
+          
+          // Auto-complete participant-only items when all active participants complete
+          if (item.participantOnly && participantCompletion) {
+            const { completed, total } = participantCompletion;
+            const allParticipantsCompleted = completed === total && total > 0;
+            
+            // Auto-update the main progress if all participants completed but main task isn't marked complete
+            if (allParticipantsCompleted && !isCompleted) {
+              // Update the main task progress
+              prisma.project_course_checklist_progress.upsert({
+                where: {
+                  projectId_checklistItemId: {
+                    projectId: parseInt(projectId),
+                    checklistItemId: item.id
+                  }
+                },
+                update: {
+                  completed: true,
+                  completedAt: new Date(),
+                  completedBy: 'auto-system',
+                  updatedAt: new Date()
+                },
+                create: {
+                  projectId: parseInt(projectId),
+                  checklistItemId: item.id,
+                  completed: true,
+                  completedAt: new Date(),
+                  completedBy: 'auto-system',
+                  createdBy: 'auto-system'
+                }
+              }).catch(error => console.error('Error auto-updating checklist item:', error));
+            }
+            
+            isCompleted = allParticipantsCompleted;
+          }
+          
           checklistItems.push({
             ...item,
             courseName: curriculumCourse.course.title,
             curriculumName: projectCurriculum.curriculum.title,
-            completed: progress?.completed || false,
+            completed: isCompleted,
             completedAt: progress?.completedAt || null,
             completedBy: progress?.completedBy || null,
             notes: progress?.notes || null,
-            progressId: progress?.id || null
+            progressId: progress?.id || null,
+            participantOnly: item.participantOnly || false,
+            participantCompletionCount: participantCompletion || null
           });
         });
       });

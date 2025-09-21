@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography } from '@mui/material';
+import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography, useMediaQuery } from '@mui/material';
 import { useSelector, useDispatch } from 'store';
 import { getSingleProject, getGroupsDetails } from 'store/reducers/projects';
 import { ViewList, CalendarMonth, DateRange, Add } from '@mui/icons-material';
@@ -30,6 +30,7 @@ const MemoizedFullCalendarWeekView = React.memo(FullCalendarWeekView);
 const AgendaTab = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
   const { singleProject: project } = useSelector((state) => state.projects);
   
   // Fetch groups data when component mounts or project changes
@@ -174,19 +175,26 @@ const AgendaTab = () => {
     },
     viewContainer: {
       flex: 1,
-      p: 2
+      p: matchDownSM ? 0 : 2
     },
     scrollableBox: {
       height: 'calc(100vh - 320px)',
       overflow: 'auto',
-      ...SCROLL_STYLES
+      ...(matchDownSM ? {
+        // Hide scrollbar on mobile but keep scrolling functional
+        '&::-webkit-scrollbar': {
+          display: 'none',
+        },
+        msOverflowStyle: 'none', // IE and Edge
+        scrollbarWidth: 'none', // Firefox
+      } : SCROLL_STYLES)
     },
     fullViewBox: {
       flex: 1,
       overflow: 'hidden',
       ...SCROLL_STYLES
     }
-  }), []);
+  }), [matchDownSM]);
 
   // Memoized toggle button styles
   const toggleButtonStyles = useMemo(() => ({
@@ -278,29 +286,31 @@ const AgendaTab = () => {
         </Button>
       </Stack>
 
-      {/* View Toggle Buttons */}
-      <ToggleButtonGroup
-        value={viewMode}
-        exclusive
-        onChange={handleViewModeChange}
-        size="small"
-        sx={toggleButtonStyles}
-      >
-        <ToggleButton value={VIEW_MODES.AGENDA}>
-          <ViewList sx={{ mr: 0.5, fontSize: '1rem' }} />
-          Agenda
-        </ToggleButton>
-        <ToggleButton value={VIEW_MODES.WEEK}>
-          <DateRange sx={{ mr: 0.5, fontSize: '1rem' }} />
-          Week
-        </ToggleButton>
-        <ToggleButton value={VIEW_MODES.MONTH}>
-          <CalendarMonth sx={{ mr: 0.5, fontSize: '1rem' }} />
-          Month
-        </ToggleButton>
-      </ToggleButtonGroup>
+      {/* View Toggle Buttons - Hide on mobile */}
+      {!matchDownSM && (
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={handleViewModeChange}
+          size="small"
+          sx={toggleButtonStyles}
+        >
+          <ToggleButton value={VIEW_MODES.AGENDA}>
+            <ViewList sx={{ mr: 0.5, fontSize: '1rem' }} />
+            Agenda
+          </ToggleButton>
+          <ToggleButton value={VIEW_MODES.WEEK}>
+            <DateRange sx={{ mr: 0.5, fontSize: '1rem' }} />
+            Week
+          </ToggleButton>
+          <ToggleButton value={VIEW_MODES.MONTH}>
+            <CalendarMonth sx={{ mr: 0.5, fontSize: '1rem' }} />
+            Month
+          </ToggleButton>
+        </ToggleButtonGroup>
+      )}
     </Stack>
-  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles]);
+  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM]);
 
   // Render different view modes
   const renderViewContent = () => {
@@ -309,7 +319,7 @@ const AgendaTab = () => {
     switch (viewMode) {
       case VIEW_MODES.AGENDA:
         return (
-          <Grid container spacing={2} sx={styles.viewContainer}>
+          <Grid container spacing={matchDownSM ? 0 : 2} sx={styles.viewContainer}>
             <Grid item xs={12} md={8}>
               <Box sx={styles.scrollableBox}>
                 <MemoizedItinerarySchedule
@@ -319,16 +329,18 @@ const AgendaTab = () => {
                 />
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <Box sx={styles.scrollableBox}>
-                <MemoizedEventDetailsSection 
-                  selectedDate={selectedDate}
-                  selectedEventId={selectedEventId}
-                  project={project}
-                  availableRoles={availableRoles}
-                />
-              </Box>
-            </Grid>
+            {!matchDownSM && (
+              <Grid item xs={12} md={4}>
+                <Box sx={styles.scrollableBox}>
+                  <MemoizedEventDetailsSection 
+                    selectedDate={selectedDate}
+                    selectedEventId={selectedEventId}
+                    project={project}
+                    availableRoles={availableRoles}
+                  />
+                </Box>
+              </Grid>
+            )}
           </Grid>
         );
 
@@ -365,7 +377,17 @@ const AgendaTab = () => {
       <MainCard 
         title="Schedule Planning"
         secondary={headerContent}
-        sx={styles.mainCard}
+        sx={{
+          ...styles.mainCard,
+          ...(matchDownSM && {
+            '& .MuiCardContent-root': {
+              p: 0,
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column'
+            }
+          })
+        }}
       >
         {renderViewContent()}
       </MainCard>

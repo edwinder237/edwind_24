@@ -18,7 +18,10 @@ import {
   Alert,
   Button,
   CircularProgress,
+  Paper,
+  Grid,
 } from "@mui/material";
+import { useTheme, alpha } from "@mui/material/styles";
 
 // third-party
 import { useExpanded, useTable } from "react-table";
@@ -48,6 +51,10 @@ import {
   EditOutlined,
   WarningOutlined,
   CheckCircleOutlined,
+  UserAddOutlined,
+  TeamOutlined,
+  UploadOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import AddButton from "components/StyledButtons";
 // Dynamic imports for heavy components to reduce bundle size
@@ -340,6 +347,7 @@ GroupCell.propTypes = {
 const GroupTable = ({ index }) => {
   const { singleProject: Project, project_participants, groups, loading } = useSelector((state) => state.projects);
   const dispatch = useDispatch();
+  const theme = useTheme();
   const { participants } = Project;
 
   const [data, setData] = useState([]);
@@ -786,6 +794,35 @@ const GroupTable = ({ index }) => {
     </Box>
   );
 
+  // State for welcome dialog
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
+
+  // Check if we should show the welcome dialog
+  React.useEffect(() => {
+    const hasNoParticipants = !project_participants || project_participants.length === 0;
+    if (hasNoParticipants && !loading && !error) {
+      setShowWelcomeDialog(true);
+    } else {
+      setShowWelcomeDialog(false);
+    }
+  }, [project_participants, loading, error]);
+
+  // Listen for custom event to show welcome dialog when participants drawer opens
+  React.useEffect(() => {
+    const handleShowWelcomeDialog = () => {
+      const hasNoParticipants = !project_participants || project_participants.length === 0;
+      if (hasNoParticipants && !loading && !error) {
+        setShowWelcomeDialog(true);
+      }
+    };
+
+    window.addEventListener('checkShowWelcomeDialog', handleShowWelcomeDialog);
+    
+    return () => {
+      window.removeEventListener('checkShowWelcomeDialog', handleShowWelcomeDialog);
+    };
+  }, [project_participants, loading, error]);
+
   return (
     <GroupsErrorBoundary>
     <Fragment>
@@ -841,6 +878,113 @@ const GroupTable = ({ index }) => {
             <ErrorDisplay />
           ) : loading ? (
             <LoadingDisplay />
+          ) : data.length === 0 ? (
+            // Empty state when no groups exist
+            <Box sx={{ 
+              flex: 1, 
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: 4
+            }}>
+              <Box
+                sx={{
+                  width: 120,
+                  height: 120,
+                  borderRadius: '50%',
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mb: 3,
+                }}
+              >
+                <TeamOutlined style={{ 
+                  fontSize: 64, 
+                  color: alpha(theme.palette.primary.main, 0.4)
+                }} />
+              </Box>
+              
+              <Typography 
+                variant="h5" 
+                fontWeight="600" 
+                color="text.primary"
+                gutterBottom
+              >
+                No Groups Yet
+              </Typography>
+              
+              <Typography 
+                variant="body1" 
+                color="text.secondary"
+                textAlign="center"
+                sx={{ mb: 4, maxWidth: 400 }}
+              >
+                Groups help you organize participants and assign curriculums efficiently. 
+                Create your first group to get started.
+              </Typography>
+              
+              <Stack direction="row" spacing={2}>
+                <Button
+                  variant="contained"
+                  startIcon={<PlusOutlined />}
+                  onClick={handleAdd}
+                  size="large"
+                  sx={{
+                    px: 4,
+                    py: 1.5,
+                    boxShadow: theme.shadows[8],
+                    '&:hover': {
+                      boxShadow: theme.shadows[12]
+                    }
+                  }}
+                >
+                  Create Your First Group
+                </Button>
+                
+                {/* Only show Manage Participants button if there are participants */}
+                {(!project_participants || project_participants.length === 0) && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<UserAddOutlined />}
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('openParticipantsDrawer', { 
+                        detail: { action: 'addManually' } 
+                      }));
+                    }}
+                    size="large"
+                    sx={{ px: 3, py: 1.5 }}
+                  >
+                    Add Participants First
+                  </Button>
+                )}
+              </Stack>
+              
+              <Box sx={{ mt: 6, p: 3, bgcolor: 'background.default', borderRadius: 2, maxWidth: 600 }}>
+                <Typography variant="subtitle2" color="text.primary" gutterBottom>
+                  <InfoCircleOutlined style={{ marginRight: 8 }} />
+                  Quick Tips:
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 3, color: 'text.secondary' }}>
+                  <li>
+                    <Typography variant="body2">
+                      Groups can have multiple participants assigned to them
+                    </Typography>
+                  </li>
+                  <li>
+                    <Typography variant="body2">
+                      Each group can have its own curriculum and learning path
+                    </Typography>
+                  </li>
+                  <li>
+                    <Typography variant="body2">
+                      Track progress for the entire group or individual participants
+                    </Typography>
+                  </li>
+                </Box>
+              </Box>
+            </Box>
           ) : (
             <Box sx={{ 
               flex: 1, 
@@ -923,6 +1067,226 @@ const GroupTable = ({ index }) => {
           existingGroupNames={(data || []).map(group => group.groupName).filter(name => name !== groupToEdit?.groupName)}
         />
       </Suspense>
+
+      {/* Welcome Dialog for Empty State */}
+      <Dialog
+        open={showWelcomeDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            backgroundImage: 'none',
+          }
+        }}
+      >
+        <Box sx={{ p: 5, textAlign: 'center' }}>
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+            }}
+          >
+            <TeamOutlined style={{ 
+              fontSize: 48, 
+              color: theme.palette.primary.main 
+            }} />
+          </Box>
+          
+          <Typography 
+            variant="h4" 
+            fontWeight="600" 
+            gutterBottom
+            color="text.primary"
+          >
+            Welcome! Let's Get Started
+          </Typography>
+          
+          <Typography 
+            variant="body1" 
+            color="text.secondary"
+            sx={{ 
+              mb: 5,
+              maxWidth: 600,
+              mx: 'auto'
+            }}
+          >
+            You need to add participants before creating groups. Choose how you'd like to add your team members:
+          </Typography>
+          
+          <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: 700, mx: 'auto' }}>
+            <Grid item xs={12} sm={6}>
+              <Box
+                sx={{ 
+                  p: 4,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s',
+                  bgcolor: 'background.default',
+                  border: '2px solid',
+                  borderColor: 'divider',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[4]
+                  }
+                }}
+                onClick={() => {
+                  setShowWelcomeDialog(false);
+                  // Open the participants drawer and then trigger add participant
+                  const manageParticipantsButton = document.querySelector('[aria-label="manage-participants"]');
+                  if (manageParticipantsButton) {
+                    manageParticipantsButton.click();
+                    setTimeout(() => {
+                      const addButton = document.querySelector('[aria-label="add-participant"]');
+                      if (addButton) addButton.click();
+                    }, 500);
+                  } else {
+                    // Fallback: dispatch event to open drawer
+                    window.dispatchEvent(new CustomEvent('openParticipantsDrawer', { 
+                      detail: { action: 'addManually' } 
+                    }));
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '12px',
+                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                  }}
+                >
+                  <UserAddOutlined style={{ 
+                    fontSize: 32, 
+                    color: theme.palette.primary.main 
+                  }} />
+                </Box>
+                <Typography 
+                  variant="h6" 
+                  fontWeight="600" 
+                  gutterBottom
+                  color="text.primary"
+                >
+                  Add Manually
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary"
+                >
+                  Add participants one by one
+                </Typography>
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <Box
+                sx={{ 
+                  p: 4,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s',
+                  bgcolor: 'background.default',
+                  border: '2px solid',
+                  borderColor: 'divider',
+                  '&:hover': {
+                    borderColor: 'success.main',
+                    bgcolor: alpha(theme.palette.success.main, 0.04),
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[4]
+                  }
+                }}
+                onClick={() => {
+                  setShowWelcomeDialog(false);
+                  // Open the participants drawer and then trigger CSV import
+                  const manageParticipantsButton = document.querySelector('[aria-label="manage-participants"]');
+                  if (manageParticipantsButton) {
+                    manageParticipantsButton.click();
+                    setTimeout(() => {
+                      const importButton = document.querySelector('[aria-label="import-csv"]');
+                      if (importButton) importButton.click();
+                    }, 500);
+                  } else {
+                    // Fallback: dispatch event to open drawer
+                    window.dispatchEvent(new CustomEvent('openParticipantsDrawer', { 
+                      detail: { action: 'importCSV' } 
+                    }));
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '12px',
+                    bgcolor: alpha(theme.palette.success.main, 0.1),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                  }}
+                >
+                  <UploadOutlined style={{ 
+                    fontSize: 32, 
+                    color: theme.palette.success.main 
+                  }} />
+                </Box>
+                <Typography 
+                  variant="h6" 
+                  fontWeight="600" 
+                  gutterBottom
+                  color="text.primary"
+                >
+                  Import CSV
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary"
+                >
+                  Bulk import from file
+                </Typography>
+              </Box>
+            </Grid>
+          </Grid>
+          
+          <Typography 
+            variant="caption" 
+            color="text.secondary"
+            sx={{ 
+              display: 'block', 
+              mt: 4,
+              mb: 3
+            }}
+          >
+            Tip: After adding participants, you can organize them into groups
+          </Typography>
+          
+          <Button
+            variant="text"
+            color="secondary"
+            onClick={() => setShowWelcomeDialog(false)}
+            sx={{ 
+              mt: 2,
+              textTransform: 'none',
+              fontWeight: 500
+            }}
+          >
+            Skip for now
+          </Button>
+        </Box>
+      </Dialog>
     </Fragment>
     <PerformanceMonitor />
     </GroupsErrorBoundary>

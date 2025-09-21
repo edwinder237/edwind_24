@@ -4,6 +4,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import axios from "utils/axios";
 import { dispatch } from "store";
 import { openSnackbar } from "./snackbar";
+import { updateProjectEvent } from "./projects";
 
 const initialState = {
   //calendarView: 'dayGridMonth',
@@ -231,6 +232,8 @@ export function updateEvent(eventId, event, events) {
       // Reload events from database to get the complete updated event data
       if (event.projectId) {
         await dispatch(getEvents(event.projectId));
+        // Also update the event in projects reducer to sync with Overview tab
+        dispatch(updateProjectEvent(event));
       }
       
       // Ensure modal is closed after successful update

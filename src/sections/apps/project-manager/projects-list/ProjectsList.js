@@ -107,8 +107,8 @@ const ProjectsList = () => {
   const [userCard, setUserCard] = useState([]);
   const [page, setPage] = useState(1);
   
-  // Filter states
-  const [showFilters, setShowFilters] = useState(true);
+  // Filter states - collapsed by default on mobile
+  const [showFilters, setShowFilters] = useState(!matchDownSM);
   const [statusFilter, setStatusFilter] = useState([]);
   const [typeFilter, setTypeFilter] = useState([]);
   const [trainingRecipientFilter, setTrainingRecipientFilter] = useState([]);
@@ -373,11 +373,8 @@ const ProjectsList = () => {
 
   return (
     <Fragment>
-      <>
-        created by {mockAuthData.user?.name} and org {mockAuthData.sub_organization_Id}{" "}
-      </>
       {/* Main Filter Bar */}
-      <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+      <Paper elevation={0} sx={{ p: matchDownSM ? 2 : 3, mb: matchDownSM ? 2 : 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Stack spacing={3}>
           {/* Header Row: Search and Primary Actions */}
           <Stack
@@ -387,7 +384,7 @@ const ProjectsList = () => {
             alignItems={matchDownSM ? "stretch" : "center"}
           >
             {/* Left Side: Search and Filter Controls */}
-            <Stack direction={matchDownSM ? "column" : "row"} spacing={2} alignItems={matchDownSM ? "stretch" : "center"} flex={1}>
+            <Stack direction="row" spacing={2} alignItems="center" flex={1}>
               <Box sx={{ minWidth: matchDownSM ? 'auto' : 280 }}>
                 <GlobalFilter
                   preGlobalFilteredRows={projects}
@@ -436,8 +433,8 @@ const ProjectsList = () => {
             </Stack>
 
             {/* Right Side: Sort and Add */}
-            <Stack direction="row" spacing={2} alignItems="center">
-              <FormControl sx={{ minWidth: 160 }}>
+            <Stack direction={matchDownSM ? "column" : "row"} spacing={2} alignItems={matchDownSM ? "stretch" : "center"}>
+              <FormControl sx={{ minWidth: matchDownSM ? 'auto' : 160 }}>
                 <Select
                   value={sortBy}
                   onChange={handleChange}
@@ -461,10 +458,12 @@ const ProjectsList = () => {
                 variant="contained"
                 startIcon={<PlusOutlined />}
                 onClick={handleAdd}
+                fullWidth={matchDownSM}
                 sx={{ 
                   textTransform: 'none',
                   fontWeight: 600,
-                  px: 3,
+                  px: matchDownSM ? 2 : 3,
+                  py: matchDownSM ? 1.5 : 1,
                   background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
@@ -482,15 +481,16 @@ const ProjectsList = () => {
               {/* Filter Controls Section */}
               <Box sx={{ 
                 bgcolor: 'grey.50', 
-                p: 2.5
+                p: matchDownSM ? 1.5 : 2.5,
+                borderRadius: 1
               }}>
                 <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
                   Filter Options
                 </Typography>
                 
-                <Grid container spacing={2.5} alignItems="flex-start">
+                <Grid container spacing={matchDownSM ? 1.5 : 2.5} alignItems="flex-start">
                   {/* Status Filter */}
-                  <Grid item xs={12} sm={6} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
                     <FormControl fullWidth size="medium">
                       <Select
                         multiple
@@ -514,7 +514,7 @@ const ProjectsList = () => {
                   </Grid>
 
                   {/* Type Filter */}
-                  <Grid item xs={12} sm={6} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
                     <FormControl fullWidth size="medium">
                       <Select
                         multiple
@@ -538,7 +538,7 @@ const ProjectsList = () => {
                   </Grid>
 
                   {/* Training Recipient Filter */}
-                  <Grid item xs={12} sm={6} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
                     <FormControl fullWidth size="medium">
                       <Select
                         multiple
@@ -562,7 +562,7 @@ const ProjectsList = () => {
                   </Grid>
 
                   {/* Topics Filter */}
-                  <Grid item xs={12} sm={6} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
                     <FormControl fullWidth size="medium">
                       <Select
                         multiple
@@ -586,7 +586,7 @@ const ProjectsList = () => {
                   </Grid>
 
                   {/* Date Range Filter */}
-                  <Grid item xs={12} sm={6} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
                     <DateRangeFilterButton
                       dateRange={dateRange}
                       onDateRangeChange={setDateRange}
@@ -599,7 +599,7 @@ const ProjectsList = () => {
           </Collapse>
 
           {/* Results Summary - Always visible */}
-          <Box sx={{ textAlign: 'right', mt: showFilters ? 2 : 0 }}>
+          <Box sx={{ textAlign: matchDownSM ? 'center' : 'right', mt: showFilters ? 2 : 0 }}>
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
               <strong>{userCard.length}</strong> of <strong>{projects?.length || 0}</strong> projects
               {getActiveFilterCount() > 0 && (
@@ -618,10 +618,10 @@ const ProjectsList = () => {
       ) : loading ? (
         <LoadingDisplay />
       ) : userCard.length > 0 ? (
-        <Grid container spacing={3}>
+        <Grid container spacing={matchDownSM ? 2 : 3}>
           <AnimatePresence mode="popLayout">
             {userCard.map((project, index) => (
-              <Grid item xs={12} sm={6} lg={4} key={project.id}>
+              <Grid item xs={12} sm={6} md={6} lg={4} key={project.id}>
                 <motion.div
                   layout
                   initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -664,10 +664,22 @@ const ProjectsList = () => {
       <Dialog
         maxWidth="sm"
         fullWidth
-        TransitionComponent={PopupTransition}
+        fullScreen={matchDownSM}
+        TransitionComponent={matchDownSM ? Slide : PopupTransition}
+        TransitionProps={matchDownSM ? { direction: "up" } : {}}
         onClose={handleAdd}
         open={add}
-        sx={{ "& .MuiDialog-paper": { p: 0 } }}
+        sx={{ 
+          "& .MuiDialog-paper": { 
+            p: 0,
+            ...(matchDownSM && {
+              margin: 0,
+              maxWidth: '100%',
+              maxHeight: '100%',
+              borderRadius: 0
+            })
+          }
+        }}
       >
         <AddProject project={project} onCancel={handleAdd} />
       </Dialog>

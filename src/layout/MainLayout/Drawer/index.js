@@ -37,7 +37,13 @@ const MainDrawer = ({ open, handleDrawerToggle, window }) => {
           variant="temporary"
           open={open}
           onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
+          ModalProps={{ 
+            keepMounted: true,
+            disableEnforceFocus: true,
+            disableAutoFocus: true,
+            disableRestoreFocus: true,
+            'aria-hidden': false
+          }}
           sx={{
             display: { xs: 'block', lg: 'none' },
             '& .MuiDrawer-paper': {

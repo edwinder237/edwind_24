@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from '../../../lib/prisma';
 
 export default async function handler(req, res) {
   try {
@@ -49,7 +47,5 @@ export default async function handler(req, res) {
       error: "Internal Server Error",
       details: error.message,
     });
-  } finally {
-    await prisma.$disconnect();
   }
 }

@@ -23,7 +23,8 @@ import {
   InputAdornment,
   Autocomplete,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  useMediaQuery
 } from '@mui/material';
 import MainCard from 'components/MainCard';
 import {
@@ -64,7 +65,7 @@ const ItemTypes = {
 
 // ==============================|| DROP ZONE TIME SLOT ||============================== //
 
-const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect, onTimeEdit, selectedTimeSlot, theme, localEvents, project, setSelectedEventTime, setSelectedEventDate, setAddEventDialogOpen, onEventUpdate, conflictingEvents }) => {
+const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect, onTimeEdit, selectedTimeSlot, theme, localEvents, project, setSelectedEventTime, setSelectedEventDate, setAddEventDialogOpen, onEventUpdate, conflictingEvents, isMobile }) => {
   const [isHovering, setIsHovering] = useState(false);
   
   const [{ isOver, canDrop }, drop] = useDrop({
@@ -91,44 +92,46 @@ const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect
   return (
     <Box
       ref={drop}
-      sx={{ position: 'relative', display: 'flex', gap: 2 }}
+      sx={{ position: 'relative', display: 'flex', gap: isMobile ? 1 : 2 }}
     >
-      {/* Timeline */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        width: 80,
-        flexShrink: 0
-      }}>
-        <Typography
-          variant="body2"
-          sx={{
-            fontWeight: 500,
-            color: hasEvent ? 'text.primary' : 'text.secondary',
-            mb: 1
-          }}
-        >
-          {time}
-        </Typography>
+      {/* Timeline - Hide on mobile */}
+      {!isMobile && (
         <Box sx={{
-          width: 12,
-          height: 12,
-          borderRadius: '50%',
-          bgcolor: hasEvent ? (event.eventType === 'course' ? theme.palette.primary.main : theme.palette.info.main) : theme.palette.grey[700],
-          border: `2px solid ${theme.palette.background.paper}`,
-          boxShadow: hasEvent ? theme.shadows[2] : 'none',
-          zIndex: 1
-        }} />
-        {!isLast && (
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: 80,
+          flexShrink: 0
+        }}>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 500,
+              color: hasEvent ? 'text.primary' : 'text.secondary',
+              mb: 1
+            }}
+          >
+            {time}
+          </Typography>
           <Box sx={{
-            width: 2,
-            flex: 1,
-            bgcolor: theme.palette.divider,
-            mt: 1
+            width: 12,
+            height: 12,
+            borderRadius: '50%',
+            bgcolor: hasEvent ? (event.eventType === 'course' ? theme.palette.primary.main : theme.palette.info.main) : theme.palette.grey[700],
+            border: `2px solid ${theme.palette.background.paper}`,
+            boxShadow: hasEvent ? theme.shadows[2] : 'none',
+            zIndex: 1
           }} />
-        )}
-      </Box>
+          {!isLast && (
+            <Box sx={{
+              width: 2,
+              flex: 1,
+              bgcolor: theme.palette.divider,
+              mt: 1
+            }} />
+          )}
+        </Box>
+      )}
 
       {/* Event Card or Drop Zone */}
       {hasEvent ? (
@@ -221,6 +224,7 @@ const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect
 const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
   const [expandedDays, setExpandedDays] = useState([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [localEvents, setLocalEvents] = useState(events);
@@ -818,43 +822,45 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
                 const timeString = `${eventTime.getHours() > 12 ? eventTime.getHours() - 12 : eventTime.getHours() === 0 ? 12 : eventTime.getHours()}:${eventTime.getMinutes().toString().padStart(2, '0')} ${eventTime.getHours() >= 12 ? 'PM' : 'AM'}`;
                 
                 return (
-                  <Box key={event.id} sx={{ position: 'relative', display: 'flex', gap: 2, mb: 0.5 }}>
-                    {/* Timeline */}
-                    <Box sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      width: 80,
-                      flexShrink: 0
-                    }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 500,
-                          color: 'text.primary',
-                          mb: 1
-                        }}
-                      >
-                        {timeString}
-                      </Typography>
+                  <Box key={event.id} sx={{ position: 'relative', display: 'flex', gap: matchDownSM ? 1 : 2, mb: 0.5 }}>
+                    {/* Timeline - Hide on mobile */}
+                    {!matchDownSM && (
                       <Box sx={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: '50%',
-                        bgcolor: event.eventType === 'course' ? theme.palette.primary.main : theme.palette.info.main,
-                        border: `2px solid ${theme.palette.background.paper}`,
-                        boxShadow: theme.shadows[2],
-                        zIndex: 1
-                      }} />
-                      {index < dayEvents.length - 1 && (
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        width: 80,
+                        flexShrink: 0
+                      }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 500,
+                            color: 'text.primary',
+                            mb: 1
+                          }}
+                        >
+                          {timeString}
+                        </Typography>
                         <Box sx={{
-                          width: 2,
-                          height: 20,
-                          bgcolor: theme.palette.divider,
-                          mt: 1
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          bgcolor: event.eventType === 'course' ? theme.palette.primary.main : theme.palette.info.main,
+                          border: `2px solid ${theme.palette.background.paper}`,
+                          boxShadow: theme.shadows[2],
+                          zIndex: 1
                         }} />
-                      )}
-                    </Box>
+                        {index < dayEvents.length - 1 && (
+                          <Box sx={{
+                            width: 2,
+                            height: 20,
+                            bgcolor: theme.palette.divider,
+                            mt: 1
+                          }} />
+                        )}
+                      </Box>
+                    )}
 
                     {/* Event Card */}
                     <DraggableEventCard
@@ -952,11 +958,12 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
                   setAddEventDialogOpen={setAddEventDialogOpen}
                   onEventUpdate={updateLocalEvent}
                   conflictingEvents={conflictingEvents}
+                  isMobile={matchDownSM}
                 />
               ))}
 
               {/* Add Event Button */}
-              <Box sx={{ ml: 12, mt: 2 }}>
+              <Box sx={{ ml: matchDownSM ? 0 : 12, mt: 2 }}>
                 <Button
                   startIcon={<AddCircleOutline />}
                   variant="outlined"
@@ -987,9 +994,16 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
   };
 
   return (
-    <Box sx={{ width: '100%', pl: 2, pr: 2 }}>
+    <Box sx={{ width: '100%', pl: matchDownSM ? 0 : 2, pr: matchDownSM ? 0 : 2 }}>
       <MainCard
         title="Agenda"
+        sx={{
+          ...(matchDownSM && {
+            '& .MuiCardContent-root': {
+              px: 0
+            }
+          })
+        }}
         secondary={
           <Stack direction="row" spacing={1} alignItems="center">
             {/* View Toggle */}
@@ -1020,26 +1034,30 @@ const ItineraryScheduleContent = ({ project, events, onEventSelect }) => {
               </Tooltip>
             </Stack>
 
-            <Divider orientation="vertical" flexItem />
+            {!matchDownSM && (
+              <>
+                <Divider orientation="vertical" flexItem />
 
-            {/* Time Range Toggle */}
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={useProjectTimeRange}
-                  onChange={(e) => setUseProjectTimeRange(e.target.checked)}
-                  size="small"
+                {/* Time Range Toggle */}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={useProjectTimeRange}
+                      onChange={(e) => setUseProjectTimeRange(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+                      {useProjectTimeRange ? 'Project Hours' : 'Extended Hours'}
+                    </Typography>
+                  }
+                  sx={{ mr: 1 }}
                 />
-              }
-              label={
-                <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
-                  {useProjectTimeRange ? 'Project Hours' : 'Extended Hours'}
-                </Typography>
-              }
-              sx={{ mr: 1 }}
-            />
 
-            <Divider orientation="vertical" flexItem />
+                <Divider orientation="vertical" flexItem />
+              </>
+            )}
 
             {/* Controls - Show for both detailed and compact view */}
             <Button

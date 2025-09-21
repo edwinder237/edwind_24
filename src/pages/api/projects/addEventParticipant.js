@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../../lib/prisma';
 import { WorkOS } from '@workos-inc/node';
 
-const prisma = new PrismaClient();
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
 export default async function handler(req, res) {
@@ -79,7 +78,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error adding participant to event:', error);
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    await prisma.$disconnect();
   }
 }

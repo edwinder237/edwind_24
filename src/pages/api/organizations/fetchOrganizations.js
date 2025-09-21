@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -30,7 +28,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error fetching organizations:', error);
     res.status(500).json({ error: "Internal Server Error" });
-  } finally {
-    await prisma.$disconnect();
   }
 }

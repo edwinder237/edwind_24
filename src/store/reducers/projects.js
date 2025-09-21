@@ -261,6 +261,27 @@ const slice = createSlice({
       state.events = action.payload;
     },
 
+    // UPDATE PROJECT EVENT (for syncing with calendar changes)
+    updateProjectEvent(state, action) {
+      const updatedEvent = action.payload;
+      
+      // Update event in singleProject.events if it exists
+      if (state.singleProject && state.singleProject.events) {
+        const eventIndex = state.singleProject.events.findIndex(e => e.id === updatedEvent.id);
+        if (eventIndex !== -1) {
+          state.singleProject.events[eventIndex] = updatedEvent;
+        }
+      }
+      
+      // Update event in events array if it exists
+      if (state.events) {
+        const eventIndex = state.events.findIndex(e => e.id === updatedEvent.id);
+        if (eventIndex !== -1) {
+          state.events[eventIndex] = updatedEvent;
+        }
+      }
+    },
+
     // GET Modules
     getModulesSuccess(state, action) {
       state.modules = action.payload;
@@ -1224,5 +1245,6 @@ export function resetModuleProgress(eventId, moduleId, activities = []) {
 export const { 
   toggleCurriculumExpansion, 
   clearGroupExpansion, 
-  removeCurriculumFromExpansion 
+  removeCurriculumFromExpansion,
+  updateProjectEvent
 } = slice.actions;

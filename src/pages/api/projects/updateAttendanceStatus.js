@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from "../../../lib/prisma";
 import { WorkOS } from '@workos-inc/node';
 
 // Simple cache clearing function - inline to avoid import issues
@@ -9,8 +9,6 @@ function clearProgressCacheForProject(projectId) {
   console.log(`Progress cache clearing requested for project ${projectId}`);
   return true;
 }
-
-const prisma = new PrismaClient();
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
 export default async function handler(req, res) {
@@ -87,7 +85,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error updating attendance status:', error);
     return res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    await prisma.$disconnect();
   }
 }

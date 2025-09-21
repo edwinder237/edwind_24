@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Paper,
   Typography,
@@ -21,7 +21,8 @@ import {
   TextareaAutosize,
   Alert,
   Tooltip,
-  Grid
+  Grid,
+  Collapse
 } from '@mui/material';
 import {
   Add,
@@ -39,9 +40,14 @@ import {
   EmojiEvents,
   CalendarToday,
   Note,
-  Close
+  Close,
+  ChevronLeft,
+  ChevronRight,
+  ContentCopy
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
+import { useSelector, dispatch } from 'store';
+import { openSnackbar } from 'store/reducers/snackbar';
 
 // Mock data for daily notes
 const generateMockDailyNotes = () => [
@@ -201,6 +207,25 @@ const DailyNotes = ({ project }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false);
+  const [currentNoteIndex, setCurrentNoteIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goToPreviousNote();
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        goToNextNote();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const getMoodIcon = (mood) => {
     switch(mood) {
@@ -258,11 +283,111 @@ const DailyNotes = ({ project }) => {
   };
 
   const handleDelete = () => {
-    setNotes(notes.filter(n => n.id !== selectedNote.id));
+    const newNotes = notes.filter(n => n.id !== selectedNote.id);
+    setNotes(newNotes);
+    // Adjust current index if needed
+    if (currentNoteIndex >= newNotes.length) {
+      setCurrentNoteIndex(Math.max(0, newNotes.length - 1));
+    }
     handleMenuClose();
   };
 
-  const latestNote = notes[0];
+  const goToNextNote = () => {
+    if (isTransitioning || notes.length <= 1) return;
+    
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentNoteIndex((prev) => (prev + 1) % notes.length);
+      setIsTransitioning(false);
+    }, 150);
+  };
+
+  const goToPreviousNote = () => {
+    if (isTransitioning || notes.length <= 1) return;
+    
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentNoteIndex((prev) => (prev - 1 + notes.length) % notes.length);
+      setIsTransitioning(false);
+    }, 150);
+  };
+
+  const goToSpecificNote = (index) => {
+    if (isTransitioning || index === currentNoteIndex) return;
+    
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentNoteIndex(index);
+      setIsTransitioning(false);
+    }, 150);
+  };
+
+  // Format note for email
+  const formatNoteForEmail = (note) => {
+    const formattedDate = new Date(note.date).toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
+    let emailText = `${note.title}\n`;
+    emailText += `${formattedDate}\n\n`;
+    
+    // Key Highlights
+    emailText += `Key Highlights:\n`;
+    note.keyHighlights.forEach((highlight, index) => {
+      emailText += `- ${highlight}\n`;
+    });
+    emailText += `\n`;
+    
+    // Challenges (if any)
+    if (note.challenges && note.challenges.length > 0) {
+      emailText += `Challenges:\n`;
+      note.challenges.forEach((challenge, index) => {
+        emailText += `- ${challenge}\n`;
+      });
+    }
+    
+    return emailText;
+  };
+
+  // Copy note to clipboard
+  const copyNoteToClipboard = async (note) => {
+    if (isCopying) return;
+    
+    setIsCopying(true);
+    try {
+      const formattedText = formatNoteForEmail(note);
+      await navigator.clipboard.writeText(formattedText);
+      
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Daily note copied to clipboard! Ready to paste in your email.',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to copy to clipboard. Please try again.',
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
+    } finally {
+      setTimeout(() => setIsCopying(false), 1000);
+    }
+  };
+
+  const currentNote = notes[currentNoteIndex];
 
   return (
     <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
@@ -277,146 +402,192 @@ const DailyNotes = ({ project }) => {
             sx={{ ml: 1 }}
           />
         </Stack>
-        <Button 
-          startIcon={<Add />} 
-          variant="contained" 
-          size="small"
-          onClick={() => setNewNoteDialogOpen(true)}
-        >
-          Add Note
-        </Button>
-      </Stack>
-
-      {/* Latest Note Highlight */}
-      {latestNote && (
-        <Card 
-          sx={{ 
-            mb: 3, 
-            bgcolor: 'background.paper',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 0
-          }}
-        >
-          <CardContent>
-            <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={2}>
-              <Box flex={1}>
-                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                  <Chip 
-                    label={formatDate(latestNote.date)}
-                    size="small" 
-                    color="primary"
-                    icon={<CalendarToday />}
-                  />
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    by {latestNote.author} • {latestNote.authorRole} • 
-                    <Groups sx={{ fontSize: 14, ml: 0.5 }} /> 
-                    Attendance: {latestNote.attendance}/{latestNote.totalParticipants}
-                  </Typography>
-                </Stack>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                  {latestNote.title}
-                </Typography>
-              </Box>
-              <IconButton size="small" onClick={(e) => handleMenuClick(e, latestNote)}>
-                <MoreVert />
-              </IconButton>
-            </Stack>
-
-            {/* Key Highlights */}
-            <Box mb={2}>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <CheckCircle sx={{ fontSize: 18, color: 'success.main' }} />
-                Key Highlights
-              </Typography>
-              <Stack spacing={0.5} sx={{ pl: 3 }}>
-                {latestNote.keyHighlights.map((highlight, index) => (
-                  <Typography key={index} variant="body2" color="text.secondary">
-                    • {highlight}
-                  </Typography>
-                ))}
-              </Stack>
-            </Box>
-
-            {/* Challenges */}
-            {latestNote.challenges.length > 0 && (
-              <Box>
-                <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <ErrorOutline sx={{ fontSize: 18, color: 'warning.main' }} />
-                  Challenges
-                </Typography>
-                <Stack spacing={0.5} sx={{ pl: 3 }}>
-                  {latestNote.challenges.map((challenge, index) => (
-                    <Typography key={index} variant="body2" color="text.secondary">
-                      • {challenge}
-                    </Typography>
-                  ))}
-                </Stack>
-              </Box>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Previous Notes List */}
-      <Box>
-        <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ mb: 2 }}>
-          Previous Notes
-        </Typography>
-        <Stack spacing={1}>
-          {notes.slice(1, 4).map((note) => (
-            <Box 
-              key={note.id}
-              sx={{ 
-                p: 2, 
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="Copy current note to clipboard for email">
+            <Button 
+              startIcon={<ContentCopy />} 
+              variant="outlined" 
+              size="small"
+              onClick={() => copyNoteToClipboard(currentNote)}
+              disabled={!currentNote || isCopying}
+              sx={{
                 '&:hover': {
                   bgcolor: 'action.hover',
                   borderColor: 'primary.main'
                 }
               }}
             >
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  {getMoodIcon(note.mood)}
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {note.title}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {formatDate(note.date)} • {note.author} • Attendance: {note.attendance}/{note.totalParticipants}
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Chip 
-                    label={`${note.metrics.overallProgress}% progress`}
-                    size="small"
-                    variant="outlined"
-                  />
-                  <IconButton size="small" onClick={(e) => handleMenuClick(e, note)}>
-                    <MoreVert />
-                  </IconButton>
-                </Stack>
-              </Stack>
-            </Box>
-          ))}
-        </Stack>
-        
-        {notes.length > 4 && (
+              {isCopying ? 'Copying...' : 'Copy'}
+            </Button>
+          </Tooltip>
           <Button 
-            fullWidth 
-            sx={{ mt: 2 }}
-            variant="outlined"
+            startIcon={<Add />} 
+            variant="contained" 
+            size="small"
+            onClick={() => setNewNoteDialogOpen(true)}
           >
-            View All {notes.length} Notes
+            Add Note
           </Button>
-        )}
-      </Box>
+        </Stack>
+      </Stack>
+
+      {/* Carousel Navigation */}
+      {notes.length > 0 && (
+        <Box sx={{ position: 'relative' }}>
+          {/* Navigation Controls */}
+          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
+            <IconButton 
+              onClick={goToPreviousNote}
+              disabled={notes.length <= 1 || isTransitioning}
+              sx={{ 
+                bgcolor: 'background.default',
+                border: '1px solid',
+                borderColor: 'divider',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                  borderColor: 'primary.main',
+                  transform: 'scale(1.05)'
+                },
+                '&:disabled': {
+                  bgcolor: 'action.disabledBackground',
+                  borderColor: 'divider'
+                }
+              }}
+            >
+              <ChevronLeft />
+            </IconButton>
+            
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Tooltip title="Use ← → arrow keys to navigate" placement="top">
+                <Typography variant="body2" color="text.secondary" sx={{ cursor: 'help' }}>
+                  {currentNoteIndex + 1} of {notes.length}
+                </Typography>
+              </Tooltip>
+              {/* Progress dots */}
+              <Stack direction="row" spacing={0.5}>
+                {notes.map((_, index) => (
+                  <Box
+                    key={index}
+                    onClick={() => goToSpecificNote(index)}
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: index === currentNoteIndex ? 'primary.main' : 'divider',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s',
+                      transform: index === currentNoteIndex ? 'scale(1.2)' : 'scale(1)',
+                      '&:hover': {
+                        bgcolor: index === currentNoteIndex ? 'primary.dark' : 'action.hover',
+                        transform: 'scale(1.3)'
+                      }
+                    }}
+                  />
+                ))}
+              </Stack>
+            </Stack>
+
+            <IconButton 
+              onClick={goToNextNote}
+              disabled={notes.length <= 1 || isTransitioning}
+              sx={{ 
+                bgcolor: 'background.default',
+                border: '1px solid',
+                borderColor: 'divider',
+                transition: 'all 0.2s',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                  borderColor: 'primary.main',
+                  transform: 'scale(1.05)'
+                },
+                '&:disabled': {
+                  bgcolor: 'action.disabledBackground',
+                  borderColor: 'divider'
+                }
+              }}
+            >
+              <ChevronRight />
+            </IconButton>
+          </Stack>
+
+          {/* Current Note Display */}
+          {currentNote && (
+            <Collapse in={!isTransitioning} timeout={300}>
+              <Card 
+                sx={{ 
+                  bgcolor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 0,
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: isTransitioning ? 'translateY(-10px)' : 'translateY(0)',
+                  opacity: isTransitioning ? 0.7 : 1,
+                  boxShadow: isTransitioning ? 'none' : '0 2px 8px rgba(0,0,0,0.05)'
+                }}
+              >
+                <CardContent>
+                  <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={2}>
+                    <Box flex={1}>
+                      <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                        <Chip 
+                          label={formatDate(currentNote.date)}
+                          size="small" 
+                          color="primary"
+                          icon={<CalendarToday />}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          by {currentNote.author} • {currentNote.authorRole} • 
+                          <Groups sx={{ fontSize: 14, ml: 0.5 }} /> 
+                          Attendance: {currentNote.attendance}/{currentNote.totalParticipants}
+                        </Typography>
+                      </Stack>
+                      <Typography variant="h6" fontWeight="bold" gutterBottom>
+                        {currentNote.title}
+                      </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={(e) => handleMenuClick(e, currentNote)}>
+                      <MoreVert />
+                    </IconButton>
+                  </Stack>
+
+                  {/* Key Highlights */}
+                  <Box mb={2}>
+                    <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <CheckCircle sx={{ fontSize: 18, color: 'success.main' }} />
+                      Key Highlights
+                    </Typography>
+                    <Stack spacing={0.5} sx={{ pl: 3 }}>
+                      {currentNote.keyHighlights.map((highlight, index) => (
+                        <Typography key={index} variant="body2" color="text.secondary">
+                          • {highlight}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  </Box>
+
+                  {/* Challenges */}
+                  {currentNote.challenges.length > 0 && (
+                    <Box>
+                      <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <ErrorOutline sx={{ fontSize: 18, color: 'warning.main' }} />
+                        Challenges
+                      </Typography>
+                      <Stack spacing={0.5} sx={{ pl: 3 }}>
+                        {currentNote.challenges.map((challenge, index) => (
+                          <Typography key={index} variant="body2" color="text.secondary">
+                            • {challenge}
+                          </Typography>
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Collapse>
+          )}
+        </Box>
+      )}
 
 
       {/* Menu */}
@@ -425,6 +596,10 @@ const DailyNotes = ({ project }) => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
+        <MenuItem onClick={() => { copyNoteToClipboard(selectedNote); handleMenuClose(); }}>
+          <ContentCopy fontSize="small" sx={{ mr: 1 }} />
+          Copy to Clipboard
+        </MenuItem>
         <MenuItem onClick={handleEdit}>
           <Edit fontSize="small" sx={{ mr: 1 }} />
           Edit

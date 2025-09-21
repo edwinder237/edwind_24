@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector, useDispatch } from "store";
 import { 
   getProjectChecklist,
@@ -21,6 +21,7 @@ const ProjectPage = () => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const checklistFetched = useRef(new Set()); // Track which projects we've fetched checklist for
+  const [updatingItems, setUpdatingItems] = useState(new Set()); // Track which items are being updated
   const { 
     singleProject: Project, 
     project_participants, 
@@ -70,16 +71,45 @@ const ProjectPage = () => {
     }
   }, [Project?.id, dispatch, checklistLoading]);
 
-  const handleChecklistItemToggle = (item) => {
+  const handleChecklistItemToggle = async (item) => {
+    // Prevent rapid clicking by checking if item is already being updated
+    if (updatingItems.has(item.id)) {
+      return;
+    }
+
     const newCompletedState = !item.completed;
     
-    dispatch(updateChecklistProgress({
-      projectId: Project.id,
-      checklistItemId: item.id,
-      completed: newCompletedState,
-      completedBy: 'current-user', // TODO: Replace with actual user ID
-      notes: item.notes
-    }));
+    // Add item to updating set
+    setUpdatingItems(prev => new Set(prev).add(item.id));
+    
+    try {
+      await dispatch(updateChecklistProgress({
+        projectId: Project.id,
+        checklistItemId: item.id,
+        completed: newCompletedState,
+        completedBy: 'current-user', // TODO: Replace with actual user ID
+        notes: item.notes
+      }));
+    } catch (error) {
+      console.error('Failed to update checklist item:', error);
+    } finally {
+      // Remove item from updating set after operation completes
+      setUpdatingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(item.id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleChecklistNoteUpdate = (itemId, newNote) => {
+    // Refresh checklist after note update
+    dispatch(getProjectChecklist(Project.id));
+  };
+
+  const handleChecklistRefresh = () => {
+    // Force refresh checklist data
+    dispatch(getProjectChecklist(Project.id));
   };
 
 
@@ -133,6 +163,9 @@ const ProjectPage = () => {
             checklistItems={checklistItems}
             checklistLoading={checklistLoading}
             onChecklistToggle={handleChecklistItemToggle}
+            onChecklistNoteUpdate={handleChecklistNoteUpdate}
+            onChecklistRefresh={handleChecklistRefresh}
+            updatingItems={updatingItems}
             styles={styles}
           />
         </Box>

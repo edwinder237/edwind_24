@@ -69,7 +69,9 @@ import {
   SettingOutlined,
   CheckCircleOutlined,
   ArrowRightOutlined,
-  ArrowLeftOutlined
+  ArrowLeftOutlined,
+  BankOutlined,
+  PlusOutlined
 } from "@ant-design/icons";
 
 // constant
@@ -88,7 +90,6 @@ const getInitialValues = (project) => {
       instructor: project.instructorId ? project.instructorId.toString() : "",
       curriculum: project.curriculumId ? project.curriculumId.toString() : "",
       shared: project.published !== undefined ? project.published : project.sharing || true,
-      backgroundImg: project.backgroundImg || ""
     };
   }
   
@@ -105,7 +106,6 @@ const getInitialValues = (project) => {
     instructor: "",
     curriculum: "",
     shared: true,
-    backgroundImg: ""
   };
 
   return newProject;
@@ -182,8 +182,13 @@ const steps = [
     icon: <BookOutlined />
   },
   {
+    label: 'Training Recipient',
+    description: 'Select or create training organization',
+    icon: <InfoCircleOutlined />
+  },
+  {
     label: 'Basic Information',
-    description: 'Project details and recipient',
+    description: 'Project details and curriculum',
     icon: <InfoCircleOutlined />
   },
   {
@@ -222,6 +227,21 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   // Step management
   const [activeStep, setActiveStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState(new Set());
+  
+  // Training recipient creation state
+  const [showCreateRecipient, setShowCreateRecipient] = useState(false);
+  const [newRecipientData, setNewRecipientData] = useState({
+    name: '',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    industry: '',
+    address: '',
+    website: '',
+    description: '',
+    location: null,
+    img: ''
+  });
 
   const [projectTitle, setProjectTitle] = useState(project?.title || "Title");
   const [projectType, setProjectType] = useState(project?.projectType || project?.type || "Type");
@@ -369,7 +389,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           projectStatus: "started",
           startDate: projectStartDate,
           endDate: projectEndDate,
-          backgroundImg: values.backgroundImg || "",
           color: "",
           language: values.language,
           location: projectLocation,
@@ -394,7 +413,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             instructorId: selectedInstructor ? selectedInstructor.id : null,
             curriculumId: selectedCurriculum ? selectedCurriculum.id : null,
             sharing: values.shared,
-            backgroundImg: values.backgroundImg || ""
           };
           
           dispatch(updateProject(updateData)).then(async (result) => {
@@ -567,22 +585,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
       const JSONLocation = JSON.stringify(location);
       setProjectLocation(JSONLocation);
       
-      // If location has an image URL, set it as the background image
-      if (location.imageUrl) {
-        setFieldValue('backgroundImg', location.imageUrl);
-        
-        dispatch(
-          openSnackbar({
-            open: true,
-            message: `Location image has been set as project background: ${location.description}`,
-            variant: "alert",
-            alert: {
-              color: "success",
-            },
-            close: false,
-          })
-        );
-      }
     } else {
       setProjectLocation('');
     }
@@ -595,7 +597,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   }
 
   function handleInstructorChange(instructor) {
-    console.log('Instructor changed:', instructor);
     setSelectedInstructor(instructor);
     // Update the form value with the instructor ID (convert to string for validation)
     setFieldValue("instructor", instructor && instructor.id ? instructor.id.toString() : "");
@@ -630,8 +631,19 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
         return;
       }
     } else if (activeStep === 1) {
-      // Step 2: Basic Information - validate title, delivery method, training recipient, curriculum
-      if (!formik.values.title || !formik.values.deliveryMethod || !formik.values.trainingRecipient || !formik.values.curriculum) {
+      // Step 2: Training Recipient - validate recipient selection
+      if (!formik.values.trainingRecipient) {
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Please select a training recipient to continue.',
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+        return;
+      }
+    } else if (activeStep === 2) {
+      // Step 3: Basic Information - validate title, delivery method, curriculum
+      if (!formik.values.title || !formik.values.deliveryMethod || !formik.values.curriculum) {
         dispatch(openSnackbar({
           open: true,
           message: 'Please complete all required fields in this step.',
@@ -668,6 +680,100 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     handleSubmit(e);
   };
 
+  // Handle creating new training recipient
+  const handleCreateRecipient = async () => {
+    if (!newRecipientData.name) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Please enter a name for the training recipient.',
+        variant: 'alert',
+        alert: { color: 'warning' }
+      }));
+      return;
+    }
+
+    try {
+      const response = await axios.post('/api/training-recipients/create', {
+        ...newRecipientData,
+        sub_organizationId: 1 // TODO: Get from current user's sub-organization
+      });
+
+      if (response.data.success) {
+        const newRecipient = response.data.trainingRecipient;
+        setSelectedTrainingRecipient(newRecipient);
+        setFieldValue("trainingRecipient", newRecipient.id.toString());
+        
+        dispatch(openSnackbar({
+          open: true,
+          message: response.data.message || 'Training recipient created successfully!',
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+        
+        setShowCreateRecipient(false);
+        setNewRecipientData({
+          name: '',
+          contactPerson: '',
+          email: '',
+          phone: '',
+          industry: '',
+          address: '',
+          website: '',
+          description: '',
+          location: null,
+          img: ''
+        });
+      }
+    } catch (error) {
+      dispatch(openSnackbar({
+        open: true,
+        message: error.response?.data?.error || 'Failed to create training recipient.',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  };
+
+  // Handle new recipient data change
+  const handleNewRecipientChange = (field, value) => {
+    setNewRecipientData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Handle new recipient location change
+  function handleNewRecipientLocationChange(location) {
+    if (location) {
+      const JSONLocation = JSON.stringify(location);
+      setNewRecipientData(prev => ({
+        ...prev,
+        address: location.formatted_address || location.description || '',
+        location: location,
+        img: location.imageUrl || '' // Store the image URL for the training recipient
+      }));
+      
+      // If location has an image URL, notify user it will be used for the training recipient
+      if (location.imageUrl) {
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: `Location image will be used for training recipient: ${location.description}`,
+            variant: "alert",
+            alert: {
+              color: "success",
+            },
+            close: false,
+          })
+        );
+      }
+    } else {
+      setNewRecipientData(prev => ({
+        ...prev,
+        address: '',
+        location: null,
+        img: ''
+      }));
+    }
+  }
+
   const getStepIcon = (step, index) => {
     if (completedSteps.has(index)) {
       return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
@@ -684,12 +790,14 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
       case 0:
         return renderProjectTypeSelection();
       case 1:
-        return renderBasicInformation();
+        return renderTrainingRecipientSelection();
       case 2:
-        return renderContentAndTopics();
+        return renderBasicInformation();
       case 3:
-        return renderScheduleAndLocation();
+        return renderContentAndTopics();
       case 4:
+        return renderScheduleAndLocation();
+      case 5:
         return renderReviewAndSubmit();
       default:
         return null;
@@ -757,8 +865,175 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     </Fade>
   );
 
-  const renderBasicInformation = () => (
+  const renderTrainingRecipientSelection = () => (
     <Fade in={activeStep === 1}>
+      <Box>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              Training Recipient
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              Select an existing training organization or create a new one
+            </Typography>
+          </Grid>
+          
+          {!showCreateRecipient ? (
+            <>
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Select Training Recipient *
+                </Typography>
+                <TrainingRecipientPicker
+                  handleTrainingRecipientChange={handleTrainingRecipientChange}
+                  initialValue={selectedTrainingRecipient}
+                  error={Boolean(touched.trainingRecipient && errors.trainingRecipient)}
+                  helperText={touched.trainingRecipient && errors.trainingRecipient}
+                />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Divider sx={{ my: 2 }} />
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                    Don't see the organization you're looking for?
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PlusOutlined />}
+                    onClick={() => setShowCreateRecipient(true)}
+                    sx={{ mt: 1 }}
+                  >
+                    Create New Training Recipient
+                  </Button>
+                </Box>
+              </Grid>
+            </>
+          ) : (
+            <>
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Create New Training Recipient
+                </Typography>
+                <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Organization Name *"
+                        value={newRecipientData.name}
+                        onChange={(e) => handleNewRecipientChange('name', e.target.value)}
+                        placeholder="Enter organization name"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Contact Person"
+                        value={newRecipientData.contactPerson}
+                        onChange={(e) => handleNewRecipientChange('contactPerson', e.target.value)}
+                        placeholder="Enter contact person name"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Industry"
+                        value={newRecipientData.industry}
+                        onChange={(e) => handleNewRecipientChange('industry', e.target.value)}
+                        placeholder="Enter industry type"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Email"
+                        type="email"
+                        value={newRecipientData.email}
+                        onChange={(e) => handleNewRecipientChange('email', e.target.value)}
+                        placeholder="Enter email address"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Phone"
+                        value={newRecipientData.phone}
+                        onChange={(e) => handleNewRecipientChange('phone', e.target.value)}
+                        placeholder="Enter phone number"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                        Address
+                      </Typography>
+                      <GoogleMapAutocomplete
+                        handleLocationChange={handleNewRecipientLocationChange}
+                        placeholder="Search for organization address"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Website"
+                        value={newRecipientData.website}
+                        onChange={(e) => handleNewRecipientChange('website', e.target.value)}
+                        placeholder="Enter website URL"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Description"
+                        value={newRecipientData.description}
+                        onChange={(e) => handleNewRecipientChange('description', e.target.value)}
+                        placeholder="Enter organization description"
+                      />
+                    </Grid>
+                  </Grid>
+                  
+                  <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setShowCreateRecipient(false);
+                        setNewRecipientData({
+                          name: '',
+                          contactPerson: '',
+                          email: '',
+                          phone: '',
+                          industry: '',
+                          address: '',
+                          website: '',
+                          description: '',
+                          location: null,
+                          img: ''
+                        });
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="contained"
+                      onClick={handleCreateRecipient}
+                      startIcon={<PlusOutlined />}
+                    >
+                      Create Recipient
+                    </Button>
+                  </Box>
+                </Paper>
+              </Grid>
+            </>
+          )}
+        </Grid>
+      </Box>
+    </Fade>
+  );
+
+  const renderBasicInformation = () => (
+    <Fade in={activeStep === 2}>
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -816,18 +1091,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
 
           <Grid item xs={12}>
             <Typography variant="subtitle1" gutterBottom>
-              Training Recipient *
-            </Typography>
-            <TrainingRecipientPicker
-              handleTrainingRecipientChange={handleTrainingRecipientChange}
-              initialValue={selectedTrainingRecipient}
-              error={Boolean(touched.trainingRecipient && errors.trainingRecipient)}
-              helperText={touched.trainingRecipient && errors.trainingRecipient}
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" gutterBottom>
               Curriculum *
             </Typography>
             <CurriculumPicker
@@ -850,21 +1113,13 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             />
           </Grid>
 
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" gutterBottom>
-              Location
-            </Typography>
-            <GoogleMapAutocomplete
-              handleLocationChange={handleLocationChange}
-            />
-          </Grid>
         </Grid>
       </Box>
     </Fade>
   );
 
   const renderContentAndTopics = () => (
-    <Fade in={activeStep === 2}>
+    <Fade in={activeStep === 3}>
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -907,17 +1162,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             </RadioGroup>
           </Grid>
 
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" gutterBottom>
-              Background Image URL
-            </Typography>
-            <TextField
-              fullWidth
-              placeholder="Enter image URL for project card (e.g., https://example.com/image.jpg)"
-              {...getFieldProps("backgroundImg")}
-              helperText="Optional: Add a custom image URL for your project card"
-            />
-          </Grid>
 
           <Grid item xs={12}>
             <Typography variant="subtitle1" gutterBottom>
@@ -952,7 +1196,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   );
 
   const renderScheduleAndLocation = () => (
-    <Fade in={activeStep === 3}>
+    <Fade in={activeStep === 4}>
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -979,7 +1223,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   );
 
   const renderReviewAndSubmit = () => (
-    <Fade in={activeStep === 4}>
+    <Fade in={activeStep === 5}>
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -1027,14 +1271,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                     {selectedInstructor ? `${selectedInstructor.firstName} ${selectedInstructor.lastName}` : 'Not selected'}
                   </Typography>
                 </Grid>
-                {formik.values.backgroundImg && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="textSecondary">Background Image:</Typography>
-                    <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
-                      {formik.values.backgroundImg}
-                    </Typography>
-                  </Grid>
-                )}
               </Grid>
             </Paper>
           </Grid>
@@ -1069,31 +1305,114 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                 <MainCard
                   title={project ? "Edit Project" : "New Project"}
                   content={false}
-                  sx={{ overflow: "visible" }}
+                  sx={{ 
+                    overflow: "visible",
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '80vh',
+                    maxHeight: '800px'
+                  }}
                 >
-                  <Box sx={{ p: 4 }}>
+                  {/* Scrollable Content Area */}
+                  <Box sx={{ 
+                    flex: 1,
+                    overflow: 'auto',
+                    p: 4,
+                    paddingBottom: 2,
+                    // Custom scrollbar styling
+                    '&::-webkit-scrollbar': {
+                      width: '8px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: 'transparent',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                      borderRadius: '4px',
+                      '&:hover': {
+                        background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+                      }
+                    },
+                    '&::-webkit-scrollbar-thumb:active': {
+                      background: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
+                    },
+                    // Firefox scrollbar styling
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.2) transparent' 
+                      : 'rgba(0, 0, 0, 0.2) transparent',
+                  }}>
                     {/* Horizontal Stepper */}
-                    <Stepper activeStep={activeStep} orientation="horizontal" sx={{ mb: 4 }}>
+                    <Stepper 
+                      activeStep={activeStep} 
+                      orientation="horizontal" 
+                      sx={{ 
+                        mb: 2,
+                        '& .MuiStep-root': {
+                          flex: 1,
+                        },
+                        '& .MuiStepLabel-root': {
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          '& .MuiStepLabel-iconContainer': {
+                            mb: 1,
+                            '& .MuiSvgIcon-root': {
+                              fontSize: '1.5rem'
+                            }
+                          },
+                          '& .MuiStepLabel-labelContainer': {
+                            textAlign: 'center',
+                          }
+                        },
+                        '& .MuiStepConnector-root': {
+                          top: 12,
+                          left: 'calc(-50% + 12px)',
+                          right: 'calc(50% + 12px)',
+                          '& .MuiStepConnector-line': {
+                            borderTopWidth: 2
+                          }
+                        }
+                      }}
+                    >
                       {steps.map((step, index) => (
                         <Step key={step.label} completed={completedSteps.has(index)}>
                           <StepLabel 
-                            icon={getStepIcon(step, index)}
+                            icon={index + 1}
                             onClick={() => handleStepClick(index)}
                             sx={{ cursor: 'pointer' }}
                           >
-                            <Typography variant="subtitle1">{step.label}</Typography>
+                            <Typography 
+                              variant="caption"
+                              sx={{ 
+                                textAlign: 'center',
+                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                lineHeight: 1.2,
+                                fontWeight: 500,
+                                color: activeStep === index ? 'primary.main' : 'text.secondary'
+                              }}
+                            >
+                              {step.label}
+                            </Typography>
                           </StepLabel>
                         </Step>
                       ))}
                     </Stepper>
 
                     {/* Step Content */}
-                    <Box sx={{ minHeight: 400, px: 2, py: 3, maxWidth: 800, mx: 'auto' }}>
+                    <Box sx={{ px: 2, py: 1, maxWidth: 800, mx: 'auto' }}>
                       {renderStepContent(activeStep)}
                     </Box>
+                  </Box>
 
-                    {/* Navigation Buttons */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, pt: 3, borderTop: 1, borderColor: 'divider' }}>
+                  {/* Fixed Navigation Footer */}
+                  <Box sx={{ 
+                    flexShrink: 0,
+                    borderTop: 1, 
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    p: 3
+                  }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', maxWidth: 800, mx: 'auto' }}>
                       <Box>
                         {!isCreating && (
                           <Tooltip title="Delete Project" placement="top">

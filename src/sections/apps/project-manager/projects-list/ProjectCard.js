@@ -454,7 +454,10 @@ const ProjectCard = ({ Project, projectId }) => {
   
   // Custom hooks
   const statusEditor = useStatusEditor(Project, dispatch);
-  const { finalImageUrl, handleImageError } = useImageWithFallback(Project?.backgroundImg);
+  
+  // Use training recipient image if available, fallback to project background image
+  const imageUrl = Project?.training_recipient?.img || Project?.backgroundImg;
+  const { finalImageUrl, handleImageError } = useImageWithFallback(imageUrl);
 
   // Parse project topics when tags change
   useEffect(() => {

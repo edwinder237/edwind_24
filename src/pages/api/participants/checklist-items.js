@@ -1,22 +1,24 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
+  const { method } = req;
+
   try {
-    switch (req.method) {
+    switch (method) {
       case 'GET':
         return await getParticipantChecklistItems(req, res);
       case 'PUT':
         return await updateParticipantChecklistProgress(req, res);
       default:
-        return res.status(405).json({ message: 'Method not allowed' });
+        res.setHeader('Allow', ['GET', 'PUT']);
+        return res.status(405).json({ message: `Method ${method} not allowed` });
     }
   } catch (error) {
-    console.error('Error in participant checklist items API:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    await prisma.$disconnect();
+    console.error('API Error:', error);
+    return res.status(500).json({ 
+      message: 'Internal server error',
+      error: error.message 
+    });
   }
 }
 
@@ -25,27 +27,27 @@ async function getParticipantChecklistItems(req, res) {
   const { participantId } = req.query;
 
   if (!participantId) {
-    return res.status(400).json({ error: 'Participant ID is required' });
+    return res.status(400).json({ message: 'Participant ID is required' });
   }
 
   try {
     const projectParticipant = await prisma.project_participants.findFirst({
-      where: { participant: { id: participantId } },
+      where: { participant: { id: String(participantId) } },
       select: { id: true, projectId: true }
     });
 
     if (!projectParticipant) {
-      return res.status(404).json({ error: 'Project participant not found' });
+      return res.status(404).json({ message: 'Project participant not found' });
     }
 
     const [enrolledCourses, eventCourses] = await Promise.all([
       prisma.courses_enrollee_progress.findMany({
-        where: { enrollee: { participant: { id: participantId } } },
+        where: { enrollee: { participant: { id: String(participantId) } } },
         select: { courseId: true }
       }),
       prisma.events.findMany({
         where: {
-          event_attendees: { some: { enrollee: { participant: { id: participantId } } } },
+          event_attendees: { some: { enrollee: { participant: { id: String(participantId) } } } },
           courseId: { not: null }
         },
         select: { courseId: true }
@@ -117,10 +119,13 @@ async function getParticipantChecklistItems(req, res) {
       return acc;
     }, {});
 
-    res.status(200).json(Object.values(groupedItems));
+    return res.status(200).json(Object.values(groupedItems));
   } catch (error) {
     console.error('Error fetching participant checklist items:', error);
-    res.status(500).json({ error: 'Failed to fetch checklist items' });
+    return res.status(500).json({ 
+      message: 'Failed to fetch checklist items',
+      error: error.message 
+    });
   }
 }
 
@@ -128,49 +133,103 @@ async function updateParticipantChecklistProgress(req, res) {
   const { participantId, checklistItemId, completed, notes } = req.body;
 
   if (!participantId || !checklistItemId || typeof completed !== 'boolean') {
-    return res.status(400).json({ error: 'participantId, checklistItemId, and completed status are required' });
+    return res.status(400).json({ message: 'participantId, checklistItemId, and completed status are required' });
   }
 
   try {
-    const projectParticipant = await prisma.project_participants.findFirst({
-      where: { participant: { id: participantId } },
+    // participantId here is actually the project_participants.id (int), not participants.id (string)
+    const projectParticipant = await prisma.project_participants.findUnique({
+      where: { id: parseInt(participantId) },
       select: { id: true, projectId: true }
     });
 
     if (!projectParticipant) {
-      return res.status(404).json({ error: 'Project participant not found' });
+      return res.status(404).json({ message: 'Project participant not found' });
     }
 
     const progressRecord = await prisma.project_participants_course_checklist_progress.upsert({
       where: {
         unique_participant_checklist_item: {
           projectId: projectParticipant.projectId,
-          participantId: projectParticipant.id,
+          participantId: parseInt(participantId),
           checklistItemId: parseInt(checklistItemId)
         }
       },
       update: {
         completed,
         completedAt: completed ? new Date() : null,
-        completedBy: completed ? participantId : null,
+        completedBy: completed ? String(participantId) : null,
         notes: notes || null,
-        updatedBy: participantId
+        updatedBy: String(participantId)
       },
       create: {
         projectId: projectParticipant.projectId,
-        participantId: projectParticipant.id,
+        participantId: parseInt(participantId),
         checklistItemId: parseInt(checklistItemId),
         completed,
         completedAt: completed ? new Date() : null,
-        completedBy: completed ? participantId : null,
+        completedBy: completed ? String(participantId) : null,
         notes: notes || null,
-        createdBy: participantId
+        createdBy: String(participantId)
       }
     });
 
-    res.status(200).json({ success: true, progress: progressRecord });
+    // Check if all participants have completed this task for auto-completion
+    if (completed) {
+      const checklistItem = await prisma.course_checklist_items.findUnique({
+        where: { id: parseInt(checklistItemId) },
+        select: { participantOnly: true }
+      });
+
+      if (checklistItem?.participantOnly) {
+        // Count total participants and completed participants
+        const [totalParticipants, completedParticipants] = await Promise.all([
+          prisma.project_participants.count({
+            where: { projectId: projectParticipant.projectId }
+          }),
+          prisma.project_participants_course_checklist_progress.count({
+            where: {
+              projectId: projectParticipant.projectId,
+              checklistItemId: parseInt(checklistItemId),
+              completed: true
+            }
+          })
+        ]);
+
+        // If all participants completed, auto-complete the main task
+        if (completedParticipants === totalParticipants) {
+          await prisma.project_course_checklist_progress.upsert({
+            where: {
+              projectId_checklistItemId: {
+                projectId: projectParticipant.projectId,
+                checklistItemId: parseInt(checklistItemId)
+              }
+            },
+            update: {
+              completed: true,
+              completedAt: new Date(),
+              completedBy: 'auto-system',
+              updatedAt: new Date()
+            },
+            create: {
+              projectId: projectParticipant.projectId,
+              checklistItemId: parseInt(checklistItemId),
+              completed: true,
+              completedAt: new Date(),
+              completedBy: 'auto-system',
+              createdBy: 'auto-system'
+            }
+          });
+        }
+      }
+    }
+
+    return res.status(200).json({ success: true, progress: progressRecord });
   } catch (error) {
     console.error('Error updating participant checklist progress:', error);
-    res.status(500).json({ error: 'Failed to update checklist progress' });
+    return res.status(500).json({ 
+      message: 'Failed to update checklist progress',
+      error: error.message 
+    });
   }
 }

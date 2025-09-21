@@ -384,6 +384,7 @@ const ReactTable = React.memo(({
               variant="contained"
               startIcon={<PlusOutlined />}
               size="small"
+              aria-label="add-participant"
               sx={{
                 '& .MuiButton-startIcon': {
                   mr: { xs: 0, sm: 1 }
@@ -401,6 +402,7 @@ const ReactTable = React.memo(({
               startIcon={<UploadOutlined />}
               size="small"
               disabled={csvImportLoading}
+              aria-label="import-csv"
               sx={{
                 '& .MuiButton-startIcon': {
                   mr: { xs: 0, sm: 1 }

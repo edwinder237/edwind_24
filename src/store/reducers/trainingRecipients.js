@@ -29,6 +29,7 @@ const getErrorMessage = (error, defaultMessage = 'An error occurred') => {
 
 const dataRoutes = {
   fetchAll: "/api/training-recipients/fetchAll",
+  fetchSingle: "/api/training-recipients/fetchSingle",
   create: "/api/training-recipients/create",
   update: "/api/training-recipients/update",
   delete: "/api/training-recipients/delete",
@@ -40,6 +41,10 @@ const initialState = {
   loading: false,
   submitting: false,
   trainingRecipients: [],
+  singleRecipient: null,
+  recipientParticipants: [],
+  recipientProjects: [],
+  singleLoading: false,
   response: null,
 };
 
@@ -88,6 +93,14 @@ const slice = createSlice({
       state.response = null;
     },
 
+    // SINGLE LOADING STATE
+    setSingleLoading(state, action) {
+      state.singleLoading = action.payload;
+      if (action.payload) {
+        state.error = null;
+      }
+    },
+
     // GET TRAINING RECIPIENTS
     getTrainingRecipientsSuccess(state, action) {
       if (Array.isArray(action.payload)) {
@@ -98,6 +111,23 @@ const slice = createSlice({
         state.error = 'Invalid training recipients data received';
         state.trainingRecipients = [];
         state.loading = false;
+      }
+    },
+
+    // GET SINGLE TRAINING RECIPIENT
+    getSingleTrainingRecipientSuccess(state, action) {
+      if (action.payload?.recipient) {
+        state.singleRecipient = action.payload.recipient;
+        state.recipientParticipants = action.payload.participants || [];
+        state.recipientProjects = action.payload.projects || [];
+        state.error = null;
+        state.singleLoading = false;
+      } else {
+        state.error = 'Invalid training recipient data received';
+        state.singleRecipient = null;
+        state.recipientParticipants = [];
+        state.recipientProjects = [];
+        state.singleLoading = false;
       }
     },
 
@@ -150,9 +180,11 @@ export const {
   hasSuccess,
   setLoading,
   setSubmitting,
+  setSingleLoading,
   clearError,
   clearSuccess,
   getTrainingRecipientsSuccess,
+  getSingleTrainingRecipientSuccess,
   createTrainingRecipientSuccess,
   updateTrainingRecipientSuccess,
   deleteTrainingRecipientSuccess,
@@ -171,6 +203,23 @@ export function getTrainingRecipients() {
       const errorMessage = getErrorMessage(error, 'Failed to fetch training recipients');
       console.error('Error fetching training recipients:', error);
       dispatch(hasError(errorMessage));
+    }
+  };
+}
+
+// GET SINGLE TRAINING RECIPIENT
+export function getSingleTrainingRecipient(recipientId) {
+  return async () => {
+    dispatch(setSingleLoading(true));
+    try {
+      const response = await axios.get(`${dataRoutes.fetchSingle}?id=${recipientId}`);
+      dispatch(getSingleTrainingRecipientSuccess(response.data));
+      return response.data;
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to fetch training recipient details');
+      console.error('Error fetching training recipient:', error);
+      dispatch(hasError(errorMessage));
+      throw error;
     }
   };
 }
@@ -194,7 +243,7 @@ export function createTrainingRecipient(recipientData) {
 
 // UPDATE TRAINING RECIPIENT
 export function updateTrainingRecipient(recipientData) {
-  return async () => {
+  return async (dispatch) => {
     dispatch(setSubmitting(true));
     try {
       const response = await axios.put(dataRoutes.update, recipientData);
@@ -211,7 +260,7 @@ export function updateTrainingRecipient(recipientData) {
 
 // DELETE TRAINING RECIPIENT
 export function deleteTrainingRecipient(recipientId) {
-  return async () => {
+  return async (dispatch) => {
     try {
       const response = await axios.delete(dataRoutes.delete, {
         data: { id: recipientId }

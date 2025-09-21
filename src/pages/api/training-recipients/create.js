@@ -17,13 +17,15 @@ export default async function handler(req, res) {
       industry,
       taxId,
       notes,
+      location,
+      img,
       sub_organizationId = 1, // Default to first sub-organization for now
       createdBy = 'system' // Default value
     } = req.body;
 
-    if (!name || !contactPerson) {
+    if (!name) {
       return res.status(400).json({ 
-        error: 'Name and contact person are required' 
+        error: 'Name is required' 
       });
     }
 
@@ -54,6 +56,8 @@ export default async function handler(req, res) {
         industry,
         taxId,
         notes,
+        location: location ? JSON.stringify(location) : null,
+        img: img || null,
         sub_organizationId: parseInt(sub_organizationId),
         createdBy
       },

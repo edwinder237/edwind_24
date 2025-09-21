@@ -9,7 +9,8 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  Grid
+  Grid,
+  Button
 } from '@mui/material';
 import {
   PieChart,
@@ -17,9 +18,13 @@ import {
   SupervisorAccount,
   BusinessCenter,
   Group,
-  TrendingUp
+  TrendingUp,
+  PersonAddAlt1,
+  Upload
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
+import { useSelector, useDispatch } from 'store';
+import { openDrawer } from 'store/reducers/menu';
 import ChartWrapper from 'components/ChartWrapper';
 
 // Mock role distribution data
@@ -56,8 +61,23 @@ const generateRoleDistribution = () => [
 
 const RoleDistributionChart = ({ project }) => {
   const theme = useTheme();
-  const roleData = generateRoleDistribution();
-  const totalParticipants = roleData.reduce((sum, role) => sum + role.count, 0);
+  const dispatch = useDispatch();
+  const { project_participants } = useSelector((state) => state.projects);
+  
+  // Check if there are actual participants
+  const hasParticipants = project_participants && project_participants.length > 0;
+  
+  // Use mock data for demo or real participant data
+  const roleData = hasParticipants ? generateRoleDistribution() : [];
+  const totalParticipants = hasParticipants ? roleData.reduce((sum, role) => sum + role.count, 0) : 0;
+  
+  const handleOpenParticipantDrawer = () => {
+    // Trigger the participant drawer opening
+    const participantButton = document.querySelector('[aria-label="participants management"]');
+    if (participantButton) {
+      participantButton.click();
+    }
+  };
 
   // Prepare chart data
   const chartSeries = roleData.map(role => role.count);
@@ -143,18 +163,85 @@ const RoleDistributionChart = ({ project }) => {
           <PieChart sx={{ color: 'primary.main' }} />
           <Typography variant="h6" fontWeight="bold">Role Distribution</Typography>
         </Stack>
-        <Chip 
-          label={`${totalParticipants} total`} 
-          size="small" 
-          color="primary"
-          variant="outlined"
-        />
+        {hasParticipants && (
+          <Chip 
+            label={`${totalParticipants} total`} 
+            size="small" 
+            color="primary"
+            variant="outlined"
+          />
+        )}
       </Stack>
 
-      <Grid container spacing={3}>
-        {/* Pie Chart */}
-        <Grid item xs={12} md={7}>
-          <Box sx={{ position: 'relative', height: 300 }}>
+      {!hasParticipants ? (
+        // Empty state with prominent call to action
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 350,
+            py: 4
+          }}
+        >
+          <Box
+            sx={{
+              width: 120,
+              height: 120,
+              borderRadius: '50%',
+              bgcolor: 'primary.50',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mb: 3
+            }}
+          >
+            <Group sx={{ fontSize: 60, color: 'primary.main' }} />
+          </Box>
+          <Typography variant="h5" fontWeight="600" gutterBottom>
+            No Participants Yet
+          </Typography>
+          <Typography 
+            variant="body1" 
+            color="text.secondary" 
+            textAlign="center" 
+            sx={{ maxWidth: 400, mb: 4 }}
+          >
+            Start building your training project by adding participants. You can add them individually or import multiple participants at once.
+          </Typography>
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<PersonAddAlt1 />}
+              onClick={handleOpenParticipantDrawer}
+              sx={{ px: 3 }}
+            >
+              Add Participants
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              startIcon={<Upload />}
+              onClick={handleOpenParticipantDrawer}
+              sx={{ px: 3 }}
+            >
+              Import CSV
+            </Button>
+          </Stack>
+          <Typography 
+            variant="caption" 
+            color="text.secondary" 
+            sx={{ mt: 3, textAlign: 'center' }}
+          >
+            Tip: You can also use the team icon in the top navigation to manage participants
+          </Typography>
+        </Box>
+      ) : (
+        <Box>
+          {/* Pie Chart */}
+          <Box sx={{ position: 'relative', height: 300, mb: 3 }}>
             <ChartWrapper
               options={chartOptions}
               series={chartSeries}
@@ -162,10 +249,8 @@ const RoleDistributionChart = ({ project }) => {
               height={300}
             />
           </Box>
-        </Grid>
 
-        {/* Legend and Details */}
-        <Grid item xs={12} md={5}>
+          {/* Role Breakdown Below Chart */}
           <Box>
             <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ mb: 2 }}>
               Role Breakdown
@@ -230,36 +315,9 @@ const RoleDistributionChart = ({ project }) => {
                 </ListItem>
               ))}
             </List>
-
-            {/* Summary Stats */}
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                Training Composition
-              </Typography>
-              <Stack spacing={1}>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2">Most Common Role:</Typography>
-                  <Typography variant="body2" fontWeight="bold" color="primary.main">
-                    Sales Rep (60%)
-                  </Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2">Role Diversity:</Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {roleData.length} different roles
-                  </Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2">Management Ratio:</Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    25% ({roleData.filter(r => r.role.includes('Manager') || r.role.includes('Lead')).reduce((sum, r) => sum + r.count, 0)} people)
-                  </Typography>
-                </Stack>
-              </Stack>
-            </Box>
           </Box>
-        </Grid>
-      </Grid>
+        </Box>
+      )}
     </Paper>
   );
 };

@@ -526,7 +526,16 @@ const NewParticipantForm = ({
   if (!isOpen) return null;
 
   return (
-    <Card sx={{ maxWidth: 600, mx: 'auto' }}>
+    <Card 
+      sx={{ 
+        maxWidth: { xs: '100%', sm: 600 }, 
+        mx: 'auto',
+        maxHeight: { xs: '100vh', sm: 'none' },
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <CardHeader
         avatar={<UserAddOutlined style={{ fontSize: '1.5rem', color: theme.palette.primary.main }} />}
         title="Add New Participant"
@@ -536,95 +545,148 @@ const NewParticipantForm = ({
             <CloseOutlined />
           </IconButton>
         }
+        sx={{ flexShrink: 0 }}
       />
       
       <Divider />
       
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ mb: 4 }}>
-          <Stepper activeStep={activeStep} alternativeLabel>
+      <CardContent 
+        sx={{ 
+          p: { xs: 2, sm: 3 },
+          flex: 1,
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0
+        }}
+      >
+        <Box sx={{ mb: { xs: 2, sm: 4 }, flexShrink: 0 }}>
+          <Stepper 
+            activeStep={activeStep} 
+            alternativeLabel={true}
+            orientation="horizontal"
+            sx={{
+              '& .MuiStepConnector-root': {
+                top: { xs: 12, sm: 16 },
+                left: 'calc(-50% + 16px)',
+                right: 'calc(50% + 16px)',
+              },
+              '& .MuiStepConnector-line': {
+                height: 2,
+                border: 0,
+                backgroundColor: theme.palette.divider,
+                borderRadius: 1,
+              },
+              '& .MuiStepLabel-root': {
+                '& .MuiStepLabel-label': {
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  fontWeight: 500,
+                  color: 'text.secondary',
+                  '&.Mui-active': {
+                    color: 'text.primary',
+                    fontWeight: 600,
+                  },
+                  '&.Mui-completed': {
+                    color: 'text.primary',
+                    fontWeight: 500,
+                  }
+                }
+              }
+            }}
+          >
             {steps.map((label, index) => (
               <Step key={label}>
                 <StepLabel
                   StepIconComponent={({ active, completed }) => (
                     <Box
                       sx={{
-                        width: 32,
-                        height: 32,
+                        width: { xs: 24, sm: 32 },
+                        height: { xs: 24, sm: 32 },
                         borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         backgroundColor: completed 
-                          ? 'success.main' 
+                          ? theme.palette.success.main
                           : active 
-                            ? 'primary.main' 
-                            : 'action.disabled',
-                        color: completed || active ? 'primary.contrastText' : 'text.disabled',
-                        fontSize: '0.875rem',
+                            ? theme.palette.primary.main 
+                            : theme.palette.grey[400],
+                        color: completed || active ? '#fff' : theme.palette.grey[600],
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
                         fontWeight: 600,
+                        border: completed || active ? 'none' : `2px solid ${theme.palette.grey[300]}`,
+                        transition: 'all 0.3s ease',
                       }}
                     >
-                      {completed ? <CheckCircleOutlined /> : index + 1}
+                      {completed ? <CheckCircleOutlined style={{ fontSize: 16 }} /> : index + 1}
                     </Box>
                   )}
                 >
-                  <Typography 
-                    variant="caption" 
-                    color={activeStep >= index ? 'text.primary' : 'text.disabled'}
-                    sx={{ mt: 1, display: 'block' }}
-                  >
-                    {label}
-                  </Typography>
+                  {label}
                 </StepLabel>
               </Step>
             ))}
           </Stepper>
         </Box>
 
-        <Box sx={{ minHeight: 300 }}>
+        <Box 
+          sx={{ 
+            flex: 1,
+            overflow: 'auto',
+            minHeight: { xs: 200, sm: 300 }
+          }}
+        >
           {renderStepContent()}
         </Box>
 
-        <Divider sx={{ my: 3 }} />
+        <Box sx={{ flexShrink: 0, mt: 'auto' }}>
+          <Divider sx={{ my: { xs: 2, sm: 3 } }} />
 
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Stack direction="row" spacing={1}>
-            {activeStep > 0 && (
-              <Button onClick={handleBack} disabled={isSubmitting}>
-                Back
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            justifyContent="space-between" 
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            spacing={{ xs: 2, sm: 0 }}
+          >
+            <Stack direction="row" spacing={1} justifyContent={{ xs: 'center', sm: 'flex-start' }}>
+              {activeStep > 0 && (
+                <Button onClick={handleBack} disabled={isSubmitting} size="small">
+                  Back
+                </Button>
+              )}
+              <Button onClick={handleReset} color="warning" disabled={isSubmitting} size="small">
+                Reset
               </Button>
-            )}
-            <Button onClick={handleReset} color="warning" disabled={isSubmitting}>
-              Reset
-            </Button>
-          </Stack>
+            </Stack>
 
-          <Stack direction="row" spacing={1}>
-            <Button onClick={onCancel} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            
-            {activeStep < steps.length - 1 ? (
-              <Button 
-                variant="contained" 
-                onClick={handleNext}
-                disabled={isSubmitting}
-              >
-                Next
+            <Stack direction="row" spacing={1} justifyContent={{ xs: 'center', sm: 'flex-end' }}>
+              <Button onClick={onCancel} disabled={isSubmitting} size="small">
+                Cancel
               </Button>
-            ) : (
-              <Button 
-                variant="contained" 
-                onClick={formik.handleSubmit}
-                disabled={isSubmitting || !formik.isValid}
-                startIcon={isSubmitting ? <CircularProgress size={16} /> : <UserAddOutlined />}
-              >
-                {isSubmitting ? 'Adding...' : 'Add Participant'}
-              </Button>
-            )}
+              
+              {activeStep < steps.length - 1 ? (
+                <Button 
+                  variant="contained" 
+                  onClick={handleNext}
+                  disabled={isSubmitting}
+                  size="small"
+                >
+                  Next
+                </Button>
+              ) : (
+                <Button 
+                  variant="contained" 
+                  onClick={formik.handleSubmit}
+                  disabled={isSubmitting || !formik.isValid}
+                  startIcon={isSubmitting ? <CircularProgress size={16} /> : <UserAddOutlined />}
+                  size="small"
+                >
+                  {isSubmitting ? 'Adding...' : 'Add Participant'}
+                </Button>
+              )}
+            </Stack>
           </Stack>
-        </Stack>
+        </Box>
       </CardContent>
     </Card>
   );

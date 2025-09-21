@@ -31,12 +31,26 @@ export default async function handler(req, res) {
       }
     });
 
-    // Add computed fields
-    const enrichedRecipients = trainingRecipients.map(recipient => ({
-      ...recipient,
-      projectCount: recipient.projects.length,
-      participantCount: recipient.participants.length
-    }));
+    // Add computed fields and parse location JSON
+    const enrichedRecipients = trainingRecipients.map(recipient => {
+      let parsedLocation = null;
+      if (recipient.location) {
+        try {
+          parsedLocation = typeof recipient.location === 'string' 
+            ? JSON.parse(recipient.location) 
+            : recipient.location;
+        } catch (error) {
+          console.error(`Error parsing location JSON for recipient ${recipient.id}:`, error);
+        }
+      }
+
+      return {
+        ...recipient,
+        location: parsedLocation,
+        projectCount: recipient.projects.length,
+        participantCount: recipient.participants.length
+      };
+    });
 
     res.status(200).json(enrichedRecipients);
   } catch (error) {

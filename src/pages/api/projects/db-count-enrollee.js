@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from '../../../lib/prisma';
 
 export default async function handler(req, res) {
   try {
@@ -14,7 +12,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error(error);
     res.status(500).json(error.message);
-  } finally {
-    await prisma.$disconnect();
   }
 }

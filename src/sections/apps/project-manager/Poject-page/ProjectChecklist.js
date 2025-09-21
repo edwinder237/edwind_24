@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { useState } from 'react';
 import {
   Box,
   Chip,
@@ -14,6 +15,9 @@ import {
   CardContent,
   CardHeader,
   Avatar,
+  IconButton,
+  TextField,
+  Tooltip,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import {
@@ -22,7 +26,12 @@ import {
   SettingOutlined,
   FileTextOutlined,
   UserOutlined,
+  EditOutlined,
+  SaveOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
+import ParticipantChecklistDialog from './ParticipantChecklistDialog';
+import axios from 'utils/axios';
 
 // ==============================|| PROJECT CHECKLIST ||============================== //
 
@@ -30,9 +39,61 @@ const ProjectChecklist = ({
   checklistItems, 
   checklistLoading, 
   onToggleItem,
-  styles 
+  updatingItems,
+  styles,
+  projectId,
+  onUpdateNote,
+  onRefreshChecklist 
 }) => {
   const theme = useTheme();
+  const [participantDialogOpen, setParticipantDialogOpen] = useState(false);
+  const [selectedChecklistItem, setSelectedChecklistItem] = useState(null);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteValue, setNoteValue] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+
+  const handleParticipantChipClick = (item) => {
+    setSelectedChecklistItem(item);
+    setParticipantDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setParticipantDialogOpen(false);
+    setSelectedChecklistItem(null);
+  };
+
+  const handleEditNote = (item) => {
+    setEditingNoteId(item.id);
+    setNoteValue(item.notes || '');
+  };
+
+  const handleCancelNote = () => {
+    setEditingNoteId(null);
+    setNoteValue('');
+  };
+
+  const handleSaveNote = async (item) => {
+    setSavingNote(true);
+    try {
+      const response = await axios.post('/api/projects/checklist-progress', {
+        projectId,
+        checklistItemId: item.id,
+        completed: item.completed,
+        notes: noteValue.trim() || null
+      });
+      
+      if (onUpdateNote) {
+        onUpdateNote(item.id, noteValue.trim());
+      }
+      
+      setEditingNoteId(null);
+      setNoteValue('');
+    } catch (error) {
+      console.error('Error saving note:', error);
+    } finally {
+      setSavingNote(false);
+    }
+  };
 
   const getCategoryIcon = (category) => {
     switch (category) {
@@ -137,56 +198,171 @@ const ProjectChecklist = ({
                       transition: 'background-color 0.2s'
                     }}
                   >
-                    <ListItemIcon>
-                      <Checkbox 
-                        checked={item.completed}
-                        onChange={() => onToggleItem(item)}
-                        color="primary"
-                      />
+                    <ListItemIcon sx={{ position: 'relative' }}>
+                      <Tooltip 
+                        title={item.participantOnly ? "This task is completed automatically when all participants complete it" : ""}
+                        placement="top"
+                      >
+                        <span>
+                          <Checkbox 
+                            checked={item.completed}
+                            onChange={() => !item.participantOnly && onToggleItem(item)}
+                            disabled={updatingItems.has(item.id) || item.participantOnly}
+                            color="primary"
+                          />
+                        </span>
+                      </Tooltip>
+                      {updatingItems.has(item.id) && (
+                        <CircularProgress 
+                          size={20} 
+                          sx={{ 
+                            position: 'absolute',
+                            left: '50%',
+                            top: '50%',
+                            marginLeft: '-10px',
+                            marginTop: '-10px',
+                          }} 
+                        />
+                      )}
                     </ListItemIcon>
                     <ListItemText
                       primary={
-                        <Box sx={{ ...styles.flexCenter, gap: 1, flexWrap: 'wrap' }}>
-                          <Typography 
-                            variant="body1" 
-                            sx={{ 
-                              fontWeight: 500,
-                              textDecoration: item.completed ? 'line-through' : 'none',
-                              opacity: item.completed ? 0.7 : 1 
-                            }}
-                          >
-                            {item.title}
-                          </Typography>
-                          <Chip 
-                            label={item.priority} 
-                            size="small" 
-                            color={getPriorityColor(item.priority)}
-                            variant="outlined"
-                          />
-                          <Chip 
-                            label={item.category} 
-                            size="small" 
-                            variant="outlined"
-                            color="default"
-                          />
-                          {item.module && (
-                            <Chip 
-                              label={`Module: ${item.module.title}`} 
-                              size="small" 
-                              variant="outlined"
-                              color="info"
-                            />
-                          )}
+                        <Box>
+                          <Box sx={{ ...styles.flexCenter, gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                            <Typography 
+                              variant="body1" 
+                              sx={{ 
+                                fontWeight: 500,
+                                textDecoration: item.completed ? 'line-through' : 'none',
+                                opacity: item.completed ? 0.7 : 1,
+                                flexGrow: 1,
+                                textAlign: 'left'
+                              }}
+                            >
+                              {item.priority === 'high' && '! '}
+                              {item.title}
+                            </Typography>
+                            {item.participantOnly && (
+                              <Chip 
+                                label={item.participantCompletionCount ? 
+                                  `Participants: ${item.participantCompletionCount.completed}/${item.participantCompletionCount.total}` : 
+                                  "Participant Only"
+                                }
+                                size="small" 
+                                variant="filled"
+                                color="primary"
+                                icon={<UserOutlined style={{ fontSize: '14px' }} />}
+                                onClick={() => handleParticipantChipClick(item)}
+                                sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+                              />
+                            )}
+                            {item.module && (
+                              <Chip 
+                                label={`Module: ${item.module.title}`} 
+                                size="small" 
+                                variant="outlined"
+                                color="info"
+                              />
+                            )}
+                          </Box>
                         </Box>
                       }
                       secondary={
                         <Box sx={{ mt: 0.5 }}>
                           {item.description && (
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                               {item.description}
                             </Typography>
                           )}
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                          
+                          {/* Note Section */}
+                          {editingNoteId === item.id ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={noteValue}
+                                onChange={(e) => setNoteValue(e.target.value)}
+                                placeholder="Add a note (max 160 characters)"
+                                inputProps={{ maxLength: 160 }}
+                                autoFocus
+                                disabled={savingNote}
+                                sx={{ 
+                                  flexGrow: 1,
+                                  '& .MuiInputBase-input': {
+                                    fontSize: '0.875rem'
+                                  }
+                                }}
+                              />
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleSaveNote(item)}
+                                disabled={savingNote}
+                                color="primary"
+                                sx={{ p: 0.5 }}
+                              >
+                                <SaveOutlined style={{ fontSize: 16 }} />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                onClick={handleCancelNote}
+                                disabled={savingNote}
+                                sx={{ p: 0.5 }}
+                              >
+                                <CloseOutlined style={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Box>
+                          ) : (
+                            item.notes ? (
+                              <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 0.5,
+                                mb: 1
+                              }}>
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    fontStyle: 'italic',
+                                    color: 'text.secondary',
+                                    flexGrow: 1
+                                  }}
+                                >
+                                  Note: {item.notes}
+                                </Typography>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => handleEditNote(item)}
+                                  sx={{ p: 0.25 }}
+                                >
+                                  <EditOutlined style={{ fontSize: 12 }} />
+                                </IconButton>
+                              </Box>
+                            ) : (
+                              <Box sx={{ mb: 0.5 }}>
+                                <Typography
+                                  variant="caption"
+                                  onClick={() => handleEditNote(item)}
+                                  sx={{ 
+                                    color: 'text.secondary',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                    '&:hover': { 
+                                      textDecoration: 'underline',
+                                      color: 'primary.main'
+                                    }
+                                  }}
+                                >
+                                  <EditOutlined style={{ fontSize: 12 }} />
+                                  Add note
+                                </Typography>
+                              </Box>
+                            )
+                          )}
+                          
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             Created: {new Date(item.createdAt).toLocaleDateString()}
                             {item.completedAt && (
                               <> • Completed: {new Date(item.completedAt).toLocaleDateString()}</>
@@ -202,6 +378,15 @@ const ProjectChecklist = ({
           </Card>
         ))
       )}
+
+      {/* Participant Progress Dialog */}
+      <ParticipantChecklistDialog
+        open={participantDialogOpen}
+        onClose={handleDialogClose}
+        projectId={projectId}
+        checklistItem={selectedChecklistItem}
+        onRefreshChecklist={onRefreshChecklist}
+      />
     </Box>
   );
 };
@@ -210,7 +395,11 @@ ProjectChecklist.propTypes = {
   checklistItems: PropTypes.array.isRequired,
   checklistLoading: PropTypes.bool.isRequired,
   onToggleItem: PropTypes.func.isRequired,
-  styles: PropTypes.object.isRequired
+  updatingItems: PropTypes.instanceOf(Set).isRequired,
+  styles: PropTypes.object.isRequired,
+  projectId: PropTypes.number.isRequired,
+  onUpdateNote: PropTypes.func,
+  onRefreshChecklist: PropTypes.func.isRequired
 };
 
 export default ProjectChecklist;

@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from "../../../lib/prisma";
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -51,7 +49,5 @@ export default async function handler(req, res) {
       error: 'Failed to fetch available roles',
       details: error.message 
     });
-  } finally {
-    await prisma.$disconnect();
   }
 }

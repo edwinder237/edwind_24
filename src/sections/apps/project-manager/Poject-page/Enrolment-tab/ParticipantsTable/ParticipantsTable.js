@@ -198,9 +198,7 @@ const ParticipantsTable = React.memo(({ index }) => {
   return (
     <>
       <MainCard
-        title={`${tableTitle}s`}
         content={false}
-        subheader="This section enables the assignment of employees to groups, facilitates data modifications, and allows for the tracking of learning progress."
         sx={{ 
           flex: 1,
           display: 'flex',

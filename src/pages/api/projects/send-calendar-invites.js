@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId, groupIds, events, projectTitle, dailyFocusData, includeZoomLinks = true } = req.body;
+    const { projectId, groupIds, events, projectTitle, dailyFocusData, includeZoomLinks = true, customTemplate, templateType } = req.body;
 
     if (!projectId || !groupIds || !Array.isArray(groupIds) || groupIds.length === 0) {
       return res.status(400).json({ message: 'Missing required fields: projectId and groupIds' });
@@ -125,7 +125,16 @@ export default async function handler(req, res) {
             from: 'EDWIND Training Schedule <admin@edwind.ca>',
             to: [participant.email],
             subject: `Calendar Invitation: ${event.title} - ${projectTitle}`,
-            html: generateEventInviteTemplate({
+            html: customTemplate ? generateCustomTemplate({
+              template: customTemplate,
+              participantName: `${participant.firstName} ${participant.lastName}`,
+              event,
+              projectTitle,
+              groupName: participant.groupName,
+              events: templateType === 'summary' ? calendarEvents : [event],
+              templateType,
+              project
+            }) : generateEventInviteTemplate({
               participantName: `${participant.firstName} ${participant.lastName}`,
               event,
               projectTitle,
@@ -357,6 +366,250 @@ function generateEventInviteTemplate({ participantName, event, projectTitle, gro
     </body>
     </html>
   `;
+}
+
+function generateCustomTemplate({ template, participantName, event, events, projectTitle, groupName, templateType, project }) {
+  let processedTemplate = template;
+  
+  // Template variables
+  const variables = {
+    '{{PROJECT_TITLE}}': projectTitle,
+    '{{PARTICIPANT_NAME}}': participantName,
+    '{{GROUP_NAME}}': groupName,
+    '{{EVENT_TITLE}}': event?.title || '',
+    '{{COURSE_TITLE}}': event?.course?.title || '',
+    '{{EVENT_DATE}}': event ? format(new Date(event.startTime), 'EEEE, MMMM d, yyyy', { locale: fr }) : '',
+    '{{EVENT_TIME}}': event ? `${format(new Date(event.startTime), 'HH:mm')} - ${format(new Date(event.endTime), 'HH:mm')}` : '',
+    '{{EVENT_LOCATION}}': event?.location || '',
+    '{{EVENT_DESCRIPTION}}': event?.description || '',
+    '{{ZOOM_LINK}}': event?.zoomLink || ''
+  };
+
+  // Handle conditional blocks (e.g., {{#COURSE_TITLE}}...{{/COURSE_TITLE}})
+  processedTemplate = processedTemplate.replace(/{{#(\w+)}}(.*?){{\/\1}}/gs, (match, variable, content) => {
+    const value = variables[`{{${variable}}}`];
+    return value ? content.replace(new RegExp(`{{${variable}}}`, 'g'), value) : '';
+  });
+
+  // Replace regular variables
+  Object.entries(variables).forEach(([variable, value]) => {
+    processedTemplate = processedTemplate.replace(new RegExp(variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+  });
+
+  // Handle events list for summary template
+  if (templateType === 'summary' && events) {
+    // Group events by date for the new template format
+    const eventsByDate = events.reduce((acc, evt) => {
+      const date = format(new Date(evt.startTime), 'yyyy-MM-dd');
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(evt);
+      return acc;
+    }, {});
+
+    // Generate schedule days HTML in the proper email template format
+    const scheduleDaysHtml = Object.entries(eventsByDate).map(([dateKey, dayEvents], index, array) => {
+      const date = new Date(dateKey + 'T12:00:00');
+      const month = format(date, 'MMM', { locale: fr }).toUpperCase();
+      const day = format(date, 'dd');
+      const dayName = format(date, 'EEEE', { locale: fr }).toUpperCase();
+      
+      const eventsHtml = dayEvents.map(evt => {
+        const timeRange = `${format(new Date(evt.startTime), 'HH:mm')}`;
+        const groups = evt.event_groups?.map(eg => eg.groups?.groupName).filter(Boolean).join(', ');
+        
+        return `
+                                                    <table class="paragraph_block block-3" width="100%" border="0" cellpadding="5" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div style="color:#000000;direction:ltr;font-family:Ubuntu, Tahoma, Verdana, Segoe, sans-serif;font-size:14px;font-weight:400;letter-spacing:0px;line-height:120%;text-align:left;mso-line-height-alt:16.8px;">
+                                                                    <p style="margin: 0;"><strong>${timeRange}</strong> ${evt.title}${evt.course?.title ? ` ${evt.course.title}` : ''} ${groups ? `<strong>${groups}</strong>` : ''}</p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>`;
+      }).join('');
+      
+      return `
+                    <table class="row row-5" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #ffffff; color: #000000; width: 900px;" width="900">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top; padding-top: 5px; padding-bottom: 20px; border-top: 0px; border-right: 0px; border-bottom: 0px; border-left: 0px;">
+                                                    <table class="divider_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:5px;padding-left:15px;padding-right:15px;padding-top:5px;">
+                                                                <div class="alignment" align="center">
+                                                                    <table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                                                                        <tr>
+                                                                            <td class="divider_inner" style="font-size: 1px; line-height: 1px; border-top: 1px solid #2D2D2D;"><span>&#8202;</span></td>
+                                                                        </tr>
+                                                                    </table>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <table class="row row-6" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #ffffff; color: #000000; width: 900px;" width="900">
+                                        <tbody>
+                                            <tr>
+                                                <td class="column column-1" width="25%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; background-color: #ffffff; vertical-align: top; border-top: 0px; border-right: 0px; border-bottom: 0px; border-left: 0px;">
+                                                    <table class="text_block block-2" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-top:10px;">
+                                                                <div style="font-family: sans-serif">
+                                                                    <div class style="font-size: 12px; mso-line-height-alt: 18px; color: #2d2d2d; line-height: 1.5; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif;">
+                                                                        <p style="margin: 0; font-size: 14px; text-align: center; mso-line-height-alt: 21px;">${month}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="text_block block-3" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad">
+                                                                <div style="font-family: sans-serif">
+                                                                    <div class style="font-size: 12px; mso-line-height-alt: 18px; color: #2d2d2d; line-height: 1.5; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif;">
+                                                                        <p style="margin: 0; font-size: 14px; text-align: center; mso-line-height-alt: 42px;"><span style="font-size:28px;"><strong>${day}</strong></span></p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="text_block block-4" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:10px;padding-left:5px;padding-right:5px;padding-top:5px;">
+                                                                <div style="font-family: sans-serif">
+                                                                    <div class style="font-size: 12px; mso-line-height-alt: 18px; color: #2d2d2d; line-height: 1.5; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif;">
+                                                                        <p style="margin: 0; font-size: 14px; text-align: center; mso-line-height-alt: 21px;">${dayName}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                                <td class="column column-2" width="50%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; background-color: #ffffff; padding-left: 15px; padding-right: 10px; vertical-align: top; border-top: 0px; border-right: 0px; border-bottom: 0px; border-left: 0px;">
+                                                    <table class="paragraph_block block-2" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:5px;padding-left:5px;padding-right:5px;padding-top:10px;">
+                                                                <div style="color:#cc0a0a;direction:ltr;font-family:Ubuntu, Tahoma, Verdana, Segoe, sans-serif;font-size:14px;font-weight:400;letter-spacing:0px;line-height:120%;text-align:left;mso-line-height-alt:16.8px;">
+                                                                    <p style="margin: 0;"><strong>Agenda</strong></p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    ${eventsHtml}
+                                                </td>
+                                                <td class="column column-3" width="25%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top; border-top: 0px; border-right: 0px; border-bottom: 0px; border-left: 0px;">
+                                                    <table class="paragraph_block block-2" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:10px;padding-left:10px;padding-right:10px;padding-top:15px;">
+                                                                <div style="color:#000000;direction:ltr;font-family:Ubuntu, Tahoma, Verdana, Segoe, sans-serif;font-size:14px;font-weight:400;letter-spacing:0px;line-height:120%;text-align:center;mso-line-height-alt:16.8px;">
+                                                                    <p style="margin: 0;"><strong>Focus of the day</strong></p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="paragraph_block block-3" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:15px;padding-left:10px;padding-right:10px;padding-top:10px;">
+                                                                <div style="color:#000000;direction:ltr;font-family:Ubuntu, Tahoma, Verdana, Segoe, sans-serif;font-size:14px;font-weight:400;letter-spacing:0px;line-height:120%;text-align:center;mso-line-height-alt:16.8px;">
+                                                                    <p style="margin: 0;">Sample focus content</p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>`;
+    }).join('');
+    
+    processedTemplate = processedTemplate.replace(/{{#SCHEDULE_DAYS}}.*?{{\/SCHEDULE_DAYS}}/gs, scheduleDaysHtml);
+  }
+
+  // Handle groups section
+  if (project?.groups) {
+    const groupsHtml = project.groups.map((group, index) => {
+      const participantsHtml = (group.participants || []).map(groupParticipant => {
+        let participant = null;
+        if (groupParticipant.participant?.participant) {
+          participant = groupParticipant.participant.participant;
+        } else if (groupParticipant.participant) {
+          participant = groupParticipant.participant;
+        }
+        
+        if (participant && participant.firstName && participant.lastName) {
+          return `
+                                                                <ul start="1" style="margin: 0; padding: 0; margin-left: 20px; list-style-type: revert; color: #000000; direction: ltr; font-family: 'Ubuntu', Tahoma, Verdana, Segoe, sans-serif; font-size: 14px; font-weight: 400; letter-spacing: 0px; line-height: 120%; text-align: left;">
+                                                                    <li style="margin-bottom: 0px;">${participant.firstName} ${participant.lastName}</li>
+                                                                </ul>`;
+        }
+        return '';
+      }).join('');
+
+      return `
+                                                <td class="column column-${index + 1}" width="25%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top; border-top: 0px; border-right: 0px; border-bottom: 0px; border-left: 0px;">
+                                                    <table class="paragraph_block block-2" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:5px;padding-left:5px;padding-right:5px;padding-top:10px;">
+                                                                <div style="color:#000000;direction:ltr;font-family:'Ubuntu', Tahoma, Verdana, Segoe, sans-serif;font-size:20px;font-weight:400;letter-spacing:0px;line-height:120%;text-align:center;mso-line-height-alt:24px;">
+                                                                    <p style="margin: 0;"><strong>${group.groupName}</strong></p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <table class="list_block block-3" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
+                                                        <tr>
+                                                            <td class="pad" style="padding-bottom:15px;padding-left:60px;padding-right:10px;">
+                                                                ${participantsHtml}
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>`;
+    }).join('');
+    
+    // Handle the full groups section wrapper
+    const fullGroupsSection = `
+                    <table class="row row-4" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #ffffff; color: #000000; width: 900px;" width="900">
+                                        <tbody>
+                                            <tr>
+                                                ${groupsHtml}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>`;
+    
+    processedTemplate = processedTemplate.replace(/{{#GROUPS_SECTION}}.*?{{\/GROUPS_SECTION}}/gs, fullGroupsSection);
+    processedTemplate = processedTemplate.replace(/{{#GROUPS}}.*?{{\/GROUPS}}/gs, groupsHtml);
+  }
+
+  return processedTemplate;
 }
 
 function generateEmailTemplate({ participantName, projectTitle, calendarEvents, groupName }) {

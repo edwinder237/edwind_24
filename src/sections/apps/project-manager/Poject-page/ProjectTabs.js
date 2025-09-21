@@ -13,6 +13,7 @@ import {
   Typography,
   Card,
   CircularProgress,
+  useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { DndProvider } from 'react-dnd';
@@ -20,7 +21,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { isMobile } from 'react-device-detect';
 import MainCard from 'components/MainCard';
-import { useDispatch } from "store";
+import { useDispatch, useSelector } from "store";
 import { getParticipants, getGroupsDetails } from "store/reducers/projects";
 import {
   DashboardOutlined,
@@ -64,7 +65,7 @@ const OverviewTab = dynamic(() =>
 
 // Tab Panel Component
 function TabPanel(props) {
-  const { children, value, index, ...other } = props;
+  const { children, value, index, isMobile, ...other } = props;
 
   return (
     <div
@@ -75,7 +76,7 @@ function TabPanel(props) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: isMobile ? 0 : 3 }}>
           {children}
         </Box>
       )}
@@ -97,20 +98,46 @@ const ProjectTabs = ({
   checklistItems,
   checklistLoading,
   onChecklistToggle,
+  onChecklistNoteUpdate,
+  onChecklistRefresh,
+  updatingItems,
   styles
 }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
+  const { project_participants } = useSelector((state) => state.projects);
   const [tabValue, setTabValue] = React.useState(0);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [participantTabValue, setParticipantTabValue] = React.useState(0);
   const [hasLoadedParticipantsData, setHasLoadedParticipantsData] = React.useState(false);
+  const [pulseAnimation, setPulseAnimation] = React.useState(false);
+  
+  // Show pulse animation when there are no participants
+  React.useEffect(() => {
+    if (project && (!project_participants || project_participants.length === 0)) {
+      setPulseAnimation(true);
+      // Stop animation after 5 seconds to avoid being annoying
+      const timer = setTimeout(() => setPulseAnimation(false), 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setPulseAnimation(false);
+    }
+  }, [project, project_participants]);
 
-  const handleChange = (event, newValue) => {
+  const handleChange = async (event, newValue) => {
     setTabValue(newValue);
+    
+    // If switching to Groups tab (index 3), ensure data is loaded
+    if (newValue === 3 && project?.id && !hasLoadedParticipantsData) {
+      await Promise.all([
+        dispatch(getParticipants(project.id)),
+        dispatch(getGroupsDetails(project.id))
+      ]);
+      setHasLoadedParticipantsData(true);
+    }
   };
 
-  const handleOpenDrawer = async () => {
+  const handleOpenDrawer = async (action = null) => {
     setDrawerOpen(true);
     
     // Fetch participants data only once when drawer is first opened
@@ -121,15 +148,42 @@ const ProjectTabs = ({
       ]);
       setHasLoadedParticipantsData(true);
     }
+    
+    // Dispatch custom event to check if welcome dialog should be shown
+    window.dispatchEvent(new CustomEvent('checkShowWelcomeDialog'));
+    
+    // If action is specified, trigger the corresponding button after a delay
+    if (action) {
+      setTimeout(() => {
+        if (action === 'addManually') {
+          const addButton = document.querySelector('[aria-label="add-participant"]');
+          if (addButton) addButton.click();
+        } else if (action === 'importCSV') {
+          const importButton = document.querySelector('[aria-label="import-csv"]');
+          if (importButton) importButton.click();
+        }
+      }, 500);
+    }
   };
 
   const handleCloseDrawer = () => {
     setDrawerOpen(false);
   };
 
-  const handleParticipantTabChange = (event, newValue) => {
-    setParticipantTabValue(newValue);
-  };
+  // Listen for custom event to open participants drawer with specific action
+  React.useEffect(() => {
+    const handleOpenDrawerEvent = (event) => {
+      const action = event.detail?.action;
+      handleOpenDrawer(action);
+    };
+
+    window.addEventListener('openParticipantsDrawer', handleOpenDrawerEvent);
+    
+    return () => {
+      window.removeEventListener('openParticipantsDrawer', handleOpenDrawerEvent);
+    };
+  }, []);
+
 
   // Loading fallback component
   const LoadingFallback = () => (
@@ -139,27 +193,6 @@ const ProjectTabs = ({
     </Box>
   );
 
-  // Tab Panel Component for drawer
-  function DrawerTabPanel({ children, value, index, ...other }) {
-    return (
-      <div
-        role="tabpanel"
-        hidden={value !== index}
-        id={`drawer-tabpanel-${index}`}
-        aria-labelledby={`drawer-tab-${index}`}
-        style={{ 
-          flex: 1, 
-          display: value === index ? 'flex' : 'none',
-          flexDirection: 'column',
-          minHeight: 0,
-          overflow: 'hidden'
-        }}
-        {...other}
-      >
-        {children}
-      </div>
-    );
-  }
 
   return (
     <MainCard
@@ -195,8 +228,8 @@ const ProjectTabs = ({
           <Tab 
             label={
               <Box sx={styles.tabLabel}>
-                <DashboardOutlined />
-                <span>Overview</span>
+                <CalendarOutlined />
+                <span>Agenda</span>
               </Box>
             }
             {...a11yProps(0)} 
@@ -204,8 +237,8 @@ const ProjectTabs = ({
           <Tab 
             label={
               <Box sx={styles.tabLabel}>
-                <CalendarOutlined />
-                <span>Agenda</span>
+                <DashboardOutlined />
+                <span>Overview</span>
               </Box>
             }
             {...a11yProps(1)} 
@@ -226,48 +259,107 @@ const ProjectTabs = ({
           <Tab 
             label={
               <Box sx={styles.tabLabel}>
+                <TeamOutlined />
+                <span>Groups</span>
+              </Box>
+            }
+            {...a11yProps(3)} 
+          />
+          <Tab 
+            label={
+              <Box sx={styles.tabLabel}>
                 <SettingOutlined />
                 <span>Settings</span>
               </Box>
             }
-            {...a11yProps(3)} 
+            {...a11yProps(4)} 
           />
         </Tabs>
 
         <IconButton
           onClick={handleOpenDrawer}
+          aria-label="participants management"
           sx={{
             ml: 2,
             mr: 1,
+            position: 'relative',
+            ...(pulseAnimation && {
+              animation: 'pulse 2s infinite',
+              '@keyframes pulse': {
+                '0%': {
+                  boxShadow: '0 0 0 0 rgba(33, 150, 243, 0.7)',
+                  transform: 'scale(1)',
+                },
+                '50%': {
+                  boxShadow: '0 0 0 10px rgba(33, 150, 243, 0)',
+                  transform: 'scale(1.05)',
+                },
+                '100%': {
+                  boxShadow: '0 0 0 0 rgba(33, 150, 243, 0)',
+                  transform: 'scale(1)',
+                },
+              },
+            }),
+            ...((!project_participants || project_participants.length === 0) && {
+              bgcolor: 'primary.main',
+              color: 'white',
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+            }),
           }}
         >
           <TeamOutlined />
+          {(!project_participants || project_participants.length === 0) && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                bgcolor: 'error.main',
+                border: '2px solid',
+                borderColor: 'background.paper',
+              }}
+            />
+          )}
         </IconButton>
 
       </Stack>
 
-        <TabPanel value={tabValue} index={0}>
+        <TabPanel value={tabValue} index={0} isMobile={matchDownSM}>
+          <AgendaTab />
+        </TabPanel>
+        <TabPanel value={tabValue} index={1} isMobile={matchDownSM}>
           <Suspense fallback={<LoadingFallback />}>
             <OverviewTab project={project} />
           </Suspense>
         </TabPanel>
-        <TabPanel value={tabValue} index={1}>
-          <AgendaTab />
-        </TabPanel>
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={2} isMobile={matchDownSM}>
           <ProjectChecklist 
             checklistItems={checklistItems}
             checklistLoading={checklistLoading}
             onToggleItem={onChecklistToggle}
+            onUpdateNote={onChecklistNoteUpdate}
+            onRefreshChecklist={onChecklistRefresh}
+            updatingItems={updatingItems}
             styles={styles}
+            projectId={project.id}
           />
         </TabPanel>
-        <TabPanel value={tabValue} index={3}>
+        <TabPanel value={tabValue} index={3} isMobile={matchDownSM}>
+          <DndProvider backend={isMobile ? TouchBackend : HTML5Backend}>
+            <GroupTable index={0} />
+          </DndProvider>
+        </TabPanel>
+        <TabPanel value={tabValue} index={4} isMobile={matchDownSM}>
           <TabSettings />
         </TabPanel>
       </Box>
 
-      {/* Bottom Drawer for Manage Participants */}
+      {/* Bottom Drawer for Participants Management */}
       <Drawer
         anchor="bottom"
         open={drawerOpen}
@@ -313,55 +405,17 @@ const ProjectTabs = ({
           }}
         >
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-              <Tabs 
-                value={participantTabValue} 
-                onChange={handleParticipantTabChange} 
-                aria-label="participants management tabs"
-                sx={{ px: 2 }}
-              >
-                <Tab 
-                  label="Groups" 
-                  icon={<TeamOutlined />} 
-                  iconPosition="start"
-                  id="drawer-tab-0"
-                  aria-controls="drawer-tabpanel-0"
-                />
-                <Tab 
-                  label="Participants" 
-                  icon={<UserOutlined />} 
-                  iconPosition="start"
-                  id="drawer-tab-1"
-                  aria-controls="drawer-tabpanel-1"
-                />
-              </Tabs>
+            <Box sx={{ 
+              flex: 1,
+              overflow: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0
+            }}>
+              <Suspense fallback={<LoadingFallback />}>
+                <ParticipantTable index={0} />
+              </Suspense>
             </Box>
-            
-            <DrawerTabPanel value={participantTabValue} index={0}>
-              <Box sx={{ 
-                flex: 1,
-                overflow: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0
-              }}>
-                <GroupTable index={0} />
-              </Box>
-            </DrawerTabPanel>
-            
-            <DrawerTabPanel value={participantTabValue} index={1}>
-              <Box sx={{ 
-                flex: 1,
-                overflow: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0
-              }}>
-                <Suspense fallback={<LoadingFallback />}>
-                  <ParticipantTable index={0} />
-                </Suspense>
-              </Box>
-            </DrawerTabPanel>
           </Box>
         </MainCard>
       </Drawer>
@@ -374,6 +428,9 @@ ProjectTabs.propTypes = {
   checklistItems: PropTypes.array.isRequired,
   checklistLoading: PropTypes.bool.isRequired,
   onChecklistToggle: PropTypes.func.isRequired,
+  onChecklistNoteUpdate: PropTypes.func.isRequired,
+  onChecklistRefresh: PropTypes.func.isRequired,
+  updatingItems: PropTypes.instanceOf(Set).isRequired,
   styles: PropTypes.object.isRequired
 };
 

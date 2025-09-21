@@ -6,8 +6,8 @@ import { TextField } from "@mui/material";
 
 // ==============================|| SIMPLE EDITOR ||============================== //
 
-const SimpleEditor = ({ handleTextChange }) => {
-  const [text, setText] = useState("");
+const SimpleEditor = ({ handleTextChange, initialText = "" }) => {
+  const [text, setText] = useState(initialText);
   
   const handleChange = (event) => {
     const value = event.target.value;
@@ -27,10 +27,9 @@ const SimpleEditor = ({ handleTextChange }) => {
     />
   );
 };
+
 SimpleEditor.propTypes = {
-  initialText: PropTypes.string.isRequired,
-};
-SimpleEditor.defaultProps = {
-  initialText: "",
+  handleTextChange: PropTypes.func.isRequired,
+  initialText: PropTypes.string,
 };
 export default SimpleEditor;

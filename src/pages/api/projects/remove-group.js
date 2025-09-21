@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from '../../../lib/prisma';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -47,7 +45,5 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error deleting group:', error);
     return res.status(500).json({ error: 'Failed to delete group' });
-  } finally {
-    await prisma.$disconnect();
   }
 }

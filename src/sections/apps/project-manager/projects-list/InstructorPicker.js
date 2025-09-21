@@ -97,18 +97,13 @@ export default function InstructorPicker({
   const handleChange = async (event, value, reason) => {
     if (value && value.isNew) {
       // Handle creating new option
-      console.log('Creating new instructor with name:', value.name);
       const newInstructor = await handleCreateNewInstructor(value.name);
       if (newInstructor) {
-        console.log('Successfully created instructor, updating state:', newInstructor);
         setSelectedInstructor(newInstructor);
         handleInstructorChange(newInstructor);
-      } else {
-        console.error('Failed to create new instructor');
       }
     } else {
       // Handle selecting existing option or clearing
-      console.log('Selected existing instructor or cleared:', value);
       setSelectedInstructor(value);
       handleInstructorChange(value);
     }

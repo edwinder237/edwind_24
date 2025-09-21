@@ -94,6 +94,86 @@ export async function uploadImageToR2(imageUrl, prefix = 'images') {
 }
 
 /**
+ * Upload a base64 image directly to R2 bucket
+ * @param {string} base64Data - Base64 encoded image data (with or without data URL prefix)
+ * @param {string} prefix - Optional prefix for the filename (default: 'images')
+ * @param {string} fileName - Optional original filename for extension detection
+ * @returns {Promise<{url: string, key: string, etag?: string}>} - The R2 URL and metadata
+ */
+export async function uploadBase64ImageToR2(base64Data, prefix = 'images', fileName = null) {
+  if (!base64Data || typeof base64Data !== 'string') {
+    throw new Error('Invalid base64 data provided');
+  }
+
+  try {
+    // Extract base64 data and mime type
+    let mimeType = 'image/jpeg';
+    let base64String = base64Data;
+    
+    // Check if it's a data URL and extract the actual base64 data
+    const matches = base64Data.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+    if (matches && matches.length === 3) {
+      mimeType = matches[1];
+      base64String = matches[2];
+    }
+    
+    // Convert base64 to buffer
+    const buffer = Buffer.from(base64String, 'base64');
+    const fileSize = buffer.byteLength;
+    
+    // Validate image size (max 10MB)
+    if (fileSize > 10 * 1024 * 1024) {
+      throw new Error(`Image too large: ${Math.round(fileSize / 1024 / 1024)}MB (max 10MB)`);
+    }
+    
+    // Determine file extension
+    let fileExtension = CONTENT_TYPE_EXTENSIONS[mimeType] || 'jpg';
+    if (fileName) {
+      const ext = fileName.split('.').pop()?.toLowerCase();
+      if (ext && ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) {
+        fileExtension = ext;
+      }
+    }
+    
+    // Generate unique filename
+    const key = `${prefix}/${createId()}.${fileExtension}`;
+    
+    // Upload to R2 using Cloudflare API
+    const uploadResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${BUCKET_NAME}/objects/${key}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${R2_TOKEN}`,
+          'Content-Type': mimeType,
+        },
+        body: buffer
+      }
+    );
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`R2 upload failed (${uploadResponse.status}): ${errorText}`);
+    }
+
+    const publicUrl = `${PUBLIC_URL_BASE}/${key}`;
+    console.log(`✅ Base64 image uploaded successfully: ${key} (${Math.round(fileSize / 1024)}KB)`);
+    
+    return {
+      url: publicUrl,
+      key: key,
+      etag: uploadResponse.headers.get('etag'),
+      size: fileSize,
+      contentType: mimeType
+    };
+
+  } catch (error) {
+    console.error(`❌ R2 base64 upload failed:`, error.message);
+    throw new Error(`Failed to upload base64 image to R2: ${error.message}`);
+  }
+}
+
+/**
  * Upload multiple images to R2 bucket with concurrency control
  * @param {Array<string>} imageUrls - Array of source image URLs
  * @param {string} prefix - Optional prefix for filenames (default: 'images')

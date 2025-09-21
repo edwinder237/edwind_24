@@ -28,6 +28,7 @@ import {
   FormControl,
   Tooltip,
   CircularProgress,
+  useMediaQuery,
 } from '@mui/material';
 import {
   AccessTime,
@@ -44,6 +45,7 @@ import {
   Palette,
   Add,
   Remove,
+  Info,
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
 import { useDispatch, useSelector } from 'store';
@@ -51,6 +53,7 @@ import { deleteEvent, getEvents } from 'store/reducers/calendar';
 import { getSingleProject, getGroupsDetails } from 'store/reducers/projects';
 import { openSnackbar } from 'store/reducers/snackbar';
 import EditEventDialog from './EditEventDialog';
+import EventDetailsSection from './EventDetailsSection';
 
 // Drag types
 const ItemTypes = {
@@ -60,6 +63,7 @@ const ItemTypes = {
 const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect, onTimeEdit, onMoveToNextDay, allEvents, project, isCompact = false, onEventUpdate }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
   const { events } = useSelector((state) => state.calendar);
   const { groups, loading: groupsLoading, project_participants } = useSelector((state) => state.projects);
   
@@ -75,6 +79,8 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
   const [groupDropdownAnchorEl, setGroupDropdownAnchorEl] = useState(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [manageEventDialogOpen, setManageEventDialogOpen] = useState(false);
+  const [eventDetailsLoading, setEventDetailsLoading] = useState(false);
   const menuOpen = Boolean(menuAnchorEl);
   const colorPickerOpen = Boolean(colorPickerAnchorEl);
 
@@ -488,6 +494,15 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         setColorPickerAnchorEl(menuAnchorEl);
         // Don't close menu here since we're opening color picker
         break;
+      case 'manage':
+        handleMenuClose();
+        setEventDetailsLoading(true);
+        setManageEventDialogOpen(true);
+        // Simulate loading time and then show content
+        setTimeout(() => {
+          setEventDetailsLoading(false);
+        }, 800);
+        break;
       case 'delete':
         // Don't close menu here - handleDeleteClick will do it
         handleDeleteClick(e);
@@ -745,14 +760,16 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
               )}
               <Typography variant="subtitle1" fontWeight={600} sx={{ lineHeight: 1 }}>
                 {event.title}
-                <span style={{ 
-                  fontSize: '0.65rem', 
-                  fontWeight: 'normal', 
-                  color: theme.palette.text.secondary,
-                  marginLeft: '6px'
-                }}>
-                  (ID: {event.id})
-                </span>
+                {!matchDownSM && (
+                  <span style={{ 
+                    fontSize: '0.65rem', 
+                    fontWeight: 'normal', 
+                    color: theme.palette.text.secondary,
+                    marginLeft: '6px'
+                  }}>
+                    (ID: {event.id})
+                  </span>
+                )}
               </Typography>
             </Stack>
 
@@ -775,7 +792,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                 </Stack>
               )}
 
-              {totalParticipantCount > 0 && (
+              {totalParticipantCount > 0 && !matchDownSM && (
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <Group sx={{ fontSize: 16, color: 'text.secondary' }} />
                   <Typography variant="body2" color="text.secondary">
@@ -1014,7 +1031,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
             </Stack>
           </Box>
 
-          <Stack spacing={0.5} alignItems="flex-end" sx={{ mr: 3 }}>
+          <Stack spacing={0.5} alignItems="flex-end" sx={{ mr: matchDownSM ? 1.5 : 3, flexShrink: 0 }}>
             <Chip
               label={event.eventType || 'Event'}
               size="small"
@@ -1050,9 +1067,10 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
               <Typography
                 variant="body2"
                 sx={{
-                  fontSize: '0.75rem',
+                  fontSize: matchDownSM ? '0.7rem' : '0.75rem',
                   color: 'text.secondary',
-                  fontWeight: 500
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {formatTime(event.start)} - {formatTime(event.end)}
@@ -1100,6 +1118,14 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
             }
           }}
         >
+          {matchDownSM && (
+            <MenuItem onClick={(e) => handleMenuAction('manage', e)}>
+              <ListItemIcon>
+                <Info fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Manage Event</ListItemText>
+            </MenuItem>
+          )}
           <MenuItem onClick={(e) => handleMenuAction('edit', e)}>
             <ListItemIcon>
               <Edit fontSize="small" />
@@ -1632,6 +1658,187 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         </Box>
       </Box>
     </Popover>
+
+    {/* Manage Event Dialog - Mobile Only */}
+    <Dialog
+      open={manageEventDialogOpen}
+      onClose={() => {
+        setManageEventDialogOpen(false);
+        setEventDetailsLoading(false);
+      }}
+      fullScreen={matchDownSM}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          ...(matchDownSM && {
+            margin: 0,
+            maxHeight: '100%',
+            borderRadius: 0
+          }),
+          overflow: 'hidden'
+        }
+      }}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: getEventTypeColor(event),
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          position: 'relative',
+          zIndex: 1
+        }}
+      >
+        <Info />
+        Event Details
+        {eventDetailsLoading && (
+          <Box sx={{ ml: 'auto' }}>
+            <CircularProgress 
+              size={20} 
+              sx={{ 
+                color: 'white',
+                opacity: 0.8
+              }} 
+            />
+          </Box>
+        )}
+      </DialogTitle>
+      
+      <DialogContent sx={{ p: 0, height: matchDownSM ? '100%' : 'auto', position: 'relative' }}>
+        {eventDetailsLoading ? (
+          // Loading State
+          <Box sx={{ 
+            height: matchDownSM ? 'calc(100vh - 140px)' : '400px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2,
+            bgcolor: 'background.default'
+          }}>
+            <CircularProgress 
+              size={60} 
+              sx={{ 
+                color: getEventTypeColor(event),
+                mb: 2
+              }} 
+            />
+            <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
+              Loading Event Details...
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', px: 3 }}>
+              Fetching participants, modules, and session information
+            </Typography>
+            
+            {/* Skeleton placeholders for better UX */}
+            <Stack spacing={2} sx={{ width: '100%', px: 3, mt: 3 }}>
+              <Box sx={{ 
+                height: 60, 
+                bgcolor: alpha(getEventTypeColor(event), 0.1), 
+                borderRadius: 1,
+                animation: 'pulse 1.5s ease-in-out infinite',
+                '@keyframes pulse': {
+                  '0%': { opacity: 1 },
+                  '50%': { opacity: 0.5 },
+                  '100%': { opacity: 1 }
+                }
+              }} />
+              <Box sx={{ 
+                height: 40, 
+                bgcolor: alpha(getEventTypeColor(event), 0.08), 
+                borderRadius: 1,
+                animation: 'pulse 1.5s ease-in-out infinite 0.2s'
+              }} />
+              <Box sx={{ 
+                height: 80, 
+                bgcolor: alpha(getEventTypeColor(event), 0.06), 
+                borderRadius: 1,
+                animation: 'pulse 1.5s ease-in-out infinite 0.4s'
+              }} />
+            </Stack>
+          </Box>
+        ) : (
+          // Actual Content
+          <Box sx={{ 
+            height: matchDownSM ? 'calc(100vh - 140px)' : 'auto',
+            overflow: 'auto',
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(0, 0, 0, 0.05)',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: alpha(getEventTypeColor(event), 0.3),
+              borderRadius: '3px',
+              '&:hover': {
+                background: alpha(getEventTypeColor(event), 0.5),
+              },
+            },
+          }}>
+            <EventDetailsSection
+              selectedDate={new Date(event.start)}
+              selectedEventId={event.id}
+              project={project}
+              availableRoles={[]}
+            />
+          </Box>
+        )}
+      </DialogContent>
+      
+      <DialogActions sx={{ 
+        p: 3, 
+        pt: 0, 
+        bgcolor: 'background.paper',
+        borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        position: 'relative',
+        zIndex: 1
+      }}>
+        <Button 
+          onClick={() => {
+            setManageEventDialogOpen(false);
+            setEventDetailsLoading(false);
+          }}
+          variant="outlined"
+          fullWidth={matchDownSM}
+          disabled={eventDetailsLoading}
+          sx={{
+            borderColor: alpha(getEventTypeColor(event), 0.3),
+            color: getEventTypeColor(event),
+            '&:hover': {
+              borderColor: getEventTypeColor(event),
+              bgcolor: alpha(getEventTypeColor(event), 0.05)
+            }
+          }}
+        >
+          Close
+        </Button>
+        <Button 
+          onClick={() => {
+            setManageEventDialogOpen(false);
+            setEventDetailsLoading(false);
+            setEditDialogOpen(true);
+          }}
+          variant="contained"
+          fullWidth={matchDownSM}
+          disabled={eventDetailsLoading}
+          sx={{ 
+            bgcolor: getEventTypeColor(event),
+            '&:hover': {
+              bgcolor: getEventTypeColor(event),
+              filter: 'brightness(0.9)'
+            },
+            '&:disabled': {
+              bgcolor: alpha(getEventTypeColor(event), 0.3)
+            }
+          }}
+        >
+          Edit Event
+        </Button>
+      </DialogActions>
+    </Dialog>
     </>
   );
 };
