@@ -15,14 +15,17 @@ import {
   IconButton,
   Divider,
   Alert,
-  Checkbox
+  Checkbox,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   CloseOutlined,
-  UserOutlined
+  UserOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 import MainCard from 'components/MainCard';
 import axios from 'utils/axios';
@@ -41,6 +44,7 @@ const ParticipantChecklistDialog = ({
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [updatingParticipants, setUpdatingParticipants] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Style constants
   const isDarkMode = theme.palette.mode === 'dark';
@@ -50,6 +54,9 @@ const ParticipantChecklistDialog = ({
   useEffect(() => {
     if (open && checklistItem && projectId) {
       fetchParticipantProgress();
+    } else if (!open) {
+      // Clear search when dialog closes
+      setSearchQuery('');
     }
   }, [open, checklistItem, projectId]);
 
@@ -127,6 +134,16 @@ const ParticipantChecklistDialog = ({
       });
     }
   };
+
+  // Filter participants based on search query
+  const filteredParticipants = data?.participants?.filter(participant => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      participant.name?.toLowerCase().includes(query) ||
+      participant.role?.toLowerCase().includes(query)
+    );
+  }) || [];
 
   if (!checklistItem) return null;
 
@@ -262,6 +279,34 @@ const ParticipantChecklistDialog = ({
               </Box>
             </Box>
 
+            {/* Search Input */}
+            <Box sx={{ px: 3, pb: 2 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search participants by name or role..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlined style={{ fontSize: 18, color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: theme.palette.background.paper,
+                    '&:hover': {
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: theme.palette.primary.main,
+                      }
+                    }
+                  }
+                }}
+              />
+            </Box>
+
             {/* Participant List */}
             <List sx={{ 
               p: 0, 
@@ -269,11 +314,26 @@ const ParticipantChecklistDialog = ({
               overflow: 'auto',
               bgcolor: theme.palette.background.paper 
             }}>
-              {data.participants.map((participant, index) => (
-                <ListItem 
-                  key={participant.participantId}
-                  sx={{ 
-                    borderBottom: index < data.participants.length - 1 
+              {filteredParticipants.length === 0 ? (
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  py: 4, 
+                  color: theme.palette.text.secondary 
+                }}>
+                  <SearchOutlined style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }} />
+                  <Typography variant="body1">
+                    No participants found matching "{searchQuery}"
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Try searching with a different name or role
+                  </Typography>
+                </Box>
+              ) : (
+                filteredParticipants.map((participant, index) => (
+                  <ListItem 
+                    key={participant.participantId}
+                    sx={{ 
+                      borderBottom: index < filteredParticipants.length - 1 
                       ? `1px solid ${theme.palette.divider}` 
                       : 'none',
                     '&:hover': { bgcolor: theme.palette.action.hover },
@@ -374,8 +434,9 @@ const ParticipantChecklistDialog = ({
                       />
                     )}
                   </Box>
-                </ListItem>
-              ))}
+                  </ListItem>
+                ))
+              )}
             </List>
 
             {data.participants.length === 0 && (

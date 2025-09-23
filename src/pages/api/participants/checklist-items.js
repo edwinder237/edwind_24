@@ -137,11 +137,22 @@ async function updateParticipantChecklistProgress(req, res) {
   }
 
   try {
-    // participantId here is actually the project_participants.id (int), not participants.id (string)
-    const projectParticipant = await prisma.project_participants.findUnique({
-      where: { id: parseInt(participantId) },
-      select: { id: true, projectId: true }
-    });
+    // Check if participantId is numeric (project_participants.id) or string (participants.id)
+    let projectParticipant;
+    
+    if (!isNaN(participantId)) {
+      // If numeric, treat as project_participants.id
+      projectParticipant = await prisma.project_participants.findUnique({
+        where: { id: parseInt(participantId) },
+        select: { id: true, projectId: true }
+      });
+    } else {
+      // If string, treat as participants.id and find the project_participants record
+      projectParticipant = await prisma.project_participants.findFirst({
+        where: { participant: { id: String(participantId) } },
+        select: { id: true, projectId: true }
+      });
+    }
 
     if (!projectParticipant) {
       return res.status(404).json({ message: 'Project participant not found' });
@@ -151,7 +162,7 @@ async function updateParticipantChecklistProgress(req, res) {
       where: {
         unique_participant_checklist_item: {
           projectId: projectParticipant.projectId,
-          participantId: parseInt(participantId),
+          participantId: projectParticipant.id,
           checklistItemId: parseInt(checklistItemId)
         }
       },
@@ -164,7 +175,7 @@ async function updateParticipantChecklistProgress(req, res) {
       },
       create: {
         projectId: projectParticipant.projectId,
-        participantId: parseInt(participantId),
+        participantId: projectParticipant.id,
         checklistItemId: parseInt(checklistItemId),
         completed,
         completedAt: completed ? new Date() : null,

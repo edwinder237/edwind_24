@@ -12,6 +12,7 @@ import {
 import { alpha, useTheme } from '@mui/material/styles';
 import { useSelector, useDispatch } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
+import { getProjectChecklist } from 'store/reducers/projects';
 
 const generateMockLearningActivities = () => [
   { id: 1, title: 'Introduction to CRM Systems', completed: true, score: 95, duration: '45 min', date: '2024-01-15' },
@@ -106,6 +107,11 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
             )
           }))
         );
+        
+        // Refresh the main project checklist to reflect the change
+        if (singleProject?.id) {
+          dispatch(getProjectChecklist(singleProject.id));
+        }
         
         dispatch(openSnackbar({
           open: true,
