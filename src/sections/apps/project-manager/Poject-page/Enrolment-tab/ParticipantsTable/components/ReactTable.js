@@ -51,6 +51,7 @@ import {
   UngroupOutlined,
   PlusOutlined,
   UploadOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 
 // Local imports
@@ -68,7 +69,8 @@ const ReactTable = React.memo(({
   onSelectionChange,
   onEmailAccess,
   editableRowIndex,
-  setEditableRowIndex
+  setEditableRowIndex,
+  onRefresh
 }) => {
   const { handleDialog } = handleCRUD;
   const theme = useTheme();
@@ -186,6 +188,62 @@ const ReactTable = React.memo(({
             />
           ) : (
             <span>{value}</span>
+          );
+        }
+      };
+    }
+
+    if (column.accessor === "participant.notes") {
+      return {
+        ...column,
+        Cell: ({ row, value }) => {
+          const isEditable = row.index === editableRowIndex;
+          return isEditable ? (
+            <input 
+              type="text" 
+              defaultValue={value || ''} 
+              onChange={(e) => updateField('notes', e.target.value)}
+              onBlur={(e) => updateField('notes', e.target.value)}
+              style={{ 
+                width: '100%', 
+                padding: '4px', 
+                fontSize: '14px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          ) : (
+            <span>{value || ''}</span>
+          );
+        }
+      };
+    }
+
+    if (column.accessor === "participant.parentGroup") {
+      return {
+        ...column,
+        Cell: ({ row, value }) => {
+          const isEditable = row.index === editableRowIndex;
+          const displayValue = typeof value === 'object' && value !== null 
+            ? (value.name || value.title || value.groupName || value.company || 'Unknown Company')
+            : (value || '');
+          
+          return isEditable ? (
+            <input 
+              type="text" 
+              defaultValue={displayValue !== 'N/A' ? displayValue : ''} 
+              onChange={(e) => updateField('parentGroup', e.target.value)}
+              onBlur={(e) => updateField('parentGroup', e.target.value)}
+              style={{ 
+                width: '100%', 
+                padding: '4px', 
+                fontSize: '14px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          ) : (
+            <span>{displayValue === '' ? 'N/A' : displayValue}</span>
           );
         }
       };
@@ -322,7 +380,7 @@ const ReactTable = React.memo(({
     if (onSelectionChangeRef.current) {
       onSelectionChangeRef.current({ selectedParticipants, selectedIds });
     }
-  }, [selectedRowIds, data, selectedParticipants, selectedIds]); // Remove onSelectionChange from deps
+  }, [selectedRowIds]); // Only depend on selectedRowIds to avoid loops
 
   const isEmpty = !data || data.length === 0;
   const showLoadingState = (csvImportLoading || (globalLoading && isEmpty));
@@ -397,6 +455,23 @@ const ReactTable = React.memo(({
             </Button>
 
             <Button
+              onClick={handleCRUD.handleAddMultiple}
+              variant="outlined"
+              startIcon={<GroupOutlined />}
+              size="small"
+              aria-label="add-multiple-participants"
+              sx={{
+                '& .MuiButton-startIcon': {
+                  mr: { xs: 0, sm: 1 }
+                }
+              }}
+            >
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                Add Multiple
+              </Box>
+            </Button>
+
+            <Button
               onClick={handleCRUD.handleCsvImport}
               variant="outlined"
               startIcon={<UploadOutlined />}
@@ -413,6 +488,25 @@ const ReactTable = React.memo(({
                 Import CSV
               </Box>
             </Button>
+            
+            {onRefresh && (
+              <Button
+                onClick={onRefresh}
+                variant="outlined"
+                startIcon={<ReloadOutlined />}
+                size="small"
+                aria-label="refresh-data"
+                sx={{
+                  '& .MuiButton-startIcon': {
+                    mr: { xs: 0, sm: 1 }
+                  }
+                }}
+              >
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                  Refresh
+                </Box>
+              </Button>
+            )}
 
             {!isEmpty && (
               <CSVExport

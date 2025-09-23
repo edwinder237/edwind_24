@@ -104,34 +104,55 @@ async function handleGet(req, res) {
     });
 
     // Get active participant data for participant-only items
-    const [participantProgress, totalActiveParticipants] = await Promise.all([
-      // Participant progress (only from active participants)
-      prisma.project_participants_course_checklist_progress.findMany({
-        where: {
-          projectId: parseInt(projectId),
-          checklistItemId: { in: participantOnlyItemIds },
-          participant: { status: 'active' }
-        }
-      }),
-      // Total active participants count
-      prisma.project_participants.count({
-        where: { 
-          projectId: parseInt(projectId),
-          status: 'active'
-        }
-      })
-    ]);
+    const participantProgress = await prisma.project_participants_course_checklist_progress.findMany({
+      where: {
+        projectId: parseInt(projectId),
+        checklistItemId: { in: participantOnlyItemIds },
+        participant: { status: 'active' }
+      }
+    });
 
     // Create participant progress map for quick lookup
     const participantProgressMap = {};
     
-    // Initialize all participant-only items with default values
-    participantOnlyItemIds.forEach(itemId => {
-      participantProgressMap[itemId] = { 
-        completed: 0, 
-        total: totalActiveParticipants 
-      };
-    });
+    // For each participant-only item, calculate course-specific participant counts
+    for (const itemId of participantOnlyItemIds) {
+      // Get the course for this checklist item
+      const checklistItem = await prisma.course_checklist_items.findUnique({
+        where: { id: itemId },
+        select: { courseId: true }
+      });
+      
+      if (checklistItem) {
+        // Count participants assigned to events for this specific course
+        const courseParticipantCount = await prisma.project_participants.count({
+          where: {
+            projectId: parseInt(projectId),
+            status: 'active',
+            // Find participants who are in groups that are assigned to events with this courseId
+            group: {
+              some: {
+                group: {
+                  event_groups: {
+                    some: {
+                      event: {
+                        courseId: checklistItem.courseId,
+                        projectId: parseInt(projectId)
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+        
+        participantProgressMap[itemId] = { 
+          completed: 0, 
+          total: courseParticipantCount 
+        };
+      }
+    }
     
     // Count completed participants for each item
     participantProgress.forEach(progress => {

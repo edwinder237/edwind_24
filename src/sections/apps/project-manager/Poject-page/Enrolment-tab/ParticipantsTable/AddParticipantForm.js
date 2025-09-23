@@ -2,11 +2,11 @@ import PropTypes from "prop-types";
 import { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "store";
 import { v4 as uuidv4 } from "uuid";
+import axios from "utils/axios";
 
 // material-ui
 import { useTheme } from "@mui/material/styles";
 import {
-  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -19,9 +19,7 @@ import {
   FormLabel,
   Grid,
   FormHelperText,
-  InputAdornment,
   InputLabel,
-  ListItemText,
   MenuItem,
   OutlinedInput,
   RadioGroup,
@@ -31,6 +29,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -97,9 +97,26 @@ const AddParticipantForm = ({
   const dispatch = useDispatch();
   const { employees } = useSelector((state) => state.projects);
   const { project_participants:enrolled } = useSelector((state) => state.projects);
+  const { singleProject } = useSelector((state) => state.projects);
   const isCreating = !customer;
 
   const [selectedEnrollees, setSelectedEnrollees] = useState([]);
+  const [trainingRecipientParticipants, setTrainingRecipientParticipants] = useState([]);
+  const [loadingTRParticipants, setLoadingTRParticipants] = useState(false);
+  const [trParticipantsError, setTRParticipantsError] = useState(null);
+
+  // Reset state when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      setSelectedEnrollees([]);
+      setTRParticipantsError(null);
+    } else {
+      setSelectedEnrollees([]);
+      setTrainingRecipientParticipants([]);
+      setTRParticipantsError(null);
+      setLoadingTRParticipants(false);
+    }
+  }, [open]);
   
   // Update selectedEnrollees when enrolled changes
   useEffect(() => {
@@ -183,6 +200,42 @@ const AddParticipantForm = ({
       setAvatar(URL.createObjectURL(selectedImage));
     }
   }, [selectedImage]);
+
+  // Fetch training recipient participants when dialog opens
+  useEffect(() => {
+    const fetchTrainingRecipientParticipants = async () => {
+      if (!open || !singleProject?.trainingRecipientId) {
+        if (!singleProject?.trainingRecipientId) {
+          setTRParticipantsError('No training recipient assigned to this project');
+        }
+        return;
+      }
+
+      setLoadingTRParticipants(true);
+      setTRParticipantsError(null);
+      
+      try {
+        const response = await axios.get('/api/training-recipients/fetch-participants', {
+          params: {
+            trainingRecipientId: singleProject.trainingRecipientId,
+            projectId: singleProject.id
+          }
+        });
+        
+        setTrainingRecipientParticipants(response.data.success ? response.data.participants || [] : []);
+        if (!response.data.success) {
+          setTRParticipantsError('Failed to load participants');
+        }
+      } catch (error) {
+        console.error('Error fetching training recipient participants:', error);
+        setTRParticipantsError('Failed to load participants from training recipient');
+      } finally {
+        setLoadingTRParticipants(false);
+      }
+    };
+
+    fetchTrainingRecipientParticipants();
+  }, [open, singleProject]);
 
   // Fetch participant roles on component mount
   useEffect(() => {
@@ -270,7 +323,11 @@ const AddParticipantForm = ({
       };
       const chipColor = getChipColor();
       try {
-        const newParticipants = filteredSelectedEnrollees;
+        // For multiple participants, ensure correct format for API
+        let newParticipants = filteredSelectedEnrollees;
+        if (!singleParticipant) {
+          newParticipants = filteredSelectedEnrollees.map(p => p.participant || p);
+        }
         const newParticipant = {
           participant: {
             id: uuidv4(),
@@ -299,18 +356,6 @@ const AddParticipantForm = ({
           );
         } else if (singleParticipant) {
           handleAddParticipant(newParticipant);
-          // dispatch(createCustomer(newCustomer)); - add
-          dispatch(
-            openSnackbar({
-              open: true,
-              message: error,
-              variant: "alert",
-              alert: {
-                color: "success",
-              },
-              close: false,
-            })
-          );
         } else {
           handleAddMany(newParticipants);
         }
@@ -767,16 +812,28 @@ const AddParticipantForm = ({
                   <Grid item xs={12}>
                     <Stack spacing={1.25}>
                       <InputLabel htmlFor="group-participants">
-                        Enroll existing learners
+                        Enroll existing participants from {singleProject?.trainingRecipient?.name || 'training recipient'}
                       </InputLabel>
-                      {employees && (
+                      {loadingTRParticipants ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                          <CircularProgress />
+                        </Box>
+                      ) : trParticipantsError ? (
+                        <Alert severity="warning" sx={{ mt: 2 }}>
+                          {trParticipantsError}
+                        </Alert>
+                      ) : trainingRecipientParticipants.length > 0 ? (
                         <TransferLists
-                          learners={employees}
+                          learners={trainingRecipientParticipants}
                           enrolled={enrolled}
                           handleSelectedEnrollee={
                             handleSelectedEnrollee
                           }
                         />
+                      ) : (
+                        <Alert severity="info" sx={{ mt: 2 }}>
+                          No participants found for this training recipient. You can add new participants using the "Add Single Participant" toggle above.
+                        </Alert>
                       )}
                     </Stack>
                   </Grid>

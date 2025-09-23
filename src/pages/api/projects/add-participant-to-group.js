@@ -22,7 +22,10 @@ export default async function handler(req, res) {
     console.log('Participant exists:', participantExists);
     
     if (!participantExists) {
-      return res.status(400).json({ error: 'Participant not found in project participants' });
+      return res.status(400).json({ 
+        error: 'Participant not found in project participants',
+        searchedId: parseInt(participantId)
+      });
     }
 
     // Check if the participant is already in the group

@@ -28,6 +28,12 @@ import {
   ListItemSecondaryAction,
   Popover,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
@@ -48,6 +54,7 @@ import {
   PlusOutlined,
   SaveOutlined,
   CloseOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { calculateCourseDurationFromModules, getModuleDisplayDuration } from 'utils/durationCalculations';
@@ -107,6 +114,13 @@ const CourseSyllabus = ({ course, modules }) => {
   const [showAddRoleField, setShowAddRoleField] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState('');
   const [deleteRoleConfirm, setDeleteRoleConfirm] = useState({ open: false, assignmentId: null, anchorEl: null });
+  
+  // Curriculum management states
+  const [curriculumDialogOpen, setCurriculumDialogOpen] = useState(false);
+  const [availableCurriculums, setAvailableCurriculums] = useState([]);
+  const [courseCurriculums, setCourseCurriculums] = useState([]);
+  const [loadingCurriculums, setLoadingCurriculums] = useState(false);
+  const [savingCurriculums, setSavingCurriculums] = useState(false);
   
   const courseModules = modules || [];
   
@@ -499,6 +513,83 @@ const CourseSyllabus = ({ course, modules }) => {
     }
   };
 
+  // Curriculum management functions
+  const handleOpenCurriculumDialog = async () => {
+    if (!course?.id) return;
+    
+    setCurriculumDialogOpen(true);
+    setLoadingCurriculums(true);
+    
+    try {
+      const response = await fetch(`/api/courses/curriculum-assignments?courseId=${course.id}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setAvailableCurriculums(data.availableCurriculums || []);
+        setCourseCurriculums(data.courseCurriculums || []);
+      } else {
+        console.error('Error fetching curriculums:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching curriculums:', error);
+    } finally {
+      setLoadingCurriculums(false);
+    }
+  };
+
+  const handleCloseCurriculumDialog = () => {
+    setCurriculumDialogOpen(false);
+    setAvailableCurriculums([]);
+    setCourseCurriculums([]);
+  };
+
+  const handleCurriculumToggle = (curriculumId, isCurrentlyAssigned) => {
+    if (isCurrentlyAssigned) {
+      // Remove from course curriculums
+      setCourseCurriculums(prev => prev.filter(c => c.curriculumId !== curriculumId));
+    } else {
+      // Add to course curriculums
+      const curriculumToAdd = availableCurriculums.find(c => c.id === curriculumId);
+      if (curriculumToAdd) {
+        setCourseCurriculums(prev => [...prev, {
+          curriculumId: curriculumToAdd.id,
+          currculum: curriculumToAdd
+        }]);
+      }
+    }
+  };
+
+  const handleSaveCurriculumAssignments = async () => {
+    if (!course?.id) return;
+    
+    setSavingCurriculums(true);
+    
+    try {
+      const response = await fetch('/api/courses/curriculum-assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId: course.id,
+          curriculumIds: courseCurriculums.map(c => c.curriculumId)
+        })
+      });
+      
+      if (response.ok) {
+        alert('Curriculum assignments updated successfully!');
+        handleCloseCurriculumDialog();
+      } else {
+        const data = await response.json();
+        console.error('Error saving curriculum assignments:', data.error);
+        alert('Failed to update curriculum assignments. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving curriculum assignments:', error);
+      alert('Failed to update curriculum assignments. Please try again.');
+    } finally {
+      setSavingCurriculums(false);
+    }
+  };
+
   return (
     <Box sx={{ maxWidth: '100%', mx: 'auto' }}>
       {/* Actions Section */}
@@ -514,6 +605,20 @@ const CourseSyllabus = ({ course, modules }) => {
               </Typography>
             </Box>
             <Stack direction="row" spacing={2}>
+              <Button
+                variant="contained"
+                startIcon={<AppstoreOutlined />}
+                onClick={handleOpenCurriculumDialog}
+                color="primary"
+                sx={{
+                  background: 'linear-gradient(45deg, #1976d2 30%, #2196f3 90%)',
+                  '&:hover': {
+                    background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)',
+                  }
+                }}
+              >
+                Manage Curriculums
+              </Button>
               <Button
                 variant="contained"
                 startIcon={isGeneratingPDF ? <CircularProgress size={16} color="inherit" /> : <FilePdfOutlined />}
@@ -1395,6 +1500,109 @@ const CourseSyllabus = ({ course, modules }) => {
           </Stack>
         </Box>
       </Popover>
+
+      {/* Curriculum Management Dialog */}
+      <Dialog
+        open={curriculumDialogOpen}
+        onClose={handleCloseCurriculumDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <AppstoreOutlined style={{ color: theme.palette.primary.main, fontSize: 24 }} />
+            <Typography variant="h6" fontWeight={600}>
+              Manage Course Curriculums
+            </Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Select which curriculums this course should be included in. Changes will be saved when you click "Save Changes".
+          </Typography>
+          
+          {loadingCurriculums ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Stack spacing={2}>
+              {availableCurriculums.map((curriculum) => {
+                const isAssigned = courseCurriculums.some(c => c.curriculumId === curriculum.id);
+                return (
+                  <Card key={curriculum.id} variant="outlined" sx={{ p: 2 }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={isAssigned}
+                            onChange={() => handleCurriculumToggle(curriculum.id, isAssigned)}
+                            color="primary"
+                          />
+                        }
+                        label=""
+                        sx={{ margin: 0 }}
+                      />
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {curriculum.title}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {curriculum.description || 'No description available'}
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                          <Chip 
+                            label={`${curriculum._count?.curriculum_courses || 0} courses`} 
+                            size="small" 
+                            variant="outlined" 
+                          />
+                        </Stack>
+                      </Box>
+                      {isAssigned && (
+                        <Chip 
+                          label="Assigned" 
+                          size="small" 
+                          color="success" 
+                          variant="filled" 
+                        />
+                      )}
+                    </Stack>
+                  </Card>
+                );
+              })}
+              
+              {availableCurriculums.length === 0 && !loadingCurriculums && (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <AppstoreOutlined style={{ fontSize: 48, color: theme.palette.grey[400], marginBottom: 16 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No Curriculums Available
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    There are no curriculums available to assign this course to.
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button 
+            onClick={handleCloseCurriculumDialog} 
+            variant="outlined"
+            disabled={savingCurriculums}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSaveCurriculumAssignments} 
+            variant="contained"
+            disabled={savingCurriculums || loadingCurriculums}
+            startIcon={savingCurriculums ? <CircularProgress size={16} color="inherit" /> : <SaveOutlined />}
+          >
+            {savingCurriculums ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

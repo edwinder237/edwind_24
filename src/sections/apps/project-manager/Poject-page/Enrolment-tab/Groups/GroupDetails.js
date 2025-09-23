@@ -364,7 +364,7 @@ const GroupDetails = ({ Group, onProgressLoad }) => {
                     }}
                     disableCloseOnSelect
                     ListboxProps={{
-                      style: { maxHeight: '200px', overflow: 'auto' }
+                      style: { maxHeight: '400px', overflow: 'auto' }
                     }}
                     getOptionLabel={(option) => 
                       `${option.participant?.firstName} ${option.participant?.lastName}`.trim()
@@ -381,35 +381,38 @@ const GroupDetails = ({ Group, onProgressLoad }) => {
                                normalizeText(groupName).includes(normalizedInput);
                       });
                     }}
-                    renderOption={(props, option, { selected }) => (
-                      <Box component="li" {...props}>
-                        <Checkbox
-                          style={{ marginRight: 8 }}
-                          checked={selected}
-                        />
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                          <Typography>
-                            {option.participant?.firstName} {option.participant?.lastName}
-                          </Typography>
-                          <Chip 
-                            label={option.participant?.role?.title || 'No Role'} 
-                            size="small" 
-                            variant="outlined" 
+                    renderOption={(props, option, { selected }) => {
+                      const { key, ...otherProps } = props;
+                      return (
+                        <Box component="li" key={key} {...otherProps}>
+                          <Checkbox
+                            style={{ marginRight: 8 }}
+                            checked={selected}
                           />
-                          {option.currentGroup && (
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                            <Typography>
+                              {option.participant?.firstName} {option.participant?.lastName}
+                            </Typography>
                             <Chip 
-                              label={`In ${option.currentGroup.groupName}`}
+                              label={option.participant?.role?.title || 'No Role'} 
                               size="small" 
-                              variant="filled"
-                              style={{ 
-                                backgroundColor: option.currentGroup.chipColor || '#1976d2',
-                                color: '#fff'
-                              }}
+                              variant="outlined" 
                             />
-                          )}
-                        </Stack>
-                      </Box>
-                    )}
+                            {option.currentGroup && (
+                              <Chip 
+                                label={`In ${option.currentGroup.groupName}`}
+                                size="small" 
+                                variant="filled"
+                                style={{ 
+                                  backgroundColor: option.currentGroup.chipColor || '#1976d2',
+                                  color: '#fff'
+                                }}
+                              />
+                            )}
+                          </Stack>
+                        </Box>
+                      );
+                    }}
                     renderInput={(params) => (
                       <TextField
                         {...params}
@@ -419,7 +422,19 @@ const GroupDetails = ({ Group, onProgressLoad }) => {
                     )}
                     noOptionsText="No participants found"
                     isOptionEqualToValue={(option, value) => option.id === value.id}
-                    getOptionKey={(option) => option.id}
+                    renderTags={(tagValue, getTagProps) =>
+                      tagValue.map((option, index) => {
+                        const { key, ...tagProps } = getTagProps({ index });
+                        return (
+                          <Chip
+                            key={key}
+                            label={`${option.participant?.firstName} ${option.participant?.lastName}`.trim()}
+                            size="small"
+                            {...tagProps}
+                          />
+                        );
+                      })
+                    }
                   />
 
                   {/* Show action selection if any participant is in another group */}

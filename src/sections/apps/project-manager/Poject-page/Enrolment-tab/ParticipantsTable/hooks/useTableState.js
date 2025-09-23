@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react';
 export const useTableState = () => {
   const [customer, setCustomer] = useState(null);
   const [add, setAdd] = useState(false);
+  const [addMultiple, setAddMultiple] = useState(false);
   const [useNewForm, setUseNewForm] = useState(true);
   const [csvImport, setCsvImport] = useState(false);
   const [emailAccessDialog, setEmailAccessDialog] = useState(false);
@@ -20,6 +21,10 @@ export const useTableState = () => {
       return !prev;
     });
   }, [customer]);
+
+  const handleAddMultiple = useCallback(() => {
+    setAddMultiple(prev => !prev);
+  }, []);
 
   const handleCsvImport = useCallback(() => {
     setCsvImport(prev => !prev);
@@ -39,6 +44,7 @@ export const useTableState = () => {
     // State
     customer,
     add,
+    addMultiple,
     useNewForm,
     csvImport,
     emailAccessDialog,
@@ -49,6 +55,7 @@ export const useTableState = () => {
     // Setters
     setCustomer,
     setAdd,
+    setAddMultiple,
     setUseNewForm,
     setCsvImport,
     setEmailAccessDialog,
@@ -58,6 +65,7 @@ export const useTableState = () => {
     
     // Handlers
     handleAdd,
+    handleAddMultiple,
     handleCsvImport,
     handleEmailAccessDialog,
     handleSelectionChange

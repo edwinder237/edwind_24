@@ -18,6 +18,7 @@ import {
   IconButton,
   TextField,
   Tooltip,
+  InputAdornment,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import {
@@ -29,6 +30,7 @@ import {
   EditOutlined,
   SaveOutlined,
   CloseOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import ParticipantChecklistDialog from './ParticipantChecklistDialog';
 import axios from 'utils/axios';
@@ -51,6 +53,7 @@ const ProjectChecklist = ({
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [noteValue, setNoteValue] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleParticipantChipClick = (item) => {
     setSelectedChecklistItem(item);
@@ -122,8 +125,34 @@ const ProjectChecklist = ({
     );
   }
 
-  // Group items by course and curriculum
-  const groupedItems = checklistItems.reduce((acc, item) => {
+  // Function to normalize text for search (handles accents and case)
+  const normalizeText = (text) => {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  };
+
+  // Filter items based on search query
+  const filteredItems = checklistItems.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    
+    const normalizedQuery = normalizeText(searchQuery);
+    const searchableText = [
+      item.title,
+      item.description,
+      item.courseName,
+      item.curriculumName,
+      item.category,
+      item.module?.title
+    ].map(normalizeText).join(' ');
+    
+    return searchableText.includes(normalizedQuery);
+  });
+
+  // Group filtered items by course and curriculum
+  const groupedItems = filteredItems.reduce((acc, item) => {
     const groupKey = `${item.curriculumName} - ${item.courseName}`;
     if (!acc[groupKey]) {
       acc[groupKey] = [];
@@ -135,22 +164,41 @@ const ProjectChecklist = ({
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ ...styles.flexBetween, mb: 3 }}>
-        <Typography variant="h5">
-          Project Checklist ({checklistItems.length} items)
-        </Typography>
-        <Box sx={{ ...styles.flexCenter, gap: 1 }}>
-          <Chip 
-            label={`${checklistItems.filter(item => item.completed).length} completed`}
-            color="success"
-            variant="filled"
-          />
-          <Chip 
-            label={`${checklistItems.filter(item => !item.completed).length} pending`}
-            color="default"
-            variant="outlined"
-          />
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ ...styles.flexBetween, mb: 2 }}>
+          <Typography variant="h5">
+            Project Checklist ({filteredItems.length} of {checklistItems.length} items)
+          </Typography>
+          <Box sx={{ ...styles.flexCenter, gap: 1 }}>
+            <Chip 
+              label={`${filteredItems.filter(item => item.completed).length} completed`}
+              color="success"
+              variant="filled"
+            />
+            <Chip 
+              label={`${filteredItems.filter(item => !item.completed).length} pending`}
+              color="default"
+              variant="outlined"
+            />
+          </Box>
         </Box>
+        
+        {/* Search Field */}
+        <TextField
+          size="small"
+          fullWidth
+          placeholder="Search checklist items..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchOutlined style={{ color: theme.palette.text.secondary }} />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ maxWidth: 400 }}
+        />
       </Box>
 
       {/* Empty State */}
@@ -160,6 +208,14 @@ const ProjectChecklist = ({
           <Typography variant="h6" gutterBottom>No Checklist Items</Typography>
           <Typography variant="body2" color="text.secondary">
             This project has no associated checklist items. Add courses to the project curriculum to see relevant checklist items.
+          </Typography>
+        </Paper>
+      ) : filteredItems.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <SearchOutlined style={{ fontSize: 48, marginBottom: 16, color: '#ccc' }} />
+          <Typography variant="h6" gutterBottom>No Results Found</Typography>
+          <Typography variant="body2" color="text.secondary">
+            No checklist items match your search "{searchQuery}". Try adjusting your search terms.
           </Typography>
         </Paper>
       ) : (
@@ -245,12 +301,15 @@ const ProjectChecklist = ({
                             {item.participantOnly && (
                               <Chip 
                                 label={item.participantCompletionCount ? 
-                                  `Participants: ${item.participantCompletionCount.completed}/${item.participantCompletionCount.total}` : 
+                                  (item.participantCompletionCount.total === 0 ? 
+                                    "No one assigned" : 
+                                    `Participants: ${item.participantCompletionCount.completed}/${item.participantCompletionCount.total}`
+                                  ) : 
                                   "Participant Only"
                                 }
                                 size="small" 
                                 variant="filled"
-                                color="primary"
+                                color={item.participantCompletionCount && item.participantCompletionCount.total === 0 ? "default" : "primary"}
                                 icon={<UserOutlined style={{ fontSize: '14px' }} />}
                                 onClick={() => handleParticipantChipClick(item)}
                                 sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}

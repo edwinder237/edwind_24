@@ -17,7 +17,9 @@ import {
   NavigateBefore,
   NavigateNext,
   Today,
-  Add
+  Add,
+  Remove,
+  Close
 } from '@mui/icons-material';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -41,6 +43,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [calendarReady, setCalendarReady] = useState(false);
   const [conflictingEvents, setConflictingEvents] = useState([]);
+  const [assigningGroup, setAssigningGroup] = useState(false);
 
   // Function to detect overlapping/conflicting events
   const detectConflicts = useCallback((events) => {
@@ -376,7 +379,36 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const handleQuickGroupAssign = useCallback(async (eventId, groupId, e) => {
     e?.stopPropagation();
     
+    // Prevent concurrent group assignments
+    if (assigningGroup) {
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Please wait for the current group assignment to complete',
+          variant: 'alert',
+          alert: { color: 'warning' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+          autoHideDuration: 3000
+        })
+      );
+      return;
+    }
+
+    setAssigningGroup(true);
+    
     try {
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Assigning group to event...',
+          variant: 'alert',
+          alert: { color: 'info' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+        })
+      );
+
       const response = await fetch('/api/projects/addEventGroup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -417,8 +449,89 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
         })
       );
+    } finally {
+      setAssigningGroup(false);
     }
-  }, [project?.id, dispatch]);
+  }, [project?.id, dispatch, assigningGroup]);
+
+  // Handle quick group removal
+  const handleQuickGroupRemove = useCallback(async (eventId, groupId, e) => {
+    e?.stopPropagation();
+    
+    // Prevent concurrent group operations
+    if (assigningGroup) {
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Please wait for the current group operation to complete',
+          variant: 'alert',
+          alert: { color: 'warning' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+          autoHideDuration: 3000
+        })
+      );
+      return;
+    }
+
+    setAssigningGroup(true);
+    
+    try {
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Removing group from event...',
+          variant: 'alert',
+          alert: { color: 'info' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+        })
+      );
+
+      const response = await fetch('/api/projects/removeEventGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, groupId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove group from event');
+      }
+
+      // Refresh both calendar events and project data to show the update
+      if (project?.id) {
+        await dispatch(getEvents(project.id));
+        await dispatch(getSingleProject(project.id));
+      }
+
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Group removed from event successfully',
+          variant: 'alert',
+          alert: { color: 'success' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+          autoHideDuration: 2000
+        })
+      );
+    } catch (error) {
+      console.error('Error removing group from event:', error);
+      
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Failed to remove group from event',
+          variant: 'alert',
+          alert: { color: 'error' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+        })
+      );
+    } finally {
+      setAssigningGroup(false);
+    }
+  }, [project?.id, dispatch, assigningGroup]);
 
   // Custom event content
   const renderEventContent = (eventInfo) => {
@@ -544,109 +657,193 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           </Typography>
         )}
         
-        {/* Show groups if available or quick assign dropdown if none */}
-        {hasGroups ? (
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 'auto', pt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
-            {event.extendedProps.event_groups.slice(0, 2).map((eg, idx) => 
-              eg.groups ? (
-                <Stack key={idx} direction="row" alignItems="center" spacing={0.3}>
-                  <Box
-                    sx={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      bgcolor: eg.groups.chipColor || theme.palette.common.white,
-                      border: `1px solid ${alpha(theme.palette.common.white, 0.6)}`,
-                      boxShadow: `0 0 1px ${alpha(theme.palette.common.black, 0.2)}`
-                    }}
-                  />
-                  <Typography sx={{ 
-                    fontSize: '0.6rem', 
-                    opacity: 0.95, 
-                    color: 'inherit', 
-                    fontWeight: 500,
-                    maxWidth: '60px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {eg.groups.groupName}
-                  </Typography>
-                </Stack>
-              ) : null
-            )}
-            {event.extendedProps.event_groups.length > 2 && (
-              <Typography sx={{ fontSize: '0.6rem', opacity: 0.9, color: 'inherit', fontWeight: 600 }}>
-                +{event.extendedProps.event_groups.length - 2}
-              </Typography>
-            )}
-          </Stack>
-        ) : (
-          // Quick group assignment dropdown when no groups are assigned
-          groups && groups.length > 0 && (
-            <Box sx={{ mt: 'auto', pt: 0.5 }}>
-              <FormControl size="small" sx={{ minWidth: 80 }}>
-                <Select
-                  displayEmpty
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleQuickGroupAssign(event.id, e.target.value, e);
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  sx={{
-                    fontSize: '0.65rem',
-                    bgcolor: alpha(theme.palette.background.paper, 0.95),
-                    color: theme.palette.text.primary,
-                    borderRadius: '12px',
-                    '& .MuiSelect-select': {
-                      py: 0.5,
-                      px: 1,
-                      fontSize: '0.65rem',
+        {/* Show groups if available or quick assign dropdown if none - only for course events */}
+        {event.extendedProps.eventType === 'course' && (
+          hasGroups ? (
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 'auto', pt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
+              {event.extendedProps.event_groups.slice(0, 2).map((eg, idx) => 
+                eg.groups ? (
+                  <Stack key={idx} direction="row" alignItems="center" spacing={0.3}>
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        bgcolor: eg.groups.chipColor || theme.palette.common.white,
+                        border: `1px solid ${alpha(theme.palette.common.white, 0.6)}`,
+                        boxShadow: `0 0 1px ${alpha(theme.palette.common.black, 0.2)}`
+                      }}
+                    />
+                    <Typography sx={{ 
+                      fontSize: '0.6rem', 
+                      opacity: 0.95, 
+                      color: 'inherit', 
                       fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      color: theme.palette.text.primary
-                    },
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      border: `1px solid ${alpha(theme.palette.divider, 0.3)}`
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      border: `1px solid ${alpha(theme.palette.primary.main, 0.5)}`
-                    },
-                    '& .MuiSvgIcon-root': {
-                      color: theme.palette.text.secondary
-                    }
-                  }}
-                  renderValue={() => (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Add sx={{ fontSize: 12 }} />
-                      <span>Add Group</span>
-                    </Box>
-                  )}
-                >
-                  {groups.map((group) => (
-                    <MenuItem key={group.id} value={group.id}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box
-                          sx={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            bgcolor: group.chipColor || theme.palette.primary.main
-                          }}
-                        />
-                        <Typography sx={{ fontSize: '0.75rem' }}>
-                          {group.groupName}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
+                      maxWidth: '60px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {eg.groups.groupName}
+                    </Typography>
+                  </Stack>
+                ) : null
+              )}
+              {event.extendedProps.event_groups.length > 2 && (
+                <Typography sx={{ fontSize: '0.6rem', opacity: 0.9, color: 'inherit', fontWeight: 600 }}>
+                  +{event.extendedProps.event_groups.length - 2}
+                </Typography>
+              )}
+            </Stack>
+          ) : (
+            // Quick group assignment dropdown when no groups are assigned - only for course events
+            groups && groups.length > 0 && (
+              <Box sx={{ mt: 'auto', pt: 0.5 }}>
+                <FormControl size="small" sx={{ minWidth: 80 }}>
+                  <Select
+                    displayEmpty
+                    value=""
+                    disabled={assigningGroup}
+                    onChange={(e) => {
+                      if (e.target.value && !assigningGroup) {
+                        const [action, groupId] = e.target.value.split('_');
+                        if (action === 'add') {
+                          handleQuickGroupAssign(event.id, groupId, e);
+                        } else if (action === 'remove') {
+                          handleQuickGroupRemove(event.id, groupId, e);
+                        }
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      fontSize: '0.65rem',
+                      bgcolor: assigningGroup 
+                        ? alpha(theme.palette.action.disabled, 0.1) 
+                        : alpha(theme.palette.background.paper, 0.95),
+                      color: assigningGroup 
+                        ? theme.palette.action.disabled 
+                        : theme.palette.text.primary,
+                      borderRadius: '12px',
+                      opacity: assigningGroup ? 0.6 : 1,
+                      cursor: assigningGroup ? 'not-allowed' : 'pointer',
+                      '& .MuiSelect-select': {
+                        py: 0.5,
+                        px: 1,
+                        fontSize: '0.65rem',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        color: assigningGroup 
+                          ? theme.palette.action.disabled 
+                          : theme.palette.text.primary
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        border: `1px solid ${alpha(theme.palette.divider, 0.3)}`
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        border: assigningGroup 
+                          ? `1px solid ${alpha(theme.palette.divider, 0.3)}`
+                          : `1px solid ${alpha(theme.palette.primary.main, 0.5)}`
+                      },
+                      '& .MuiSvgIcon-root': {
+                        color: assigningGroup 
+                          ? theme.palette.action.disabled 
+                          : theme.palette.text.secondary
+                      }
+                    }}
+                    renderValue={() => {
+                      const assignedGroupIds = event.extendedProps.event_groups?.map(eg => eg.groupId) || [];
+                      const hasAssignedGroups = assignedGroupIds.length > 0;
+                      
+                      return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {hasAssignedGroups ? (
+                            <>
+                              <Add sx={{ fontSize: 12 }} />
+                              <span>{assigningGroup ? 'Processing...' : 'Manage Groups'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Add sx={{ fontSize: 12 }} />
+                              <span>{assigningGroup ? 'Adding...' : 'Add Group'}</span>
+                            </>
+                          )}
+                        </Box>
+                      );
+                    }}
+                  >
+                    {(() => {
+                      // Get currently assigned group IDs for this event
+                      const assignedGroupIds = event.extendedProps.event_groups?.map(eg => eg.groupId) || [];
+                      
+                      // Separate groups into assigned and unassigned
+                      const assignedGroups = groups.filter(group => assignedGroupIds.includes(group.id));
+                      const unassignedGroups = groups.filter(group => !assignedGroupIds.includes(group.id));
+                      
+                      const menuItems = [];
+                      
+                      // Add remove options for assigned groups
+                      if (assignedGroups.length > 0) {
+                        assignedGroups.forEach(group => {
+                          menuItems.push(
+                            <MenuItem key={`remove_${group.id}`} value={`remove_${group.id}`}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                <Remove sx={{ fontSize: 14, color: theme.palette.error.main }} />
+                                <Box
+                                  sx={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    bgcolor: group.chipColor || theme.palette.primary.main
+                                  }}
+                                />
+                                <Typography sx={{ fontSize: '0.75rem', flex: 1 }}>
+                                  Remove {group.groupName}
+                                </Typography>
+                              </Box>
+                            </MenuItem>
+                          );
+                        });
+                      }
+                      
+                      // Add divider if there are both assigned and unassigned groups
+                      if (assignedGroups.length > 0 && unassignedGroups.length > 0) {
+                        menuItems.push(
+                          <MenuItem key="divider" disabled sx={{ opacity: 0.5, fontSize: '0.7rem' }}>
+                            ───────────────
+                          </MenuItem>
+                        );
+                      }
+                      
+                      // Add options for unassigned groups
+                      unassignedGroups.forEach(group => {
+                        menuItems.push(
+                          <MenuItem key={`add_${group.id}`} value={`add_${group.id}`}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                              <Add sx={{ fontSize: 14, color: theme.palette.success.main }} />
+                              <Box
+                                sx={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: '50%',
+                                  bgcolor: group.chipColor || theme.palette.primary.main
+                                }}
+                              />
+                              <Typography sx={{ fontSize: '0.75rem', flex: 1 }}>
+                                Add {group.groupName}
+                              </Typography>
+                            </Box>
+                          </MenuItem>
+                        );
+                      });
+                      
+                      return menuItems;
+                    })()}
+                  </Select>
+                </FormControl>
+              </Box>
+            )
           )
         )}
       </Box>

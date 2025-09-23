@@ -29,38 +29,63 @@ async function handleGet(req, res) {
   }
 
   try {
-    // Fetch participant and progress data in parallel
-    const [participants, progressRecords] = await Promise.all([
-      // Get all participants (including removed ones for tracking)
-      prisma.project_participants.findMany({
-        where: { projectId: parseInt(projectId) },
-        include: {
-          participant: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              trainingRecipientId: true,
-              roleId: true,
-              role: {
-                select: {
-                  id: true,
-                  title: true
+    // First, get the checklist item to find which course it belongs to
+    const checklistItem = await prisma.course_checklist_items.findUnique({
+      where: { id: parseInt(checklistItemId) },
+      select: { courseId: true }
+    });
+
+    if (!checklistItem) {
+      return res.status(404).json({ message: 'Checklist item not found' });
+    }
+
+    // Get participants who are assigned to events for this specific course
+    const participantsInCourseEvents = await prisma.project_participants.findMany({
+      where: {
+        projectId: parseInt(projectId),
+        // Find participants who are in groups that are assigned to events with this courseId
+        group: {
+          some: {
+            group: {
+              event_groups: {
+                some: {
+                  event: {
+                    courseId: checklistItem.courseId,
+                    projectId: parseInt(projectId)
+                  }
                 }
               }
             }
           }
         }
-      }),
-      // Get progress records for this checklist item
-      prisma.project_participants_course_checklist_progress.findMany({
-        where: {
-          projectId: parseInt(projectId),
-          checklistItemId: parseInt(checklistItemId)
+      },
+      include: {
+        participant: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            trainingRecipientId: true,
+            roleId: true,
+            role: {
+              select: {
+                id: true,
+                title: true
+              }
+            }
+          }
         }
-      })
-    ]);
+      }
+    });
+
+    // Get progress records for this checklist item
+    const progressRecords = await prisma.project_participants_course_checklist_progress.findMany({
+      where: {
+        projectId: parseInt(projectId),
+        checklistItemId: parseInt(checklistItemId)
+      }
+    });
 
     // Create progress lookup map
     const progressMap = new Map(
@@ -68,7 +93,7 @@ async function handleGet(req, res) {
     );
 
     // Transform participant data with progress information
-    const participantProgress = participants.map(participant => {
+    const participantProgress = participantsInCourseEvents.map(participant => {
       const progress = progressMap.get(participant.id);
       const { participant: userData } = participant;
       

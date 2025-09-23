@@ -43,10 +43,11 @@ import {
   CheckOutlined,
   CloseOutlined,
   CameraOutlined,
-  UploadOutlined
+  UploadOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'store';
-import { getSingleTrainingRecipient, updateTrainingRecipient } from 'store/reducers/trainingRecipients';
+import { getSingleTrainingRecipient, updateTrainingRecipient, deleteParticipant } from 'store/reducers/trainingRecipients';
 import { openSnackbar } from 'store/reducers/snackbar';
 import axios from 'utils/axios';
 
@@ -216,6 +217,16 @@ const TrainingRecipientDetail = () => {
   const handleEditRecipient = () => {
     // Navigate back to main page with edit dialog open
     router.push('/project-manager/training-recipients?edit=' + id);
+  };
+
+  const handleDeleteParticipant = async (participantId, participantName) => {
+    if (window.confirm(`Are you sure you want to permanently delete ${participantName}? This action cannot be undone and will remove them from all projects.`)) {
+      try {
+        await dispatch(deleteParticipant(participantId));
+      } catch (error) {
+        console.error('Error deleting participant:', error);
+      }
+    }
   };
 
   const handleBackToList = () => {
@@ -941,6 +952,16 @@ const TrainingRecipientDetail = () => {
                       <Tooltip title="Edit Participant">
                         <IconButton edge="end" size="small">
                           <EditOutlined />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Participant">
+                        <IconButton 
+                          edge="end" 
+                          size="small" 
+                          color="error"
+                          onClick={() => handleDeleteParticipant(participant.id, `${participant.firstName} ${participant.lastName}`)}
+                        >
+                          <DeleteOutlined />
                         </IconButton>
                       </Tooltip>
                     </Stack>

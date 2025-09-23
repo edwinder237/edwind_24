@@ -17,6 +17,7 @@ import { useTableState } from './hooks/useTableState';
 import { useTableColumns } from './config/tableColumns';
 import ReactTable from './components/ReactTable';
 import NewParticipantForm from './NewParticipantForm';
+import AddParticipantForm from './AddParticipantForm';
 import CSVImport from './CSVImport';
 import EmailAccessDialog from 'components/EmailAccessDialog';
 
@@ -180,10 +181,16 @@ const ParticipantsTable = React.memo(({ index }) => {
   // CRUD handlers with dialog management
   const handleCRUD = useMemo(() => ({
     handleDialog: tableState.handleAdd,
+    handleAddMultiple: tableState.handleAddMultiple,
     handleCsvImport: tableState.handleCsvImport,
     handleAddParticipant: async (newParticipant) => {
       await crudOperations.handleAddParticipant(newParticipant);
       tableState.setAdd(false); // Close dialog on success
+    },
+    handleAddMany: async (newParticipants) => {
+      await crudOperations.handleAddMany(newParticipants);
+      tableState.setAddMultiple(false);
+      refreshData?.();
     },
     handleUpdate: crudOperations.handleUpdate,
     handleRemove: crudOperations.handleRemove,
@@ -230,6 +237,7 @@ const ParticipantsTable = React.memo(({ index }) => {
             onEmailAccess={tableState.handleEmailAccessDialog}
             editableRowIndex={tableState.editableRowIndex}
             setEditableRowIndex={tableState.setEditableRowIndex}
+            onRefresh={forceRefresh}
           />
         </Box>
       </MainCard>
@@ -249,6 +257,17 @@ const ParticipantsTable = React.memo(({ index }) => {
           existingParticipants={project_participants}
         />
       </Dialog>
+
+      {/* Add Multiple Participants Dialog */}
+      <AddParticipantForm
+        key={`multiple-${tableState.addMultiple}`}
+        customer={null}
+        onCancel={tableState.handleAddMultiple}
+        handleCRUD={handleCRUD}
+        groups={groups}
+        open={tableState.addMultiple}
+        error=""
+      />
 
       {/* CSV Import Dialog */}
       <CSVImport

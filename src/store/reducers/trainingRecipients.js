@@ -4,6 +4,7 @@ import { createSlice } from "@reduxjs/toolkit";
 // project imports
 import axios from "utils/axios";
 import { dispatch } from "../index";
+import { openSnackbar } from "./snackbar";
 
 // Utility function to extract error message
 const getErrorMessage = (error, defaultMessage = 'An error occurred') => {
@@ -85,6 +86,16 @@ const slice = createSlice({
     // CLEAR ERROR
     clearError(state) {
       state.error = null;
+    },
+
+    // DELETE PARTICIPANT
+    deleteParticipantSuccess(state, action) {
+      const participantId = action.payload.participantId;
+      if (state.recipientParticipants) {
+        state.recipientParticipants = state.recipientParticipants.filter(
+          participant => participant.id !== participantId
+        );
+      }
     },
 
     // CLEAR SUCCESS
@@ -271,6 +282,42 @@ export function deleteTrainingRecipient(recipientId) {
       const errorMessage = getErrorMessage(error, 'Failed to delete training recipient');
       console.error('Error deleting training recipient:', error);
       dispatch(hasError(errorMessage));
+      throw error;
+    }
+  };
+}
+
+// DELETE PARTICIPANT
+export function deleteParticipant(participantId) {
+  return async () => {
+    try {
+      const response = await axios.delete(`/api/participants/delete?participantId=${participantId}`);
+      if (response.data.success) {
+        dispatch(slice.actions.deleteParticipantSuccess({ participantId }));
+        dispatch(
+          openSnackbar({
+            open: true,
+            message: 'Participant deleted successfully',
+            variant: 'alert',
+            alert: { color: 'success' }
+          })
+        );
+        return { success: true };
+      } else {
+        throw new Error(response.data.message || 'Failed to delete participant');
+      }
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, 'Failed to delete participant');
+      console.error('Error deleting participant:', error);
+      dispatch(hasError(errorMessage));
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: errorMessage,
+          variant: 'alert',
+          alert: { color: 'error' }
+        })
+      );
       throw error;
     }
   };

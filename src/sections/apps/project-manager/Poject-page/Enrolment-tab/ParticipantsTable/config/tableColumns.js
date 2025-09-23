@@ -4,6 +4,7 @@ import { useTheme } from '@mui/material/styles';
 import LinearWithLabel from 'components/@extended/progress/LinearWithLabel';
 import ToolAccessCell from '../components/ToolAccessCell';
 import RoleDropdownCell from '../components/RoleDropdownCell';
+import GroupDropdownCell from '../components/GroupDropdownCell';
 import { IndeterminateCheckbox } from 'components/third-party/ReactTable';
 import {
   roundedMedian,
@@ -127,10 +128,10 @@ export const useTableColumns = (onRefresh) => {
       Footer: "Group",
       accessor: (row) => {
         try {
-          const groupName = row?.group?.[0]?.group?.groupName;
-          return groupName || '';
+          // Return the first group object or null
+          return row?.group?.[0] || null;
         } catch (error) {
-          return '';
+          return null;
         }
       },
       id: "groupName",
@@ -138,29 +139,11 @@ export const useTableColumns = (onRefresh) => {
       disableFilters: true,
       disableGroupBy: true,
       Cell: ({ row, value }) => {
-        const groupName = value || '';
-        const groups = row?.original?.group || [];
-        
-        if (!groupName) {
-          return (
-            <Chip
-              color="error"
-              label="Individual"
-              size="small"
-              variant="filled"
-            />
-          );
-        }
-        
-        const matchingGroup = groups.find(g => g?.group?.groupName === groupName);
-        const chipColor = matchingGroup?.group?.chipColor || "#1976d2";
-        
         return (
-          <Chip
-            style={{ backgroundColor: chipColor, color: "#fff" }}
-            label={groupName}
-            size="small"
-            variant="filled"
+          <GroupDropdownCell 
+            value={value} 
+            row={row} 
+            onUpdate={onRefresh}
           />
         );
       },

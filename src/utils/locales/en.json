@@ -138,7 +138,11 @@
   "user-list": "User List",
   "user-profile": "User Profile",
   "utils": "Utils",
-  "widgets": "Widgets"
-
+  "widgets": "Widgets",
+  "Team Members": "Team Members",
+  "Instructors": "Instructors",
+  "Training Recipients": "Training Recipients",
+  "Topics": "Topics",
+  "Participant Roles": "Participant Roles"
 
 }

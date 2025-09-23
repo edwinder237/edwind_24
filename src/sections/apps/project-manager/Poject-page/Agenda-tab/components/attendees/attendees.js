@@ -34,8 +34,10 @@ import {
   Tabs,
   Tab,
   Menu,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
-import { Remove, Person, Group, Add, ChevronRight, ArrowRight } from "@mui/icons-material";
+import { Remove, Person, Group, Add, ChevronRight, ArrowRight, Search } from "@mui/icons-material";
 import { Dropdown, DropdownMenuItem, DropdownNestedMenuItem } from "components/Dropdown";
 
 // project imports
@@ -65,6 +67,7 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
   const [selectedParticipants, setSelectedParticipants] = useState([]);
   const [dialogLoading, setDialogLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Initialize participant statuses from eventParticipants
   const [participantStatuses, setParticipantStatuses] = useState({});
@@ -110,6 +113,7 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
     setSelectedGroups([]);
     setSelectedParticipants([]);
     setActiveTab(0);
+    setSearchTerm('');
   };
 
   // Handle toggle group selection
@@ -1079,9 +1083,28 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
 
             {/* Tab Content */}
             <Box sx={{ 
-              maxHeight: 'calc(90vh - 160px)', 
+              maxHeight: 'calc(90vh - 220px)', 
               overflowY: 'auto',
-              p: 3 
+              p: 3,
+              pb: 1,
+              // Custom scrollbar styling to match app theme
+              '&::-webkit-scrollbar': {
+                width: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'rgba(0,0,0,0.1)',
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: 'rgba(0,0,0,0.3)',
+                borderRadius: '4px',
+                '&:hover': {
+                  background: 'rgba(0,0,0,0.5)',
+                }
+              },
+              // Firefox scrollbar styling
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(0,0,0,0.3) rgba(0,0,0,0.1)',
             }}>
               {/* Groups Tab */}
               {activeTab === 0 && (
@@ -1225,18 +1248,82 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                     Select individual participants to add to this event.
                   </Typography>
 
+                  {/* Search Field */}
+                  <TextField
+                    size="small"
+                    placeholder="Search participants..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search sx={{ color: 'text.secondary', fontSize: '1.2rem' }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        backgroundColor: 'background.paper',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                        '&.Mui-focused': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                            borderWidth: 2,
+                          },
+                        },
+                      },
+                    }}
+                  />
+
                   {(() => {
                     const projectParticipants = project_participants || [];
                     const currentEventParticipants = eventParticipants || [];
-                    const availableParticipants = projectParticipants.filter(pp => 
-                      !currentEventParticipants.some(ep => ep.enrolleeId === pp.id)
-                    );
+                    
+                    // Filter participants based on event enrollment and search term
+                    const availableParticipants = projectParticipants.filter(pp => {
+                      // First, exclude participants already in the event
+                      const isInEvent = currentEventParticipants.some(ep => ep.enrolleeId === pp.id);
+                      if (isInEvent) return false;
+                      
+                      // Then, filter by search term if provided
+                      if (searchTerm.trim()) {
+                        const participant = pp.participant;
+                        if (!participant) return false;
+                        
+                        const fullName = `${participant.firstName || ''} ${participant.lastName || ''}`.toLowerCase();
+                        const role = participant.role?.title?.toLowerCase() || '';
+                        const email = participant.email?.toLowerCase() || '';
+                        const searchLower = searchTerm.toLowerCase();
+                        
+                        return fullName.includes(searchLower) || 
+                               role.includes(searchLower) || 
+                               email.includes(searchLower);
+                      }
+                      
+                      return true;
+                    });
 
                     if (availableParticipants.length === 0) {
                       return (
-                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                          No available participants to add
-                        </Typography>
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                          <Search sx={{ fontSize: '2rem', color: 'text.disabled', mb: 1 }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {searchTerm.trim() 
+                              ? `No participants found matching "${searchTerm}"`
+                              : 'No available participants to add'
+                            }
+                          </Typography>
+                          {searchTerm.trim() && (
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                              Try adjusting your search terms
+                            </Typography>
+                          )}
+                        </Box>
                       );
                     }
 
@@ -1355,6 +1442,38 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                     Participants suggested based on course role requirements.
                   </Typography>
 
+                  {/* Search Field */}
+                  <TextField
+                    size="small"
+                    placeholder="Search suggested participants..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search sx={{ color: 'text.secondary', fontSize: '1.2rem' }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        backgroundColor: 'background.paper',
+                        '&:hover': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                          },
+                        },
+                        '&.Mui-focused': {
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main',
+                            borderWidth: 2,
+                          },
+                        },
+                      },
+                    }}
+                  />
+
                   {(() => {
                     // Get course role requirements from selectedEvent.course.course_participant_roles
                     const courseRoleIds = selectedEvent?.course?.course_participant_roles?.map(cpr => cpr.role?.id).filter(Boolean) || [];
@@ -1386,24 +1505,51 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                       
                       // Check if participant's role matches course requirements
                       const participantRoleId = pp.participant?.role?.id;
-                      return participantRoleId && courseRoleIds.includes(participantRoleId);
+                      const matchesRole = participantRoleId && courseRoleIds.includes(participantRoleId);
+                      if (!matchesRole) return false;
+                      
+                      // Filter by search term if provided
+                      if (searchTerm.trim()) {
+                        const participant = pp.participant;
+                        if (!participant) return false;
+                        
+                        const fullName = `${participant.firstName || ''} ${participant.lastName || ''}`.toLowerCase();
+                        const role = participant.role?.title?.toLowerCase() || '';
+                        const email = participant.email?.toLowerCase() || '';
+                        const searchLower = searchTerm.toLowerCase();
+                        
+                        return fullName.includes(searchLower) || 
+                               role.includes(searchLower) || 
+                               email.includes(searchLower);
+                      }
+                      
+                      return true;
                     });
 
                     if (suggestedParticipants.length === 0) {
                       return (
                         <Box sx={{ textAlign: 'center', py: 4 }}>
-                          <BulbOutlined style={{ fontSize: '2rem', color: '#ccc', marginBottom: '1rem' }} />
+                          {searchTerm.trim() ? (
+                            <Search sx={{ fontSize: '2rem', color: 'text.disabled', mb: 1 }} />
+                          ) : (
+                            <BulbOutlined style={{ fontSize: '2rem', color: '#ccc', marginBottom: '1rem' }} />
+                          )}
                           <Typography variant="body2" color="text.secondary">
-                            No participants match the course role requirements
+                            {searchTerm.trim() 
+                              ? `No suggested participants found matching "${searchTerm}"`
+                              : 'No participants match the course role requirements'
+                            }
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                            Required roles: {courseRoleIds.map(id => {
-                              // Try to find role title from existing participants
-                              const roleExample = projectParticipants.find(p => 
-                                (p.participant?.roleId === id || p.participant?.role?.id === id)
-                              );
-                              return roleExample?.participant?.role?.title || `Role ${id}`;
-                            }).join(', ')}
+                            {searchTerm.trim() 
+                              ? 'Try adjusting your search terms'
+                              : `Required roles: ${courseRoleIds.map(id => {
+                                  const roleExample = projectParticipants.find(p => 
+                                    (p.participant?.roleId === id || p.participant?.role?.id === id)
+                                  );
+                                  return roleExample?.participant?.role?.title || `Role ${id}`;
+                                }).join(', ')}`
+                            }
                           </Typography>
                         </Box>
                       );
@@ -1556,7 +1702,9 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
                 borderColor: 'divider',
                 backgroundColor: 'background.paper',
                 position: 'sticky',
-                bottom: 0
+                bottom: 0,
+                zIndex: 1,
+                boxShadow: '0 -2px 8px rgba(0,0,0,0.1)'
               }}
             >
               <Button 

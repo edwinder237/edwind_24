@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Button,
   Card,
@@ -29,13 +29,14 @@ const TransferLists = ({ learners, enrolled, handleSelectedEnrollee }) => {
   const [pageRight, setPageRight] = useState(1);
   const itemsPerPage = 10;
   
-  const learnersList = learners?.map((person, i) => ({
-    key: i.toString(),
-    title: `${person.firstName} ${person.lastName}`,
-    description: person.derpartement,
-    chosen: enrolled.some(enrollee => enrollee.participantId === person.id),
-    metaData: person
-  }));
+  const learnersList = useMemo(() => 
+    learners?.map((person, i) => ({
+      key: i.toString(),
+      title: `${person.firstName} ${person.lastName}`,
+      description: person.derpartement || person.department || '',
+      chosen: enrolled.some(enrollee => enrollee.participantId === person.id),
+      metaData: person
+    })), [learners, enrolled]);
 
   const handleChange = (newTargetKeys) => {
     setTargetKeys(newTargetKeys);
@@ -176,6 +177,12 @@ const TransferLists = ({ learners, enrolled, handleSelectedEnrollee }) => {
   // Selected keys for each side
   const [selectedLeftKeys, setSelectedLeftKeys] = useState([]);
   const [selectedRightKeys, setSelectedRightKeys] = useState([]);
+
+  // Reset selection states when learners change (e.g., dialog reopens)
+  useEffect(() => {
+    setSelectedLeftKeys([]);
+    setSelectedRightKeys([]);
+  }, [learners]);
 
   const handleToggleLeft = (key) => {
     setSelectedLeftKeys(prev => 

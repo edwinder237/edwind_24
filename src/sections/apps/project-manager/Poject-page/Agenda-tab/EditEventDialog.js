@@ -126,7 +126,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         backgroundColor: event.backgroundColor || event.color || theme.palette.primary.main,
         courseId: event.courseId || null,
         supportActivityId: event.supportActivityId || null,
-        selectedGroups: event.event_groups?.map(eg => eg.group_id) || []
+        selectedGroups: event.event_groups?.map(eg => eg.groupId) || []
       });
     }
   }, [event, open, theme.palette.primary.main]);
@@ -421,65 +421,136 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
 
             {/* Groups Assignment */}
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Assigned Groups</InputLabel>
-                <Select
-                  multiple
-                  value={formData.selectedGroups}
-                  label="Assigned Groups"
-                  onChange={(e) => handleInputChange('selectedGroups', e.target.value)}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((groupId) => {
-                        const group = groups?.find(g => g.id === groupId);
-                        return (
-                          <Chip
-                            key={groupId}
-                            label={group?.groupName || `Group ${groupId}`}
-                            size="small"
-                            sx={{ 
-                              bgcolor: alpha(formData.color, 0.1),
-                              color: formData.color,
-                              borderColor: formData.color
-                            }}
-                            variant="outlined"
-                          />
-                        );
-                      })}
-                    </Box>
-                  )}
-                >
-                  {groups?.map((group) => (
-                    <MenuItem key={group.id} value={group.id}>
-                      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ width: '100%' }}>
+              <Typography variant="body2" fontWeight={500} gutterBottom>
+                Assigned Groups
+              </Typography>
+              <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 2, minHeight: 120 }}>
+                {formData.selectedGroups.length === 0 ? (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    py: 2,
+                    color: 'text.secondary'
+                  }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      No groups assigned
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Select groups below to assign them to this event
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {formData.selectedGroups.map((groupId) => {
+                      const group = groups?.find(g => g.id === groupId);
+                      return (
                         <Chip
-                          label={group.groupName?.charAt(0) || 'G'}
+                          key={groupId}
+                          label={group?.groupName || `Group ${groupId}`}
                           size="small"
+                          onDelete={() => {
+                            const newSelected = formData.selectedGroups.filter(id => id !== groupId);
+                            handleInputChange('selectedGroups', newSelected);
+                          }}
                           sx={{
-                            width: 28,
-                            height: 28,
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            backgroundColor: group.chipColor || theme.palette.primary.main,
-                            color: theme.palette.getContrastText(group.chipColor || theme.palette.primary.main),
-                            '& .MuiChip-label': {
-                              px: 0.5
+                            bgcolor: group?.chipColor || formData.color,
+                            color: 'white',
+                            '& .MuiChip-deleteIcon': {
+                              color: 'rgba(255, 255, 255, 0.8)',
+                              '&:hover': {
+                                color: 'white'
+                              }
                             }
                           }}
                         />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" fontWeight={500}>
-                            {group.groupName || `Group ${group.id}`}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {group.participants?.length || 0} participant{(group.participants?.length || 0) !== 1 ? 's' : ''}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                    </MenuItem>
-                  )) || []}
-                </Select>
-              </FormControl>
+                      );
+                    })}
+                  </Stack>
+                )}
+              </Box>
+              
+              {/* Available Groups */}
+              <Typography variant="body2" fontWeight={500} gutterBottom sx={{ mt: 2 }}>
+                Available Groups
+              </Typography>
+              <Box sx={{ maxHeight: 200, overflow: 'auto', border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
+                {groups?.filter(group => !formData.selectedGroups.includes(group.id)).map((group) => (
+                  <Box
+                    key={group.id}
+                    onClick={() => {
+                      const newSelected = [...formData.selectedGroups, group.id];
+                      handleInputChange('selectedGroups', newSelected);
+                    }}
+                    sx={{
+                      p: 1.5,
+                      cursor: 'pointer',
+                      borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                      '&:hover': {
+                        bgcolor: alpha(theme.palette.action.hover, 0.5)
+                      },
+                      '&:last-child': {
+                        borderBottom: 'none'
+                      }
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                      <Chip
+                        label={group.groupName?.charAt(0) || 'G'}
+                        size="small"
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          backgroundColor: group.chipColor || theme.palette.primary.main,
+                          color: theme.palette.getContrastText(group.chipColor || theme.palette.primary.main),
+                          '& .MuiChip-label': {
+                            px: 0.5
+                          }
+                        }}
+                      />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          {group.groupName || `Group ${group.id}`}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {group.participants?.length || 0} participant{(group.participants?.length || 0) !== 1 ? 's' : ''}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ 
+                        width: 24, 
+                        height: 24, 
+                        borderRadius: '50%', 
+                        border: `2px solid ${theme.palette.primary.main}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: 'transparent'
+                      }}>
+                        <Box sx={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          bgcolor: 'transparent' 
+                        }} />
+                      </Box>
+                    </Stack>
+                  </Box>
+                )) || []}
+                {groups?.filter(group => !formData.selectedGroups.includes(group.id)).length === 0 && (
+                  <Box sx={{ 
+                    p: 2, 
+                    textAlign: 'center', 
+                    color: 'text.secondary' 
+                  }}>
+                    <Typography variant="body2">
+                      All groups are assigned to this event
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
             </Grid>
 
             {/* Timing Section */}

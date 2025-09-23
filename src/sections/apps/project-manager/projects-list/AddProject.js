@@ -839,6 +839,9 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                     onClick={() => {
                       setFieldValue("type", type.value);
                       setProjectType(type.value);
+                      // Automatically move to next step after selecting project type
+                      setCompletedSteps(prev => new Set([...prev, 0]));
+                      setActiveStep(1);
                     }}
                   >
                     <CardContent sx={{ textAlign: 'center', p: 3 }}>

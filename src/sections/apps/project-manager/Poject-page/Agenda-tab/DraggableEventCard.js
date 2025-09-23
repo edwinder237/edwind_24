@@ -882,16 +882,9 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                     <Box sx={{ 
                       mt: 0.5
                     }}>
-                      {/* Combined Add Groups & Participants Dropdown */}
+                      {/* Add Groups Dropdown */}
                       {(() => {
-                        const projectParticipants = project_participants || [];
-                        const eventParticipants = event.event_participants || [];
-                        const availableParticipants = projectParticipants.filter(pp => 
-                          !eventParticipants.some(ep => ep.enrolleeId === pp.id)
-                        );
-
                         const hasGroups = groups.length > 0;
-                        const hasParticipants = availableParticipants.length > 0;
 
                         if (isLoadingGroups || groupsLoading) {
                           return (
@@ -904,10 +897,10 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                           );
                         }
 
-                        if (!hasGroups && !hasParticipants) {
+                        if (!hasGroups) {
                           return (
                             <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                              No groups or participants available
+                              No groups available
                             </Typography>
                           );
                         }
@@ -922,8 +915,6 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                                   const [type, id] = e.target.value.split('-');
                                   if (type === 'group') {
                                     handleQuickGroupAssign(id, e);
-                                  } else if (type === 'participant') {
-                                    handleQuickParticipantAssign(id, e);
                                   }
                                 }
                               }}
@@ -958,7 +949,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                   <Add sx={{ fontSize: 12, color: 'inherit', opacity: 0.7 }} />
                                   <Typography sx={{ fontSize: '0.7rem', color: 'inherit' }}>
-                                    Add Group/Participant
+                                    Add Group
                                   </Typography>
                                 </Box>
                               )}
@@ -982,39 +973,6 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                                       </Typography>
                                       <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
                                         Group • {group.participants?.length || 0} members
-                                      </Typography>
-                                    </Box>
-                                  </Box>
-                                </MenuItem>
-                              ))}
-                              
-                              {/* Divider */}
-                              {hasGroups && hasParticipants && (
-                                <Divider sx={{ my: 0.5 }} />
-                              )}
-                              
-                              {/* Participants Section */}
-                              {hasParticipants && availableParticipants.map((participant) => (
-                                <MenuItem key={`participant-${participant.id}`} value={`participant-${participant.id}`}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                                    <Person sx={{ fontSize: 14, color: theme.palette.secondary.main }} />
-                                    <Box
-                                      sx={{
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: '50%',
-                                        bgcolor: theme.palette.secondary.main
-                                      }}
-                                    />
-                                    <Box sx={{ flex: 1 }}>
-                                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
-                                        {participant.participant ? 
-                                          `${participant.participant.firstName || ''} ${participant.participant.lastName || ''}`.trim() :
-                                          'Unknown Participant'
-                                        }
-                                      </Typography>
-                                      <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
-                                        {participant.participant?.role?.title || 'Participant'} • Individual
                                       </Typography>
                                     </Box>
                                   </Box>

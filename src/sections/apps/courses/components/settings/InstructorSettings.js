@@ -330,6 +330,7 @@ const InstructorSettings = ({ courseId }) => {
                           />
                         </Box>
                       }
+                      primaryTypographyProps={{ component: 'div' }}
                       secondary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                           <EmailIcon sx={{ fontSize: 14 }} />
@@ -338,6 +339,7 @@ const InstructorSettings = ({ courseId }) => {
                           </Typography>
                         </Box>
                       }
+                      secondaryTypographyProps={{ component: 'div' }}
                     />
                     
                     <ListItemSecondaryAction>
