@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
-import { useMemo, useState } from "react";
-import { useSelector, useDispatch } from 'store';
+import { useMemo } from "react";
+import { useSelector } from 'store';
 
 // material-ui
 import {
@@ -17,6 +17,7 @@ import {
   MenuItem,
   IconButton,
   Tooltip,
+  Divider,
 } from "@mui/material";
 
 // third-party
@@ -29,12 +30,10 @@ import LinearWithLabel from "components/@extended/progress/LinearWithLabel";
 import { TablePagination } from "components/third-party/ReactTable";
 
 // assets
-import { TeamOutlined } from "@ant-design/icons";
+// Removed unused TeamOutlined import
 
-// store
-import { openSnackbar } from 'store/reducers/snackbar';
-import { getGroupsDetails, getSingleProject } from 'store/reducers/projects';
-import axios from 'utils/axios';
+// hooks
+import useParticipantGroupMove from "hooks/useParticipantGroupMove";
 
 // ==============================|| REACT TABLE ||============================== //
 
@@ -178,9 +177,14 @@ ProgressCell.propTypes = {
 
 const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData }) => {
   console.log(Enrolled);
-  const dispatch = useDispatch();
-  const { groups, singleProject } = useSelector((state) => state.projects);
-  const [assigningParticipant, setAssigningParticipant] = useState(null);
+  const { groups } = useSelector((state) => state.projects);
+  
+  // Use the custom hook for participant group management
+  const { 
+    moveParticipant, 
+    isMoving, 
+    getParticipantGroups 
+  } = useParticipantGroupMove();
   
   const attendanceStatusesArray = [
     "Present",
@@ -208,63 +212,18 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData })
   // Safety check to prevent errors when Enrolled is undefined or null
   const enrolledData = Enrolled || [];
   
-  // Handle group assignment and removal
-  const handleAssignToGroup = async (participantId, groupId) => {
+  // Handle group assignment using the hook
+  const handleAssignToGroup = async (participantId, newGroupId) => {
     if (!participantId) return;
     
-    setAssigningParticipant(participantId);
-    try {
-      let response;
-      
-      if (groupId === '' || !groupId) {
-        // Remove from current group
-        if (currentGroup?.id) {
-          response = await axios.post('/api/projects/remove-participant-from-group', {
-            groupId: currentGroup.id,
-            participantId: participantId
-          });
-          
-          if (response.data.success) {
-            dispatch(openSnackbar({
-              open: true,
-              message: 'Participant removed from group successfully',
-              variant: 'alert',
-              alert: { color: 'success' }
-            }));
-          }
-        }
-      } else {
-        // Add to new group
-        response = await axios.post('/api/projects/add-participant-to-group', {
-          projectId: singleProject?.id,
-          groupId: groupId,
-          participantId: participantId
-        });
-        
-        if (response.data.success) {
-          dispatch(openSnackbar({
-            open: true,
-            message: 'Participant assigned to group successfully',
-            variant: 'alert',
-            alert: { color: 'success' }
-          }));
-        }
-      }
-      
-      // Refresh the data
-      if (onRefresh) {
-        await onRefresh();
-      }
-    } catch (error) {
-      console.error('Error updating participant group:', error);
-      dispatch(openSnackbar({
-        open: true,
-        message: error.response?.data?.error || 'Failed to update participant group',
-        variant: 'alert',
-        alert: { color: 'error' }
-      }));
-    } finally {
-      setAssigningParticipant(null);
+    const result = await moveParticipant(participantId, newGroupId || null, {
+      removeFromAll: true,
+      showNotification: true
+    });
+    
+    // Refresh data immediately after successful move
+    if (result.success && onRefresh) {
+      onRefresh();
     }
   };
 
@@ -321,52 +280,56 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData })
         disableGroupBy: true,
         Cell: ({ row }) => {
           const participant = row.original;
-          const participantId = participant?.id;
-          const isAssigning = assigningParticipant === participantId;
+          // Get the project_participants.id, not the group_participants.id
+          const participantId = participant?.participant?.id || participant?.participantId;
+          const isAssigning = isMoving(participantId);
+          
+          // Find all groups this participant is in using the hook
+          const participantGroups = getParticipantGroups(participantId);
+          
+          // Use the first group if participant is in multiple groups (shouldn't happen after fix)
+          const currentParticipantGroup = participantGroups[0];
           
           return (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <Select
-                  value={currentGroup?.id || ''}
-                  onChange={(e) => handleAssignToGroup(participantId, e.target.value)}
-                  displayEmpty
-                  disabled={isAssigning}
-                  size="small"
-                >
-                  <MenuItem value="">
-                    <em>No Group</em>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <Select
+                value={currentParticipantGroup?.id || ''}
+                onChange={(e) => handleAssignToGroup(participantId, e.target.value)}
+                displayEmpty
+                disabled={isAssigning}
+                size="small"
+              >
+                {groups?.map((group) => (
+                  <MenuItem key={group.id} value={group.id}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          backgroundColor: group.chipColor || '#1976d2',
+                          border: '1px solid rgba(255, 255, 255, 0.3)',
+                        }}
+                      />
+                      <span>{group.groupName}</span>
+                    </Stack>
                   </MenuItem>
-                  {groups?.map((group) => (
-                    <MenuItem key={group.id} value={group.id}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <TeamOutlined style={{ fontSize: 14 }} />
-                        <span>{group.groupName}</span>
-                      </Stack>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              
-              {currentGroup && (
-                <Chip
-                  label={currentGroup.groupName}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  style={{ 
-                    backgroundColor: currentGroup.chipColor || '#1976d2',
-                    color: '#fff',
-                    border: 'none'
-                  }}
-                />
-              )}
-            </Stack>
+                ))}
+                
+                {/* Divider to separate groups from remove option */}
+                {groups && groups.length > 0 && <Divider />}
+                
+                {/* Remove from Group option */}
+                <MenuItem value="">
+                  <span style={{ color: '#f44336', fontStyle: 'italic' }}>Remove from Group</span>
+                </MenuItem>
+              </Select>
+            </FormControl>
           );
         },
       },
     ],
-    [groups, assigningParticipant, handleAssignToGroup, currentGroup, progressData]
+    [groups, isMoving, getParticipantGroups, handleAssignToGroup, currentGroup, progressData]
   );
 
   return <ReactTable columns={columns} data={participantsWithAttendance} />;

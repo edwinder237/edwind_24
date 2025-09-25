@@ -82,6 +82,7 @@ export default async function handler(req, res) {
           data: {
             eventsId: parseInt(eventId),
             enrolleeId: groupParticipant.participantId,
+            attendanceType: 'group',
             attendance_status: 'scheduled',
             createdBy: user.id,
             updatedby: user.id

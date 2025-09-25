@@ -34,7 +34,7 @@ import MainCard from 'components/MainCard';
 import { useDispatch, useSelector } from 'store';
 import { createEvent, getEvents } from 'store/reducers/calendar';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { getSingleProject } from 'store/reducers/projects';
+import { getSingleProject, getProjectCurriculums } from 'store/reducers/projects';
 import EventModalCards from './EventModalCards';
 import { calculateCourseDurationFromModules } from 'utils/durationCalculations';
 
@@ -70,6 +70,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const theme = useTheme();
   const dispatch = useDispatch();
   const { events, isAdding } = useSelector((state) => state.calendar);
+  const { project_curriculums, singleProject } = useSelector((state) => state.projects);
   const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [editableTime, setEditableTime] = useState(selectedTime || '9:00 AM');
@@ -201,6 +202,14 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     }
   }, [open]);
 
+  // Refresh project curriculums when dialog opens to get latest courses
+  useEffect(() => {
+    if (open && (project?.id || singleProject?.id)) {
+      const projectId = project?.id || singleProject?.id;
+      dispatch(getProjectCurriculums(projectId));
+    }
+  }, [open, project?.id, singleProject?.id, dispatch]);
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     setSearchQuery(''); // Reset search when switching tabs
@@ -323,12 +332,14 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     }
   };
 
-  // Get all courses from project curriculums
+  // Get all courses from project curriculums (use Redux state for fresh data)
   const availableCourses = useMemo(() => {
-    if (!project?.project_curriculums) return [];
+    // Use Redux state if available, fallback to project prop
+    const curriculums = project_curriculums || project?.project_curriculums;
+    if (!curriculums) return [];
     
     const courses = [];
-    project.project_curriculums.forEach(projectCurriculum => {
+    curriculums.forEach(projectCurriculum => {
       const curriculum = projectCurriculum.curriculum;
       if (curriculum?.curriculum_courses) {
         curriculum.curriculum_courses.forEach(curriculumCourse => {
@@ -349,7 +360,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     });
     
     return courses;
-  }, [project?.project_curriculums]);
+  }, [project_curriculums, project?.project_curriculums]);
 
   // Get support activities from project curriculums
   const [availableSupportActivities, setAvailableSupportActivities] = useState([]);

@@ -13,6 +13,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   FormControl,
   InputLabel,
   Select,
@@ -20,7 +21,9 @@ import {
   CircularProgress,
   Alert,
   Card,
-  CardContent
+  CardContent,
+  Avatar,
+  Divider
 } from '@mui/material';
 import {
   MenuBook as MenuBookIcon,
@@ -31,6 +34,8 @@ import {
 } from '@mui/icons-material';
 import { useDispatch } from 'react-redux';
 import { openSnackbar } from 'store/reducers/snackbar';
+import { getProjectCurriculums } from 'store/reducers/projects';
+import MainCard from 'components/MainCard';
 
 const ProjectCurriculumCard = ({ projectId }) => {
   const dispatch = useDispatch();
@@ -40,6 +45,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState('');
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedCurriculum, setSelectedCurriculum] = useState(null);
 
@@ -99,6 +105,9 @@ const ProjectCurriculumCard = ({ projectId }) => {
         setAddDialogOpen(false);
         setSelectedCurriculumId('');
         fetchProjectCurriculums();
+        
+        // Update Redux store to make curriculum available in other components
+        dispatch(getProjectCurriculums(projectId));
       } else {
         throw new Error(result.message || 'Failed to add curriculum');
       }
@@ -116,7 +125,12 @@ const ProjectCurriculumCard = ({ projectId }) => {
 
   // Remove curriculum from project
   const handleRemoveCurriculum = async (curriculumId) => {
+    if (!curriculumId) return;
+    
     try {
+      setRemoving(true);
+      setMenuAnchor(null); // Close menu immediately
+      
       const response = await fetch('/api/projects/remove-curriculum', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -129,18 +143,29 @@ const ProjectCurriculumCard = ({ projectId }) => {
       const result = await response.json();
       
       if (result.success) {
+        // Optimistically update local state first for immediate UI feedback
+        setProjectCurriculums(prev => 
+          prev.filter(pc => pc.curriculum.id !== curriculumId)
+        );
+        
         dispatch(openSnackbar({
           open: true,
-          message: 'Curriculum removed from project successfully',
+          message: 'Curriculum removed successfully',
           variant: 'alert',
           alert: { color: 'success' }
         }));
         
-        fetchProjectCurriculums();
+        // Update Redux store in background (single call, not duplicate)
+        dispatch(getProjectCurriculums(projectId));
       } else {
         throw new Error(result.message || 'Failed to remove curriculum');
       }
     } catch (error) {
+      console.error('Error removing curriculum:', error);
+      
+      // Refresh data on error to ensure consistency
+      fetchProjectCurriculums();
+      
       dispatch(openSnackbar({
         open: true,
         message: error.message || 'Failed to remove curriculum',
@@ -148,7 +173,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
         alert: { color: 'error' }
       }));
     } finally {
-      setMenuAnchor(null);
+      setRemoving(false);
     }
   };
 
@@ -267,12 +292,19 @@ const ProjectCurriculumCard = ({ projectId }) => {
           onClick={() => {
             handleRemoveCurriculum(selectedCurriculum?.id);
           }}
+          disabled={removing}
           sx={{ color: 'error.main' }}
         >
           <ListItemIcon>
-            <DeleteIcon fontSize="small" color="error" />
+            {removing ? (
+              <CircularProgress size={16} color="error" />
+            ) : (
+              <DeleteIcon fontSize="small" color="error" />
+            )}
           </ListItemIcon>
-          <ListItemText>Remove from Project</ListItemText>
+          <ListItemText>
+            {removing ? 'Removing...' : 'Remove from Project'}
+          </ListItemText>
         </MenuItem>
       </Menu>
 
@@ -280,47 +312,100 @@ const ProjectCurriculumCard = ({ projectId }) => {
       <Dialog
         open={addDialogOpen}
         onClose={() => setAddDialogOpen(false)}
-        maxWidth="sm"
+        maxWidth="xs"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            overflow: 'hidden'
+          }
+        }}
       >
-        <DialogTitle>Add Curriculum to Project</DialogTitle>
-        <DialogContent>
-          <Stack spacing={3} sx={{ mt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Select Curriculum</InputLabel>
-              <Select
-                value={selectedCurriculumId}
-                onChange={(e) => setSelectedCurriculumId(e.target.value)}
-                input={<OutlinedInput label="Select Curriculum" />}
-              >
-                {getAvailableForAdd().map((curriculum) => (
-                  <MenuItem key={curriculum.id} value={curriculum.id}>
-                    <Stack>
-                      <Typography variant="body1">{curriculum.title}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {curriculum.courseCount} courses • {curriculum.projectCount} projects
-                      </Typography>
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+        <MainCard
+          title={
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                <MenuBookIcon />
+              </Avatar>
+              <Box>
+                <Typography variant="h5" fontWeight="medium">
+                  Add Curriculum to Project
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Select a curriculum to add to this project
+                </Typography>
+              </Box>
+            </Stack>
+          }
+          content={false}
+          sx={{ 
+            m: 0, 
+            height: '100%', 
+            '& .MuiCardHeader-root': { 
+              pb: 2 
+            }
+          }}
+        >
+          <Divider />
+          
+          <Box sx={{ p: 3 }}>
+            <Stack spacing={3}>
+              {getAvailableForAdd().length === 0 ? (
+                <Alert severity="info">
+                  All available curriculums are already assigned to this project.
+                </Alert>
+              ) : (
+                <FormControl fullWidth>
+                  <InputLabel>Select Curriculum</InputLabel>
+                  <Select
+                    value={selectedCurriculumId}
+                    onChange={(e) => setSelectedCurriculumId(e.target.value)}
+                    input={<OutlinedInput label="Select Curriculum" />}
+                    displayEmpty
+                  >
+                    <MenuItem disabled value="">
+                      <em>Choose a curriculum...</em>
+                    </MenuItem>
+                    {getAvailableForAdd().map((curriculum) => (
+                      <MenuItem key={curriculum.id} value={curriculum.id}>
+                        <Stack spacing={0.5} sx={{ py: 1 }}>
+                          <Typography variant="body1" fontWeight="medium">
+                            {curriculum.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {curriculum.courseCount} courses • Used in {curriculum.projectCount} projects
+                          </Typography>
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </Stack>
+          </Box>
 
+          <Divider />
+          
+          <Box sx={{ p: 3, pt: 2, bgcolor: 'background.paper' }}>
             <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button onClick={() => setAddDialogOpen(false)}>
+              <Button 
+                color="error" 
+                onClick={() => setAddDialogOpen(false)}
+                disabled={adding}
+              >
                 Cancel
               </Button>
               <Button
                 variant="contained"
                 onClick={handleAddCurriculum}
-                disabled={!selectedCurriculumId || adding}
-                startIcon={adding ? <CircularProgress size={20} /> : <AddIcon />}
+                disabled={!selectedCurriculumId || adding || getAvailableForAdd().length === 0}
+                startIcon={adding ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
               >
-                Add Curriculum
+                {adding ? 'Adding...' : 'Add Curriculum'}
               </Button>
             </Stack>
-          </Stack>
-        </DialogContent>
+          </Box>
+        </MainCard>
       </Dialog>
     </>
   );

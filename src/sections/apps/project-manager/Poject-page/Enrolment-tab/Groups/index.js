@@ -183,6 +183,8 @@ function ReactTable({
   handleRemoveGroup,
   handleManageCurriculums,
   handleEditGroup,
+  initialExpanded = {},
+  onExpandedChange,
 }) {
   const {
     getTableProps,
@@ -191,10 +193,17 @@ function ReactTable({
     rows,
     prepareRow,
     visibleColumns,
+    state: { expanded },
+    toggleRowExpanded,
   } = useTable(
     {
       columns: userColumns,
       data,
+      initialState: {
+        expanded: initialExpanded
+      },
+      // Ensure expand functionality is enabled
+      getSubRows: () => undefined,
     },
     useExpanded,
     (hooks) => {
@@ -221,6 +230,13 @@ function ReactTable({
       ]);
     }
   );
+
+  // Track expanded state changes and notify parent
+  useEffect(() => {
+    if (onExpandedChange) {
+      onExpandedChange(expanded);
+    }
+  }, [expanded, onExpandedChange]);
 
   return (
     <Table {...getTableProps()}>
@@ -283,6 +299,8 @@ ReactTable.propTypes = {
   handleRemoveGroup: PropTypes.func,
   handleManageCurriculums: PropTypes.func,
   handleEditGroup: PropTypes.func,
+  initialExpanded: PropTypes.object,
+  onExpandedChange: PropTypes.func,
 };
 
 // ==============================|| REACT TABLE - EXPANDING TABLE ||============================== //
@@ -291,8 +309,22 @@ const CellExpander = React.memo(({ row }) => {
   const collapseIcon = row.isExpanded ? <DownOutlined /> : <RightOutlined />;
   return (
     <Box
-      sx={{ fontSize: "0.75rem", color: "text.secondary", textAlign: "center" }}
+      sx={{ 
+        fontSize: "0.75rem", 
+        color: "text.secondary", 
+        textAlign: "center",
+        cursor: "pointer",
+        p: 1,
+        '&:hover': {
+          color: 'primary.main'
+        }
+      }}
       {...row.getToggleRowExpandedProps()}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        row.toggleRowExpanded();
+      }}
     >
       {collapseIcon}
     </Box>
@@ -353,6 +385,7 @@ const GroupTable = ({ index }) => {
   const [data, setData] = useState([]);
   const [error, setError] = useState(null);
   const [progressData, setProgressData] = useState({}); // Separate state for progress to avoid re-renders
+  const [expandedRows, setExpandedRows] = useState({}); // Track expanded state
 
   const fetchGroupsData = async () => {
     if (Project && Project.id) {
@@ -371,6 +404,59 @@ const GroupTable = ({ index }) => {
     () => debounce(fetchGroupsData, 300),
     [Project?.id]
   );
+
+  // Helper functions to preserve expanded state across data refreshes
+  const preserveExpandedStateAcrossRefresh = useCallback(() => {
+    // Store currently expanded group IDs before refresh
+    const expandedGroupIds = [];
+    Object.keys(expandedRows).forEach(index => {
+      if (expandedRows[index] && data[parseInt(index)]) {
+        expandedGroupIds.push(data[parseInt(index)].id);
+      }
+    });
+    return expandedGroupIds;
+  }, [expandedRows, data]);
+
+  const restoreExpandedState = useCallback((expandedGroupIds, newData) => {
+    if (!expandedGroupIds.length || !newData.length) return {};
+    
+    const newExpandedState = {};
+    newData.forEach((group, index) => {
+      if (expandedGroupIds.includes(group.id)) {
+        newExpandedState[index] = true;
+      }
+    });
+    return newExpandedState;
+  }, []);
+
+  // Store expanded group IDs before data changes
+  const [expandedGroupIds, setExpandedGroupIds] = useState([]);
+
+  // Effect to preserve expanded state before data refresh
+  useEffect(() => {
+    if (data.length > 0 && Object.keys(expandedRows).length > 0) {
+      const currentExpandedIds = preserveExpandedStateAcrossRefresh();
+      if (currentExpandedIds.length > 0) {
+        setExpandedGroupIds(currentExpandedIds);
+      }
+    }
+  }, [data.length]); // Simplified dependency to avoid conflicts
+
+  // Effect to restore expanded state after data refresh
+  useEffect(() => {
+    if (expandedGroupIds.length > 0 && data.length > 0) {
+      // Use a small delay to ensure the table has rendered with new data
+      const timeoutId = setTimeout(() => {
+        const restoredState = restoreExpandedState(expandedGroupIds, data);
+        if (Object.keys(restoredState).length > 0) {
+          setExpandedRows(restoredState);
+          setExpandedGroupIds([]); // Clear after restoration
+        }
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [data, expandedGroupIds]);
 
   // Centralized state management - prioritize Redux groups state
   useEffect(() => {
@@ -876,7 +962,7 @@ const GroupTable = ({ index }) => {
         }}>
           {error ? (
             <ErrorDisplay />
-          ) : loading ? (
+          ) : data.length === 0 && loading ? (
             <LoadingDisplay />
           ) : data.length === 0 ? (
             // Empty state when no groups exist
@@ -989,15 +1075,50 @@ const GroupTable = ({ index }) => {
             <Box sx={{ 
               flex: 1, 
               overflow: 'auto',
-              minHeight: 0
+              minHeight: 0,
+              position: 'relative'
             }}>
+              {/* Show subtle loading indicator when refreshing existing data */}
+              {loading && data.length > 0 && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    bgcolor: 'transparent',
+                    zIndex: 10,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      height: '100%',
+                      bgcolor: 'primary.main',
+                      borderRadius: 1,
+                      animation: 'refreshIndicator 1.5s ease-in-out infinite',
+                      '@keyframes refreshIndicator': {
+                        '0%': { width: '0%', opacity: 0.6 },
+                        '50%': { width: '100%', opacity: 1 },
+                        '100%': { width: '0%', opacity: 0.6, marginLeft: '100%' },
+                      },
+                    }}
+                  />
+                </Box>
+              )}
               <ReactTable
+                key={`table-${data.length}-${Object.keys(expandedRows).length}`}
                 columns={columns}
                 data={Array.isArray(data) ? data : []}
                 renderRowSubComponent={renderRowSubComponent}
                 handleRemoveGroup={handleRemoveGroup}
                 handleManageCurriculums={handleManageCurriculums}
                 handleEditGroup={handleEditGroup}
+                initialExpanded={expandedRows}
+                onExpandedChange={(newExpanded) => {
+                  console.log('Expanded state changed:', newExpanded);
+                  setExpandedRows(newExpanded);
+                }}
               />
             </Box>
           )}

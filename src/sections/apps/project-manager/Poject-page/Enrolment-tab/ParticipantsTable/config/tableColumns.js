@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Chip } from '@mui/material';
+import { Chip, IconButton, Tooltip } from '@mui/material';
+import { Visibility } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import LinearWithLabel from 'components/@extended/progress/LinearWithLabel';
 import ToolAccessCell from '../components/ToolAccessCell';
@@ -30,7 +31,7 @@ const SelectionCell = ({ row }) => (
 /**
  * Hook to generate table column configuration
  */
-export const useTableColumns = (onRefresh) => {
+export const useTableColumns = (onRefresh, onViewParticipant) => {
   const theme = useTheme();
 
   return useMemo(() => {
@@ -181,6 +182,32 @@ export const useTableColumns = (onRefresh) => {
         );
       },
     },
+    {
+      Header: "Actions",
+      Footer: "Actions",
+      accessor: "actions",
+      disableFilters: true,
+      disableGroupBy: true,
+      disableSortBy: true,
+      Cell: ({ row }) => {
+        return (
+          <Tooltip title="View Participant Details">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => onViewParticipant && onViewParticipant(row.original)}
+              sx={{
+                '&:hover': {
+                  backgroundColor: 'primary.lighter'
+                }
+              }}
+            >
+              <Visibility fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        );
+      },
+    },
   ];
-  }, [onRefresh, theme]);
+  }, [onRefresh, onViewParticipant, theme]);
 };

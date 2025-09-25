@@ -126,6 +126,46 @@ export default async function handler(req, res) {
       });
     }
 
+    // Handle group assignment if specified
+    if (newParticipant.group && newParticipant.group.trim() !== '') {
+      try {
+        const groupName = newParticipant.group.trim();
+        
+        // Check if the group exists
+        let group = await prisma.groups.findFirst({
+          where: {
+            groupName: groupName,
+            projectId: projectIdInt
+          }
+        });
+
+        // If group doesn't exist, create it
+        if (!group) {
+          group = await prisma.groups.create({
+            data: {
+              groupName: groupName,
+              projectId: projectIdInt,
+              chipColor: "#1976d2" // Default color
+            }
+          });
+        }
+
+        // Add participant to group
+        await prisma.group_participants.create({
+          data: {
+            groupId: group.id,
+            participantId: projectParticipant.id
+          }
+        });
+
+        console.log(`Participant ${participant.firstName} ${participant.lastName} assigned to group ${group.groupName}`);
+      } catch (groupError) {
+        console.error('Error assigning participant to group:', groupError);
+        // Don't fail the entire operation if group assignment fails
+        // The participant is still created successfully
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: `${participant.firstName} ${participant.lastName} has been successfully added to the project`,

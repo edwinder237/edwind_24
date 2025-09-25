@@ -44,7 +44,8 @@ import { Dropdown, DropdownMenuItem, DropdownNestedMenuItem } from "components/D
 import MainCard from "components/MainCard";
 import ParticipantDrawer from "./ParticipantDrawer";
 import { useSelector, useDispatch } from "store";
-import { getSingleProject, getEvents } from "store/reducers/projects";
+import { getSingleProject } from "store/reducers/projects";
+import { getEvents } from "store/reducers/calendar";
 import { openSnackbar } from "store/reducers/snackbar";
 
 // constants
@@ -80,28 +81,19 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   
 
-  // Initialize statuses when eventParticipants changes (prevent looping)
+  // Initialize statuses when eventParticipants changes
   useEffect(() => {
     if (eventParticipants?.length > 0) {
       const initialStatuses = {};
       eventParticipants.forEach(ep => {
-        // Use enrolleeId if available, otherwise fall back to participant.id
         const participantId = ep.enrolleeId || ep.participant?.id;
         if (participantId) {
           initialStatuses[participantId] = ep.attendance_status || 'scheduled';
         }
       });
-      
-      // Only update if the statuses have actually changed to prevent loops
-      setParticipantStatuses(prev => {
-        const hasChanged = Object.keys(initialStatuses).some(id => 
-          prev[id] !== initialStatuses[id]
-        ) || Object.keys(prev).length !== Object.keys(initialStatuses).length;
-        
-        return hasChanged ? initialStatuses : prev;
-      });
+      setParticipantStatuses(initialStatuses);
     }
-  }, [eventParticipants?.length, selectedEvent?.id]); // Use length and event ID to prevent unnecessary updates
+  }, [eventParticipants]);
 
 
   const handleAddParticipant = () => {
@@ -308,6 +300,11 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
             throw new Error('Failed to update attendance status after adding participant');
           }
 
+          // Refresh Redux store to ensure data consistency
+          if (singleProject?.id) {
+            await dispatch(getEvents(singleProject.id));
+          }
+
           // Dispatch custom event to notify Groups tab of attendance change
           const attendanceUpdateEvent = new CustomEvent('attendanceUpdated', {
             detail: { 
@@ -318,12 +315,6 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
             }
           });
           window.dispatchEvent(attendanceUpdateEvent);
-
-          // Update local state
-          setParticipantStatuses(prev => ({
-            ...prev,
-            [participantId]: newStatus
-          }));
 
           // Show success toast
           dispatch(openSnackbar({
@@ -358,12 +349,6 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
     }
     
     // For direct attendees, proceed with normal status update
-    // Optimistically update local state
-    setParticipantStatuses(prev => ({
-      ...prev,
-      [participantId]: newStatus
-    }));
-    
     try {
       if (eventParticipant && selectedEvent?.id) {
         // Make API call to update attendance status using existing endpoint
@@ -385,6 +370,17 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
 
         const result = await response.json();
         console.log(`Successfully updated participant ${participantId} to ${newStatus}:`, result);
+
+        // Update local state immediately
+        setParticipantStatuses(prev => ({
+          ...prev,
+          [participantId]: newStatus
+        }));
+
+        // Refresh project data which includes events with updated attendance
+        if (singleProject?.id) {
+          await dispatch(getSingleProject(singleProject.id));
+        }
 
         // Dispatch custom event to notify Groups tab of attendance change
         const attendanceUpdateEvent = new CustomEvent('attendanceUpdated', {
@@ -410,15 +406,6 @@ const Attendees = React.memo(({ eventParticipants, eventCourse, groupName, selec
       }
     } catch (error) {
       console.error('Error updating attendance status:', error);
-      
-      // Revert the optimistic update on error
-      setParticipantStatuses(prev => {
-        const originalStatus = eventParticipant?.attendance_status || 'scheduled';
-        return {
-          ...prev,
-          [participantId]: originalStatus
-        };
-      });
       
       // Show error toast
       dispatch(openSnackbar({

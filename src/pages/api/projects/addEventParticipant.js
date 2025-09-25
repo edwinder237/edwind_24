@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    const { eventId, participantId, attendance_status = 'scheduled' } = req.body;
+    const { eventId, participantId, attendance_status = 'scheduled', attendanceType = 'individual' } = req.body;
 
     if (!eventId || !participantId) {
       return res.status(400).json({ error: 'Event ID and participant ID are required' });
@@ -51,6 +51,7 @@ export default async function handler(req, res) {
         data: {
           eventsId: parseInt(eventId),
           enrolleeId: parseInt(participantId),
+          attendanceType: attendanceType,
           attendance_status: attendance_status,
           createdBy: user.id,
           updatedby: user.id

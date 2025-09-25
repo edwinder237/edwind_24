@@ -118,7 +118,6 @@ const NestedMenuItem = React.forwardRef((props, ref) => {
                 data-open={!!open || undefined}
                 className={className}
                 ref={menuItemRef}
-                keepOpen={keepOpen}
             >
                 {label}
                 <div style={{ flexGrow: 1 }} />

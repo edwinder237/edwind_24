@@ -15,40 +15,37 @@ export default async function handler(req, res) {
       });
     }
 
-    // Check if the relationship exists
-    const existingRelation = await prisma.project_curriculums.findFirst({
-      where: {
-        projectId: parseInt(projectId),
-        curriculumId: parseInt(curriculumId)
+    // Use a transaction for atomicity and better performance
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if the relationship exists and delete it in one query
+      const deletedRelation = await tx.project_curriculums.deleteMany({
+        where: {
+          projectId: parseInt(projectId),
+          curriculumId: parseInt(curriculumId)
+        }
+      });
+
+      if (deletedRelation.count === 0) {
+        throw new Error('Curriculum is not associated with this project');
       }
+
+      // Remove the curriculum from all groups in this project (single optimized query)
+      await tx.group_curriculums.deleteMany({
+        where: {
+          curriculumId: parseInt(curriculumId),
+          group: {
+            projectId: parseInt(projectId)
+          }
+        }
+      });
+
+      return deletedRelation;
     });
 
-    if (!existingRelation) {
+    if (!result || result.count === 0) {
       return res.status(404).json({ 
         success: false, 
         message: 'Curriculum is not associated with this project' 
-      });
-    }
-
-    // Delete the relationship
-    await prisma.project_curriculums.delete({
-      where: {
-        id: existingRelation.id
-      }
-    });
-
-    // Also remove the curriculum from all groups in this project
-    const projectGroups = await prisma.groups.findMany({
-      where: { projectId: parseInt(projectId) },
-      select: { id: true }
-    });
-
-    if (projectGroups.length > 0) {
-      await prisma.group_curriculums.deleteMany({
-        where: {
-          groupId: { in: projectGroups.map(g => g.id) },
-          curriculumId: parseInt(curriculumId)
-        }
       });
     }
 

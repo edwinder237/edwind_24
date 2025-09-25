@@ -14,16 +14,6 @@ import { useSelector, useDispatch } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
 import { getProjectChecklist } from 'store/reducers/projects';
 
-const generateMockLearningActivities = () => [
-  { id: 1, title: 'Introduction to CRM Systems', completed: true, score: 95, duration: '45 min', date: '2024-01-15' },
-  { id: 2, title: 'Customer Data Management', completed: true, score: 88, duration: '60 min', date: '2024-01-16' },
-  { id: 3, title: 'Sales Pipeline Overview', completed: true, score: 92, duration: '30 min', date: '2024-01-17' },
-  { id: 4, title: 'Lead Qualification Process', completed: false, score: null, duration: '45 min', date: null },
-  { id: 5, title: 'Reporting and Analytics', completed: false, score: null, duration: '90 min', date: null },
-  { id: 6, title: 'Integration with Email Systems', completed: false, score: null, duration: '45 min', date: null },
-  { id: 7, title: 'Advanced Automation Features', completed: false, score: null, duration: '120 min', date: null },
-  { id: 8, title: 'Best Practices Assessment', completed: false, score: null, duration: '60 min', date: null }
-];
 
 const generateMockAssessments = () => [
   { id: 1, title: 'Module 1 Quiz', type: 'Quiz', score: 92, maxScore: 100, status: 'Passed', date: '2024-01-16', attempts: 1 },
@@ -47,10 +37,13 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
   const [courseChecklists, setCourseChecklists] = useState([]);
   const [checklistLoading, setChecklistLoading] = useState(false);
   const [updatingItems, setUpdatingItems] = useState(new Set());
+  
+  // Learning activities state
+  const [learningActivities, setLearningActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  
   const { singleProject } = useSelector((state) => state.projects);
   const dispatch = useDispatch();
-
-  const learningActivities = generateMockLearningActivities();
   const assessments = generateMockAssessments();
   const attendance = generateMockAttendance();
 
@@ -73,6 +66,28 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
       setCourseChecklists([]);
     } finally {
       setChecklistLoading(false);
+    }
+  };
+
+  const fetchLearningActivities = async (participantId, projectId) => {
+    if (!participantId || !projectId) return;
+    
+    setActivitiesLoading(true);
+    try {
+      const response = await fetch(`/api/participants/learning-activities?participantId=${participantId}&projectId=${projectId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLearningActivities(data.activities || []);
+      } else {
+        console.error('Failed to fetch learning activities');
+        setLearningActivities([]);
+      }
+    } catch (error) {
+      console.error('Error fetching learning activities:', error);
+      setLearningActivities([]);
+    } finally {
+      setActivitiesLoading(false);
     }
   };
 
@@ -150,10 +165,19 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
     }
   }, [participant?.id, activeTab]);
 
+  // Fetch learning activities when drawer opens and learning progress tab is active
+  useEffect(() => {
+    if (participant?.id && singleProject?.id && activeTab === 0 && open) {
+      fetchLearningActivities(participant.id, singleProject.id);
+    }
+  }, [participant?.id, singleProject?.id, activeTab, open]);
+
   useEffect(() => {
     if (!open) {
       setCourseChecklists([]);
       setUpdatingItems(new Set());
+      setLearningActivities([]);
+      setActivitiesLoading(false);
       setActiveTab(0);
     }
   }, [open]);
@@ -204,11 +228,11 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
 
   const completedActivities = learningActivities.filter(a => a.completed).length;
   const totalActivities = learningActivities.length;
-  const progressPercentage = (completedActivities / totalActivities) * 100;
+  const progressPercentage = totalActivities > 0 ? (completedActivities / totalActivities) * 100 : 0;
   
   const averageScore = learningActivities
     .filter(a => a.score !== null)
-    .reduce((acc, curr, _, arr) => acc + curr.score / arr.length, 0);
+    .reduce((acc, curr, _, arr) => acc + curr.score / arr.length, 0) || 0;
 
   const attendanceStats = {
     present: attendance.filter(a => a.status === 'present').length,
@@ -376,55 +400,88 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
                   <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
                     Course Activities
                   </Typography>
-                  <List sx={{ p: 0 }}>
-                    {learningActivities.slice(0, 5).map((activity) => (
-                      <ListItem
-                        key={activity.id}
-                        sx={{
-                          borderRadius: 1,
-                          mb: 1,
-                          bgcolor: activity.completed ? alpha(theme.palette.success.main, 0.05) : 'background.default',
-                          p: 1.5
-                        }}
-                      >
-                        <ListItemIcon sx={{ minWidth: 36 }}>
-                          {activity.completed ? (
-                            <CheckCircle sx={{ color: 'success.main', fontSize: 20 }} />
-                          ) : (
-                            <RadioButtonUnchecked sx={{ color: 'grey.400', fontSize: 20 }} />
-                          )}
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={
-                            <Typography variant="body2" sx={{ fontWeight: activity.completed ? 400 : 500 }}>
+                  {activitiesLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+                      <Stack alignItems="center" spacing={2}>
+                        <CircularProgress />
+                        <Typography variant="body2" color="text.secondary">
+                          Loading learning activities...
+                        </Typography>
+                      </Stack>
+                    </Box>
+                  ) : learningActivities.length === 0 ? (
+                    <Box sx={{ textAlign: 'center', py: 3, bgcolor: 'background.default', borderRadius: 1 }}>
+                      <School sx={{ fontSize: 32, color: 'text.disabled', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No learning activities found
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <List sx={{ p: 0 }}>
+                      {learningActivities.map((activity) => (
+                        <Box
+                          key={activity.id}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            p: 1.5,
+                            borderRadius: 1,
+                            mb: 1,
+                            bgcolor: activity.completed ? alpha(theme.palette.success.main, 0.05) : 'background.default',
+                            border: `1px solid ${activity.completed ? theme.palette.success.light : theme.palette.divider}`,
+                            '&:hover': {
+                              bgcolor: activity.completed ? alpha(theme.palette.success.main, 0.1) : 'action.hover'
+                            }
+                          }}
+                        >
+                          <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+                            {activity.completed ? (
+                              <CheckCircle sx={{ color: 'success.main', fontSize: 20 }} />
+                            ) : (
+                              <RadioButtonUnchecked sx={{ color: 'grey.400', fontSize: 20 }} />
+                            )}
+                          </Box>
+                          
+                          <Box sx={{ flex: 1 }}>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                fontWeight: activity.completed ? 400 : 500,
+                                color: activity.completed ? 'text.secondary' : 'text.primary',
+                                mb: 0.5
+                              }}
+                            >
                               {activity.title}
                             </Typography>
-                          }
-                          secondary={
-                            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 0.5 }}>
+                            
+                            <Stack direction="row" spacing={1.5} alignItems="center">
                               <Stack direction="row" spacing={0.5} alignItems="center">
-                                <AccessTime sx={{ fontSize: 12 }} />
-                                <Typography variant="caption">{activity.duration}</Typography>
+                                <AccessTime sx={{ fontSize: 12, color: 'text.secondary' }} />
+                                <Typography variant="caption" color="text.secondary">
+                                  {activity.duration}
+                                </Typography>
                               </Stack>
-                              {activity.completed && activity.score && (
+                              
+                              {activity.completed && activity.score !== null && (
                                 <Stack direction="row" spacing={0.5} alignItems="center">
                                   <Grade sx={{ fontSize: 12, color: 'warning.main' }} />
-                                  <Typography variant="caption" color="warning.main">
+                                  <Typography variant="caption" color="warning.main" sx={{ fontWeight: 600 }}>
                                     {activity.score}%
                                   </Typography>
                                 </Stack>
                               )}
+                              
                               {activity.date && (
                                 <Typography variant="caption" color="text.secondary">
                                   {activity.date}
                                 </Typography>
                               )}
                             </Stack>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
+                          </Box>
+                        </Box>
+                      ))}
+                    </List>
+                  )}
                 </Grid>
 
                 <Grid item xs={12} md={6}>

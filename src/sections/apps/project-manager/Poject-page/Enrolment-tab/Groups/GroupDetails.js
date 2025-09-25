@@ -97,11 +97,13 @@ const GroupDetails = ({ Group, onProgressLoad }) => {
 
   const handleRefresh = useCallback(async () => {
     setRefreshKey(prev => prev + 1);
-    // Also refresh the Redux state to get latest data
+    // Only refresh groups data to avoid full project reload
     if (singleProject?.id) {
-      await dispatch(getSingleProject(singleProject.id));
-      // Also refresh groups data specifically
-      await dispatch(getGroupsDetails(singleProject.id));
+      try {
+        await dispatch(getGroupsDetails(singleProject.id));
+      } catch (error) {
+        console.warn('Group refresh failed:', error);
+      }
     }
   }, [dispatch, singleProject?.id]);
 

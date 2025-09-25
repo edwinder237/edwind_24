@@ -38,7 +38,7 @@ import {
   TeamOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'store';
-import { getGroupsDetails } from 'store/reducers/projects';
+import { getGroupsDetails, getProjectCurriculums } from 'store/reducers/projects';
 
 const CurriculumManageDialog = ({ open, onClose, group, onRefresh }) => {
   const dispatch = useDispatch();
@@ -188,6 +188,17 @@ const CurriculumManageDialog = ({ open, onClose, group, onRefresh }) => {
 
   useEffect(() => {
     if (open && group?.id) {
+      // Clear previous data to ensure fresh load
+      setAvailableCurriculums([]);
+      setAssignedCurriculums([]);
+      setSearchTerm('');
+      
+      // Refresh project curriculums in Redux to get latest data
+      if (singleProject?.id) {
+        dispatch(getProjectCurriculums(singleProject.id));
+      }
+      
+      // Fetch fresh data
       fetchAvailableCurriculums();
       fetchAssignedCurriculums();
     }

@@ -20,6 +20,7 @@ import NewParticipantForm from './NewParticipantForm';
 import AddParticipantForm from './AddParticipantForm';
 import CSVImport from './CSVImport';
 import EmailAccessDialog from 'components/EmailAccessDialog';
+import ParticipantDrawer from '../../Agenda-tab/components/attendees/ParticipantDrawer';
 
 const tableTitle = 'Participant';
 
@@ -101,6 +102,30 @@ const ParticipantsTable = React.memo(({ index }) => {
   // Table UI state
   const tableState = useTableState();
 
+  // Participant drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState(null);
+
+  // Handle view participant
+  const handleViewParticipant = useCallback((participantData) => {
+    // Transform the data to match what the drawer expects
+    const participant = {
+      id: participantData.participant?.id,
+      firstName: participantData.participant?.firstName,
+      lastName: participantData.participant?.lastName,
+      email: participantData.participant?.email,
+      phone: participantData.participant?.phone,
+      role: participantData.participant?.role
+    };
+    
+    setSelectedParticipant(participant);
+    setDrawerOpen(true);
+  }, []);
+
+  const handleCloseDrawer = useCallback(() => {
+    setDrawerOpen(false);
+    setSelectedParticipant(null);
+  }, []);
 
   // Memoized data with additional optimizations
   const data = useMemo(() => {
@@ -113,7 +138,7 @@ const ParticipantsTable = React.memo(({ index }) => {
   }, [project_participants]);
   
   // Table columns configuration - hook must be called at top level
-  const columns = useTableColumns(refreshData);
+  const columns = useTableColumns(refreshData, handleViewParticipant);
 
   // Email sending handler
   const handleSendEmail = useCallback(async ({ participants, credentials }) => {
@@ -283,6 +308,13 @@ const ParticipantsTable = React.memo(({ index }) => {
         onClose={tableState.handleEmailAccessDialog}
         selectedParticipants={tableState.selectedParticipants}
         onSend={handleSendEmail}
+      />
+
+      {/* Participant Drawer */}
+      <ParticipantDrawer
+        open={drawerOpen}
+        onClose={handleCloseDrawer}
+        participant={selectedParticipant}
       />
     </>
   );

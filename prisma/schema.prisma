@@ -504,7 +504,7 @@ model event_attendees {
   eventsId          Int
   attendance_status String               @default("scheduled")
   enrolleeId        Int
-  groupId           Int?                 // NEW
+  attendanceType    String               @default("group") // 'group' or 'individual'
   createdAt         DateTime             @default(now())
   lastUpdated       DateTime             @default(now())
   updatedby         String?
@@ -515,7 +515,7 @@ model event_attendees {
   @@unique([eventsId, enrolleeId])
   @@index([eventsId])
   @@index([enrolleeId])
-  @@index([groupId])
+  @@index([attendanceType])
 }
 
 model event_groups {

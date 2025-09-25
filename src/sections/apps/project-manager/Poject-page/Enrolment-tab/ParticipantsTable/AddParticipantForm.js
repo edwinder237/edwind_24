@@ -340,6 +340,7 @@ const AddParticipantForm = ({
             profilePrefs: { key1: "value1" },
             credentials: { username: "bob" },
           },
+          group: values.group, // Include the selected group name
         };
         if (customer) {
           // dispatch(updateCustomer(customer.id, newCustomer)); - update
