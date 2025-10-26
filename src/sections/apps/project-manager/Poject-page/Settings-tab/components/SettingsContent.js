@@ -9,7 +9,7 @@ import {
   ProjectTopicsCard,
   ProjectCurriculumCard
 } from './';
-import ProjectInstructors from '../ProjectInstructors';
+import ProjectInstructors from './ProjectInstructors';
 
 const SettingsContent = ({ 
   activeCategory,
@@ -92,12 +92,12 @@ const SettingsContent = ({
   };
 
   return (
-    <Paper 
+    <Paper
       elevation={0}
       sx={{
         backgroundColor: theme.palette.background.paper,
         border: `1px solid ${theme.palette.divider}`,
-        borderRadius: 2,
+        borderRadius: 1,
         overflow: 'hidden',
         height: 'fit-content'
       }}

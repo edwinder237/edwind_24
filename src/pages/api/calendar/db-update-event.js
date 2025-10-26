@@ -19,8 +19,10 @@ export default async function handler(req, res) {
       editable: event.editable,
       eventStatus: event.eventStatus,
       extendedProps: event.extendedProps,
-      courseId: event.courseId || null,
-      supportActivityId: event.supportActivityId || null
+      // Only include courseId/supportActivityId if explicitly provided in the update
+      // This prevents accidentally unlinking courses when updating other fields
+      ...(event.courseId !== undefined && { courseId: event.courseId }),
+      ...(event.supportActivityId !== undefined && { supportActivityId: event.supportActivityId })
     };
 
     // Remove undefined values

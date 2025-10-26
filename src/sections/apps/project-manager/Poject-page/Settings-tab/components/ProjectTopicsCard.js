@@ -17,19 +17,28 @@ import {
   Delete as DeleteIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'store';
 import MainCard from 'components/MainCard';
+import DeleteCard from 'components/cards/DeleteCard';
 import { openSnackbar } from 'store/reducers/snackbar';
+import { selectProjectTopics, selectAvailableTopics, selectProjectInfo, updateProjectTags } from 'store/reducers/project/settings';
 
 const ProjectTopicsCard = React.memo(({ projectId }) => {
   const dispatch = useDispatch();
-  const { singleProject } = useSelector((state) => state.projects);
-  const [topics, setTopics] = useState([]);
-  const [availableTopics, setAvailableTopics] = useState([]);
+
+  // Get data from settings store (CQRS architecture)
+  const singleProject = useSelector(selectProjectInfo);
+  const projectTopicsFromStore = useSelector(selectProjectTopics);
+  const availableTopicsFromStore = useSelector(selectAvailableTopics);
+
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState(null);
+  const [topicToDelete, setTopicToDelete] = useState(null);
   const [formError, setFormError] = useState('');
+  const [topics, setTopics] = useState([]);
+  const [availableTopics, setAvailableTopics] = useState([]);
 
   // Fetch project topics from the project's tags field
   const fetchTopics = async () => {
@@ -39,23 +48,19 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
     try {
       // Get topics from the project's tags field instead of separate API
       if (singleProject.tags) {
-        console.log('ProjectTopicsCard - raw tags:', singleProject.tags);
         let parsedTags;
         try {
-          parsedTags = typeof singleProject.tags === 'string' 
-            ? JSON.parse(singleProject.tags) 
+          parsedTags = typeof singleProject.tags === 'string'
+            ? JSON.parse(singleProject.tags)
             : singleProject.tags;
         } catch (error) {
-          console.error('ProjectTopicsCard - Error parsing tags JSON:', error);
+          console.error('Error parsing tags JSON:', error);
           parsedTags = [];
         }
-        
-        console.log('ProjectTopicsCard - parsed tags:', parsedTags);
-        
+
         // Convert tags array to topics format for display
-        const topicsFromTags = Array.isArray(parsedTags) 
+        const topicsFromTags = Array.isArray(parsedTags)
           ? parsedTags.map((tag, index) => {
-              console.log('ProjectTopicsCard - processing tag:', tag, typeof tag);
               // Ensure title is always a string, handle all possible formats
               let title;
               if (typeof tag === 'string') {
@@ -81,8 +86,7 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
               };
             })
           : [];
-          
-        console.log('ProjectTopicsCard - final topics:', topicsFromTags);
+
         setTopics(topicsFromTags);
       } else {
         setTopics([]);
@@ -132,48 +136,30 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
   const handleAddTopicDirectly = async (topic) => {
     try {
       // Get current tags from project
-      const currentTags = singleProject.tags 
+      const currentTags = singleProject.tags
         ? (typeof singleProject.tags === 'string' ? JSON.parse(singleProject.tags) : singleProject.tags)
         : [];
-      
+
       // Add new topic to tags array if it doesn't already exist
       const newTags = Array.isArray(currentTags) ? [...currentTags] : [];
       if (!newTags.includes(topic.title)) {
         newTags.push(topic.title);
       }
-      
-      // Update project with new tags
-      const response = await fetch(`/api/projects/updateProject`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: singleProject.id,
-          tags: JSON.stringify(newTags)
-        })
-      });
 
-      if (response.ok) {
-        await fetchTopics(); // Refresh topics
-        dispatch(openSnackbar({
-          open: true,
-          message: 'Topic added to project successfully',
-          variant: 'alert',
-          alert: { color: 'success' }
-        }));
-      } else {
-        const errorData = await response.json();
-        dispatch(openSnackbar({
-          open: true,
-          message: errorData.error || 'Failed to add topic',
-          variant: 'alert',
-          alert: { color: 'error' }
-        }));
-      }
+      // Use CQRS command to update tags (no full refetch)
+      await dispatch(updateProjectTags(singleProject.id, newTags));
+
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Topic added to project successfully',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
     } catch (error) {
       console.error('Error adding topic:', error);
       dispatch(openSnackbar({
         open: true,
-        message: 'Failed to add topic',
+        message: error.message || 'Failed to add topic',
         variant: 'alert',
         alert: { color: 'error' }
       }));
@@ -196,60 +182,53 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
     }
   };
 
-  const handleDelete = async (topicId) => {
-    if (!window.confirm('Are you sure you want to delete this topic?')) return;
+  const handleDeleteClick = (topic) => {
+    setTopicToDelete(topic);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!topicToDelete) return;
 
     try {
       // Get current tags from project
-      const currentTags = singleProject.tags 
+      const currentTags = singleProject.tags
         ? (typeof singleProject.tags === 'string' ? JSON.parse(singleProject.tags) : singleProject.tags)
         : [];
-      
-      // Find the topic to delete by its ID and get its title
-      const topicToDelete = topics.find(topic => topic.id === topicId);
-      if (!topicToDelete) return;
-      
+
       // Remove topic from tags array
-      const newTags = Array.isArray(currentTags) 
+      const newTags = Array.isArray(currentTags)
         ? currentTags.filter(tag => tag !== topicToDelete.title)
         : [];
-      
-      // Update project with new tags
-      const response = await fetch(`/api/projects/updateProject`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: singleProject.id,
-          tags: JSON.stringify(newTags)
-        })
-      });
 
-      if (response.ok) {
-        await fetchTopics();
-        dispatch(openSnackbar({
-          open: true,
-          message: 'Topic deleted successfully',
-          variant: 'alert',
-          alert: { color: 'success' }
-        }));
-      } else {
-        const errorData = await response.json();
-        dispatch(openSnackbar({
-          open: true,
-          message: errorData.error || 'Failed to delete topic',
-          variant: 'alert',
-          alert: { color: 'error' }
-        }));
-      }
+      // Use CQRS command to update tags (no full refetch)
+      await dispatch(updateProjectTags(singleProject.id, newTags));
+
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Topic deleted successfully',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+
+      setDeleteDialogOpen(false);
+      setTopicToDelete(null);
     } catch (error) {
       console.error('Error deleting topic:', error);
       dispatch(openSnackbar({
         open: true,
-        message: 'Failed to delete topic',
+        message: error.message || 'Failed to delete topic',
         variant: 'alert',
         alert: { color: 'error' }
       }));
+      setDeleteDialogOpen(false);
+      setTopicToDelete(null);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setTopicToDelete(null);
   };
 
   return (
@@ -335,7 +314,7 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
                   <Tooltip title="Remove topic">
                     <IconButton
                       size="small"
-                      onClick={() => handleDelete(topic.id)}
+                      onClick={() => handleDeleteClick(topic)}
                       sx={{
                         position: 'absolute',
                         top: -8,
@@ -387,8 +366,8 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
             )}
 
             <Autocomplete
-              options={availableTopics.filter(topic => 
-                !topics.some(projectTopic => projectTopic.id === topic.id)
+              options={availableTopics.filter(topic =>
+                !topics.some(projectTopic => projectTopic.title === topic.title)
               )}
               getOptionLabel={(option) => option.title}
               value={selectedTopic}
@@ -440,6 +419,18 @@ const ProjectTopicsCard = React.memo(({ projectId }) => {
           </Box>
         </MainCard>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteCard
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        onDelete={handleDeleteConfirm}
+        title="Delete Topic"
+        itemName={topicToDelete?.title}
+        message={`Are you sure you want to delete this topic?`}
+        deleteLabel="OK"
+        cancelLabel="Cancel"
+      />
     </>
   );
 });

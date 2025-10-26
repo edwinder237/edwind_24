@@ -14,7 +14,16 @@ export default async function handler(req, res) {
 
     const trainingRecipients = await prisma.training_recipients.findMany({
       where: {
-        sub_organizationId: parseInt(sub_organizationId)
+        sub_organizationId: parseInt(sub_organizationId),
+        status: 'active' // Only fetch active recipients
+      },
+      include: {
+        _count: {
+          select: {
+            projects: true,
+            participants: true
+          }
+        }
       },
       orderBy: {
         name: 'asc'

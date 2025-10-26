@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 // material-ui
-import { 
-  Autocomplete, 
-  TextField, 
-  Typography, 
+import {
+  Autocomplete,
+  TextField,
+  Typography,
   Box,
   CircularProgress,
-  Chip
+  Chip,
+  ListItem,
+  ListItemText
 } from '@mui/material';
 
 // project imports
@@ -169,49 +171,56 @@ export default function InstructorPicker({
       renderOption={(props, option) => {
         if (option.isNew) {
           return (
-            <li {...props} style={{ ...props.style, backgroundColor: 'rgba(25, 118, 210, 0.08)' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', p: 1 }}>
-                <Box 
-                  sx={{ 
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    fontSize: 18
-                  }}
-                >
-                  +
-                </Box>
-                <Box>
+            <ListItem
+              {...props}
+              sx={{
+                bgcolor: 'rgba(25, 118, 210, 0.08)',
+                '&:hover': {
+                  bgcolor: 'rgba(25, 118, 210, 0.12)'
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  fontSize: 18,
+                  mr: 1.5
+                }}
+              >
+                +
+              </Box>
+              <ListItemText
+                primary={
                   <Typography variant="body2" color="primary.main" fontWeight={600}>
                     Create "{option.name}"
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Add new instructor
-                  </Typography>
-                </Box>
-              </Box>
-            </li>
+                }
+                secondary="Add new instructor"
+                secondaryTypographyProps={{
+                  variant: 'caption',
+                  color: 'text.secondary'
+                }}
+              />
+            </ListItem>
           );
         }
 
         return (
-          <li {...props}>
-            <Box>
-              <Typography variant="body2">
-                {option.firstName} {option.lastName || ''}
-              </Typography>
-              {option.email && (
-                <Typography variant="caption" color="text.secondary">
-                  {option.email}
-                </Typography>
-              )}
-            </Box>
-          </li>
+          <ListItem {...props}>
+            <ListItemText
+              primary={`${option.firstName} ${option.lastName || ''}`.trim()}
+              secondary={option.email}
+              primaryTypographyProps={{ variant: 'body1' }}
+              secondaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+            />
+          </ListItem>
         );
       }}
       renderInput={(params) => (

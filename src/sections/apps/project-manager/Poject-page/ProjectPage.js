@@ -1,9 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useSelector, useDispatch } from "store";
-import { 
-  getProjectChecklist,
-  updateChecklistProgress 
-} from "store/reducers/projects";
+import { useSelector } from "store";
+import { derivedSelectors } from 'store/selectors';
 
 // project import
 import Breadcrumbs from 'components/@extended/Breadcrumbs';
@@ -17,17 +13,20 @@ import { useTheme } from "@mui/material/styles";
 
 // ==============================|| PROJECT PAGE ||============================== //
 
-const ProjectPage = () => {
+const ProjectPage = ({ projectId }) => {
   const theme = useTheme();
-  const dispatch = useDispatch();
-  const checklistFetched = useRef(new Set()); // Track which projects we've fetched checklist for
-  const [updatingItems, setUpdatingItems] = useState(new Set()); // Track which items are being updated
-  const { 
-    singleProject: Project, 
-    project_participants, 
-    checklistItems,
-    checklistLoading 
-  } = useSelector((state) => state.projects);
+
+  // Get project data from derived selectors (no API call needed)
+  const dashboardData = useSelector(derivedSelectors.dashboard.selectCompleteDashboard);
+
+  // Extract project info from computed dashboard data
+  const Project = dashboardData?.projectInfo ? {
+    id: dashboardData.projectInfo.id,
+    title: dashboardData.projectInfo.title,
+    summary: dashboardData.projectInfo.summary,
+    projectStatus: dashboardData.projectInfo.projectStatus,
+    training_recipient: dashboardData.projectInfo.training_recipient
+  } : null;
   
   // Common style definitions
   const styles = {
@@ -63,57 +62,12 @@ const ProjectPage = () => {
     }
   };
 
-  useEffect(() => {
-    if (Project?.id && !checklistLoading && !checklistFetched.current.has(Project.id)) {
-      console.log('Fetching checklist for project:', Project.id);
-      checklistFetched.current.add(Project.id);
-      dispatch(getProjectChecklist(Project.id));
-    }
-  }, [Project?.id, dispatch, checklistLoading]);
-
-  const handleChecklistItemToggle = async (item) => {
-    // Prevent rapid clicking by checking if item is already being updated
-    if (updatingItems.has(item.id)) {
-      return;
-    }
-
-    const newCompletedState = !item.completed;
-    
-    // Add item to updating set
-    setUpdatingItems(prev => new Set(prev).add(item.id));
-    
-    try {
-      await dispatch(updateChecklistProgress({
-        projectId: Project.id,
-        checklistItemId: item.id,
-        completed: newCompletedState,
-        completedBy: 'current-user', // TODO: Replace with actual user ID
-        notes: item.notes
-      }));
-    } catch (error) {
-      console.error('Failed to update checklist item:', error);
-    } finally {
-      // Remove item from updating set after operation completes
-      setUpdatingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(item.id);
-        return newSet;
-      });
-    }
-  };
-
-  const handleChecklistNoteUpdate = (itemId, newNote) => {
-    // Refresh checklist after note update
-    dispatch(getProjectChecklist(Project.id));
-  };
-
-  const handleChecklistRefresh = () => {
-    // Force refresh checklist data
-    dispatch(getProjectChecklist(Project.id));
-  };
+  // No longer need to fetch dashboard data - it's computed from Redux store
+  // Dashboard metrics are derived from projectSettings and agenda data
+  // Checklist data is now fetched via RTK Query in the Checklist tab component
 
 
-  if (Project) {
+  if (projectId && dashboardData) {
     return (
         <Box sx={{ width: '100%' }}>
           {/* Breadcrumbs */}
@@ -136,9 +90,9 @@ const ProjectPage = () => {
                     },
                     {
                       id: 'pm-project-detail',
-                      title: `${Project.title}`,
+                      title: `${Project?.title || 'Project'}`,
                       type: 'item',
-                      url: `/projects/${Project.id}`,
+                      url: `/projects/${projectId}`,
                       breadcrumbs: true
                     }
                   ]
@@ -151,21 +105,13 @@ const ProjectPage = () => {
           <Box sx={{ mb: 2 }}>
             <ProjectDashboard 
               project={Project}
-              participants={project_participants.length}
-              checklistItems={checklistItems}
               styles={styles}
             />
           </Box>
 
           {/* Project Tabs */}
-          <ProjectTabs 
+          <ProjectTabs
             project={Project}
-            checklistItems={checklistItems}
-            checklistLoading={checklistLoading}
-            onChecklistToggle={handleChecklistItemToggle}
-            onChecklistNoteUpdate={handleChecklistNoteUpdate}
-            onChecklistRefresh={handleChecklistRefresh}
-            updatingItems={updatingItems}
             styles={styles}
           />
         </Box>

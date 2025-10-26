@@ -50,13 +50,13 @@ const SettingsSidebar = ({ activeCategory, onCategoryChange }) => {
   const theme = useTheme();
 
   return (
-    <Paper 
+    <Paper
       elevation={0}
       sx={{
         height: 'fit-content',
         backgroundColor: theme.palette.background.paper,
         border: `1px solid ${theme.palette.divider}`,
-        borderRadius: 2
+        borderRadius: 1
       }}
     >
       <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>

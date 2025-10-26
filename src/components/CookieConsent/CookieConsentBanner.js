@@ -1,19 +1,19 @@
 import React from 'react';
+import { useRouter } from 'next/router';
 import {
   Box,
   Paper,
   Typography,
   Button,
-  ButtonGroup,
-  IconButton,
   Link,
   useTheme,
   useMediaQuery
 } from '@mui/material';
-import { Close, Settings, Cookie } from '@mui/icons-material';
+import { Settings, Cookie } from '@mui/icons-material';
 import { useCookieConsent } from 'contexts/CookieConsentContext';
 
 const CookieConsentBanner = () => {
+  const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const {
@@ -23,7 +23,10 @@ const CookieConsentBanner = () => {
     openPreferences
   } = useCookieConsent();
 
-  if (!showBanner) {
+  // Only show banner on landing page
+  const isLandingPage = router.pathname === '/landing';
+
+  if (!showBanner || !isLandingPage) {
     return null;
   }
 

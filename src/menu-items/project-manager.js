@@ -113,7 +113,7 @@ const ProjectManager = {
           id: 'pm-analytics-reports',
           title: <FormattedMessage id="Reports" />,
           type: 'item',
-          url: '/project-manager/analytics/reports',
+          url: '/project-manager/reports/reports',
           breadcrumbs: true
         }
       ]

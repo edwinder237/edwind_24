@@ -75,11 +75,24 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
 
   return (
     <ElevationScroll layout={layout} {...others}>
-      <AppBar sx={{ bgcolor: '#1a1a1a', color: 'white', boxShadow: 'none', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <Container maxWidth={false} sx={{ px: 3 }}>
-          <Toolbar sx={{ px: 0, py: 0, minHeight: HEADER_HEIGHT }}>
+      <AppBar sx={{ 
+        bgcolor: '#1a1a1a', 
+        color: 'white', 
+        boxShadow: 'none', 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        zIndex: 1000, 
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        margin: 0,
+        padding: 0,
+        width: '100vw'
+      }}>
+        <Box sx={{ width: '100%', px: 0 }}>
+          <Toolbar sx={{ px: 0, py: 0, minHeight: HEADER_HEIGHT, width: '100%' }}>
             {/* Logo - Always visible */}
-            <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, pl: { xs: 1, md: 2 } }}>
               <img 
                 src="/assets/images/logos/edwind-color-logo.png" 
                 alt="EDWIND" 
@@ -88,7 +101,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
             </Box>
 
             {/* Desktop Navigation */}
-            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', ml: 'auto' }}>
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', ml: 'auto', pr: 2 }}>
               <Stack
                 direction="row"
                 alignItems="center"
@@ -153,7 +166,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                 <Box sx={{ ml: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
                   <AnimateButton>
                     <Button
-                      variant="contained"
+                      variant="outlined"
                       size="medium"
                       onClick={async () => {
                         try {
@@ -164,38 +177,6 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                           }
                         } catch (error) {
                           console.error('Error redirecting to sign-in:', error);
-                        }
-                      }}
-                      sx={{ 
-                        backgroundColor: '#1976d2',
-                        color: 'white',
-                        fontWeight: 500,
-                        minWidth: '100px',
-                        height: '40px',
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        '&:hover': {
-                          backgroundColor: '#1565c0'
-                        }
-                      }}
-                    >
-                      Login
-                    </Button>
-                  </AnimateButton>
-                  <AnimateButton>
-                    <Button
-                      variant="outlined"
-                      size="medium"
-                      onClick={async () => {
-                        try {
-                          // WorkOS uses the same auth endpoint for both login and signup
-                          const response = await fetch('/api/auth/signin-url');
-                          const data = await response.json();
-                          if (data.url) {
-                            window.location.href = data.url;
-                          }
-                        } catch (error) {
-                          console.error('Error redirecting to sign-up:', error);
                         }
                       }}
                       sx={{ 
@@ -212,7 +193,39 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                         }
                       }}
                     >
-                      Sign Up
+                      Login
+                    </Button>
+                  </AnimateButton>
+                  <AnimateButton>
+                    <Button
+                      variant="contained"
+                      size="medium"
+                      onClick={async () => {
+                        try {
+                          // WorkOS uses the same auth endpoint for both login and signup
+                          const response = await fetch('/api/auth/signin-url');
+                          const data = await response.json();
+                          if (data.url) {
+                            window.location.href = data.url;
+                          }
+                        } catch (error) {
+                          console.error('Error redirecting to sign-up:', error);
+                        }
+                      }}
+                      sx={{ 
+                        backgroundColor: '#1976d2',
+                        color: 'white',
+                        fontWeight: 500,
+                        minWidth: '100px',
+                        height: '40px',
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        '&:hover': {
+                          backgroundColor: '#1565c0'
+                        }
+                      }}
+                    >
+                      Get Started
                     </Button>
                   </AnimateButton>
                 </Box>
@@ -220,7 +233,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
             </Box>
 
             {/* Mobile Navigation */}
-            <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', ml: 'auto', gap: 1 }}>
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', ml: 'auto', gap: 0.5, pr: 1 }}>
               <Button 
                 variant="outlined" 
                 size="small" 
@@ -237,11 +250,11 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                 }}
                 sx={{ 
                   height: 32, 
-                  minWidth: '60px',
-                  fontSize: '0.8rem',
+                  minWidth: '55px',
+                  fontSize: '0.75rem',
                   borderColor: '#1976d2', 
                   color: '#1976d2',
-                  px: 1.5
+                  px: 1
                 }}
               >
                 Login
@@ -262,22 +275,22 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                 }}
                 sx={{ 
                   height: 32, 
-                  minWidth: '60px',
-                  fontSize: '0.8rem',
+                  minWidth: '55px',
+                  fontSize: '0.75rem',
                   backgroundColor: '#1976d2', 
                   color: 'white', 
-                  px: 1.5,
+                  px: 1,
                   '&:hover': { backgroundColor: '#1565c0' } 
                 }}
               >
-                Sign Up
+                Get Started
               </Button>
 
               <IconButton
                 {...(layout === 'component' ? { onClick: handleDrawerOpen } : { onClick: drawerToggler(true) })}
                 sx={{ 
                   color: 'white',
-                  ml: 0.5,
+                  ml: 0.25,
                   '&:hover': { 
                     bgcolor: 'rgba(255,255,255,0.1)' 
                   } 
@@ -390,14 +403,14 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       <ListItemIcon>
                         <LineOutlined />
                       </ListItemIcon>
-                      <ListItemText primary="Sign Up" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                      <ListItemText primary="Get Started" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
                     </ListItemButton>
                   </List>
                 </Box>
               </Drawer>
             </Box>
           </Toolbar>
-        </Container>
+        </Box>
       </AppBar>
     </ElevationScroll>
   );

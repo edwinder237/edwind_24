@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 
 //REDUX
 import { useDispatch, useSelector } from "store";
-import { addProject, updateProject, getProjects } from "store/reducers/projects";
+import { addProject, updateProject, getProjects } from "store/reducers/project";
 import { setLoading, clearLoading } from "store/reducers/loading";
 import axios from "utils/axios";
 
@@ -338,7 +338,11 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     type: Yup.string().required("Type is required"),
     deliveryMethod: Yup.string().required("Delivery method is required"),
     description: Yup.string().max(191),
-    trainingRecipient: Yup.string().required("Training recipient is required"),
+    trainingRecipient: Yup.string().when([], {
+      is: () => !showCreateRecipient,
+      then: (schema) => schema.required("Training recipient is required"),
+      otherwise: (schema) => schema.notRequired()
+    }),
     curriculum: Yup.string().required("Curriculum is required"),
   });
 
@@ -372,6 +376,38 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
       console.log('Selected curriculum state:', selectedCurriculum);
       console.log('Project topics state:', projectTopics, typeof projectTopics);
       try {
+        // If user is creating a new training recipient, create it first
+        let trainingRecipientId = selectedTrainingRecipient ? selectedTrainingRecipient.id : null;
+
+        if (showCreateRecipient && newRecipientData.name) {
+          try {
+            const recipientResponse = await axios.post('/api/training-recipients/create', {
+              ...newRecipientData,
+              sub_organizationId: 1 // TODO: Get from current user's sub-organization
+            });
+
+            if (recipientResponse.data.success) {
+              trainingRecipientId = recipientResponse.data.trainingRecipient.id;
+              dispatch(openSnackbar({
+                open: true,
+                message: 'Training recipient created successfully.',
+                variant: 'alert',
+                alert: { color: 'success' }
+              }));
+            }
+          } catch (error) {
+            console.error('Error creating training recipient:', error);
+            dispatch(openSnackbar({
+              open: true,
+              message: 'Failed to create training recipient. Please try again.',
+              variant: 'alert',
+              alert: { color: 'error' }
+            }));
+            setSubmitting(false);
+            return;
+          }
+        }
+
         const newProject = {
           sortorder: 1,
           cuid: createId(),
@@ -392,7 +428,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           color: "",
           language: values.language,
           location: projectLocation,
-          trainingRecipientId: selectedTrainingRecipient ? selectedTrainingRecipient.id : null,
+          trainingRecipientId: trainingRecipientId,
           instructorId: selectedInstructor ? selectedInstructor.id : null,
           curriculumId: selectedCurriculum ? selectedCurriculum.id : null,
         };
@@ -409,7 +445,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             endDate: projectEndDate,
             language: values.language,
             location: projectLocation,
-            trainingRecipientId: selectedTrainingRecipient ? selectedTrainingRecipient.id : null,
+            trainingRecipientId: trainingRecipientId,
             instructorId: selectedInstructor ? selectedInstructor.id : null,
             curriculumId: selectedCurriculum ? selectedCurriculum.id : null,
             sharing: values.shared,
@@ -445,7 +481,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
               }
 
               // Refresh the projects list to show updated data
-              dispatch(getProjects());
+              dispatch(getProjects(true)); // Force refresh after project update
               
               dispatch(
                 openSnackbar({
@@ -591,9 +627,21 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   }
 
   function handleTrainingRecipientChange(recipient) {
-    setSelectedTrainingRecipient(recipient);
-    // Update the form value with the recipient ID (convert to string for validation)
-    setFieldValue("trainingRecipient", recipient && recipient.id ? recipient.id.toString() : "");
+    // Check if this is a new recipient being created (has isNew flag)
+    if (recipient && recipient.isNew) {
+      // Redirect to the create form
+      setShowCreateRecipient(true);
+      setNewRecipientData(prev => ({
+        ...prev,
+        name: recipient.name // Pre-fill with the searched name
+      }));
+      // Don't set the field value yet, it will be set when recipient is created
+    } else {
+      // Existing recipient selected
+      setSelectedTrainingRecipient(recipient);
+      // Update the form value with the recipient ID (convert to string for validation)
+      setFieldValue("trainingRecipient", recipient && recipient.id ? recipient.id.toString() : "");
+    }
   }
 
   function handleInstructorChange(instructor) {
@@ -631,11 +679,22 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
         return;
       }
     } else if (activeStep === 1) {
-      // Step 2: Training Recipient - validate recipient selection
-      if (!formik.values.trainingRecipient) {
+      // Step 2: Training Recipient - validate recipient selection or new recipient data
+      if (!formik.values.trainingRecipient && !showCreateRecipient) {
         dispatch(openSnackbar({
           open: true,
           message: 'Please select a training recipient to continue.',
+          variant: 'alert',
+          alert: { color: 'warning' }
+        }));
+        return;
+      }
+
+      // If creating new recipient, validate required fields
+      if (showCreateRecipient && !newRecipientData.name) {
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Please enter an organization name to continue.',
           variant: 'alert',
           alert: { color: 'warning' }
         }));
@@ -809,15 +868,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Project Type
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Choose the type of project you want to create
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={12}>
             <Grid container spacing={2}>
               {projectTypes.map((type) => (
                 <Grid item xs={12} sm={6} md={4} key={type.value}>
@@ -872,15 +922,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     <Fade in={activeStep === 1}>
       <Box>
         <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Training Recipient
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Select an existing training organization or create a new one
-            </Typography>
-          </Grid>
-          
           {!showCreateRecipient ? (
             <>
               <Grid item xs={12}>
@@ -915,9 +956,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           ) : (
             <>
               <Grid item xs={12}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Create New Training Recipient
-                </Typography>
                 <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
@@ -996,37 +1034,30 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                       />
                     </Grid>
                   </Grid>
-                  
-                  <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="outlined"
-                      onClick={() => {
-                        setShowCreateRecipient(false);
-                        setNewRecipientData({
-                          name: '',
-                          contactPerson: '',
-                          email: '',
-                          phone: '',
-                          industry: '',
-                          address: '',
-                          website: '',
-                          description: '',
-                          location: null,
-                          img: ''
-                        });
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={handleCreateRecipient}
-                      startIcon={<PlusOutlined />}
-                    >
-                      Create Recipient
-                    </Button>
-                  </Box>
                 </Paper>
+
+                <Box sx={{ mt: 2 }}>
+                  <Button
+                    variant="text"
+                    onClick={() => {
+                      setShowCreateRecipient(false);
+                      setNewRecipientData({
+                        name: '',
+                        contactPerson: '',
+                        email: '',
+                        phone: '',
+                        industry: '',
+                        address: '',
+                        website: '',
+                        description: '',
+                        location: null,
+                        img: ''
+                      });
+                    }}
+                  >
+                    Back to selection
+                  </Button>
+                </Box>
               </Grid>
             </>
           )}
@@ -1039,15 +1070,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     <Fade in={activeStep === 2}>
       <Box>
         <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Basic Information
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Enter the essential details for your project
-            </Typography>
-          </Grid>
-          
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -1126,15 +1148,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Content & Topics
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Define the content, topics, and language for your project
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={12}>
             <Typography variant="subtitle1" gutterBottom>
               Topics
             </Typography>
@@ -1203,15 +1216,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Schedule & Location
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Set the dates for your project
-            </Typography>
-          </Grid>
-          
-          <Grid item xs={12}>
             <Typography variant="subtitle1" gutterBottom>
               Project Dates
             </Typography>
@@ -1229,15 +1233,6 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     <Fade in={activeStep === 5}>
       <Box>
         <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Typography variant="h6" gutterBottom>
-              Review & Submit
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Review your project details and submit
-            </Typography>
-          </Grid>
-          
           <Grid item xs={12}>
             <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
               <Typography variant="h6" gutterBottom>
@@ -1306,9 +1301,10 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             <Grid container spacing={3}>
               <Grid item xs={12}>
                 <MainCard
-                  title={project ? "Edit Project" : "New Project"}
+                  title={project ? "Edit Project" : steps[activeStep]?.label}
+                  secondary={project ? undefined : steps[activeStep]?.description}
                   content={false}
-                  sx={{ 
+                  sx={{
                     overflow: "visible",
                     display: 'flex',
                     flexDirection: 'column',

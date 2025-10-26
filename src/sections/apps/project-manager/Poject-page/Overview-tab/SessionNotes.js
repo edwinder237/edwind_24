@@ -14,6 +14,8 @@ import {
   EventNote,
   CheckCircle
 } from '@mui/icons-material';
+import { useSelector } from 'store';
+import { selectAllEvents } from 'store/entities/eventsSlice';
 
 // Function to transform events data into session notes format
 const transformEventsToSessionNotes = (events) => {
@@ -64,10 +66,13 @@ const transformEventsToSessionNotes = (events) => {
 };
 
 const SessionNotes = ({ project }) => {
-  // Transform project events into session notes format
+  // Get events from normalized Redux store (CQRS architecture)
+  const events = useSelector(selectAllEvents);
+
+  // Transform events into session notes format
   const notes = useMemo(() => {
-    return transformEventsToSessionNotes(project?.events);
-  }, [project?.events]);
+    return transformEventsToSessionNotes(events);
+  }, [events]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);

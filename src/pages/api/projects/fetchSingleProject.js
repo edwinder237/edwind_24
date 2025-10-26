@@ -102,7 +102,20 @@ export default async function handler(req, res) {
               include: {
                 groups: {
                   include: {
-                    participants: {},
+                    participants: {
+                      include: {
+                        participant: {
+                          include: {
+                            participant: {
+                              include: {
+                                training_recipient: true,
+                                role: true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
                   },
                 },
               },

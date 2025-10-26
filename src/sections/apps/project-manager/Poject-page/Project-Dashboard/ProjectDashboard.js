@@ -10,28 +10,40 @@ import {
   Stack,
   Menu,
   MenuItem,
-  useMediaQuery,
+  useMediaQuery
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import MainCard from "components/MainCard";
 import { PROJECT_STATUS } from "constants";
 import { useSelector, useDispatch } from "store";
 import { openSnackbar } from 'store/reducers/snackbar';
-import { updateProject } from 'store/reducers/projects';
+import { updateProjectInfo } from 'store/reducers/project/settings';
 import { CalendarOutlined, DashboardOutlined } from "@ant-design/icons";
+import { derivedSelectors } from 'store/selectors';
 
 // ==============================|| PROJECT DASHBOARD ||============================== //
 
-const ProjectDashboard = ({ project, participants, checklistItems, styles }) => {
+const ProjectDashboard = ({ project, styles }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
   const matchDownMD = useMediaQuery(theme.breakpoints.down('md'));
-  const { projectSettings } = useSelector((state) => state.projects);
-  
-  // State for status menu
+
+  // Use derived selectors as single source of truth (no API call needed)
+  const dashboardData = useSelector(derivedSelectors.dashboard.selectCompleteDashboard);
+  const attendanceSummary = useSelector(derivedSelectors.attendance.selectAttendanceSummary);
+
+  // Use computed project data, fallback to prop
+  const currentProject = dashboardData?.projectInfo || project;
+
+  // State for status menu (must be before early return)
   const [statusMenuAnchor, setStatusMenuAnchor] = React.useState(null);
   const statusMenuOpen = Boolean(statusMenuAnchor);
+
+  // Early return if no project data (after all hooks)
+  if (!project && !dashboardData?.projectInfo) {
+    return <Box sx={{ p: 3 }}><Typography>Loading project...</Typography></Box>;
+  }
   
   // Available project statuses
   const projectStatuses = Object.values(PROJECT_STATUS);
@@ -55,16 +67,22 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          projectId: project.id,
+          projectId: currentProject?.id || project?.id,
           status: newStatus
         }),
       });
 
       if (response.ok) {
-        // Update project in Redux store
-        const updatedProject = { ...project, projectStatus: newStatus };
-        dispatch(updateProject(updatedProject));
-        
+        const data = await response.json();
+
+        // Update projectSettings store with new status
+        // This will automatically update the derived selectors
+        dispatch(updateProjectInfo({
+          status: data.project.projectStatus,
+          projectStatus: data.project.projectStatus,
+          lastUpdated: data.project.lastUpdated
+        }));
+
         // Show success notification
         dispatch(openSnackbar({
           open: true,
@@ -104,23 +122,30 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
       : null;
   };
 
-  // Get the actual project dates - check all possible sources
+  // Get the actual project dates - ONLY use dashboard data
   const getProjectStartDate = () => {
-    // Check in order: Redux projectSettings, project.project_settings, project.startDate
-    return projectSettings?.startDate || 
-           project?.project_settings?.startDate || 
+    // Check in order: dashboardData metrics, dashboardData projectInfo, fallback to prop
+    return dashboardData?.metrics?.projectDates?.startDate ||
+           dashboardData?.projectInfo?.startDate ||
            project?.startDate;
   };
 
   const getProjectEndDate = () => {
-    // Check in order: Redux projectSettings, project.project_settings, project.endDate  
-    return projectSettings?.endDate || 
-           project?.project_settings?.endDate || 
+    // Check in order: dashboardData metrics, dashboardData projectInfo, fallback to prop
+    return dashboardData?.metrics?.projectDates?.endDate ||
+           dashboardData?.projectInfo?.endDate ||
            project?.endDate;
   };
 
-  // Get the main instructor from project instructors
+  // Get the main instructor from dashboard data or fallback to project data
   const getMainInstructor = () => {
+    // Use dashboard data if available
+    if (dashboardData?.metrics?.projectLeadInstructor) {
+      const instructor = dashboardData.metrics.projectLeadInstructor;
+      return `${instructor.firstName} ${instructor.lastName}`;
+    }
+    
+    // Fallback to project data
     if (!project?.project_instructors || project.project_instructors.length === 0) {
       return 'TBD';
     }
@@ -153,33 +178,40 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
     return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
   };
 
-  // Calculate project progress based on the three metrics according to guidelines
-  const calculateProjectProgress = () => {
-    // 1. Learning Progress (0-100%) - Currently hardcoded, should be calculated from actual learning data
-    const learningProgress = 30; // TODO: Calculate from actual learning metrics
-    
-    // 2. Technical Setup Progress (0-100%) - Based on checklist completion
-    const technicalSetupProgress = checklistItems.length > 0 
-      ? Math.round((checklistItems.filter(item => item.completed).length / checklistItems.length) * 100)
-      : 0; // Treat as 0% if no checklist items exist
-    
-    // 3. Attendance Rate (0-100%) - Currently hardcoded, should be calculated from event attendance
-    const attendanceRate = 85; // TODO: Calculate from actual attendance data
-    
-    // Apply the rule: Each metric contributes equally (1/3) to the overall project progress
-    // Handle null/undefined values by treating them as 0%
-    const safelearningProgress = learningProgress ?? 0;
-    const safeTechnicalSetupProgress = technicalSetupProgress ?? 0;
-    const safeAttendanceRate = attendanceRate ?? 0;
-    
-    const projectProgress = (safelearningProgress + safeTechnicalSetupProgress + safeAttendanceRate) / 3;
-    
-    // Return as float for precision but we'll round for display
+  // Get progress metrics from dashboard data
+  const getProgressMetrics = () => {
+    // Use attendance from derived selector
+    const attendanceRate = Math.round(attendanceSummary?.attendanceRate || 0);
+
+    // Use dashboard data if available for other metrics
+    if (dashboardData?.metrics) {
+      const { overallCompletion, technicalCompletion } = dashboardData.metrics;
+
+      const learning = overallCompletion?.breakdown?.learning ?? 30;
+      const technical = technicalCompletion?.completionPercentage ?? 0;
+
+      // Calculate overall progress from learning, technical, and attendance
+      const overall = (learning + technical + attendanceRate) / 3;
+
+      return {
+        overall: Math.round(overall),
+        learning,
+        technical,
+        attendance: attendanceRate
+      };
+    }
+
+    // Fallback calculation (legacy logic for when dashboard data is not available)
+    const learningProgress = 30;
+    const technicalSetupProgress = 0; // No checklist data available
+
+    const projectProgress = (learningProgress + technicalSetupProgress + attendanceRate) / 3;
+
     return {
-      overall: projectProgress,
-      learning: safelearningProgress,
-      technical: safeTechnicalSetupProgress,
-      attendance: safeAttendanceRate
+      overall: Math.round(projectProgress),
+      learning: learningProgress,
+      technical: technicalSetupProgress,
+      attendance: attendanceRate
     };
   };
 
@@ -244,22 +276,43 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
   );
 
 
+  // Get metrics from dashboard data or calculate fallbacks
+  const getProjectMetrics = () => {
+    if (dashboardData?.metrics) {
+      return {
+        participants: dashboardData.metrics.participantsCount || 0,
+        sessions: dashboardData.metrics.sessionsCount || 0,
+        groups: dashboardData.metrics.groupsCount || 0,
+        duration: dashboardData.metrics.projectDates?.duration || 30
+      };
+    }
+    
+    // Fallback to project data
+    return {
+      participants: project?.participants?.length || 0,
+      sessions: project?.events?.length || 0,
+      groups: project?.groups?.length || 0,
+      duration: 30
+    };
+  };
+
   // Calculate project duration and days left
   const today = new Date();
   const millisecondsPerDay = 24 * 60 * 60 * 1000;
   const projectStartDate = getProjectStartDate();
   const projectEndDate = getProjectEndDate();
   
+  const projectMetrics = getProjectMetrics();
   const projectDuration = (projectStartDate && projectEndDate)
     ? Math.max(1, Math.ceil((new Date(projectEndDate) - new Date(projectStartDate)) / millisecondsPerDay) + 1)
-    : 30; // Default to 30 days if no dates are available, ignore project.duration field
+    : projectMetrics.duration;
     
   const daysLeft = projectEndDate 
     ? Math.ceil((new Date(projectEndDate) - today) / millisecondsPerDay)
     : 0;
 
   // Get calculated progress metrics
-  const progressMetrics = calculateProjectProgress();
+  const progressMetrics = getProgressMetrics();
 
   return (
     <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -289,18 +342,18 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                   flexDirection: matchDownSM ? 'column' : 'row',
                   alignItems: matchDownSM ? 'flex-start' : 'center'
                 }}>
-                  <Box sx={{ 
-                    ...styles.flexCenter, 
-                    gap: matchDownSM ? 0.5 : 2, 
+                  <Box sx={{
+                    ...styles.flexCenter,
+                    gap: matchDownSM ? 0.5 : 2,
                     flexWrap: 'wrap',
                     flexDirection: matchDownSM ? 'column' : 'row',
                     alignItems: matchDownSM ? 'flex-start' : 'center',
                     width: matchDownSM ? '100%' : 'auto'
                   }}>
                     <Typography variant={matchDownSM ? "h6" : "h3"} color="text.primary" fontWeight={700} sx={{ letterSpacing: '-0.5px', fontSize: matchDownSM ? '1.1rem' : 'inherit' }}>
-                      {project.title}
+                      {project?.title || 'Loading...'}
                     </Typography>
-                    {project.training_recipient && (
+                    {currentProject.training_recipient && (
                       <Typography 
                         variant="body2" 
                         color="text.secondary"
@@ -309,16 +362,16 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                           mt: 0.5
                         }}
                       >
-                        for {project.training_recipient.name}
+                        for {currentProject.training_recipient.name}
                       </Typography>
                     )}
-                    {project.training_recipient && (
+                    {currentProject.training_recipient && (
                       <Chip 
-                        label={`for ${project.training_recipient.name}`}
+                        label={`for ${currentProject.training_recipient.name}`}
                         size="medium"
                         variant="outlined"
                         component="a"
-                        href={`/project-manager/training-recipients/${project.training_recipient.id}`}
+                        href={`/project-manager/training-recipients/${currentProject.training_recipient.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         clickable
@@ -437,7 +490,7 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                       <Box sx={{ ...styles.flexCenter, gap: 3 }}>
                         <Box sx={styles.statBox}>
                           <Typography variant="h6" color="text.primary" fontWeight={700}>
-                            {participants}
+                            {projectMetrics.participants}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             Participants
@@ -446,7 +499,7 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                         <Divider orientation="vertical" flexItem sx={{ bgcolor: theme.palette.divider }} />
                         <Box sx={styles.statBox}>
                           <Typography variant="h6" color="text.primary" fontWeight={700}>
-                            {project.events?.length || 0}
+                            {projectMetrics.sessions}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             Sessions
@@ -455,7 +508,7 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
                         <Divider orientation="vertical" flexItem sx={{ bgcolor: theme.palette.divider }} />
                         <Box sx={styles.statBox}>
                           <Typography variant="h6" color="text.primary" fontWeight={700}>
-                            {project.groups?.length || 0}
+                            {projectMetrics.groups}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             Groups
@@ -565,8 +618,6 @@ const ProjectDashboard = ({ project, participants, checklistItems, styles }) => 
 
 ProjectDashboard.propTypes = {
   project: PropTypes.object.isRequired,
-  participants: PropTypes.number.isRequired,
-  checklistItems: PropTypes.array.isRequired,
   styles: PropTypes.object.isRequired
 };
 

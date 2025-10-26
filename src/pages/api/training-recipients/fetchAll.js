@@ -7,6 +7,8 @@ export default async function handler(req, res) {
 
   try {
     const trainingRecipients = await prisma.training_recipients.findMany({
+      // Removed status filter - fetch all recipients (active and archived)
+      // Frontend will handle filtering based on user preference
       include: {
         sub_organization: {
           select: {
@@ -20,9 +22,13 @@ export default async function handler(req, res) {
             title: true
           }
         },
-        participants: {
+        project_participants: {
+          where: {
+            status: 'active' // Only count active enrollments
+          },
           select: {
-            id: true
+            id: true,
+            participantId: true
           }
         }
       },
@@ -36,19 +42,28 @@ export default async function handler(req, res) {
       let parsedLocation = null;
       if (recipient.location) {
         try {
-          parsedLocation = typeof recipient.location === 'string' 
-            ? JSON.parse(recipient.location) 
+          parsedLocation = typeof recipient.location === 'string'
+            ? JSON.parse(recipient.location)
             : recipient.location;
         } catch (error) {
           console.error(`Error parsing location JSON for recipient ${recipient.id}:`, error);
         }
       }
 
+      // Count unique participants from active enrollments
+      const uniqueParticipants = new Set(
+        recipient.project_participants.map(pp => pp.participantId)
+      );
+
       return {
         ...recipient,
         location: parsedLocation,
         projectCount: recipient.projects.length,
-        participantCount: recipient.participants.length
+        participantCount: uniqueParticipants.size, // Count unique participants
+        _count: {
+          projects: recipient.projects.length,
+          participants: uniqueParticipants.size
+        }
       };
     });
 

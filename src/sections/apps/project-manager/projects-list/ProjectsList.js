@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, Fragment } from "react";
 import { useDispatch, useSelector } from "store";
-import { getProjects } from "store/reducers/projects";
+import { getProjects } from "store/reducers/project";
 import { motion, AnimatePresence } from "framer-motion";
 
 // material-ui
@@ -42,7 +42,7 @@ import { GlobalFilter } from "utils/react-table";
 import usePagination from "hooks/usePagination";
 
 // assets
-import { PlusOutlined, ReloadOutlined, FilterOutlined, ClearOutlined } from "@ant-design/icons";
+import { PlusOutlined, ReloadOutlined, FilterOutlined, ClearOutlined, UpOutlined, DownOutlined } from "@ant-design/icons";
 import AddButton from "../../../../components/StyledButtons";
 
 // ==============================|| PROJECTS - CARDS ||============================== //
@@ -67,13 +67,20 @@ const allColumns = [
 ];
 
 const ProjectsList = () => {
-  const { projects, isAdding, error, loading: reduxLoading } = useSelector((state) => state.projects);
+  // Optimized selector - only get what the project list page needs
+  const { projects, isAdding, error, loading: reduxLoading } = useSelector((state) => ({
+    projects: state.projects.projects,
+    isAdding: state.projects.isAdding,
+    error: state.projects.error,
+    loading: state.projects.loading
+  }));
   const dispatch = useDispatch();
   const [localError, setLocalError] = useState(null);
 
   const fetchProjects = async () => {
     try {
       setLocalError(null);
+      console.log("calling project Store ")
       await dispatch(getProjects());
     } catch (err) {
       setLocalError('Failed to load projects. Please try again.');
@@ -81,6 +88,7 @@ const ProjectsList = () => {
     }
   };
 
+  // Load projects on component mount
   useEffect(() => {
     let isMounted = true;
     
@@ -96,7 +104,7 @@ const ProjectsList = () => {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdding]);
+  }, []); // Only run on mount, not when isAdding changes
 
   const matchDownSM = useMediaQuery((theme) => theme.breakpoints.down("sm"));
 
@@ -107,8 +115,8 @@ const ProjectsList = () => {
   const [userCard, setUserCard] = useState([]);
   const [page, setPage] = useState(1);
   
-  // Filter states - collapsed by default on mobile
-  const [showFilters, setShowFilters] = useState(!matchDownSM);
+  // Filter states - always shown by default
+  const [showFilters, setShowFilters] = useState(true);
   const [statusFilter, setStatusFilter] = useState([]);
   const [typeFilter, setTypeFilter] = useState([]);
   const [trainingRecipientFilter, setTrainingRecipientFilter] = useState([]);
@@ -375,35 +383,51 @@ const ProjectsList = () => {
     <Fragment>
       {/* Main Filter Bar */}
       <Paper elevation={0} sx={{ p: matchDownSM ? 2 : 3, mb: matchDownSM ? 2 : 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <Stack spacing={3}>
-          {/* Header Row: Search and Primary Actions */}
+        <Stack spacing={showFilters ? 3 : 1.5}>
+          {/* Header Row: Search, Filters, Sort, and Add */}
           <Stack
             direction={matchDownSM ? "column" : "row"}
             spacing={2}
             justifyContent="space-between"
             alignItems={matchDownSM ? "stretch" : "center"}
+            sx={{
+              flexWrap: 'nowrap' // Prevent wrapping
+            }}
           >
-            {/* Left Side: Search and Filter Controls */}
-            <Stack direction="row" spacing={2} alignItems="center" flex={1}>
-              <Box sx={{ minWidth: matchDownSM ? 'auto' : 280 }}>
-                <GlobalFilter
-                  preGlobalFilteredRows={projects}
-                  globalFilter={globalFilter}
-                  setGlobalFilter={setGlobalFilter}
-                />
-              </Box>
-              
-              <Stack direction="row" spacing={1} alignItems="center">
+            {/* Left Side: Search */}
+            <Box sx={{
+              flex: '1 1 auto',
+              minWidth: 0, // Allow shrinking
+              maxWidth: matchDownSM ? '100%' : '50%'
+            }}>
+              <GlobalFilter
+                preGlobalFilteredRows={projects || []}
+                globalFilter={globalFilter}
+                setGlobalFilter={setGlobalFilter}
+              />
+            </Box>
+
+            {/* Right Side: Filters, Sort and Add */}
+            <Stack
+              direction={matchDownSM ? "column" : "row"}
+              spacing={1.5}
+              alignItems={matchDownSM ? "stretch" : "center"}
+              sx={{
+                flexShrink: 0,
+                flexWrap: 'nowrap'
+              }}
+            >
+              {!showFilters && (
                 <Button
-                  variant={showFilters ? "contained" : "outlined"}
-                  startIcon={<FilterOutlined />}
-                  onClick={() => setShowFilters(!showFilters)}
-                  sx={{ 
-                    minWidth: 110,
-                    textTransform: 'none',
-                    fontWeight: 500
-                  }}
+                  variant="outlined"
+                  startIcon={<DownOutlined />}
+                  onClick={() => setShowFilters(true)}
                   size="medium"
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap'
+                  }}
                 >
                   Filters
                   {getActiveFilterCount() > 0 && (
@@ -415,26 +439,12 @@ const ProjectsList = () => {
                     />
                   )}
                 </Button>
+              )}
 
-                {getActiveFilterCount() > 0 && (
-                  <IconButton
-                    onClick={clearAllFilters}
-                    size="small"
-                    sx={{ 
-                      color: 'text.secondary',
-                      '&:hover': { bgcolor: 'action.hover', color: 'error.main' }
-                    }}
-                    title="Clear all filters"
-                  >
-                    <ClearOutlined />
-                  </IconButton>
-                )}
-              </Stack>
-            </Stack>
-
-            {/* Right Side: Sort and Add */}
-            <Stack direction={matchDownSM ? "column" : "row"} spacing={2} alignItems={matchDownSM ? "stretch" : "center"}>
-              <FormControl sx={{ minWidth: matchDownSM ? 'auto' : 160 }}>
+              <FormControl sx={{
+                minWidth: matchDownSM ? 'auto' : 150,
+                maxWidth: 180
+              }}>
                 <Select
                   value={sortBy}
                   onChange={handleChange}
@@ -453,17 +463,19 @@ const ProjectsList = () => {
                   ))}
                 </Select>
               </FormControl>
-              
+
               <AddButton
                 variant="contained"
                 startIcon={<PlusOutlined />}
                 onClick={handleAdd}
                 fullWidth={matchDownSM}
-                sx={{ 
+                sx={{
                   textTransform: 'none',
                   fontWeight: 600,
-                  px: matchDownSM ? 2 : 3,
+                  px: matchDownSM ? 2 : 2.5,
                   py: matchDownSM ? 1.5 : 1,
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content',
                   background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
@@ -475,18 +487,58 @@ const ProjectsList = () => {
             </Stack>
           </Stack>
 
-          {/* Advanced Filters Panel */}
+          {/* Filters Panel */}
           <Collapse in={showFilters}>
-            <Box sx={{ pt: 2 }}>
-              {/* Filter Controls Section */}
-              <Box sx={{ 
-                bgcolor: 'grey.50', 
-                p: matchDownSM ? 1.5 : 2.5,
-                borderRadius: 1
-              }}>
-                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+            {/* Filter Controls Section */}
+            <Box sx={{
+              bgcolor: 'grey.50',
+              p: matchDownSM ? 1.5 : 2.5,
+              borderRadius: 1,
+              position: 'relative'
+            }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
                   Filter Options
+                  {getActiveFilterCount() > 0 && (
+                    <Chip
+                      label={getActiveFilterCount()}
+                      size="small"
+                      color="primary"
+                      sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                    />
+                  )}
                 </Typography>
+
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {getActiveFilterCount() > 0 && (
+                    <Button
+                      onClick={clearAllFilters}
+                      size="small"
+                      startIcon={<ClearOutlined />}
+                      sx={{
+                        textTransform: 'none',
+                        fontSize: '0.75rem',
+                        color: 'text.secondary',
+                        '&:hover': { color: 'error.main' }
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  )}
+
+                  <IconButton
+                    onClick={() => setShowFilters(false)}
+                    size="small"
+                    sx={{
+                      color: 'text.secondary',
+                      '&:hover': { bgcolor: 'action.hover' }
+                    }}
+                    title="Hide filters"
+                  >
+                    <UpOutlined />
+                  </IconButton>
+                </Stack>
+              </Stack>
                 
                 <Grid container spacing={matchDownSM ? 1.5 : 2.5} alignItems="flex-start">
                   {/* Status Filter */}
@@ -595,11 +647,10 @@ const ProjectsList = () => {
                   </Grid>
                 </Grid>
               </Box>
-            </Box>
-          </Collapse>
+            </Collapse>
 
           {/* Results Summary - Always visible */}
-          <Box sx={{ textAlign: matchDownSM ? 'center' : 'right', mt: showFilters ? 2 : 0 }}>
+          <Box sx={{ textAlign: matchDownSM ? 'center' : 'right' }}>
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
               <strong>{userCard.length}</strong> of <strong>{projects?.length || 0}</strong> projects
               {getActiveFilterCount() > 0 && (

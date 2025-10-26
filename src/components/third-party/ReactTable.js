@@ -177,9 +177,10 @@ export const TableRowSelection = ({ selected }) => (
         variant="light"
         sx={{
           position: 'absolute',
-          right: -1,
-          top: -1,
-          borderRadius: '0 4px 0 4px'
+          right: 8,
+          top: 8,
+          borderRadius: '4px',
+          zIndex: 10
         }}
       />
     )}
@@ -513,6 +514,9 @@ CSVExport.propTypes = {
 
 const StyledGridOverlay = styled(Stack)(({ theme }) => ({
   height: '400px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   '& .ant-empty-img-1': {
     fill: theme.palette.mode === 'light' ? theme.palette.secondary[400] : theme.palette.secondary[200]
   },
@@ -534,7 +538,14 @@ const StyledGridOverlay = styled(Stack)(({ theme }) => ({
 export const EmptyTable = ({ msg, colSpan }) => {
   return (
     <TableRow>
-      <TableCell colSpan={colSpan}>
+      <TableCell
+        colSpan={colSpan}
+        sx={{
+          textAlign: 'center',
+          p: 0,
+          border: 'none'
+        }}
+      >
         <StyledGridOverlay alignItems="center" justifyContent="center" spacing={1}>
           <svg width="120" height="100" viewBox="0 0 184 152" aria-hidden focusable="false">
             <g fill="none" fillRule="evenodd">

@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'store';
 import axios from 'utils/axios';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { getSingleProject, getGroupsDetails } from 'store/reducers/projects';
+import { getSingleProject, getGroupsDetails } from 'store/reducers/project';
+import { getEvents } from 'store/reducers/calendar';
 
 /**
  * Custom hook for managing participant group movements
@@ -179,6 +180,10 @@ const useParticipantGroupMove = () => {
         
         if (!syncResult.success) {
           console.warn('Event sync failed but group move succeeded:', syncResult.error);
+        } else {
+          // Refresh events after successful sync - much more efficient than full project refresh
+          console.log('Refreshing events after participant group sync...');
+          await dispatch(getEvents(singleProject?.id));
         }
       }
       
@@ -306,18 +311,95 @@ const useParticipantGroupMove = () => {
   /**
    * Refresh project and groups data
    * @param {boolean} fullRefresh - Whether to refresh full project or just groups
+   * @param {boolean} refreshEvents - Whether to also refresh events
    */
-  const refreshData = useCallback(async (fullRefresh = false) => {
+  const refreshData = useCallback(async (fullRefresh = false, refreshEvents = true) => {
     if (singleProject?.id) {
+      const promises = [];
+      
       if (fullRefresh) {
-        await Promise.all([
-          dispatch(getSingleProject(singleProject.id)),
-          dispatch(getGroupsDetails(singleProject.id))
-        ]);
-      } else {
-        // Only refresh groups data for better performance
-        await dispatch(getGroupsDetails(singleProject.id));
+        promises.push(dispatch(getSingleProject(singleProject.id)));
       }
+      
+      promises.push(dispatch(getGroupsDetails(singleProject.id)));
+      
+      if (refreshEvents) {
+        promises.push(dispatch(getEvents(singleProject.id)));
+      }
+      
+      await Promise.all(promises);
+    }
+  }, [dispatch, singleProject?.id]);
+
+  /**
+   * Move participant from current event to a different event
+   * @param {number} participantId - The project_participants.id
+   * @param {number|null} fromEventId - The source event ID (null if adding to event)
+   * @param {number} toEventId - The target event ID
+   * @param {Object} options - Additional options
+   * @returns {Promise<Object>} Result object with success status and message
+   */
+  const moveParticipantBetweenEvents = useCallback(async (participantId, fromEventId, toEventId, options = {}) => {
+    const {
+      projectId = null,
+      showNotification = true
+    } = options;
+
+    if (!participantId || !toEventId) {
+      return { success: false, error: 'Invalid participant or target event ID' };
+    }
+
+    setLoading(true);
+    setMovingParticipants(prev => new Set(prev).add(participantId));
+
+    try {
+      const response = await axios.post('/api/projects/move-participant-between-events', {
+        participantId,
+        fromEventId,
+        toEventId,
+        projectId: projectId || singleProject?.id
+      });
+
+      if (response.data.success) {
+        // Refresh events after successful move
+        console.log('Refreshing events after participant event move...');
+        await dispatch(getEvents(singleProject?.id));
+
+        const message = response.data.message;
+
+        if (showNotification) {
+          dispatch(openSnackbar({
+            open: true,
+            message,
+            variant: 'alert',
+            alert: { color: 'success' }
+          }));
+        }
+
+        return { success: true, message, data: response.data.data };
+      }
+
+      return { success: false, error: response.data.error };
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || 'Failed to move participant between events';
+      
+      if (showNotification) {
+        dispatch(openSnackbar({
+          open: true,
+          message: errorMessage,
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
+      }
+
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+      setMovingParticipants(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(participantId);
+        return newSet;
+      });
     }
   }, [dispatch, singleProject?.id]);
 
@@ -337,6 +419,7 @@ const useParticipantGroupMove = () => {
     
     // Methods
     moveParticipant,
+    moveParticipantBetweenEvents,
     moveMultipleParticipants,
     removeFromGroup,
     addToGroup,

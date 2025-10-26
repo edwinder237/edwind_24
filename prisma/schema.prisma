@@ -89,29 +89,32 @@ model sub_organization_participant_role {
 }
 
 model training_recipients {
-  id                 Int               @id @default(autoincrement())
-  name               String
-  description        String?
-  contactPerson      String?
-  email              String?
-  phone              String?
-  address            String?
-  website            String?
-  industry           String?
-  taxId              String?
-  notes              String?
-  location           Json?
-  img                String?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  createdBy          String
-  updatedBy          String?
-  sub_organizationId Int
-  participants       participants[]
-  projects           projects[]
-  sub_organization   sub_organizations @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+  id                   Int                        @id @default(autoincrement())
+  name                 String
+  description          String?
+  contactPerson        String?
+  email                String?
+  phone                String?
+  address              String?
+  website              String?
+  industry             String?
+  taxId                String?
+  notes                String?
+  location             Json?
+  img                  String?
+  status               String                     @default("active")
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  createdBy            String
+  updatedBy            String?
+  sub_organizationId   Int
+  participants         participants[]
+  projects             projects[]
+  project_participants project_participants[]
+  sub_organization     sub_organizations          @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 
   @@index([sub_organizationId])
+  @@index([status])
 }
 
 model projects {
@@ -267,6 +270,7 @@ model project_participants {
   id                                  Int                                           @id @default(autoincrement())
   projectId                           Int
   participantId                       String
+  trainingRecipientId                 Int?
   status                              String                                        @default("active")
   courses_enrollee_progress           courses_enrollee_progress[]
   event_attendees                     event_attendees[]
@@ -274,10 +278,12 @@ model project_participants {
   checklist_progress                  project_participants_course_checklist_progress[]
   participant                         participants                                  @relation(fields: [participantId], references: [id], onDelete: Cascade)
   project                             projects                                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  training_recipient                  training_recipients?                          @relation(fields: [trainingRecipientId], references: [id])
 
   @@unique([projectId, participantId])
   @@index([projectId])
   @@index([participantId])
+  @@index([trainingRecipientId])
 }
 
 model groups {

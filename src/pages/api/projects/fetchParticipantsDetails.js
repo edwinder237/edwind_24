@@ -18,7 +18,7 @@ export default async function handler(req, res) {
       include: {
         participant: {
           include: {
-            training_recipient: true, // Include training recipient
+            training_recipient: true, // Include training recipient (legacy)
             role: true, // Include role information
             toolAccesses: {
               where: {
@@ -30,6 +30,7 @@ export default async function handler(req, res) {
             }
           }
         },
+        training_recipient: true, // Include enrollment-level training recipient (NEW architecture)
         group: {
           include: {
             group: true,

@@ -151,10 +151,19 @@ export default async function handler(req, res) {
                   data: {
                     projectId: parseInt(projectId),
                     participantId: participant.id,
+                    trainingRecipientId: project.trainingRecipientId, // Set TR on enrollment
                     status: 'active'
                   }
                 });
-              } else {
+              } else if (existingEnrollment.status !== 'active') {
+                // Reactivate if previously removed
+                await tx.project_participants.update({
+                  where: { id: existingEnrollment.id },
+                  data: {
+                    status: 'active',
+                    trainingRecipientId: project.trainingRecipientId // Update TR on reactivation
+                  }
+                });
               }
 
               batchCreated.push({

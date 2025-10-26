@@ -29,27 +29,45 @@ export default async function handler(req, res) {
       });
     }
 
-    // Check if recipient has associated projects or participants
+    // Check if recipient has associated projects
     if (existingRecipient.projects.length > 0) {
       return res.status(400).json({
-        error: `Cannot delete training recipient. It has ${existingRecipient.projects.length} associated project(s). Please remove projects first.`
+        error: `Cannot delete training recipient. It has ${existingRecipient.projects.length} associated project(s). Please remove or reassign projects first.`
       });
     }
 
-    if (existingRecipient.participants.length > 0) {
-      return res.status(400).json({
-        error: `Cannot delete training recipient. It has ${existingRecipient.participants.length} associated participant(s). Please remove participants first.`
+    // Delete all participants associated with this training recipient
+    const participantIds = existingRecipient.participants.map(p => p.id);
+
+    if (participantIds.length > 0) {
+      // First, delete all project_participants records for these participants
+      await prisma.project_participants.deleteMany({
+        where: {
+          participantId: {
+            in: participantIds
+          }
+        }
+      });
+
+      // Then delete the participants themselves
+      await prisma.participants.deleteMany({
+        where: {
+          id: {
+            in: participantIds
+          }
+        }
       });
     }
 
-    // Delete training recipient
+    // Finally, delete the training recipient
     await prisma.training_recipients.delete({
       where: { id: parseInt(id) }
     });
 
     res.status(200).json({
       success: true,
-      message: 'Training recipient deleted successfully'
+      message: `Training recipient and ${participantIds.length} participant(s) deleted successfully`,
+      deletedParticipants: participantIds.length
     });
   } catch (error) {
     console.error('Error deleting training recipient:', error);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { useDispatch, useSelector } from 'store';
 
 // material-ui
 import {
@@ -44,11 +45,22 @@ import axios from 'utils/axios';
 
 // project components
 import MainCard from 'components/MainCard';
+import DeleteCard from 'components/cards/DeleteCard';
+
+// RTK Query API
+import { projectApi } from 'store/api/projectApi';
 
 const ToolAccessManager = ({ open, onClose, participantId, participantName, onUpdate }) => {
+  const dispatch = useDispatch();
+
+  // Get projectId from Redux store for cache invalidation
+  const projectId = useSelector(state => state.projectSettings?.projectId);
+
   const [toolAccesses, setToolAccesses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [toolAccessToDelete, setToolAccessToDelete] = useState(null);
   const [editingAccess, setEditingAccess] = useState(null);
   const [formData, setFormData] = useState({
     tool: '',
@@ -167,8 +179,17 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
         );
         setSuccess('Tool access created successfully');
       }
-      
+
       await fetchToolAccesses();
+
+      // Invalidate RTK Query cache to trigger refetch of participants
+      if (projectId) {
+        dispatch(projectApi.util.invalidateTags([
+          { type: 'ProjectParticipants', id: projectId },
+          { type: 'Participant', id: participantId }
+        ]));
+      }
+
       onUpdate && onUpdate(); // Notify parent component to refresh
       handleCloseForm();
     } catch (error) {
@@ -179,22 +200,42 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
     }
   };
 
-  const handleDelete = async (toolAccess) => {
-    if (!window.confirm(`Are you sure you want to delete ${toolAccess.tool} access for ${toolAccess.username}?`)) {
-      return;
-    }
+  const handleDeleteClick = (toolAccess) => {
+    setToolAccessToDelete(toolAccess);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setToolAccessToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!toolAccessToDelete) return;
 
     setLoading(true);
+    setDeleteDialogOpen(false);
+
     try {
-      await axios.delete(`/api/participants/${participantId}/tool-access/${toolAccess.id}`);
+      await axios.delete(`/api/participants/${participantId}/tool-access/${toolAccessToDelete.id}`);
       setSuccess('Tool access deleted successfully');
       await fetchToolAccesses();
+
+      // Invalidate RTK Query cache to trigger refetch of participants
+      if (projectId) {
+        dispatch(projectApi.util.invalidateTags([
+          { type: 'ProjectParticipants', id: projectId },
+          { type: 'Participant', id: participantId }
+        ]));
+      }
+
       onUpdate && onUpdate(); // Notify parent component to refresh
     } catch (error) {
       console.error('Error deleting tool access:', error);
       setError(error.response?.data?.error || 'Failed to delete tool access');
     } finally {
       setLoading(false);
+      setToolAccessToDelete(null);
     }
   };
 
@@ -319,7 +360,7 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
                                   <IconButton
                                     size="small"
                                     color="error"
-                                    onClick={() => handleDelete(toolAccess)}
+                                    onClick={() => handleDeleteClick(toolAccess)}
                                     disabled={loading}
                                   >
                                     <DeleteOutlined />
@@ -445,6 +486,18 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
           </DialogActions>
         </MainCard>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteCard
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        onDelete={handleDeleteConfirm}
+        title="Delete Tool Access"
+        itemName={toolAccessToDelete ? `${toolAccessToDelete.tool} access for ${toolAccessToDelete.username}` : ''}
+        message={toolAccessToDelete ? `Are you sure you want to delete ${toolAccessToDelete.tool} access for ${toolAccessToDelete.username}? This action cannot be undone.` : ''}
+        deleteLabel="Delete"
+        cancelLabel="Cancel"
+      />
     </>
   );
 };

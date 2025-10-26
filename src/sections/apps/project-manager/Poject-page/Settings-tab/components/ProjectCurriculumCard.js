@@ -32,16 +32,19 @@ import {
   Delete as DeleteIcon,
   School as SchoolIcon
 } from '@mui/icons-material';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { getProjectCurriculums } from 'store/reducers/projects';
+import { selectProjectCurriculums, selectAvailableCurriculums, addCurriculumToProject, removeCurriculumFromProject } from 'store/reducers/project/settings';
 import MainCard from 'components/MainCard';
 
 const ProjectCurriculumCard = ({ projectId }) => {
   const dispatch = useDispatch();
-  const [projectCurriculums, setProjectCurriculums] = useState([]);
-  const [availableCurriculums, setAvailableCurriculums] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Get data from settings store instead of separate API calls
+  const projectCurriculums = useSelector(selectProjectCurriculums);
+  const availableCurriculums = useSelector(selectAvailableCurriculums);
+  
+  const [loading, setLoading] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState('');
   const [adding, setAdding] = useState(false);
@@ -49,33 +52,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedCurriculum, setSelectedCurriculum] = useState(null);
 
-  // Fetch project curriculums
-  const fetchProjectCurriculums = async () => {
-    if (!projectId) return;
-    
-    try {
-      const response = await fetch('/api/projects/fetchProjectCurriculums', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId })
-      });
-      const data = await response.json();
-      setProjectCurriculums(data || []);
-    } catch (error) {
-      console.error('Error fetching project curriculums:', error);
-    }
-  };
-
-  // Fetch available curriculums
-  const fetchAvailableCurriculums = async () => {
-    try {
-      const response = await fetch('/api/curriculums/fetchCurriculums');
-      const data = await response.json();
-      setAvailableCurriculums(data || []);
-    } catch (error) {
-      console.error('Error fetching available curriculums:', error);
-    }
-  };
+  // Project curriculums and available curriculums now come from settings store
 
   // Add curriculum to project
   const handleAddCurriculum = async () => {
@@ -83,34 +60,19 @@ const ProjectCurriculumCard = ({ projectId }) => {
 
     try {
       setAdding(true);
-      const response = await fetch('/api/projects/add-curriculum', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          curriculumId: selectedCurriculumId
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        dispatch(openSnackbar({
-          open: true,
-          message: 'Curriculum added to project successfully',
-          variant: 'alert',
-          alert: { color: 'success' }
-        }));
-        
-        setAddDialogOpen(false);
-        setSelectedCurriculumId('');
-        fetchProjectCurriculums();
-        
-        // Update Redux store to make curriculum available in other components
-        dispatch(getProjectCurriculums(projectId));
-      } else {
-        throw new Error(result.message || 'Failed to add curriculum');
-      }
+
+      // Use CQRS command to add curriculum (no full refetch)
+      await dispatch(addCurriculumToProject(projectId, selectedCurriculumId));
+
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Curriculum added to project successfully',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+
+      setAddDialogOpen(false);
+      setSelectedCurriculumId('');
     } catch (error) {
       dispatch(openSnackbar({
         open: true,
@@ -124,48 +86,30 @@ const ProjectCurriculumCard = ({ projectId }) => {
   };
 
   // Remove curriculum from project
-  const handleRemoveCurriculum = async (curriculumId) => {
-    if (!curriculumId) return;
-    
+  const handleRemoveCurriculum = async (projectCurriculum) => {
+    if (!projectCurriculum) return;
+
     try {
       setRemoving(true);
       setMenuAnchor(null); // Close menu immediately
-      
-      const response = await fetch('/api/projects/remove-curriculum', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          curriculumId
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        // Optimistically update local state first for immediate UI feedback
-        setProjectCurriculums(prev => 
-          prev.filter(pc => pc.curriculum.id !== curriculumId)
-        );
-        
-        dispatch(openSnackbar({
-          open: true,
-          message: 'Curriculum removed successfully',
-          variant: 'alert',
-          alert: { color: 'success' }
-        }));
-        
-        // Update Redux store in background (single call, not duplicate)
-        dispatch(getProjectCurriculums(projectId));
-      } else {
-        throw new Error(result.message || 'Failed to remove curriculum');
-      }
+
+      // Use CQRS command to remove curriculum (no full refetch)
+      // Pass: projectId, curriculumId (for API), and projectCurriculumId (for store update)
+      await dispatch(removeCurriculumFromProject(
+        projectId,
+        projectCurriculum.curriculumId,
+        projectCurriculum.id
+      ));
+
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Curriculum removed successfully',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
     } catch (error) {
       console.error('Error removing curriculum:', error);
-      
-      // Refresh data on error to ensure consistency
-      fetchProjectCurriculums();
-      
+
       dispatch(openSnackbar({
         open: true,
         message: error.message || 'Failed to remove curriculum',
@@ -177,9 +121,9 @@ const ProjectCurriculumCard = ({ projectId }) => {
     }
   };
 
-  const handleMenuClick = (event, curriculum) => {
+  const handleMenuClick = (event, projectCurriculum) => {
     setMenuAnchor(event.currentTarget);
-    setSelectedCurriculum(curriculum);
+    setSelectedCurriculum(projectCurriculum);
   };
 
   const handleMenuClose = () => {
@@ -187,20 +131,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
     setSelectedCurriculum(null);
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([
-        fetchProjectCurriculums(),
-        fetchAvailableCurriculums()
-      ]);
-      setLoading(false);
-    };
-
-    if (projectId) {
-      loadData();
-    }
-  }, [projectId]);
+  // Data now comes from settings store - no need for useEffect to fetch
 
   // Get curriculums not already assigned to project
   const getAvailableForAdd = () => {
@@ -272,7 +203,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
                     
                     <IconButton
                       size="small"
-                      onClick={(e) => handleMenuClick(e, pc.curriculum)}
+                      onClick={(e) => handleMenuClick(e, pc)}
                     >
                       <MoreVertIcon />
                     </IconButton>
@@ -288,9 +219,9 @@ const ProjectCurriculumCard = ({ projectId }) => {
         open={Boolean(menuAnchor)}
         onClose={handleMenuClose}
       >
-        <MenuItem 
+        <MenuItem
           onClick={() => {
-            handleRemoveCurriculum(selectedCurriculum?.id);
+            handleRemoveCurriculum(selectedCurriculum);
           }}
           disabled={removing}
           sx={{ color: 'error.main' }}
@@ -356,15 +287,14 @@ const ProjectCurriculumCard = ({ projectId }) => {
                 </Alert>
               ) : (
                 <FormControl fullWidth>
-                  <InputLabel>Select Curriculum</InputLabel>
+                  <InputLabel>Choose Curriculum</InputLabel>
                   <Select
                     value={selectedCurriculumId}
                     onChange={(e) => setSelectedCurriculumId(e.target.value)}
-                    input={<OutlinedInput label="Select Curriculum" />}
-                    displayEmpty
+                    input={<OutlinedInput label="Choose Curriculum" />}
                   >
                     <MenuItem disabled value="">
-                      <em>Choose a curriculum...</em>
+                      <em>Select a curriculum from your organization</em>
                     </MenuItem>
                     {getAvailableForAdd().map((curriculum) => (
                       <MenuItem key={curriculum.id} value={curriculum.id}>

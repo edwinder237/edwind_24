@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     }
 
     // Validate attendance status
-    const validStatuses = ['scheduled', 'present', 'absent', 'late'];
+    const validStatuses = ['scheduled', 'present', 'absent', 'late', 'not_needed'];
     if (!validStatuses.includes(attendance_status)) {
       return res.status(400).json({ error: 'Invalid attendance status' });
     }

@@ -12,19 +12,32 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Participant ID is required' });
     }
     
+    const enrolleeId = parseInt(participantId);
+
     // Mark participant as removed instead of deleting
     const updatedProjectParticipant = await prisma.project_participants.update({
       where: {
-        id: parseInt(participantId),
+        id: enrolleeId,
       },
       data: {
         status: 'removed'
       }
     });
 
+    // Also remove this participant from all event attendees
+    // This maintains data integrity - removed participants shouldn't appear in events
+    const deletedAttendees = await prisma.event_attendees.deleteMany({
+      where: {
+        enrolleeId: enrolleeId
+      }
+    });
+
+    console.log(`Removed participant ${enrolleeId} from project. Also removed ${deletedAttendees.count} event attendee records.`);
+
     res.status(200).json({
       message: "Participant successfully marked as removed",
-      participant: updatedProjectParticipant
+      participant: updatedProjectParticipant,
+      eventAttendeesRemoved: deletedAttendees.count
     });
   } catch (error) {
     console.error('Error marking participant as removed:', error);

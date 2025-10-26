@@ -15,6 +15,20 @@ export default async function handler(req, res) {
     const email = newParticipant.participant.email.toLowerCase().trim();
     const projectIdInt = parseInt(projectId);
 
+    // Get the project to find its training recipient
+    const project = await prisma.projects.findUnique({
+      where: { id: projectIdInt },
+      select: { trainingRecipientId: true }
+    });
+
+    if (!project || !project.trainingRecipientId) {
+      return res.status(400).json({
+        success: false,
+        error: "Project has no training recipient",
+        message: "Cannot create participant: project must be linked to a training recipient"
+      });
+    }
+
     // Check if participant already exists in the system
     let participant = await prisma.participants.findUnique({
       where: { email }
@@ -56,13 +70,29 @@ export default async function handler(req, res) {
         });
       }
 
+      // Validate and set roleId
+      let roleId = null;
+      if (newParticipant.participant.roleId) {
+        roleId = parseInt(newParticipant.participant.roleId);
+        
+        // Verify role exists (check sub_organization_participant_role table)
+        const roleExists = await prisma.sub_organization_participant_role.findUnique({
+          where: { id: roleId }
+        });
+        
+        if (!roleExists) {
+          console.warn(`Role with ID ${roleId} not found, setting to null`);
+          roleId = null;
+        }
+      }
+
       const participantData = {
         firstName: newParticipant.participant.firstName.trim(),
         lastName: newParticipant.participant.lastName.trim(),
         email: email,
         participantStatus: newParticipant.participant.participantStatus || "active",
         trainingRecipientId: project.trainingRecipientId,
-        roleId: newParticipant.participant.roleId ? parseInt(newParticipant.participant.roleId) : null,
+        roleId: roleId,
         sub_organization: 1, // Default sub-organization ID
         profilePrefs: newParticipant.participant.profilePrefs || {},
         credentials: newParticipant.participant.credentials || {}
@@ -108,6 +138,7 @@ export default async function handler(req, res) {
         data: {
           projectId: projectIdInt,
           participantId: participant.id,
+          trainingRecipientId: project.trainingRecipientId,
           status: "active"
         },
         include: {

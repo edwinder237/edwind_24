@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 // material-ui
-import { 
-  TextField, 
-  Typography, 
+import {
+  TextField,
+  Typography,
   Box,
   CircularProgress,
-  Chip
+  Chip,
+  ListItem,
+  ListItemText,
+  Stack
 } from '@mui/material';
 
 // project imports
@@ -47,48 +50,11 @@ export default function TrainingRecipientPicker({
     fetchTrainingRecipients();
   }, []);
 
-  // Handle creating new training recipient
-  const handleCreateNewRecipient = async (inputValue) => {
-    if (!inputValue.trim()) return null;
-
-    // Convert to camel case: capitalize first letter of each word
-    const camelCaseName = inputValue.trim()
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-
-    try {
-      const response = await axios.post('/api/training-recipients/createOrFind', {
-        name: camelCaseName,
-        sub_organizationId: 1, // TODO: Get from current user's sub-organization
-        createdBy: 'clun74oh10003wszp0rpz6fzy' // TODO: Get from current user
-      });
-
-      if (response.data.success) {
-        const newRecipient = response.data.trainingRecipient;
-        
-        // Add to the list if it's new
-        if (response.data.isNew) {
-          setTrainingRecipients(prev => [...prev, newRecipient]);
-        }
-        
-        return newRecipient;
-      }
-    } catch (error) {
-      console.error('Error creating training recipient:', error);
-    }
-    return null;
-  };
-
-  const handleChange = async (event, value, reason) => {
+  const handleChange = (event, value, reason) => {
     if (value && value.isNew) {
-      // Handle creating new option
-      const newRecipient = await handleCreateNewRecipient(value.name);
-      if (newRecipient) {
-        setSelectedRecipient(newRecipient);
-        handleTrainingRecipientChange(newRecipient);
-      }
+      // Instead of creating immediately, pass the new recipient data to parent
+      // The parent (AddProject) will handle showing the form
+      handleTrainingRecipientChange(value);
     } else {
       // Handle selecting existing option or clearing
       setSelectedRecipient(value);
@@ -147,6 +113,45 @@ export default function TrainingRecipientPicker({
       clearOnBlur
       handleHomeEndKeys
       freeSolo
+      renderOption={(props, option) => (
+        <ListItem
+          {...props}
+          secondaryAction={
+            option._count && (
+              <Stack direction="row" spacing={1}>
+                {option._count.projects !== undefined && (
+                  <Chip
+                    label={`${option._count.projects} project${option._count.projects !== 1 ? 's' : ''}`}
+                    size="small"
+                    color={option._count.projects > 0 ? 'primary' : 'default'}
+                    variant={option._count.projects > 0 ? 'filled' : 'outlined'}
+                  />
+                )}
+                {option._count.participants !== undefined && (
+                  <Chip
+                    label={`${option._count.participants} participant${option._count.participants !== 1 ? 's' : ''}`}
+                    size="small"
+                    color={option._count.participants > 0 ? 'secondary' : 'default'}
+                    variant={option._count.participants > 0 ? 'filled' : 'outlined'}
+                  />
+                )}
+              </Stack>
+            )
+          }
+        >
+          <ListItemText
+            primary={option.name}
+            secondary={option.description}
+            primaryTypographyProps={{
+              variant: 'body1'
+            }}
+            secondaryTypographyProps={{
+              variant: 'body2',
+              noWrap: true
+            }}
+          />
+        </ListItem>
+      )}
       renderTags={(value, getTagProps) => {
         // Since this is single select, we don't need this
         return null;

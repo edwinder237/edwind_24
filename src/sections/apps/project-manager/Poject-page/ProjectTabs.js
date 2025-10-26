@@ -1,18 +1,15 @@
 import React, { Suspense } from 'react';
 import PropTypes from 'prop-types';
 import dynamic from "next/dynamic";
+import { useRouter } from 'next/router';
 import {
   Box,
-  Grid,
   Tabs,
   Tab,
-  Button,
   Stack,
-  Drawer,
   IconButton,
-  Typography,
-  Card,
   CircularProgress,
+  Typography,
   useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
@@ -22,36 +19,26 @@ import { TouchBackend } from 'react-dnd-touch-backend';
 import { isMobile } from 'react-device-detect';
 import MainCard from 'components/MainCard';
 import { useDispatch, useSelector } from "store";
-import { getParticipants, getGroupsDetails } from "store/reducers/projects";
+import { fetchProjectSettings } from "store/reducers/project/settings";
+import { useGetProjectAgendaQuery, useGetProjectChecklistQuery } from "store/api/projectApi";
+import { selectAllParticipants } from "store/entities/participantsSlice";
 import {
   DashboardOutlined,
   TeamOutlined,
   CalendarOutlined,
   CheckSquareOutlined,
   SettingOutlined,
-  ExperimentOutlined,
-  UserOutlined,
-  CloseOutlined,
-  MenuOutlined,
 } from "@ant-design/icons";
 import Loader from "components/Loader";
-import TabSettings from "./Settings-tab/TabSettings";
-import ProjectChecklist from "./ProjectChecklist";
+// Import from index.js which controls which version to use (Legacy or RTK)
+import TabSettings from "./Settings-tab";
+import ProjectChecklist from "./Project-Checklist-tab";
 import AgendaTab from "./Agenda-tab";
 import getTabIcons from "utils/getTabIcons";
-import GroupTable from "./Enrolment-tab/Groups";
+import GroupTable from "./Groups";
+import ParticipantsDrawer from "./Participants";
 
 // Dynamic imports
-const EnrolmentTAB = dynamic(() =>
-  import("sections/apps/project-manager/Poject-page/Enrolment-tab").catch(
-    (err) => console.error(err)
-  )
-);
-
-// Lazy load the Participants table for better performance
-const ParticipantTable = dynamic(() => import("./Enrolment-tab/ParticipantsTable").catch(
-  (err) => console.error(err)
-));
 
 const OverviewTab = dynamic(() =>
   import("./Overview-tab").catch(
@@ -93,28 +80,37 @@ function a11yProps(index) {
 
 // ==============================|| PROJECT TABS ||============================== //
 
-const ProjectTabs = ({ 
+const ProjectTabs = ({
   project,
-  checklistItems,
-  checklistLoading,
-  onChecklistToggle,
-  onChecklistNoteUpdate,
-  onChecklistRefresh,
-  updatingItems,
   styles
 }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const router = useRouter();
   const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
-  const { project_participants } = useSelector((state) => state.projects);
+  // Get participants from normalized store
+  const participants = useSelector(selectAllParticipants);
+  // Get projectId from URL as single source of truth
+  const projectId = router.query.id;
+  
+  // RTK Query automatically fetches and normalizes data when projectId changes
+  // The normalized participants are available via selectAllParticipants
+  useGetProjectAgendaQuery(projectId, {
+    skip: !projectId
+  });
+
+  // Fetch checklist data for tab icon display
+  const { data: checklistItems = [] } = useGetProjectChecklistQuery(projectId, {
+    skip: !projectId
+  });
   const [tabValue, setTabValue] = React.useState(0);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [hasLoadedParticipantsData, setHasLoadedParticipantsData] = React.useState(false);
+  const [hasLoadedSettingsData, setHasLoadedSettingsData] = React.useState(false);
   const [pulseAnimation, setPulseAnimation] = React.useState(false);
-  
+
   // Show pulse animation when there are no participants
   React.useEffect(() => {
-    if (project && (!project_participants || project_participants.length === 0)) {
+    if (project && (!participants || participants.length === 0)) {
       setPulseAnimation(true);
       // Stop animation after 5 seconds to avoid being annoying
       const timer = setTimeout(() => setPulseAnimation(false), 5000);
@@ -122,52 +118,34 @@ const ProjectTabs = ({
     } else {
       setPulseAnimation(false);
     }
-  }, [project, project_participants]);
+  }, [project, participants]);
 
-  const handleChange = async (event, newValue) => {
+  const handleChange = async (_, newValue) => {
     setTabValue(newValue);
-    
-    // If switching to Groups tab (index 3), ensure data is loaded
-    if (newValue === 3 && project?.id && !hasLoadedParticipantsData) {
-      await Promise.all([
-        dispatch(getParticipants(project.id)),
-        dispatch(getGroupsDetails(project.id))
-      ]);
-      setHasLoadedParticipantsData(true);
+
+    // If switching to Settings tab (index 4), ensure settings data is loaded
+    if (newValue === 4 && projectId && !hasLoadedSettingsData) {
+      dispatch(fetchProjectSettings(projectId));
+      setHasLoadedSettingsData(true);
     }
   };
 
+  const [drawerAction, setDrawerAction] = React.useState(null); // string | null
+
   const handleOpenDrawer = async (action = null) => {
+    setDrawerAction(action); // Pass action to drawer
     setDrawerOpen(true);
-    
-    // Fetch participants data only once when drawer is first opened
-    if (!hasLoadedParticipantsData && project?.id) {
-      await Promise.all([
-        dispatch(getParticipants(project.id)),
-        dispatch(getGroupsDetails(project.id))
-      ]);
-      setHasLoadedParticipantsData(true);
-    }
-    
+
+    // Data is now fetched automatically via RTK Query when project ID changes
+    // No need for manual data fetching - the normalized store is kept in sync
+
     // Dispatch custom event to check if welcome dialog should be shown
     window.dispatchEvent(new CustomEvent('checkShowWelcomeDialog'));
-    
-    // If action is specified, trigger the corresponding button after a delay
-    if (action) {
-      setTimeout(() => {
-        if (action === 'addManually') {
-          const addButton = document.querySelector('[aria-label="add-participant"]');
-          if (addButton) addButton.click();
-        } else if (action === 'importCSV') {
-          const importButton = document.querySelector('[aria-label="import-csv"]');
-          if (importButton) importButton.click();
-        }
-      }, 500);
-    }
   };
 
   const handleCloseDrawer = () => {
     setDrawerOpen(false);
+    setDrawerAction(null); // Reset action when closing
   };
 
   // Listen for custom event to open participants drawer with specific action
@@ -184,7 +162,6 @@ const ProjectTabs = ({
     };
   }, []);
 
-
   // Loading fallback component
   const LoadingFallback = () => (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
@@ -192,7 +169,6 @@ const ProjectTabs = ({
       <Typography sx={{ ml: 2 }}>Loading...</Typography>
     </Box>
   );
-
 
   return (
     <MainCard
@@ -300,7 +276,7 @@ const ProjectTabs = ({
                 },
               },
             }),
-            ...((!project_participants || project_participants.length === 0) && {
+            ...((!participants || participants.length === 0) && {
               bgcolor: 'primary.main',
               color: 'white',
               '&:hover': {
@@ -310,7 +286,7 @@ const ProjectTabs = ({
           }}
         >
           <TeamOutlined />
-          {(!project_participants || project_participants.length === 0) && (
+          {(!participants || participants.length === 0) && (
             <Box
               sx={{
                 position: 'absolute',
@@ -338,15 +314,9 @@ const ProjectTabs = ({
           </Suspense>
         </TabPanel>
         <TabPanel value={tabValue} index={2} isMobile={matchDownSM}>
-          <ProjectChecklist 
-            checklistItems={checklistItems}
-            checklistLoading={checklistLoading}
-            onToggleItem={onChecklistToggle}
-            onUpdateNote={onChecklistNoteUpdate}
-            onRefreshChecklist={onChecklistRefresh}
-            updatingItems={updatingItems}
+          <ProjectChecklist
+            projectId={projectId ? parseInt(projectId) : null}
             styles={styles}
-            projectId={project.id}
           />
         </TabPanel>
         <TabPanel value={tabValue} index={3} isMobile={matchDownSM}>
@@ -355,70 +325,16 @@ const ProjectTabs = ({
           </DndProvider>
         </TabPanel>
         <TabPanel value={tabValue} index={4} isMobile={matchDownSM}>
-          <TabSettings />
+          <TabSettings project={project} />
         </TabPanel>
       </Box>
 
       {/* Bottom Drawer for Participants Management */}
-      <Drawer
-        anchor="bottom"
+      <ParticipantsDrawer
         open={drawerOpen}
         onClose={handleCloseDrawer}
-        PaperProps={{
-          sx: {
-            height: '80vh',
-            borderRadius: 0,
-            display: 'flex',
-            flexDirection: 'column'
-          }
-        }}
-      >
-        <MainCard
-          title={
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
-              <Typography variant="h5" fontWeight="600">
-                Manage Participants
-              </Typography>
-              <IconButton onClick={handleCloseDrawer} size="large">
-                <CloseOutlined />
-              </IconButton>
-            </Stack>
-          }
-          content={false}
-          border={false}
-          boxShadow={false}
-          sx={{ 
-            flex: 1,
-            borderRadius: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            '& .MuiCardHeader-root': {
-              pb: 2,
-              flexShrink: 0
-            },
-            '& .MuiCardContent-root': {
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden'
-            }
-          }}
-        >
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <Box sx={{ 
-              flex: 1,
-              overflow: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 0
-            }}>
-              <Suspense fallback={<LoadingFallback />}>
-                <ParticipantTable index={0} />
-              </Suspense>
-            </Box>
-          </Box>
-        </MainCard>
-      </Drawer>
+        {...(drawerAction && { initialAction: drawerAction })}
+      />
     </MainCard>
   );
 };

@@ -1,8 +1,4 @@
-import React, { useEffect } from "react";
-
-//REDUX
-import { useDispatch } from "store";
-import { getProjects } from "store/reducers/projects";
+import React from "react";
 
 // project imports
 import Layout from "layout";
@@ -10,16 +6,10 @@ import Page from "components/Page";
 
 import ProjectsList from "sections/apps/project-manager/projects-list/ProjectsList";
 
-// ==============================|| SAMPLE PAGE ||============================== //
+// ==============================|| PROJECTS PAGE ||============================== //
 
 function Projects() {
-  const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch(getProjects());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // ProjectsList component handles its own data loading
   return (
     <Page title="Projects">
       <ProjectsList />

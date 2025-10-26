@@ -69,9 +69,37 @@ export default async function handler(req, res) {
       include: {
         participants: true,
         groups: true,
-        events: true
+        events: true,
+        training_recipient: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            contactPerson: true,
+            email: true,
+            phone: true,
+            address: true,
+            website: true,
+            industry: true,
+          }
+        }
       }
     });
+
+    // If trainingRecipientId was updated, update all enrollments to match
+    if (trainingRecipientId !== undefined && trainingRecipientId !== null) {
+      // Update all project_participants enrollments for this project
+      const updateResult = await prisma.project_participants.updateMany({
+        where: {
+          projectId: parseInt(id)
+        },
+        data: {
+          trainingRecipientId: trainingRecipientId
+        }
+      });
+
+      console.log(`Updated ${updateResult.count} enrollments to trainingRecipientId: ${trainingRecipientId}`);
+    }
 
     // Handle curriculum update
     if (curriculumId !== undefined) {

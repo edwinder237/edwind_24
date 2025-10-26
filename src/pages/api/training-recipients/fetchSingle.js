@@ -36,10 +36,8 @@ export default async function handler(req, res) {
                 role: true
               }
             }
-          },
-          where: {
-            status: { not: "removed" }
           }
+          // Show all participants including removed ones for accurate counts
         },
         groups: true,
         events: {
@@ -54,71 +52,37 @@ export default async function handler(req, res) {
       }
     });
 
-    // Fetch participants directly linked to this training recipient
-    const participants = await prisma.participants.findMany({
+    // Fetch all enrollments for this training recipient
+    // This includes both active and removed participants
+    const enrollments = await prisma.project_participants.findMany({
       where: {
         trainingRecipientId: parseInt(id)
       },
       include: {
-        role: true,
-        training_recipient: true,
-        projects: {
+        participant: {
           include: {
-            project: {
-              select: {
-                id: true,
-                title: true,
-                projectStatus: true
-              }
-            }
-          },
-          where: {
-            status: { not: "removed" }
+            role: true,
+            training_recipient: true
+          }
+        },
+        project: {
+          select: {
+            id: true,
+            title: true,
+            projectStatus: true
           }
         }
       }
     });
 
-    // Aggregate participant data from all projects
+    // Aggregate participant data from all enrollments
     const allParticipants = [];
     const participantMap = new Map();
 
-    // Process participants from projects
-    if (projects) {
-      projects.forEach(project => {
-        if (project.participants) {
-          project.participants.forEach(projectParticipant => {
-            const participant = projectParticipant.participant;
-            if (participant) {
-              const key = participant.id;
-              if (!participantMap.has(key)) {
-                participantMap.set(key, {
-                  ...participant,
-                  projects: [],
-                  projectIds: new Set() // Track unique project IDs
-                });
-              }
-              const participantData = participantMap.get(key);
-              
-              // Only add if this project hasn't been added yet
-              if (!participantData.projectIds.has(project.id)) {
-                participantData.projectIds.add(project.id);
-                participantData.projects.push({
-                  id: project.id,
-                  title: project.title,
-                  status: project.projectStatus,
-                  role: participant.role?.name || 'Participant'
-                });
-              }
-            }
-          });
-        }
-      });
-    }
-
-    // Add participants that are directly linked to training recipient
-    if (participants) {
-      participants.forEach(participant => {
+    // Process all enrollments
+    enrollments.forEach(enrollment => {
+      const participant = enrollment.participant;
+      if (participant) {
         const key = participant.id;
         if (!participantMap.has(key)) {
           participantMap.set(key, {
@@ -128,26 +92,20 @@ export default async function handler(req, res) {
           });
         }
         const participantData = participantMap.get(key);
-        
-        // Add project info from projects relationship
-        if (participant.projects) {
-          participant.projects.forEach(pp => {
-            if (pp.project) {
-              // Only add if this project hasn't been added yet
-              if (!participantData.projectIds.has(pp.project.id)) {
-                participantData.projectIds.add(pp.project.id);
-                participantData.projects.push({
-                  id: pp.project.id,
-                  title: pp.project.title,
-                  status: pp.project.projectStatus,
-                  role: participant.role?.name || 'Participant'
-                });
-              }
-            }
+
+        // Only add if this project hasn't been added yet
+        if (!participantData.projectIds.has(enrollment.project.id)) {
+          participantData.projectIds.add(enrollment.project.id);
+          participantData.projects.push({
+            id: enrollment.project.id,
+            title: enrollment.project.title,
+            status: enrollment.project.projectStatus,
+            enrollmentStatus: enrollment.status || 'active', // Add enrollment status (active/removed)
+            role: participant.role?.name || 'Participant'
           });
         }
-      });
-    }
+      }
+    });
 
     // Convert map to array and clean up internal tracking fields
     participantMap.forEach(participant => {

@@ -6,7 +6,7 @@ import { format } from "date-fns";
 
 // Redux
 import { useDispatch, useSelector } from "store";
-import { removeProject, updateProject } from "store/reducers/projects";
+import { removeProject, updateProject } from "store/reducers/project";
 import { openSnackbar } from "store/reducers/snackbar";
 
 // Material-UI

@@ -4,6 +4,12 @@
 
 const nextConfig = {
   reactStrictMode: true,
+  // Suppress HMR invalid message warnings for ISR manifests in development
+  experimental: {
+    isrFlushToDisk: false,
+    // Disable ISR manifest during development to avoid HMR warnings
+    isrMemoryCacheSize: 0,
+  },
   async headers() {
     return [
       {

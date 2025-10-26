@@ -6,18 +6,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { newGroup, groups, index } = req.body;
-    
+    const { newGroup, index } = req.body;
+
     if (!newGroup || !newGroup.groupName) {
-      return res.status(400).json({ error: 'Group name is required' });
+      return res.status(400).json({
+        success: false,
+        error: 'Group name is required'
+      });
     }
 
     // Get the project ID from the Redux state index (this needs to be passed)
     // For now, we need to get the project ID somehow
     const projectId = req.body.projectId; // This should be passed from frontend
-    
+
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      return res.status(400).json({
+        success: false,
+        error: 'Project ID is required'
+      });
     }
 
     // Create the group in the database
@@ -96,17 +102,25 @@ export default async function handler(req, res) {
         },
       },
     });
-    
+
+    // Return format compatible with RTK Query mutation
     const result = {
+      success: true,
+      group: groupWithParticipants, // RTK Query expects 'group' key
       newGroupsArray: allProjectGroups,
       projectIndex: index,
-      createdGroup: groupWithParticipants,
+      createdGroup: groupWithParticipants, // Legacy format for backward compatibility
       projectId: parseInt(projectId)
     };
 
     res.status(201).json(result);
   } catch (error) {
     console.error('Error creating group:', error);
-    res.status(500).json({ error: 'Failed to create group', details: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create group',
+      message: error.message,
+      details: error.message
+    });
   }
 }

@@ -4,7 +4,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import axios from "utils/axios";
 import { dispatch } from "store";
 import { openSnackbar } from "./snackbar";
-import { updateProjectEvent } from "./projects";
+import { updateProjectEvent } from "./project";
 
 const initialState = {
   //calendarView: 'dayGridMonth',
@@ -155,6 +155,7 @@ export function getEvents(projectId) {
       });
       dispatch(calendar.actions.setEvents(response.data.events));
     } catch (error) {
+      console.error('getEvents error:', error);
       dispatch(calendar.actions.hasError(error));
     }
   };

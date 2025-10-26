@@ -13,7 +13,9 @@ import {
   Box,
   Chip
 } from '@mui/material';
-import { DatePicker, TimePicker } from '@mui/x-date-pickers-pro';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker, TimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { timeStringToDate, dateToTimeString } from '../utils/timeHelpers';
 import { WORKING_DAY_OPTIONS, TIMEZONE_OPTIONS } from '../utils/constants';
 
@@ -57,33 +59,44 @@ const ProjectScheduleCard = React.memo(({
   );
 
   return (
-    <Stack spacing={3}>
-        <Typography variant="subtitle1">Project Duration</Typography>
-        
-        {/* Date Pickers */}
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <Stack spacing={0.5}>
-              <InputLabel>Start Date</InputLabel>
-              <DatePicker
-                value={settings.startDate}
-                onChange={(newValue) => onUpdateField('startDate', newValue)}
-                renderInput={(params) => <TextField fullWidth {...params} />}
-              />
-            </Stack>
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Stack spacing={3}>
+          <Typography variant="subtitle1">Project Duration</Typography>
+          
+          {/* Date Pickers */}
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Stack spacing={0.5}>
+                <InputLabel>Start Date</InputLabel>
+                <DatePicker
+                  value={settings.startDate}
+                  onChange={(newValue) => onUpdateField('startDate', newValue)}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      variant: 'outlined'
+                    }
+                  }}
+                />
+              </Stack>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Stack spacing={0.5}>
+                <InputLabel>End Date</InputLabel>
+                <DatePicker
+                  value={settings.endDate}
+                  onChange={(newValue) => onUpdateField('endDate', newValue)}
+                  minDate={settings.startDate}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      variant: 'outlined'
+                    }
+                  }}
+                />
+              </Stack>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6}>
-            <Stack spacing={0.5}>
-              <InputLabel>End Date</InputLabel>
-              <DatePicker
-                value={settings.endDate}
-                onChange={(newValue) => onUpdateField('endDate', newValue)}
-                minDate={settings.startDate}
-                renderInput={(params) => <TextField fullWidth {...params} />}
-              />
-            </Stack>
-          </Grid>
-        </Grid>
         
         <Divider />
         
@@ -98,7 +111,12 @@ const ProjectScheduleCard = React.memo(({
                 ampm={false}
                 value={startOfDayDate}
                 onChange={(newValue) => onUpdateField('startOfDayTime', dateToTimeString(newValue))}
-                renderInput={(params) => <TextField fullWidth {...params} />}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    variant: 'outlined'
+                  }
+                }}
               />
             </Stack>
           </Grid>
@@ -121,7 +139,12 @@ const ProjectScheduleCard = React.memo(({
                 ampm={false}
                 value={endOfDayDate}
                 onChange={(newValue) => onUpdateField('endOfDayTime', dateToTimeString(newValue))}
-                renderInput={(params) => <TextField fullWidth {...params} />}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    variant: 'outlined'
+                  }
+                }}
               />
             </Stack>
           </Grid>
@@ -147,7 +170,8 @@ const ProjectScheduleCard = React.memo(({
             {workingDayChips}
           </Box>
         </Stack>
-    </Stack>
+      </Stack>
+    </LocalizationProvider>
   );
 });
 

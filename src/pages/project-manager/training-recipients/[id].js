@@ -56,6 +56,7 @@ import Layout from 'layout';
 import Page from 'components/Page';
 import MainCard from 'components/MainCard';
 import GoogleMaps from 'sections/apps/project-manager/projects-list/google-map-autocomplete/GoogleMap';
+import DeleteCard from 'components/cards/DeleteCard';
 
 // ==============================|| TRAINING RECIPIENT DETAIL PAGE ||============================== //
 
@@ -72,6 +73,8 @@ const TrainingRecipientDetail = () => {
   const [selectedLocationValue, setSelectedLocationValue] = useState(null);
   const [locationInputKey, setLocationInputKey] = useState(0); // Key to force re-render
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [participantToDelete, setParticipantToDelete] = useState(null);
   const fileInputRef = useRef(null);
 
   // Redux state
@@ -219,14 +222,26 @@ const TrainingRecipientDetail = () => {
     router.push('/project-manager/training-recipients?edit=' + id);
   };
 
-  const handleDeleteParticipant = async (participantId, participantName) => {
-    if (window.confirm(`Are you sure you want to permanently delete ${participantName}? This action cannot be undone and will remove them from all projects.`)) {
-      try {
-        await dispatch(deleteParticipant(participantId));
-      } catch (error) {
-        console.error('Error deleting participant:', error);
-      }
+  const handleDeleteParticipant = (participantId, participantName) => {
+    setParticipantToDelete({ id: participantId, name: participantName });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!participantToDelete) return;
+
+    try {
+      await dispatch(deleteParticipant(participantToDelete.id));
+      setDeleteDialogOpen(false);
+      setParticipantToDelete(null);
+    } catch (error) {
+      console.error('Error deleting participant:', error);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setParticipantToDelete(null);
   };
 
   const handleBackToList = () => {
@@ -937,8 +952,12 @@ const TrainingRecipientDetail = () => {
                                   key={project.id}
                                   label={`${project.title} (${project.role})`}
                                   size="small"
-                                  variant="outlined"
-                                  color="primary"
+                                  variant={project.enrollmentStatus === 'removed' ? 'filled' : 'outlined'}
+                                  color={project.enrollmentStatus === 'removed' ? 'error' : 'primary'}
+                                  sx={{
+                                    opacity: project.enrollmentStatus === 'removed' ? 0.7 : 1,
+                                    textDecoration: project.enrollmentStatus === 'removed' ? 'line-through' : 'none'
+                                  }}
                                 />
                               ))}
                             </Stack>
@@ -996,6 +1015,19 @@ const TrainingRecipientDetail = () => {
           </Paper>
         </MainCard>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteCard
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+        onDelete={handleConfirmDelete}
+        title="Delete Participant"
+        message={
+          participantToDelete
+            ? `Are you sure you want to permanently delete ${participantToDelete.name}? This action cannot be undone and will remove them from all projects.`
+            : ''
+        }
+      />
     </Page>
   );
 };

@@ -125,25 +125,41 @@ async function handleGet(req, res) {
       
       if (checklistItem) {
         // Count participants assigned to events for this specific course
+        // Include both: participants in groups assigned to events AND participants directly assigned to events
         const courseParticipantCount = await prisma.project_participants.count({
           where: {
             projectId: parseInt(projectId),
             status: 'active',
-            // Find participants who are in groups that are assigned to events with this courseId
-            group: {
-              some: {
+            OR: [
+              // Find participants who are in groups that are assigned to events with this courseId
+              {
                 group: {
-                  event_groups: {
-                    some: {
-                      event: {
-                        courseId: checklistItem.courseId,
-                        projectId: parseInt(projectId)
+                  some: {
+                    group: {
+                      event_groups: {
+                        some: {
+                          event: {
+                            courseId: checklistItem.courseId,
+                            projectId: parseInt(projectId)
+                          }
+                        }
                       }
                     }
                   }
                 }
+              },
+              // Find participants directly assigned to events with this courseId
+              {
+                event_attendees: {
+                  some: {
+                    event: {
+                      courseId: checklistItem.courseId,
+                      projectId: parseInt(projectId)
+                    }
+                  }
+                }
               }
-            }
+            ]
           }
         });
         

@@ -25,6 +25,7 @@ import {
   MenuItem,
   AvatarGroup
 } from '@mui/material';
+import { selectAllParticipants } from 'store/entities/participantsSlice';
 import {
   Groups,
   EventNote,
@@ -40,259 +41,34 @@ import MainCard from 'components/MainCard';
 import ChartWrapper from 'components/ChartWrapper';
 import DailyNotes from './DailyNotes';
 import SessionNotes from './SessionNotes';
-import RoleDistributionChart from './RoleDistributionChart';
 import LearningObjectives from './LearningObjectives';
-import KPIMetrics from './KPIMetrics';
+import { derivedSelectors } from 'store/selectors';
 
 
-
-
-
-
-
-// Recent activity component
-const RecentActivity = ({ project }) => (
-  <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
-    <Stack direction="row" alignItems="center" justifyContent="between" mb={3}>
-      <Typography variant="h6" fontWeight="bold">Recent Activity</Typography>
-      <Button size="small" endIcon={<Visibility />}>View All</Button>
-    </Stack>
-    
-    <List sx={{ py: 0 }}>
-      <ListItem sx={{ px: 0 }}>
-        <ListItemIcon>
-          <Avatar sx={{ bgcolor: 'success.main', width: 32, height: 32 }}>
-            <CheckCircle fontSize="small" />
-          </Avatar>
-        </ListItemIcon>
-        <ListItemText
-          primary="JavaScript Fundamentals - Session 1 completed"
-          secondary="2 hours ago • 18 participants attended"
-        />
-      </ListItem>
-      <Divider sx={{ my: 1 }} />
-      
-      <ListItem sx={{ px: 0 }}>
-        <ListItemIcon>
-          <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-            <EventNote fontSize="small" />
-          </Avatar>
-        </ListItemIcon>
-        <ListItemText
-          primary="New event scheduled: UI/UX Workshop"
-          secondary="5 hours ago • Tomorrow at 2:00 PM"
-        />
-      </ListItem>
-      <Divider sx={{ my: 1 }} />
-      
-      <ListItem sx={{ px: 0 }}>
-        <ListItemIcon>
-          <Avatar sx={{ bgcolor: 'warning.main', width: 32, height: 32 }}>
-            <Groups fontSize="small" />
-          </Avatar>
-        </ListItemIcon>
-        <ListItemText
-          primary="3 new participants added to Frontend Group"
-          secondary="1 day ago • Alice Johnson, Bob Smith, Carol Davis"
-        />
-      </ListItem>
-    </List>
-  </Paper>
-);
-
-// Attendance Chart Component
-const AttendanceChart = () => {
-  const [value, setValue] = useState('week');
-  
-  const status = [
-    { value: 'week', label: 'This Week' },
-    { value: 'month', label: 'This Month' },
-    { value: 'quarter', label: 'This Quarter' }
-  ];
-
-  return (
-    <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
-      <Grid container alignItems="center" justifyContent="space-between" mb={3}>
-        <Grid item>
-          <Typography variant="h6" fontWeight="bold">Session Attendance</Typography>
-        </Grid>
-        <Grid item>
-          <TextField
-            id="attendance-period-select"
-            size="small"
-            select
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            sx={{ '& .MuiInputBase-input': { py: 0.75, fontSize: '0.875rem' } }}
-          >
-            {status.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
-      </Grid>
-      
-      <ChartWrapper
-        options={{
-          chart: {
-            type: 'bar',
-            height: 300,
-            toolbar: { show: false },
-            background: 'transparent'
-          },
-          plotOptions: {
-            bar: {
-              horizontal: false,
-              columnWidth: '55%',
-              endingShape: 'rounded'
-            }
-          },
-          dataLabels: { enabled: false },
-          stroke: {
-            show: true,
-            width: 2,
-            colors: ['transparent']
-          },
-          xaxis: {
-            categories: ['Session 1', 'Session 2', 'Session 3', 'Session 4', 'Session 5'],
-            title: { text: 'Sessions' },
-            labels: {
-              style: {
-                colors: '#666'
-              }
-            }
-          },
-          yaxis: {
-            title: { text: 'Participants' },
-            labels: {
-              style: {
-                colors: '#666'
-              }
-            }
-          },
-          fill: { 
-            opacity: 1,
-            colors: ['#2196F3', '#4CAF50']
-          },
-          states: {
-            hover: {
-              filter: {
-                type: 'lighten',
-                value: 0.1
-              }
-            },
-            active: {
-              allowMultipleDataPointsSelection: false,
-              filter: {
-                type: 'darken',
-                value: 0.1
-              }
-            }
-          },
-          tooltip: {
-            shared: true,
-            intersect: false,
-            theme: 'dark',
-            style: {
-              fontSize: '12px'
-            },
-            custom: function({series, seriesIndex, dataPointIndex, w}) {
-              const scheduled = series[0][dataPointIndex];
-              const attended = series[1][dataPointIndex];
-              const sessionName = w.globals.labels[dataPointIndex];
-              
-              return `
-                <div style="background: rgba(0,0,0,0.8); color: white; padding: 12px; border-radius: 6px; font-size: 12px;">
-                  <div style="font-weight: bold; margin-bottom: 8px;">${sessionName}</div>
-                  <div style="margin-bottom: 4px;">
-                    <span style="color: #2196F3;">●</span> Scheduled: ${scheduled} participants
-                  </div>
-                  <div>
-                    <span style="color: #4CAF50;">●</span> Attended: ${attended} participants
-                  </div>
-                  <div style="margin-top: 4px; font-size: 11px; opacity: 0.8;">
-                    Attendance Rate: ${Math.round((attended/scheduled) * 100)}%
-                  </div>
-                </div>
-              `;
-            }
-          },
-          colors: ['#2196F3', '#4CAF50'],
-          legend: {
-            position: 'top',
-            horizontalAlign: 'right',
-            labels: {
-              colors: '#666'
-            }
-          },
-          grid: {
-            borderColor: '#f1f1f1'
-          }
-        }}
-        series={[
-          {
-            name: 'Scheduled',
-            data: [20, 18, 22, 19, 21]
-          },
-          {
-            name: 'Attended',
-            data: [18, 16, 20, 17, 19]
-          }
-        ]}
-        type="bar"
-        height={300}
-      />
-    </Paper>
-  );
-};
-
-// Upcoming events component
-const UpcomingEvents = () => (
-  <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
-    <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-      <Typography variant="h6" fontWeight="bold">Upcoming Events</Typography>
-      <Button size="small" endIcon={<PlayArrow />}>Schedule</Button>
-    </Stack>
-    
-    <Stack spacing={2}>
-      <Box sx={{ p: 2, bgcolor: 'primary.50', borderRadius: 2, border: '1px solid', borderColor: 'primary.200' }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-          <Typography variant="subtitle2" fontWeight="bold">Leadership Workshop - Session 2</Typography>
-          <Chip label="Tomorrow" size="small" color="primary" />
-        </Stack>
-        <Typography variant="body2" color="text.secondary" mb={1}>
-          2:00 PM - 5:00 PM • Executive Conference Room
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          <Chip label="5 participants" size="small" variant="outlined" />
-          <Chip label="Michael Chen" size="small" variant="outlined" />
-        </Stack>
-      </Box>
-      
-      <Box sx={{ p: 2, bgcolor: 'success.50', borderRadius: 2, border: '1px solid', borderColor: 'success.200' }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-          <Typography variant="subtitle2" fontWeight="bold">JavaScript Functions Deep Dive</Typography>
-          <Chip label="Monday" size="small" color="success" />
-        </Stack>
-        <Typography variant="body2" color="text.secondary" mb={1}>
-          9:00 AM - 12:00 PM • Classroom A
-        </Typography>
-        <Stack direction="row" spacing={1}>
-          <Chip label="12 participants" size="small" variant="outlined" />
-          <Chip label="Sarah Martinez" size="small" variant="outlined" />
-        </Stack>
-      </Box>
-    </Stack>
-  </Paper>
-);
 
 
 const ModernOverviewTab = () => {
-  const { singleProject: project, project_participants } = useSelector((state) => state.projects);
-  const hasParticipants = project_participants && project_participants.length > 0;
-  
+  // Use normalized participants store instead of old Redux
+  const participants = useSelector(selectAllParticipants);
+  const hasParticipants = participants && participants.length > 0;
+
+  // Get project info from agenda store (CQRS architecture)
+  const project = useSelector((state) => state.projectAgenda?.projectInfo);
+
+  // Get attendance summary from derived selectors (same logic as ProjectDashboard)
+  const attendanceSummary = useSelector(derivedSelectors.attendance.selectAttendanceSummary);
+
+  // Get dashboard data for course completion metrics
+  const dashboardData = useSelector(derivedSelectors.dashboard.selectCompleteDashboard);
+  const projectProgress = useSelector(derivedSelectors.dashboard.selectProjectProgress);
+
+  // Get project health and alerts/recommendations
+  const dashboardOverview = useSelector(derivedSelectors.dashboard.selectDashboardOverview);
+  const projectHealth = useSelector(derivedSelectors.dashboard.selectProjectHealth);
+
+  // Get resource utilization data
+  const resourceUtilization = useSelector(derivedSelectors.dashboard.selectResourceUtilization);
+
   const handleOpenParticipantDrawer = () => {
     // Trigger the participant drawer opening
     const participantButton = document.querySelector('[aria-label="participants management"]');
@@ -342,66 +118,297 @@ const ModernOverviewTab = () => {
         </Alert>
       )}
 
+      {/* Attendance & Course Completion Stats - Horizontal Cards */}
+      {hasParticipants && (
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          {/* Attendance Stats Card */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
+              <Stack direction="row" alignItems="center" spacing={1} mb={3}>
+                <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                  <CheckCircle />
+                </Avatar>
+                <Typography variant="h6" fontWeight="bold">
+                  Attendance Overview
+                </Typography>
+              </Stack>
+
+              <Grid container spacing={2}>
+                <Grid item xs={3}>
+                  <Box textAlign="center">
+                    <Typography variant="h4" fontWeight="bold" color="success.main">
+                      {attendanceSummary?.overallStats?.present || 0}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">Present</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={3}>
+                  <Box textAlign="center">
+                    <Typography variant="h4" fontWeight="bold" color="warning.main">
+                      {attendanceSummary?.overallStats?.late || 0}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">Late</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={3}>
+                  <Box textAlign="center">
+                    <Typography variant="h4" fontWeight="bold" color="error.main">
+                      {attendanceSummary?.overallStats?.absent || 0}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">Absent</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={3}>
+                  <Box textAlign="center">
+                    <Typography variant="h4" fontWeight="bold" color="info.main">
+                      {attendanceSummary?.overallStats?.scheduled || 0}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">Scheduled</Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+
+          {/* Course Completion Stats Card */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
+              <Stack direction="row" alignItems="center" spacing={1} mb={3}>
+                <Avatar sx={{ bgcolor: 'secondary.main', width: 40, height: 40 }}>
+                  <EventNote />
+                </Avatar>
+                <Typography variant="h6" fontWeight="bold">
+                  Course Progress
+                </Typography>
+              </Stack>
+
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={4}>
+                  <Box textAlign="center">
+                    <Typography variant="h4" fontWeight="bold" color="info.main">
+                      {projectProgress?.overview?.totalEvents || 0}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">Scheduled</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={4}>
+                  <Box textAlign="center">
+                    <Typography variant="h4" fontWeight="bold" color="success.main">
+                      {projectProgress?.overview?.completedEvents || 0}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">Completed</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={4}>
+                  <Box textAlign="center">
+                    <Typography variant="h4" fontWeight="bold" color="primary.main">
+                      {projectProgress?.overview?.overallProgress || 0}%
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">Rate</Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
+
       {/* Main Content Grid */}
       <Grid container spacing={3}>
 
-        {/* First Row - Session Notes (Full Width) */}
+        {/* First Row - Daily Notes (3/4) and Alerts & Recommendations (1/4) */}
+        <Grid item xs={12} md={9}>
+          <DailyNotes project={project} />
+        </Grid>
+
+        <Grid item xs={12} md={3}>
+          <Paper sx={{ p: 3, bgcolor: 'background.paper', height: '100%' }}>
+            <Typography variant="h6" fontWeight="bold" mb={3}>
+              Alerts & Recommendations
+            </Typography>
+            <Stack spacing={2}>
+              {dashboardOverview?.alerts?.map((alert, index) => (
+                <Alert
+                  key={`alert-${index}`}
+                  severity={alert.type}
+                  variant="outlined"
+                  sx={{ py: 0.5 }}
+                >
+                  <Typography variant="caption" fontWeight={600} display="block">
+                    {alert.title}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {alert.message}
+                  </Typography>
+                </Alert>
+              ))}
+
+              {projectHealth?.recommendations?.map((rec, index) => (
+                <Alert
+                  key={`rec-${index}`}
+                  severity="info"
+                  variant="outlined"
+                  sx={{ py: 0.5 }}
+                >
+                  <Typography variant="caption">{rec}</Typography>
+                </Alert>
+              ))}
+
+              {(!dashboardOverview?.alerts?.length && !projectHealth?.recommendations?.length) && (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <CheckCircle sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    All systems running smoothly
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    No alerts at this time
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          </Paper>
+        </Grid>
+
+        {/* Second Row - Session Notes (Full Width) */}
         <Grid item xs={12}>
           <SessionNotes project={project} />
         </Grid>
 
-        {/* Second Row - Daily Notes (Full Width) */}
+        {/* Third Row - Learning Objectives (Full Width) */}
         <Grid item xs={12}>
-          <DailyNotes project={project} />
-        </Grid>
-
-        {/* Third Row - Role Distribution, Recent Activity, and Upcoming Events */}
-        <Grid item xs={12} md={4}>
-          <RoleDistributionChart project={project} />
-        </Grid>
-        
-        <Grid item xs={12} md={4}>
-          <RecentActivity project={project} />
-        </Grid>
-        
-        <Grid item xs={12} md={4}>
-          <UpcomingEvents />
-        </Grid>
-
-        {/* Fifth Row - Learning Objectives and KPIs */}
-        <Grid item xs={12} md={6}>
           <LearningObjectives project={project} />
         </Grid>
 
+        {/* Fourth Row - Resource Utilization and Group Size Distribution */}
         <Grid item xs={12} md={6}>
-          <KPIMetrics project={project} />
-        </Grid>
-
-        {/* Sixth Row - Attendance Chart */}
-        <Grid item xs={12}>
-          <AttendanceChart />
-        </Grid>
-
-        {/* Seventh Row - Alerts & Notifications */}
-        <Grid item xs={12}>
           <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
-            <Typography variant="h6" fontWeight="bold" mb={3}>Alerts & Notifications</Typography>
+            <Stack direction="row" alignItems="center" spacing={1} mb={3}>
+              <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                <Groups />
+              </Avatar>
+              <Typography variant="h6" fontWeight="bold">
+                Resource Utilization
+              </Typography>
+            </Stack>
+
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Box>
+                  <Typography variant="h4" color="primary.main" fontWeight="bold">
+                    {resourceUtilization?.instructors?.length || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Active Instructors
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {resourceUtilization?.instructors?.reduce((sum, i) => sum + (i.totalEvents || 0), 0) || 0} total sessions
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box>
+                  <Typography variant="h4" color="secondary.main" fontWeight="bold">
+                    {resourceUtilization?.venues?.length || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Training Venues
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {resourceUtilization?.venues?.reduce((sum, v) => sum + (v.totalBookings || 0), 0) || 0} total bookings
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+
+            {resourceUtilization?.recommendations && resourceUtilization.recommendations.length > 0 && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Stack spacing={1}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Recommendations
+                  </Typography>
+                  {resourceUtilization.recommendations.slice(0, 2).map((rec, index) => (
+                    <Alert key={index} severity="info" variant="outlined" sx={{ py: 0.5 }}>
+                      <Typography variant="caption">{rec.message}</Typography>
+                    </Alert>
+                  ))}
+                </Stack>
+              </>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
+            <Stack direction="row" alignItems="center" spacing={1} mb={3}>
+              <Avatar sx={{ bgcolor: 'info.main', width: 40, height: 40 }}>
+                <Analytics />
+              </Avatar>
+              <Typography variant="h6" fontWeight="bold">
+                Group Size Distribution
+              </Typography>
+            </Stack>
+
             <Stack spacing={2}>
-              <Alert severity="warning" variant="outlined">
-                <Typography variant="body2">
-                  3 participants have missed 2+ consecutive sessions
-                </Typography>
-              </Alert>
-              <Alert severity="info" variant="outlined">
-                <Typography variant="body2">
-                  Weekly progress report is ready for review
-                </Typography>
-              </Alert>
-              <Alert severity="success" variant="outlined">
-                <Typography variant="body2">
-                  All assignments submitted on time this week
-                </Typography>
-              </Alert>
+              <Box sx={{
+                p: 2,
+                bgcolor: 'success.lighter',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'success.light'
+              }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>Small Groups</Typography>
+                    <Typography variant="caption" color="text.secondary">1-5 participants</Typography>
+                  </Box>
+                  <Chip
+                    label={resourceUtilization?.groupDistribution?.small || 0}
+                    color="success"
+                    sx={{ fontWeight: 'bold' }}
+                  />
+                </Stack>
+              </Box>
+
+              <Box sx={{
+                p: 2,
+                bgcolor: 'warning.lighter',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'warning.light'
+              }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>Medium Groups</Typography>
+                    <Typography variant="caption" color="text.secondary">6-15 participants</Typography>
+                  </Box>
+                  <Chip
+                    label={resourceUtilization?.groupDistribution?.medium || 0}
+                    color="warning"
+                    sx={{ fontWeight: 'bold' }}
+                  />
+                </Stack>
+              </Box>
+
+              <Box sx={{
+                p: 2,
+                bgcolor: 'error.lighter',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'error.light'
+              }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>Large Groups</Typography>
+                    <Typography variant="caption" color="text.secondary">16+ participants</Typography>
+                  </Box>
+                  <Chip
+                    label={resourceUtilization?.groupDistribution?.large || 0}
+                    color="error"
+                    sx={{ fontWeight: 'bold' }}
+                  />
+                </Stack>
+              </Box>
             </Stack>
           </Paper>
         </Grid>

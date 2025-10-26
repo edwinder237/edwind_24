@@ -48,7 +48,12 @@ export default function Chip(theme) {
             boxShadow: 'none'
           },
           '&.MuiChip-colorPrimary': getColor({ color: 'primary', theme }),
-          '&.MuiChip-colorSecondary': getColor({ color: 'secondary', theme }),
+          '&.MuiChip-colorSecondary': {
+            ...getColor({ color: 'secondary', theme }),
+            '&.MuiChip-filled': {
+              color: theme.palette.secondary.contrastText || theme.palette.getContrastText(theme.palette.secondary.main)
+            }
+          },
           '&.MuiChip-colorError': getColor({ color: 'error', theme }),
           '&.MuiChip-colorInfo': getColor({ color: 'info', theme }),
           '&.MuiChip-colorSuccess': getColor({ color: 'success', theme }),

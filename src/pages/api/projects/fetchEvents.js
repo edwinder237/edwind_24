@@ -47,12 +47,12 @@ export default async function handler(req, res) {
           event_groups:{
             include:{
               groups:{
-                include:{
-                  participants:{
-                    include:{
-                      participant:true
-                    }
-                  }
+                select:{
+                  id: true,
+                  groupName: true,
+                  chipColor: true,
+                  projectId: true
+                  // Don't include participants - they should come from event_attendees only
                 }
               }
             }

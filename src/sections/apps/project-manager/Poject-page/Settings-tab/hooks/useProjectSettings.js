@@ -1,78 +1,154 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'store';
-import { getProjectSettings, updateProjectSettings } from 'store/reducers/projects';
+import {
+  useGetProjectSettingsQuery,
+  useUpdateProjectSettingsMutation,
+  useUpdateProjectMutation
+} from 'store/api/projectApi';
+import { settingsCommands } from 'store/commands/settingsCommands';
+import {
+  selectCurrentProjectSettings,
+  selectProjectSchedule,
+  selectProjectInstructors,
+  selectProjectTopics,
+  selectProjectCurriculums,
+  selectSettingsLoadingState,
+  selectSettingsError
+} from 'store/entities/settingsSlice';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { 
-  createInitialState, 
-  hasSettingsChanged, 
+import {
+  createInitialState,
+  hasSettingsChanged,
   prepareSettingsForSubmission,
-  validateSettings 
+  validateSettings
 } from '../utils/settingsHelpers';
 import { NOTIFICATION_MESSAGES } from '../utils/constants';
 
+/**
+ * Modern Project Settings Hook using RTK Query and CQRS
+ *
+ * This hook provides a complete interface for managing project settings
+ * using RTK Query for data fetching, semantic commands for business logic,
+ * and normalized entity store for state management.
+ */
 export const useProjectSettings = (projectId) => {
   const dispatch = useDispatch();
-  const { projectSettings, settingsLoading, error } = useSelector((state) => state.projects);
-  
-  const [state, setState] = useState(() => createInitialState(null));
-  const [saving, setSaving] = useState(false);
+
+  // ==============================|| RTK QUERY ||============================== //
+
+  // Fetch settings using RTK Query
+  const {
+    data: queryData,
+    isLoading: queryLoading,
+    isFetching,
+    error: queryError,
+    refetch
+  } = useGetProjectSettingsQuery(projectId, {
+    skip: !projectId,
+    pollingInterval: 0, // Disable polling, use manual refresh
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true
+  });
+
+  // Mutations
+  const [updateSettingsMutation, { isLoading: isUpdating }] = useUpdateProjectSettingsMutation();
+  const [updateProjectMutation, { isLoading: isUpdatingProject }] = useUpdateProjectMutation();
+
+  // ==============================|| ENTITY SELECTORS ||============================== //
+
+  // Get normalized data from entity store
+  const normalizedSettings = useSelector(selectCurrentProjectSettings);
+  const projectSchedule = useSelector(selectProjectSchedule);
+  const projectInstructors = useSelector(selectProjectInstructors);
+  const projectTopics = useSelector(selectProjectTopics);
+  const projectCurriculums = useSelector(selectProjectCurriculums);
+  const storeLoading = useSelector(selectSettingsLoadingState);
+  const storeError = useSelector(selectSettingsError);
+
+  // ==============================|| LOCAL STATE ||============================== //
+
+  const [localSettings, setLocalSettings] = useState(() => createInitialState(null));
   const [hasChanges, setHasChanges] = useState(false);
+  const [localError, setLocalError] = useState(null);
 
-  // Load project settings when projectId changes
+  // ==============================|| SYNC STATE ||============================== //
+
+  // Initialize settings from RTK Query data first, then sync from normalized store
   useEffect(() => {
-    if (projectId) {
-      dispatch(getProjectSettings(projectId));
+    // First priority: Use RTK Query data if available
+    if (queryData && !queryLoading) {
+      if (queryData.project && queryData.settings) {
+        const initialState = createInitialState({
+          projectId: queryData.project.id,
+          title: queryData.project.title,
+          summary: queryData.project.summary,
+          trainingRecipientId: queryData.project.trainingRecipientId,
+          ...queryData.settings,
+          projectInstructors: queryData.projectInstructors || [],
+          projectTopics: queryData.projectTopics || [],
+          projectCurriculums: queryData.projectCurriculums || []
+        });
+        setLocalSettings(initialState);
+        setHasChanges(false);
+      }
     }
-  }, [projectId, dispatch]);
-
-  // Initialize form state when projectSettings loads
-  useEffect(() => {
-    if (projectSettings) {
-      const initialState = createInitialState(projectSettings);
-      setState(initialState);
+    // Second priority: Use normalized settings from store
+    else if (normalizedSettings) {
+      const initialState = createInitialState({
+        ...normalizedSettings,
+        // Ensure we have the schedule data
+        startDate: normalizedSettings.startDate || projectSchedule?.startDate,
+        endDate: normalizedSettings.endDate || projectSchedule?.endDate,
+        startOfDayTime: normalizedSettings.startOfDayTime || projectSchedule?.startOfDayTime,
+        endOfDayTime: normalizedSettings.endOfDayTime || projectSchedule?.endOfDayTime,
+        lunchTime: normalizedSettings.lunchTime || projectSchedule?.lunchTime,
+        workingDays: normalizedSettings.workingDays || projectSchedule?.workingDays || [],
+        timezone: normalizedSettings.timezone || projectSchedule?.timezone
+      });
+      setLocalSettings(initialState);
       setHasChanges(false);
     }
-  }, [projectSettings]);
+  }, [queryData, queryLoading, normalizedSettings, projectSchedule]);
 
-  // Track changes whenever state changes
+  // Track changes
   useEffect(() => {
-    const changed = hasSettingsChanged(state, projectSettings);
+    const changed = hasSettingsChanged(localSettings, normalizedSettings);
     setHasChanges(changed);
-  }, [state, projectSettings]);
+  }, [localSettings, normalizedSettings]);
 
-  // Update individual fields
+  // ==============================|| FIELD UPDATES ||============================== //
+
   const updateField = useCallback((field, value) => {
-    setState(prevState => ({
+    setLocalSettings(prevState => ({
       ...prevState,
       [field]: value
     }));
+    setLocalError(null); // Clear error on edit
   }, []);
 
-  // Toggle working days
   const toggleWorkingDay = useCallback((day) => {
-    setState(prevState => ({
+    setLocalSettings(prevState => ({
       ...prevState,
       workingDays: prevState.workingDays.includes(day)
         ? prevState.workingDays.filter(d => d !== day)
         : [...prevState.workingDays, day]
     }));
+    setLocalError(null);
   }, []);
 
-  // Save settings
+  // ==============================|| SAVE OPERATIONS ||============================== //
+
   const saveSettings = useCallback(async () => {
     if (!projectId) {
-      dispatch(openSnackbar({
-        open: true,
-        message: NOTIFICATION_MESSAGES.NO_PROJECT,
-        variant: 'alert',
-        alert: { color: 'error' }
-      }));
+      setLocalError('No project ID available');
       return false;
     }
 
     // Validate settings
-    const validation = validateSettings(state);
+    const validation = validateSettings(localSettings);
     if (!validation.isValid) {
+      setLocalError(validation.errors.join(', '));
       dispatch(openSnackbar({
         open: true,
         message: validation.errors.join(', '),
@@ -83,72 +159,203 @@ export const useProjectSettings = (projectId) => {
     }
 
     try {
-      setSaving(true);
-      const settingsData = prepareSettingsForSubmission(state);
-      const result = await dispatch(updateProjectSettings(projectId, settingsData));
+      const settingsData = prepareSettingsForSubmission(localSettings);
 
-      if (result.success) {
-        dispatch(openSnackbar({
-          open: true,
-          message: NOTIFICATION_MESSAGES.SAVE_SUCCESS,
-          variant: 'alert',
-          alert: { color: 'success' }
-        }));
+      // Use semantic command for schedule updates
+      const result = await dispatch(settingsCommands.updateSchedule({
+        projectId,
+        ...settingsData
+      }));
+
+      if (result.type.endsWith('/fulfilled')) {
         setHasChanges(false);
+        setLocalError(null);
         return true;
       } else {
-        throw new Error(result.message || 'Update failed');
+        throw new Error('Update failed');
       }
     } catch (error) {
-      console.error('Error updating project settings:', error);
+      console.error('Error updating settings:', error);
+      const errorMessage = error.message || NOTIFICATION_MESSAGES.SAVE_ERROR;
+      setLocalError(errorMessage);
       dispatch(openSnackbar({
         open: true,
-        message: NOTIFICATION_MESSAGES.SAVE_ERROR,
+        message: errorMessage,
         variant: 'alert',
         alert: { color: 'error' }
       }));
       return false;
-    } finally {
-      setSaving(false);
     }
-  }, [projectId, state, dispatch]);
+  }, [projectId, localSettings, dispatch]);
 
-  // Cancel changes
-  const cancelChanges = useCallback(() => {
-    if (projectSettings) {
-      const initialState = createInitialState(projectSettings);
-      setState(initialState);
-      setHasChanges(false);
+  // ==============================|| PROJECT INFO UPDATES ||============================== //
+
+  const updateProjectInfo = useCallback(async (updates) => {
+    if (!projectId) {
+      setLocalError('No project ID available');
+      return false;
     }
-    
+
+    try {
+      const result = await dispatch(settingsCommands.updateProjectInfo({
+        projectId,
+        ...updates
+      }));
+
+      if (result.type.endsWith('/fulfilled')) {
+        setLocalError(null);
+        return true;
+      } else {
+        throw new Error('Update failed');
+      }
+    } catch (error) {
+      console.error('Error updating project info:', error);
+      const errorMessage = error.message || 'Failed to update project information';
+      setLocalError(errorMessage);
+      return false;
+    }
+  }, [projectId, dispatch]);
+
+  // ==============================|| INSTRUCTOR MANAGEMENT ||============================== //
+
+  const addInstructor = useCallback(async (instructorId) => {
+    if (!projectId) return false;
+
+    try {
+      const result = await dispatch(settingsCommands.addInstructor({
+        projectId,
+        instructorId
+      }));
+      return result.type.endsWith('/fulfilled');
+    } catch (error) {
+      console.error('Error adding instructor:', error);
+      return false;
+    }
+  }, [projectId, dispatch]);
+
+  const removeInstructor = useCallback(async (instructorId) => {
+    if (!projectId) return false;
+
+    try {
+      const result = await dispatch(settingsCommands.removeInstructor({
+        projectId,
+        instructorId
+      }));
+      return result.type.endsWith('/fulfilled');
+    } catch (error) {
+      console.error('Error removing instructor:', error);
+      return false;
+    }
+  }, [projectId, dispatch]);
+
+  // ==============================|| TOPIC & CURRICULUM MANAGEMENT ||============================== //
+
+  const updateTopics = useCallback(async (topicIds) => {
+    if (!projectId) return false;
+
+    try {
+      const result = await dispatch(settingsCommands.updateProjectTopics({
+        projectId,
+        topicIds
+      }));
+      return result.type.endsWith('/fulfilled');
+    } catch (error) {
+      console.error('Error updating topics:', error);
+      return false;
+    }
+  }, [projectId, dispatch]);
+
+  const updateCurriculums = useCallback(async (curriculumIds) => {
+    if (!projectId) return false;
+
+    try {
+      const result = await dispatch(settingsCommands.updateProjectCurriculums({
+        projectId,
+        curriculumIds
+      }));
+      return result.type.endsWith('/fulfilled');
+    } catch (error) {
+      console.error('Error updating curriculums:', error);
+      return false;
+    }
+  }, [projectId, dispatch]);
+
+  // ==============================|| UTILITY FUNCTIONS ||============================== //
+
+  const cancelChanges = useCallback(() => {
+    if (normalizedSettings) {
+      const initialState = createInitialState(normalizedSettings);
+      setLocalSettings(initialState);
+      setHasChanges(false);
+      setLocalError(null);
+    }
+
     dispatch(openSnackbar({
       open: true,
       message: NOTIFICATION_MESSAGES.CANCEL_SUCCESS,
       variant: 'alert',
       alert: { color: 'info' }
     }));
-  }, [projectSettings, dispatch]);
+  }, [normalizedSettings, dispatch]);
 
-  // Retry loading settings
   const retryLoadSettings = useCallback(() => {
-    if (projectId) {
-      dispatch(getProjectSettings(projectId));
-    }
-  }, [projectId, dispatch]);
+    setLocalError(null);
+    refetch();
+  }, [refetch]);
+
+  // ==============================|| COMPUTED VALUES ||============================== //
+
+  const isLoading = queryLoading || storeLoading;
+  const isSaving = isUpdating || isUpdatingProject;
+  const error = localError || queryError?.message || storeError;
+
+  // Use query data directly for instructors/topics/curriculums if available
+  const actualProjectInstructors = queryData?.projectInstructors || projectInstructors || [];
+  const actualProjectTopics = queryData?.projectTopics || projectTopics || [];
+  const actualProjectCurriculums = queryData?.projectCurriculums || projectCurriculums || [];
+
+  // ==============================|| RETURN INTERFACE ||============================== //
 
   return {
     // State
-    settings: state,
+    settings: localSettings,
     hasChanges,
-    saving,
-    loading: settingsLoading,
+    loading: isLoading,
+    saving: isSaving,
+    fetching: isFetching,
     error,
-    
-    // Actions
+
+    // Normalized data (with fallback to query data)
+    projectSchedule: queryData?.settings || projectSchedule,
+    projectInstructors: actualProjectInstructors,
+    projectTopics: actualProjectTopics,
+    projectCurriculums: actualProjectCurriculums,
+
+    // Raw query data (for debugging)
+    queryData,
+
+    // Field operations
     updateField,
     toggleWorkingDay,
+
+    // Save operations
     saveSettings,
+    updateProjectInfo,
+
+    // Instructor operations
+    addInstructor,
+    removeInstructor,
+
+    // Topic/Curriculum operations
+    updateTopics,
+    updateCurriculums,
+
+    // Utility operations
     cancelChanges,
-    retryLoadSettings
+    retryLoadSettings,
+    refetch
   };
 };
+
+// Export as default for convenience
+export default useProjectSettings;
