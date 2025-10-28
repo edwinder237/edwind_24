@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Dialog,
   Box,
@@ -67,7 +67,7 @@ function a11yProps(index) {
   };
 }
 
-const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, onEventCreated }) => {
+const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, onEventCreated, operationInProgressRef, isFetchingAgendaRef }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
 
@@ -79,16 +79,16 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     instructors: projectInstructors,
     events: agendaEvents
   } = useSelector((state) => state.projectAgenda);
-  
+
   // Find the main lead instructor (assuming first instructor or specific role)
   const defaultInstructor = useMemo(() => {
     if (!projectInstructors || projectInstructors.length === 0) return null;
-    
+
     // Look for lead instructor or fallback to first instructor
-    const leadInstructor = projectInstructors.find(pi => 
+    const leadInstructor = projectInstructors.find(pi =>
       pi.instructorType === 'lead' || pi.instructorType === 'primary'
     );
-    
+
     return leadInstructor?.instructor || projectInstructors[0]?.instructor || null;
   }, [projectInstructors]);
   const [tabValue, setTabValue] = useState(0);
@@ -100,19 +100,46 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const [timeInputValue, setTimeInputValue] = useState('');
   const [endTimeInputValue, setEndTimeInputValue] = useState('');
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
-  
+
+  // IMPORTANT: Use the shared ref passed from parent (FullCalendarWeekViewCQRS)
+  // This prevents rapid-fire event creation AND prevents opening dialog during operations
+  // If no ref provided (backward compatibility), create local ref
+  const localRef = useRef(false);
+  const creationInProgressRef = operationInProgressRef || localRef;
+
   // Helper function to handle event creation using CQRS architecture
   const createEventWithStateUpdate = async (eventData) => {
+    // CRITICAL: Check ref FIRST - it's synchronous and prevents race conditions
+    if (creationInProgressRef.current) {
+      console.log('[AddEventDialog] Event creation BLOCKED by ref - operation already in progress');
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Please wait - an event is currently being created',
+        variant: 'alert',
+        alert: { color: 'warning' },
+        close: false,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        autoHideDuration: 2000
+      }));
+      return;
+    }
+
     try {
+      // Set ref IMMEDIATELY to block all subsequent creation attempts
+      creationInProgressRef.current = true;
+      console.log(`[AddEventDialog] [${new Date().toISOString()}] Event creation started - ref set to TRUE`);
+
       setIsCreatingEvent(true);
 
       // Use semantic command for event creation
       // RTK Query automatically invalidates cache and refetches data
       // Event bus publishes domain events for real-time updates
+      const startTime = Date.now();
       await dispatch(createEvent({
         projectId: project.id,
         eventData: eventData
       }));
+      console.log(`[AddEventDialog] [${new Date().toISOString()}] Event creation completed (${Date.now() - startTime}ms)`);
 
       // Update the next available time slot based on the event we just created
       // This ensures subsequent events don't overlap
@@ -123,6 +150,32 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       setEditableTime(nextTime);
       setEditableEndTime(calculateDefaultEndTime(nextTime));
 
+      // CRITICAL: Wait for ACTUAL RTK Query cache invalidation + refetch to complete
+      // The create command invalidates ProjectAgenda tag which triggers fetchProjectAgenda
+      // We monitor isFetchingAgendaRef and wait until it becomes false
+      // This works on any connection speed - fast or slow connections handled automatically!
+      console.log(`[AddEventDialog] [${new Date().toISOString()}] Waiting for agenda refetch to complete...`);
+
+      if (isFetchingAgendaRef) {
+        // Poll isFetchingAgendaRef until refetch completes (with timeout safety)
+        const maxWaitTime = 30000; // 30 second timeout for very slow connections
+        const pollInterval = 100; // Check every 100ms
+        let waited = 0;
+
+        while (isFetchingAgendaRef.current && waited < maxWaitTime) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          waited += pollInterval;
+        }
+
+        if (waited >= maxWaitTime) {
+          console.warn(`[AddEventDialog] Timeout waiting for agenda refetch (${waited}ms)`);
+        } else {
+          console.log(`[AddEventDialog] [${new Date().toISOString()}] Agenda refetch completed (waited ${waited}ms)`);
+        }
+      } else {
+        console.log(`[AddEventDialog] [${new Date().toISOString()}] No refetch in progress`);
+      }
+
       // Call callback if provided
       if (onEventCreated) {
         onEventCreated();
@@ -132,10 +185,13 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       onClose();
 
     } catch (error) {
-      console.error('Error creating event:', error);
+      console.error('[AddEventDialog] Error creating event:', error);
       // Error notification is handled by the semantic command
     } finally {
       setIsCreatingEvent(false);
+      // Reset ref AFTER all operations complete
+      creationInProgressRef.current = false;
+      console.log(`[AddEventDialog] [${new Date().toISOString()}] Operation complete - ref reset to FALSE`);
     }
   };
   const [pendingEventIds, setPendingEventIds] = useState(new Set());

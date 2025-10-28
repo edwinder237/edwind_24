@@ -725,16 +725,19 @@ export const projectApi = createApi({
       query: ({ projectId, eventData, events = [] }) => ({
         url: 'calendar/db-create-event',
         method: 'POST',
-        body: { 
+        body: {
           newEvent: eventData,
           events: events,
-          projectId: projectId 
+          projectId: projectId
         }
       }),
       invalidatesTags: (_, __, { projectId }) => [
-        { type: 'Project', id: projectId },
-        'ProjectAgenda',
-        'Event'
+        // IMPORTANT: Only invalidate specific tags to avoid overwhelming Prisma
+        // Removed global 'Project' tag - it triggers fetchParticipantsDetails,
+        // fetchProjectSettings, checklist-progress in parallel, crashing database
+        // Removed global 'Event' tag - use specific event ID when available
+        { type: 'ProjectAgenda', id: projectId }
+        // Note: Can't invalidate specific Event ID here since it's created server-side
       ],
       onQueryStarted: async ({ eventData }, { dispatch, queryFulfilled }) => {
         try {
@@ -796,9 +799,11 @@ export const projectApi = createApi({
         body: { eventId, projectId }
       }),
       invalidatesTags: (_, __, { projectId, eventId }) => [
-        { type: 'Project', id: projectId },
+        // IMPORTANT: Only invalidate specific tags to avoid overwhelming Prisma
+        // Removed global 'Project' tag - it triggered fetchParticipantsDetails,
+        // fetchProjectSettings, checklist-progress in parallel, crashing database
         { type: 'Event', id: eventId },
-        'ProjectAgenda'
+        { type: 'ProjectAgenda', id: projectId }
       ],
       onQueryStarted: async ({ eventId }, { dispatch, queryFulfilled }) => {
         try {

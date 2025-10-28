@@ -10,7 +10,8 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { projectApi } from '../api/projectApi';
 import { openSnackbar } from '../reducers/snackbar';
 import { eventAdded, eventUpdated, eventRemoved } from '../entities/eventsSlice';
-import { fetchProjectAgenda } from '../reducers/project/agenda';
+// NOTE: fetchProjectAgenda import removed - RTK Query handles agenda updates via tag invalidation
+// import { fetchProjectAgenda } from '../reducers/project/agenda';
 
 // ==============================|| EVENT COMMANDS ||============================== //
 
@@ -100,10 +101,8 @@ export const updateEvent = createAsyncThunk(
         'Group'
       ]));
 
-      // Also refresh legacy Redux state for backward compatibility
-      if (projectId) {
-        dispatch(fetchProjectAgenda(projectId, true));
-      }
+      // NOTE: Legacy fetchProjectAgenda call removed - RTK Query handles this via tag invalidation
+      // Removing this prevents duplicate refetches that overwhelm Prisma connection pool
 
       const eventTitle = updates.title || 'Event';
       
@@ -155,18 +154,19 @@ export const deleteEvent = createAsyncThunk(
       })).unwrap();
 
       // Force invalidate RTK Query cache to trigger UI updates
+      // IMPORTANT: Only invalidate specific tags - don't use global tags
+      // Global 'Participant'/'Group'/'Project' tags trigger expensive parallel refetches
+      // that overwhelm Prisma connection pool when deletes happen in quick succession
       dispatch(projectApi.util.invalidateTags([
         { type: 'Event', id: eventId },
-        { type: 'ProjectAgenda', id: projectId },
-        { type: 'Project', id: projectId },
-        'Participant',
-        'Group'
+        { type: 'ProjectAgenda', id: projectId }
+        // Removed global tags: 'Project', 'Participant', 'Group'
+        // These caused fetchParticipantsDetails, fetchProjectSettings, checklist-progress
+        // to run in parallel with agenda refetch, overwhelming database
       ]));
 
-      // Also refresh legacy Redux state for backward compatibility
-      if (projectId) {
-        dispatch(fetchProjectAgenda(projectId, true));
-      }
+      // NOTE: Legacy fetchProjectAgenda call removed - RTK Query handles this via tag invalidation
+      // Removing this prevents duplicate refetches that overwhelm Prisma connection pool
 
       dispatch(openSnackbar({
         open: true,
@@ -425,10 +425,8 @@ export const moveParticipantBetweenEvents = createAsyncThunk(
         'Group'
       ]));
 
-      // Also refresh legacy Redux state for backward compatibility
-      if (projectId) {
-        dispatch(fetchProjectAgenda(projectId, true));
-      }
+      // NOTE: Legacy fetchProjectAgenda call removed - RTK Query handles this via tag invalidation
+      // Removing this prevents duplicate refetches that overwhelm Prisma connection pool
 
       const fromEventTitle = result.eventTitles?.from || 'source event';
       const toEventTitle = result.eventTitles?.to || 'target event';
@@ -490,10 +488,8 @@ export const addMultipleToEvent = createAsyncThunk(
         'Group'
       ]));
 
-      // Also refresh legacy Redux state for backward compatibility
-      if (projectId) {
-        dispatch(fetchProjectAgenda(projectId, true));
-      }
+      // NOTE: Legacy fetchProjectAgenda call removed - RTK Query handles this via tag invalidation
+      // Removing this prevents duplicate refetches that overwhelm Prisma connection pool
 
       const totalCount = participants.length + groups.length;
       dispatch(openSnackbar({
@@ -552,10 +548,8 @@ export const duplicateEvent = createAsyncThunk(
         'Group'
       ]));
 
-      // Also refresh legacy Redux state for backward compatibility
-      if (projectId) {
-        dispatch(fetchProjectAgenda(projectId, true));
-      }
+      // NOTE: Legacy fetchProjectAgenda call removed - RTK Query handles this via tag invalidation
+      // Removing this prevents duplicate refetches that overwhelm Prisma connection pool
 
       dispatch(openSnackbar({
         open: true,
