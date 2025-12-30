@@ -46,6 +46,7 @@
     "date-fns": "^2.29.3",
     "dayjs": "^1.11.18",
     "dotenv": "^16.3.1",
+    "fix-react2shell-next": "^1.1.4",
     "formik": "^2.2.9",
     "framer-motion": "^7.5.3",
     "immutability-helper": "^3.1.1",

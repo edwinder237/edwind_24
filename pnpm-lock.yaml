@@ -119,6 +119,9 @@ importers:
       dotenv:
         specifier: ^16.3.1
         version: 16.3.1
+      fix-react2shell-next:
+        specifier: ^1.1.4
+        version: 1.1.4
       formik:
         specifier: ^2.2.9
         version: 2.4.3(react@18.3.1)
@@ -3553,6 +3556,11 @@ packages:
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
+
+  fix-react2shell-next@1.1.4:
+    resolution: {integrity: sha512-An2lCE2FuS48BKCi8EfJZU98IHZr6Whlhnuch90SYw+PsCYTj34dl1XGrbcp4PWf5jL0551uHZzBEKj98LGWXQ==}
+    engines: {node: '>=16'}
+    hasBin: true
 
   flat-cache@3.1.0:
     resolution: {integrity: sha512-OHx4Qwrrt0E4jEIcI5/Xb+f+QmJYNj2rrK8wiIdQOIrB9WrrJL8cjZvXdXuBTkkEwEqLycb5BeZDV1o2i9bTew==}
@@ -10352,6 +10360,8 @@ snapshots:
     dependencies:
       locate-path: 6.0.0
       path-exists: 4.0.0
+
+  fix-react2shell-next@1.1.4: {}
 
   flat-cache@3.1.0:
     dependencies:
