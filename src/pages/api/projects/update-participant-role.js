@@ -1,28 +1,51 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * PUT /api/projects/update-participant-role
+ * ============================================
+ *
+ * Updates a participant's role.
+ * FIXED: Previously accepted any participantId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const { participantId, roleId } = req.body;
 
     if (!participantId) {
-      return res.status(400).json({ error: 'Participant ID is required' });
+      throw new ValidationError('Participant ID is required');
+    }
+
+    // Verify participant ownership
+    const participant = await scopedFindUnique(orgContext, 'participants', {
+      where: { id: participantId.toString() } // participants.id is a String in schema
+    });
+
+    if (!participant) {
+      throw new NotFoundError('Participant not found');
     }
 
     // Update participant role using the role relationship
     const updatedParticipant = await prisma.participants.update({
-      where: { id: participantId.toString() }, // participants.id is a String in schema
-      data: { 
+      where: { id: participantId.toString() },
+      data: {
         role: roleId ? {
           connect: { id: parseInt(roleId) }
         } : {
           disconnect: true
         },
         lastUpdated: new Date(),
-        updatedby: 'system' // You can replace this with actual user ID
+        updatedby: orgContext.userId || 'system'
       },
       include: {
         role: {
@@ -42,9 +65,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error updating participant role:', error);
-    res.status(500).json({ 
-      error: 'Failed to update participant role',
-      details: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

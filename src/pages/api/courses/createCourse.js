@@ -1,9 +1,13 @@
 import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const {
@@ -27,9 +31,15 @@ export default async function handler(req, res) {
       published = false,
       isMandatoryToAllRole = false,
       backgroundImg,
-      createdBy = 'system', // You should get this from session/auth
-      sub_organizationId = 1 // You should get this from session/auth
+      createdBy = 'system'
     } = req.body;
+
+    // Get sub_organizationId from org context (session-based)
+    const sub_organizationId = orgContext?.subOrganizationIds?.[0];
+
+    if (!sub_organizationId) {
+      throw new ValidationError('Unable to determine sub-organization. Please refresh and try again.');
+    }
 
     if (!title) {
       return res.status(400).json({ 
@@ -84,10 +94,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error creating course:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to create course',
-      error: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

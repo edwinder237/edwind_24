@@ -1,39 +1,39 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * POST /api/curriculums/create
+ * ============================================
+ *
+ * Creates a new curriculum for the current organization.
+ * Uses org scoping to ensure proper sub-organization assignment.
+ */
 
-export default async function handler(req, res) {
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedCreate } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  try {
-    const { title, description } = req.body;
+  const { orgContext } = req;
+  const { title, description } = req.body;
 
-    if (!title || !title.trim()) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Title is required' 
-      });
-    }
-
-    const curriculum = await prisma.curriculums.create({
-      data: {
-        title: title.trim(),
-        description: description?.trim() || null,
-      }
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Curriculum created successfully',
-      curriculum
-    });
-
-  } catch (error) {
-    console.error('Error creating curriculum:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to create curriculum',
-      error: error.message 
-    });
+  if (!title || !title.trim()) {
+    throw new ValidationError('Title is required');
   }
+
+  // Create curriculum with automatic org scoping
+  const curriculum = await scopedCreate(orgContext, 'curriculums', {
+    title: title.trim(),
+    description: description?.trim() || null,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Curriculum created successfully',
+    curriculum
+  });
 }
+
+export default withOrgScope(asyncHandler(handler));

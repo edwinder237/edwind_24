@@ -41,7 +41,13 @@ import {
   Tooltip,
   useTheme,
   alpha,
-  Autocomplete
+  Autocomplete,
+  Switch,
+  Collapse,
+  List,
+  ListItem,
+  ListItemIcon,
+  FormControlLabel
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -65,11 +71,17 @@ import {
   Forum as ForumIcon,
   Science as ScienceIcon,
   Slideshow as SlideshowIcon,
-  RadioButtonChecked as RadioButtonCheckedIcon,
+  RadioButtonCheckedIcon,
   Search as SearchIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
-  Warning as AlertIcon
+  Warning as AlertIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Assessment as AssessmentIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  CheckBox as CheckBoxIcon
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -85,6 +97,7 @@ import { useTrainingPlan } from '../../../hooks/useTrainingPlan';
 import { createModuleOptions, createSupportActivityOptions, formatDuration } from '../../../utils/moduleUtils';
 import { ModuleSelector, SupportActivitySelector, ModuleDropdownCell } from '../../../components/ModuleSelector';
 import SupportActivitiesManager from 'components/curriculum/SupportActivitiesManager';
+import CurriculumChecklistManager from 'components/curriculum/CurriculumChecklistManager';
 import MainCard from 'components/MainCard';
 import Layout from 'layout';
 
@@ -149,7 +162,13 @@ const CurriculumEditPage = () => {
   // Search/filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all', 'course', 'module', 'activity'
-  
+
+  // Assessment management state
+  const [assessmentsByCourse, setAssessmentsByCourse] = useState({});
+  const [loadingAssessments, setLoadingAssessments] = useState(false);
+  const [expandedAssessments, setExpandedAssessments] = useState({});
+  const [togglingAssessment, setTogglingAssessment] = useState(null);
+
   // Bulk selection helpers
   const handleRowSelect = (dayIndex, moduleIndex, isSelected) => {
     const rowId = `${dayIndex}-${moduleIndex}`;
@@ -341,6 +360,85 @@ const CurriculumEditPage = () => {
     }
   };
 
+  // Fetch assessments for curriculum courses
+  const fetchCurriculumAssessments = async () => {
+    if (!id) return;
+
+    setLoadingAssessments(true);
+    try {
+      const response = await fetch(`/api/score-cards/getCurriculumAssessments?curriculumId=${id}`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Convert array to object keyed by courseId for easier lookup
+        const assessmentsMap = {};
+        data.assessmentsByCourse.forEach(courseAssessments => {
+          assessmentsMap[courseAssessments.courseId] = courseAssessments;
+        });
+        setAssessmentsByCourse(assessmentsMap);
+      } else {
+        console.error('Error fetching curriculum assessments:', data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching curriculum assessments:', error);
+    } finally {
+      setLoadingAssessments(false);
+    }
+  };
+
+  // Toggle assessment enable/disable for this curriculum
+  const handleToggleAssessment = async (courseId, assessmentId, currentEffectiveStatus) => {
+    const toggleKey = `${courseId}-${assessmentId}`;
+    setTogglingAssessment(toggleKey);
+
+    try {
+      const response = await fetch('/api/score-cards/configureCurriculumOverride', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          curriculumId: parseInt(id),
+          courseAssessmentId: assessmentId,
+          isActive: !currentEffectiveStatus,
+          createdBy: 'user' // TODO: Get from session/auth
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Assessment ${!currentEffectiveStatus ? 'enabled' : 'disabled'} for this curriculum`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+
+        // Refresh assessments to get updated status
+        fetchCurriculumAssessments();
+      } else {
+        throw new Error(result.message || 'Failed to toggle assessment');
+      }
+    } catch (error) {
+      console.error('Error toggling assessment:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to update assessment status',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setTogglingAssessment(null);
+    }
+  };
+
+  // Toggle expanded state for course assessments
+  const handleToggleExpandAssessments = (courseId) => {
+    setExpandedAssessments(prev => ({
+      ...prev,
+      [courseId]: !prev[courseId]
+    }));
+  };
+
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
@@ -465,6 +563,7 @@ const CurriculumEditPage = () => {
   useEffect(() => {
     fetchCurriculum();
     fetchCourses();
+    fetchCurriculumAssessments();
     initializeTrainingPlan(trainingDays);
     // Fetch existing training plan if exists
     if (id) {
@@ -673,6 +772,11 @@ const CurriculumEditPage = () => {
                 label="Outlined"
                 iconPosition="start"
               />
+              <Tab
+                icon={<CheckBoxIcon />}
+                label="Trainer Checklist"
+                iconPosition="start"
+              />
             </Tabs>
           </Box>
 
@@ -852,13 +956,142 @@ const CurriculumEditPage = () => {
                                 )}
                               </Stack>
                               <Typography variant="caption" color="text.secondary">
-                                {curriculumCourse.course?.modules?.length || 0} modules • 
+                                {curriculumCourse.course?.modules?.length || 0} modules •
                                 Duration: {curriculumCourse.course?.modules?.reduce((total, module) => {
-                                  const moduleTotal = module.customDuration || 
+                                  const moduleTotal = module.customDuration ||
                                     module.activities?.reduce((sum, activity) => sum + (activity.duration || 0), 0) || 0;
                                   return total + moduleTotal;
                                 }, 0) || 0} minutes
                               </Typography>
+
+                              {/* Assessments Section */}
+                              <Divider sx={{ my: 2 }} />
+
+                              <Box>
+                                <Button
+                                  fullWidth
+                                  variant="text"
+                                  size="small"
+                                  onClick={() => handleToggleExpandAssessments(curriculumCourse.courseId)}
+                                  endIcon={expandedAssessments[curriculumCourse.courseId] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                  startIcon={<AssessmentIcon />}
+                                  sx={{ justifyContent: 'space-between' }}
+                                >
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body2" fontWeight={600}>
+                                      Assessments
+                                    </Typography>
+                                    {assessmentsByCourse[curriculumCourse.courseId] && (
+                                      <Chip
+                                        label={assessmentsByCourse[curriculumCourse.courseId].assessments.length}
+                                        size="small"
+                                        color="primary"
+                                        sx={{ height: 20, fontSize: '0.7rem' }}
+                                      />
+                                    )}
+                                  </Box>
+                                </Button>
+
+                                <Collapse in={expandedAssessments[curriculumCourse.courseId]}>
+                                  <Box sx={{ pt: 2 }}>
+                                    {loadingAssessments ? (
+                                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                                        <CircularProgress size={24} />
+                                      </Box>
+                                    ) : assessmentsByCourse[curriculumCourse.courseId]?.assessments.length > 0 ? (
+                                      <List dense>
+                                        {assessmentsByCourse[curriculumCourse.courseId].assessments.map((assessment) => {
+                                          const toggleKey = `${curriculumCourse.courseId}-${assessment.id}`;
+                                          const isToggling = togglingAssessment === toggleKey;
+
+                                          return (
+                                            <ListItem
+                                              key={assessment.id}
+                                              sx={{
+                                                border: '1px solid',
+                                                borderColor: 'divider',
+                                                borderRadius: 1,
+                                                mb: 1,
+                                                backgroundColor: assessment.effectiveIsActive
+                                                  ? alpha(theme.palette.success.main, 0.05)
+                                                  : alpha(theme.palette.error.main, 0.05)
+                                              }}
+                                              secondaryAction={
+                                                <FormControlLabel
+                                                  control={
+                                                    <Switch
+                                                      checked={assessment.effectiveIsActive}
+                                                      onChange={() => handleToggleAssessment(
+                                                        curriculumCourse.courseId,
+                                                        assessment.id,
+                                                        assessment.effectiveIsActive
+                                                      )}
+                                                      disabled={isToggling}
+                                                      size="small"
+                                                    />
+                                                  }
+                                                  label=""
+                                                  sx={{ mr: 0 }}
+                                                />
+                                              }
+                                            >
+                                              <ListItemIcon sx={{ minWidth: 36 }}>
+                                                {assessment.effectiveIsActive ? (
+                                                  <CheckCircleIcon color="success" fontSize="small" />
+                                                ) : (
+                                                  <CancelIcon color="error" fontSize="small" />
+                                                )}
+                                              </ListItemIcon>
+                                              <Box sx={{ flexGrow: 1, pr: 2 }}>
+                                                <Typography variant="body2" fontWeight={600}>
+                                                  {assessment.title}
+                                                </Typography>
+                                                {assessment.description && (
+                                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                    {assessment.description}
+                                                  </Typography>
+                                                )}
+                                                <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                                                  <Chip
+                                                    label={`Max: ${assessment.maxScore}`}
+                                                    size="small"
+                                                    variant="outlined"
+                                                    sx={{ height: 18, fontSize: '0.65rem' }}
+                                                  />
+                                                  <Chip
+                                                    label={`Pass: ${assessment.passingScore}%`}
+                                                    size="small"
+                                                    variant="outlined"
+                                                    sx={{ height: 18, fontSize: '0.65rem' }}
+                                                  />
+                                                  {assessment.hasOverride && (
+                                                    <Chip
+                                                      label="Override"
+                                                      size="small"
+                                                      color="warning"
+                                                      sx={{ height: 18, fontSize: '0.65rem' }}
+                                                    />
+                                                  )}
+                                                </Stack>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                                  {assessment.hasOverride
+                                                    ? `${assessment.effectiveIsActive ? 'Enabled' : 'Disabled'} for this curriculum`
+                                                    : `Using course default (${assessment.baseIsActive ? 'Active' : 'Inactive'})`
+                                                  }
+                                                </Typography>
+                                              </Box>
+                                            </ListItem>
+                                          );
+                                        })}
+                                      </List>
+                                    ) : (
+                                      <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
+                                        No assessments configured for this course.
+                                      </Alert>
+                                    )}
+                                  </Box>
+                                </Collapse>
+                              </Box>
                             </CardContent>
                           </Card>
                         </Grid>
@@ -1931,6 +2164,11 @@ const CurriculumEditPage = () => {
                   </CardContent>
                 </Card>
               </Box>
+            </TabPanel>
+
+            <TabPanel value={activeTab} index={4}>
+              {/* Trainer Checklist Tab */}
+              <CurriculumChecklistManager curriculumId={curriculum.id} />
             </TabPanel>
           </Box>
         </MainCard>

@@ -65,15 +65,6 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
   const displayPreferences = useSelector(state => selectDisplayPreferences(state));
   const storeSelectedDate = useSelector(state => selectSelectedDate(state));
 
-  console.log('[FullCalendarWeekViewCQRS] Rendering with CQRS', {
-    projectId: project?.id,
-    groupsCount: groups?.length,
-    displayPreferences,
-    storeSelectedDate,
-    eventsCount: events?.length,
-    isLoadingAgenda
-  });
-
   const calendarRef = useRef(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState(null);

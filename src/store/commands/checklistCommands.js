@@ -15,16 +15,18 @@ import { openSnackbar } from '../reducers/snackbar';
 /**
  * Complete a checklist item
  * Business Intent: User wants to mark a task as complete
+ * Supports both course and curriculum checklist items
  */
 export const completeChecklistItem = createAsyncThunk(
   'checklist/completeChecklistItem',
-  async ({ projectId, checklistItemId, itemTitle, completedBy, notes }, { dispatch, rejectWithValue }) => {
+  async ({ projectId, checklistItemId, itemTitle, completedBy, notes, itemType }, { dispatch, rejectWithValue }) => {
     try {
       const command = {
         type: 'COMPLETE_CHECKLIST_ITEM',
         projectId,
         checklistItemId,
         itemTitle,
+        itemType,
         completedBy,
         timestamp: new Date().toISOString()
       };
@@ -34,7 +36,8 @@ export const completeChecklistItem = createAsyncThunk(
         checklistItemId,
         completed: true,
         notes,
-        completedBy
+        completedBy,
+        itemType
       })).unwrap();
 
       // Show success notification
@@ -67,16 +70,18 @@ export const completeChecklistItem = createAsyncThunk(
 /**
  * Mark a checklist item as incomplete
  * Business Intent: User wants to uncomplete a previously completed task
+ * Supports both course and curriculum checklist items
  */
 export const uncompleteChecklistItem = createAsyncThunk(
   'checklist/uncompleteChecklistItem',
-  async ({ projectId, checklistItemId, itemTitle, completedBy }, { dispatch, rejectWithValue }) => {
+  async ({ projectId, checklistItemId, itemTitle, completedBy, itemType }, { dispatch, rejectWithValue }) => {
     try {
       const command = {
         type: 'UNCOMPLETE_CHECKLIST_ITEM',
         projectId,
         checklistItemId,
         itemTitle,
+        itemType,
         timestamp: new Date().toISOString()
       };
 
@@ -84,7 +89,8 @@ export const uncompleteChecklistItem = createAsyncThunk(
         projectId,
         checklistItemId,
         completed: false,
-        completedBy
+        completedBy,
+        itemType
       })).unwrap();
 
       // Show success notification
@@ -117,15 +123,17 @@ export const uncompleteChecklistItem = createAsyncThunk(
 /**
  * Update or add a note to a checklist item
  * Business Intent: User wants to add context or details to a task
+ * Supports both course and curriculum checklist items
  */
 export const updateChecklistNote = createAsyncThunk(
   'checklist/updateChecklistNote',
-  async ({ projectId, checklistItemId, itemTitle, notes, completed, completedBy }, { dispatch, rejectWithValue }) => {
+  async ({ projectId, checklistItemId, itemTitle, notes, completed, completedBy, itemType }, { dispatch, rejectWithValue }) => {
     try {
       const command = {
         type: 'UPDATE_CHECKLIST_NOTE',
         projectId,
         checklistItemId,
+        itemType,
         timestamp: new Date().toISOString()
       };
 
@@ -134,7 +142,8 @@ export const updateChecklistNote = createAsyncThunk(
         checklistItemId,
         completed: completed || false,
         notes: notes || null,
-        completedBy
+        completedBy,
+        itemType
       })).unwrap();
 
       // Show success notification

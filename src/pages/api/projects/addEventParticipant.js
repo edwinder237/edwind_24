@@ -1,30 +1,48 @@
+/**
+ * ============================================
+ * POST /api/projects/addEventParticipant
+ * ============================================
+ *
+ * Adds a participant to an event.
+ * FIXED: Previously accepted any eventId/participantId without validation.
+ */
+
 import prisma from '../../../lib/prisma';
-import { WorkOS } from '@workos-inc/node';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
-    const userId = req.cookies.workos_user_id;
-    
-    if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const user = await workos.userManagement.getUser(userId);
-    
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
     const { eventId, participantId, attendance_status = 'scheduled', attendanceType = 'individual' } = req.body;
 
     if (!eventId || !participantId) {
-      return res.status(400).json({ error: 'Event ID and participant ID are required' });
+      throw new ValidationError('Event ID and participant ID are required');
+    }
+
+    // Get event and verify it belongs to a project in user's org
+    const event = await prisma.events.findUnique({
+      where: { id: parseInt(eventId) },
+      select: { id: true, projectId: true }
+    });
+
+    if (!event) {
+      throw new NotFoundError('Event not found');
+    }
+
+    // Verify project ownership (validates event ownership)
+    const project = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: event.projectId }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Event not found');
     }
 
     // Check if participant is already added to this event
@@ -36,13 +54,8 @@ export default async function handler(req, res) {
     });
 
     if (existingAttendee) {
-      return res.status(400).json({ 
-        error: 'Participant is already added to this event',
-        details: `Participant ${participantId} is already in event ${eventId}`
-      });
+      throw new ValidationError('Participant is already added to this event');
     }
-
-    // Note: Participants can now be in multiple events due to the fixed schema
 
     // Add participant to event
     let newAttendee;
@@ -53,22 +66,16 @@ export default async function handler(req, res) {
           enrolleeId: parseInt(participantId),
           attendanceType: attendanceType,
           attendance_status: attendance_status,
-          createdBy: user.id,
-          updatedby: user.id
+          createdBy: orgContext.userId,
+          updatedby: orgContext.userId
         }
       });
     } catch (error) {
       // Handle duplicate entry error
       if (error.code === 'P2002') {
-        console.error('Unique constraint violation:', error);
-        return res.status(400).json({ 
-          error: 'Participant is already added to this event',
-          details: `Participant ${participantId} is already enrolled in event ${eventId}. Cannot add the same participant to the same event twice.`,
-          prismaError: error.code,
-          constraintField: error.meta?.target
-        });
+        throw new ValidationError('Participant is already added to this event');
       }
-      throw error; // Re-throw other errors
+      throw error;
     }
 
     return res.status(201).json({
@@ -78,6 +85,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error adding participant to event:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

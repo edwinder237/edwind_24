@@ -1,4 +1,4 @@
-"use-client"
+"use client"
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Box, 
@@ -54,6 +54,7 @@ import { format, differenceInDays, addDays, startOfMonth, endOfMonth, startOfWee
 import Layout from 'layout';
 import Page from 'components/Page';
 import MainCard from 'components/MainCard';
+import ReportCard from 'components/cards/statistics/ReportCard';
 import { mockProjects, mockInstructors } from 'data/mockData';
 import GanttChart from 'components/GanttChart/GanttChart';
 import ProjectDetailsDialog from './ProjectDetailsDialog';
@@ -72,6 +73,7 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [openProjectDialog, setOpenProjectDialog] = useState(false);
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [scrollToToday, setScrollToToday] = useState(false);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -93,6 +95,11 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
       setProjects(mockProjects);
       setInstructors(mockInstructors);
       setLoading(false);
+      // Auto-scroll to today on initial load
+      setTimeout(() => {
+        setScrollToToday(true);
+        setTimeout(() => setScrollToToday(false), 100);
+      }, 100);
     };
 
     // Simulate API call delay
@@ -236,6 +243,12 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
     setOpenProjectDialog(false);
   };
 
+  const handleScrollToToday = () => {
+    setScrollToToday(true);
+    // Reset after scroll
+    setTimeout(() => setScrollToToday(false), 100);
+  };
+
   // Status color mapping
   const getStatusColor = (status) => {
     const statusColors = {
@@ -271,67 +284,36 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
         <Box>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Stack spacing={1}>
-                    <Typography color="textSecondary" variant="caption">
-                      Total Projects
-                    </Typography>
-                    <Typography variant="h4">{projectStats.total}</Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
+              <ReportCard
+                primary={projectStats.total.toString()}
+                secondary="Total Projects"
+                iconPrimary={AppstoreOutlined}
+                color="#1976d2"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Stack spacing={1}>
-                    <Typography color="textSecondary" variant="caption">
-                      Upcoming
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="h4" color="warning.main">
-                        {projectStats.upcoming}
-                      </Typography>
-                      <WarningOutlined style={{ color: '#ff9800' }} />
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </Card>
+              <ReportCard
+                primary={projectStats.upcoming.toString()}
+                secondary="Upcoming"
+                iconPrimary={WarningOutlined}
+                color="#ff9800"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Stack spacing={1}>
-                    <Typography color="textSecondary" variant="caption">
-                      In Progress
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="h4" color="info.main">
-                        {projectStats.inProgress}
-                      </Typography>
-                      <SyncOutlined style={{ color: '#2196f3' }} />
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </Card>
+              <ReportCard
+                primary={projectStats.inProgress.toString()}
+                secondary="In Progress"
+                iconPrimary={SyncOutlined}
+                color="#2196f3"
+              />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Stack spacing={1}>
-                    <Typography color="textSecondary" variant="caption">
-                      Completed
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="h4" color="success.main">
-                        {projectStats.completed}
-                      </Typography>
-                      <CheckCircleOutlined style={{ color: '#4caf50' }} />
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </Card>
+              <ReportCard
+                primary={projectStats.completed.toString()}
+                secondary="Completed"
+                iconPrimary={CheckCircleOutlined}
+                color="#4caf50"
+              />
             </Grid>
           </Grid>
         </Box>
@@ -515,9 +497,20 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
         {/* Gantt Chart Section */}
         <MainCard>
           <Box sx={{ p: 2 }}>
-            <Typography variant="h5" gutterBottom>
-              Timeline View
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h5">
+                Timeline View
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ClockCircleOutlined />}
+                onClick={handleScrollToToday}
+                sx={{ borderRadius: 1 }}
+              >
+                Today
+              </Button>
+            </Box>
             <Divider sx={{ mb: 2 }} />
             <GanttChart
               projects={filteredProjects}
@@ -525,6 +518,7 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
               zoomLevel={zoomLevel}
               onProjectClick={handleProjectClick}
               instructors={instructors}
+              scrollToToday={scrollToToday}
             />
           </Box>
         </MainCard>
@@ -563,6 +557,7 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
                             p: 2,
                             cursor: 'pointer',
                             transition: 'all 0.3s',
+                            borderRadius: 1,
                             '&:hover': {
                               transform: 'translateY(-2px)',
                               boxShadow: 3,
@@ -583,7 +578,7 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
                                 label={project.status}
                                 color={getStatusColor(project.status)}
                                 size="small"
-                                sx={{ height: 20 }}
+                                sx={{ height: 20, borderRadius: 1 }}
                               />
                               <Typography variant="caption" color="textSecondary">
                                 {duration} days
@@ -592,10 +587,9 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
                             
                             {/* Date Range */}
                             <Stack direction="row" spacing={1} alignItems="center">
-                              <CalendarOutlined style={{ fontSize: '14px', color: '#666' }} />
-                              <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
-                                {format(parseISO(project.startDate), 'MMM dd')} - 
-                                {format(parseISO(project.endDate), 'MMM dd, yyyy')}
+                              <CalendarOutlined style={{ fontSize: '16px', color: '#1976d2' }} />
+                              <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 500, color: 'text.primary' }}>
+                                {format(parseISO(project.startDate), 'MMM dd, yyyy')} - {format(parseISO(project.endDate), 'MMM dd, yyyy')}
                               </Typography>
                             </Stack>
                             

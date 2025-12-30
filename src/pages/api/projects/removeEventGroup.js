@@ -1,29 +1,60 @@
-import prisma from "../../../lib/prisma";
-import { WorkOS } from '@workos-inc/node';
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
+/**
+ * ============================================
+ * POST /api/projects/removeEventGroup
+ * ============================================
+ *
+ * Removes a group from an event and all its participants as attendees.
+ * FIXED: Previously accepted any eventId/groupId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
-    const userId = req.cookies.workos_user_id;
-    
-    if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const user = await workos.userManagement.getUser(userId);
-    
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
     const { eventId, groupId } = req.body;
 
     if (!eventId || !groupId) {
-      return res.status(400).json({ error: 'Event ID and group ID are required' });
+      throw new ValidationError('Event ID and group ID are required');
+    }
+
+    // Get event and verify it belongs to a project in user's org
+    const event = await prisma.events.findUnique({
+      where: { id: parseInt(eventId) },
+      select: { id: true, projectId: true }
+    });
+
+    if (!event) {
+      throw new NotFoundError('Event not found');
+    }
+
+    // Verify project ownership (validates event ownership)
+    const project = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: event.projectId }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Event not found');
+    }
+
+    // Verify group belongs to the same project
+    const group = await prisma.groups.findFirst({
+      where: {
+        id: parseInt(groupId),
+        projectId: event.projectId
+      }
+    });
+
+    if (!group) {
+      throw new NotFoundError('Group not found in this project');
     }
 
     // Check if group is assigned to this event
@@ -35,7 +66,7 @@ export default async function handler(req, res) {
     });
 
     if (!existingEventGroup) {
-      return res.status(404).json({ error: 'Group is not assigned to this event' });
+      throw new NotFoundError('Group is not assigned to this event');
     }
 
     // Get all participants in this group to remove as attendees
@@ -74,6 +105,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error removing group from event:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

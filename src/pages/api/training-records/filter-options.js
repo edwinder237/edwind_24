@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     }
 
     // Fetch all filter options in parallel
-    const [courses, participants, instructors, trainingRecipients, topics, projects] = await Promise.all([
+    const [courses, participants, instructors, trainingRecipients, topics, projects, assessments] = await Promise.all([
       // Courses
       prisma.courses.findMany({
         where: baseWhere,
@@ -140,6 +140,29 @@ export default async function handler(req, res) {
         orderBy: {
           title: 'asc'
         }
+      }),
+
+      // Assessments
+      prisma.course_assessments.findMany({
+        where: {
+          isActive: true,
+          course: {
+            sub_organizationId: orgId,
+            isActive: true
+          }
+        },
+        include: {
+          course: {
+            select: {
+              id: true,
+              title: true,
+              cuid: true
+            }
+          }
+        },
+        orderBy: {
+          title: 'asc'
+        }
       })
     ]);
 
@@ -190,6 +213,18 @@ export default async function handler(req, res) {
         name: project.title || `Project ${project.id}`,
         summary: project.summary,
         status: project.projectStatus
+      })),
+
+      assessments: assessments.map(assessment => ({
+        id: assessment.id,
+        name: assessment.title,
+        course: assessment.course.title,
+        courseId: assessment.course.id,
+        maxScore: assessment.maxScore,
+        passingScore: assessment.passingScore,
+        type: assessment.title.toLowerCase().includes('quiz') ? 'Quiz' :
+              assessment.title.toLowerCase().includes('exam') ? 'Exam' :
+              assessment.title.toLowerCase().includes('practical') ? 'Practical' : 'Assessment'
       })),
 
       // Updated status options based on attendance

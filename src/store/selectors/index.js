@@ -9,6 +9,7 @@
 // Import all selector modules
 import * as attendanceSelectors from './attendanceSelectors';
 import * as dashboardSelectors from './dashboardSelectors';
+import * as courseCompletionSelectors from './courseCompletionSelectors';
 
 // Re-export all selectors organized by domain
 export const derivedSelectors = {
@@ -45,10 +46,21 @@ export const derivedSelectors = {
     selectProjectDates: dashboardSelectors.selectProjectDates,
     selectLeadInstructor: dashboardSelectors.selectLeadInstructor,
     selectTechnicalCompletion: dashboardSelectors.selectTechnicalCompletion,
+    selectCourseCompletionRate: dashboardSelectors.selectCourseCompletionRate,
 
     // Resource management
     selectResourceUtilization: dashboardSelectors.selectResourceUtilization,
     selectTimeAnalytics: dashboardSelectors.selectTimeAnalytics
+  },
+
+  // Course completion tracking
+  courseCompletion: {
+    // Course and curriculum analytics
+    selectProjectCurriculums: courseCompletionSelectors.selectProjectCurriculums,
+    selectProjectCourses: courseCompletionSelectors.selectProjectCourses,
+    selectParticipantCourseAssignments: courseCompletionSelectors.selectParticipantCourseAssignments,
+    selectCourseCompletionData: courseCompletionSelectors.selectCourseCompletionData,
+    selectCourseParticipantRoleDistribution: courseCompletionSelectors.selectCourseParticipantRoleDistribution
   }
 };
 
@@ -65,10 +77,13 @@ export const {
   selectLeadInstructor,
   selectTechnicalCompletion,
   selectParticipantEngagementAnalysis,
-  selectEventCapacityAnalysis
+  selectEventCapacityAnalysis,
+  selectCourseCompletionData,
+  selectCourseParticipantRoleDistribution
 } = {
   ...attendanceSelectors,
-  ...dashboardSelectors
+  ...dashboardSelectors,
+  ...courseCompletionSelectors
 };
 
 // Selector categories for dynamic UI generation

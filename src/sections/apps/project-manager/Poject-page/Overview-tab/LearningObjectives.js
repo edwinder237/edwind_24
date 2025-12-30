@@ -11,8 +11,8 @@ import {
   ListItemText,
   IconButton,
   Collapse,
-  Button,
-  Avatar
+  Avatar,
+  Alert
 } from '@mui/material';
 import {
   School,
@@ -21,50 +21,40 @@ import {
   TrendingUp,
   Assignment,
   Psychology,
-  Group
+  Group,
+  InfoCircleOutlined
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useSelector } from 'store';
-import { selectAllParticipants } from 'store/entities/participantsSlice';
+import { selectCourseCompletionData, selectCourseParticipantRoleDistribution } from 'store/selectors';
 
-// ==============================|| COURSE DATA ||============================== //
+// ==============================|| COURSE CATEGORY ICONS ||============================== //
 
-const COURSES = [
-  {
-    id: 1,
-    category: 'CRM Fundamentals',
-    icon: <School />,
-    color: '#2196F3',
-    totalObjectives: 3
-  },
-  {
-    id: 2,
-    category: 'Customer Data Management',
-    icon: <Assignment />,
-    color: '#4CAF50',
-    totalObjectives: 3
-  },
-  {
-    id: 3,
-    category: 'Sales Pipeline Management',
-    icon: <TrendingUp />,
-    color: '#FF9800',
-    totalObjectives: 3
-  },
-  {
-    id: 4,
-    category: 'Team Collaboration',
-    icon: <Group />,
-    color: '#9C27B0',
-    totalObjectives: 2
+const getCategoryIcon = (category) => {
+  const categoryLower = (category || '').toLowerCase();
+
+  if (categoryLower.includes('crm') || categoryLower.includes('fundamentals')) {
+    return <School />;
+  } else if (categoryLower.includes('data') || categoryLower.includes('management')) {
+    return <Assignment />;
+  } else if (categoryLower.includes('sales') || categoryLower.includes('pipeline')) {
+    return <TrendingUp />;
+  } else if (categoryLower.includes('team') || categoryLower.includes('collaboration')) {
+    return <Group />;
   }
-];
+
+  return <School />; // Default icon
+};
+
+const getCategoryColor = (index) => {
+  const colors = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#E91E63', '#00BCD4'];
+  return colors[index % colors.length];
+};
 
 // ==============================|| UTILITY FUNCTIONS ||============================== //
 
 /**
  * Safely extracts a string value from nested participant object
- * Handles both camelCase and snake_case field names
  */
 const getStringValue = (obj, ...keys) => {
   for (const key of keys) {
@@ -81,17 +71,20 @@ const getStringValue = (obj, ...keys) => {
 const extractParticipantData = (p) => {
   const participant = p.participant || p;
 
-  // Extract role from various possible locations
-  const role = getStringValue(p, 'participantRole', 'role') ||
-               getStringValue(participant, 'role', 'participantRole') ||
-               'Learner'; // Default role if not specified
+  // Extract role
+  const role = participant.role?.title ||
+               participant.participantType ||
+               'Learner';
 
   return {
-    id: p.id || participant?.id,
+    id: participant.id || p.participantId,
     firstName: getStringValue(participant, 'firstName', 'first_name'),
     lastName: getStringValue(participant, 'lastName', 'last_name'),
     role,
-    groupName: getStringValue(p, 'groupName', 'group_name') || p.group?.name || ''
+    attendanceRate: p.attendanceRate || 0,
+    eventsAttended: p.eventsAttended || 0,
+    totalEvents: p.totalEvents || 0,
+    isCompleted: p.isCompleted || false
   };
 };
 
@@ -101,7 +94,7 @@ const extractParticipantData = (p) => {
  * Participant Card Component
  */
 const ParticipantCard = ({ participantData, categoryColor }) => {
-  const { id, firstName, lastName, role, groupName } = participantData;
+  const { firstName, lastName, role, attendanceRate, eventsAttended, totalEvents, isCompleted } = participantData;
   const initials = `${firstName?.[0] || 'U'}${lastName?.[0] || 'U'}`;
   const fullName = `${firstName || 'Unknown'} ${lastName || 'User'}`;
 
@@ -125,7 +118,7 @@ const ParticipantCard = ({ participantData, categoryColor }) => {
           sx={{
             width: 32,
             height: 32,
-            bgcolor: categoryColor,
+            bgcolor: isCompleted ? '#4caf50' : categoryColor,
             fontSize: '0.875rem'
           }}
         >
@@ -153,22 +146,21 @@ const ParticipantCard = ({ participantData, categoryColor }) => {
           </Stack>
         }
         secondary={
-          groupName ? (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
-                Group:
-              </Typography>
-              <Chip
-                label={groupName}
-                size="small"
-                variant="outlined"
-                sx={{
-                  height: 18,
-                  fontSize: '0.65rem'
-                }}
-              />
-            </Stack>
-          ) : null
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              Attendance:
+            </Typography>
+            <Chip
+              label={`${eventsAttended}/${totalEvents} events (${attendanceRate}%)`}
+              size="small"
+              color={isCompleted ? 'success' : attendanceRate >= 70 ? 'primary' : 'warning'}
+              variant="outlined"
+              sx={{
+                height: 18,
+                fontSize: '0.65rem'
+              }}
+            />
+          </Stack>
         }
       />
     </ListItem>
@@ -177,43 +169,40 @@ const ParticipantCard = ({ participantData, categoryColor }) => {
 
 // ==============================|| MAIN COMPONENT ||============================== //
 
-const LearningObjectives = ({ project }) => {
+const CourseCompletionTracker = ({ project }) => {
   const theme = useTheme();
-  const [expandedCategories, setExpandedCategories] = useState([1]);
+  const [expandedCourses, setExpandedCourses] = useState([]);
 
-  // Get participants from normalized Redux store
-  const participants = useSelector(selectAllParticipants);
+  // Get course completion data from normalized Redux store
+  const completionData = useSelector(selectCourseCompletionData);
+  const roleDistribution = useSelector(selectCourseParticipantRoleDistribution);
+
+  // Extract data
+  const { curriculums, totalCourses, totalObjectives, completedObjectives, overallCompletionRate } = completionData;
 
   // Toggle course expansion
-  const toggleCategory = (categoryId) => {
-    setExpandedCategories(prev =>
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
+  const toggleCourse = (courseId) => {
+    setExpandedCourses(prev =>
+      prev.includes(courseId)
+        ? prev.filter(id => id !== courseId)
+        : [...prev, courseId]
     );
   };
 
-  // Calculate overall progress metrics
-  const totalObjectives = COURSES.reduce((sum, course) => sum + course.totalObjectives, 0);
-  const completedObjectives = 3; // TODO: Connect to real completion data
-  const overallProgress = (completedObjectives / totalObjectives) * 100;
-
-  // Calculate role distribution
-  const roleDistribution = participants.reduce((acc, p) => {
-    const participantData = extractParticipantData(p);
-    const role = participantData.role || 'Learner';
-    if (!acc[role]) {
-      acc[role] = { role, count: 0 };
-    }
-    acc[role].count++;
-    return acc;
-  }, {});
-
-  const roleStats = Object.values(roleDistribution).map((r, index) => ({
-    ...r,
-    percentage: participants.length > 0 ? Math.round((r.count / participants.length) * 100) : 0,
-    color: ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#E91E63', '#00BCD4'][index % 6]
-  }));
+  // Empty state
+  if (curriculums.length === 0) {
+    return (
+      <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
+        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+          <Psychology sx={{ color: 'primary.main' }} />
+          <Typography variant="h6" fontWeight="bold">Course Completion Tracker</Typography>
+        </Stack>
+        <Alert severity="info" sx={{ mt: 2 }}>
+          No curriculums assigned to this project. Assign curriculums to groups to track course completion.
+        </Alert>
+      </Paper>
+    );
+  }
 
   return (
     <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
@@ -221,29 +210,29 @@ const LearningObjectives = ({ project }) => {
       <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Psychology sx={{ color: 'primary.main' }} />
-          <Typography variant="h6" fontWeight="bold">Learning Objectives</Typography>
+          <Typography variant="h6" fontWeight="bold">Course Completion Tracker</Typography>
         </Stack>
         <Stack direction="row" alignItems="center" spacing={2}>
           <Chip
             label={`${completedObjectives}/${totalObjectives} completed`}
             size="small"
-            color={overallProgress >= 50 ? 'success' : 'warning'}
+            color={overallCompletionRate >= 50 ? 'success' : 'warning'}
             variant="outlined"
           />
           <Typography variant="caption" color="text.secondary">
-            {overallProgress.toFixed(0)}% overall progress
+            {overallCompletionRate}% overall progress
           </Typography>
         </Stack>
       </Stack>
 
       {/* Role Breakdown */}
-      {roleStats.length > 0 && (
+      {roleDistribution.length > 0 && (
         <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
           <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ mb: 2 }}>
             Role Breakdown
           </Typography>
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-            {roleStats.map((roleStat, index) => (
+            {roleDistribution.map((roleStat, index) => (
               <Box
                 key={index}
                 sx={{
@@ -289,107 +278,194 @@ const LearningObjectives = ({ project }) => {
         </Box>
       )}
 
-      {/* Course Sections */}
-      <Stack spacing={2}>
-        {COURSES.map((course) => {
-          const isExpanded = expandedCategories.includes(course.id);
-          const courseParticipants = participants.slice(0, 5); // TODO: Filter by actual course enrollment
+      {/* Curriculum Sections */}
+      {curriculums.map((curriculum, curriculumIndex) => (
+        <Box key={curriculum.id} sx={{ mb: 3 }}>
+          {/* Curriculum Header */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom>
+              {curriculum.title}
+            </Typography>
+            {curriculum.description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {curriculum.description}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1}>
+              <Chip
+                label={`${curriculum.courseCount} courses`}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+              {curriculum.assignedGroups.length > 0 && (
+                <Chip
+                  label={`Assigned to ${curriculum.assignedGroups.length} group${curriculum.assignedGroups.length > 1 ? 's' : ''}`}
+                  size="small"
+                  variant="outlined"
+                />
+              )}
+            </Stack>
+          </Box>
 
-          return (
-            <Box key={course.id}>
-              {/* Course Header */}
-              <Box
-                sx={{
-                  p: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                    borderColor: course.color
-                  }
-                }}
-                onClick={() => toggleCategory(course.id)}
-              >
-                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                  <Stack direction="row" alignItems="center" spacing={2}>
-                    {/* Course Icon */}
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 1,
-                        bgcolor: alpha(course.color, 0.1),
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: course.color
-                      }}
-                    >
-                      {course.icon}
-                    </Box>
+          {/* Course Sections */}
+          <Stack spacing={2}>
+            {curriculum.courses.map((course, courseIndex) => {
+              const isExpanded = expandedCourses.includes(course.id);
+              const courseParticipants = course.participants || [];
+              const courseColor = getCategoryColor(curriculumIndex * 10 + courseIndex);
 
-                    {/* Course Info */}
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        {course.category}
-                      </Typography>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <Typography variant="caption" color="text.secondary">
-                          {course.totalObjectives} objectives
-                        </Typography>
-                        <Chip
-                          label={`${courseParticipants.length} participants`}
-                          size="small"
+              return (
+                <Box key={course.id}>
+                  {/* Course Header */}
+                  <Box
+                    sx={{
+                      p: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                        borderColor: courseColor
+                      }
+                    }}
+                    onClick={() => toggleCourse(course.id)}
+                  >
+                    <Stack direction="row" alignItems="center" justifyContent="space-between">
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        {/* Course Icon */}
+                        <Box
                           sx={{
-                            bgcolor: course.color,
-                            color: 'white',
-                            fontSize: '0.7rem',
-                            height: 20
+                            width: 40,
+                            height: 40,
+                            borderRadius: 1,
+                            bgcolor: alpha(courseColor, 0.1),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: courseColor
                           }}
-                        />
+                        >
+                          {getCategoryIcon(course.courseCategory)}
+                        </Box>
+
+                        {/* Course Info */}
+                        <Box>
+                          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              {course.title}
+                            </Typography>
+                            {course.code && (
+                              <Chip
+                                label={course.code}
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500,
+                                  borderColor: 'divider',
+                                  color: 'text.secondary',
+                                  bgcolor: 'background.paper'
+                                }}
+                              />
+                            )}
+                            {course.version && (
+                              <Chip
+                                label={`v${course.version}`}
+                                size="small"
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.65rem',
+                                  bgcolor: 'action.hover',
+                                  color: 'text.secondary',
+                                  fontWeight: 500
+                                }}
+                              />
+                            )}
+                          </Stack>
+                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {course.totalEvents} event{course.totalEvents !== 1 ? 's' : ''}
+                            </Typography>
+                            <Chip
+                              label={`${courseParticipants.length} participants`}
+                              size="small"
+                              sx={{
+                                bgcolor: 'action.selected',
+                                color: 'text.secondary',
+                                fontSize: '0.65rem',
+                                height: 20,
+                                fontWeight: 500
+                              }}
+                            />
+                            <Chip
+                              label={`${course.completedParticipants}/${courseParticipants.length} completed`}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                fontSize: '0.65rem',
+                                height: 20,
+                                fontWeight: 500,
+                                borderColor: 'divider',
+                                color: 'text.secondary'
+                              }}
+                            />
+                            <Chip
+                              label={`${course.averageAttendanceRate}% avg attendance`}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                fontSize: '0.65rem',
+                                height: 20,
+                                fontWeight: 500,
+                                borderColor: 'divider',
+                                color: 'text.secondary'
+                              }}
+                            />
+                          </Stack>
+                        </Box>
                       </Stack>
+
+                      {/* Expand/Collapse Icon */}
+                      <IconButton size="small">
+                        {isExpanded ? <ExpandLess /> : <ExpandMore />}
+                      </IconButton>
+                    </Stack>
+                  </Box>
+
+                  {/* Participants List (Collapsible) */}
+                  <Collapse in={isExpanded}>
+                    <Box sx={{ mt: 1, ml: 2, mr: 1 }}>
+                      <List sx={{ py: 1 }}>
+                        {courseParticipants.length > 0 ? (
+                          courseParticipants.map((p) => (
+                            <ParticipantCard
+                              key={p.participantId || p.participant?.id}
+                              participantData={extractParticipantData(p)}
+                              categoryColor={courseColor}
+                            />
+                          ))
+                        ) : (
+                          <Box sx={{ textAlign: 'center', py: 2 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              No participants assigned to this course
+                            </Typography>
+                          </Box>
+                        )}
+                      </List>
                     </Box>
-                  </Stack>
-
-                  {/* Expand/Collapse Icon */}
-                  <IconButton size="small">
-                    {isExpanded ? <ExpandLess /> : <ExpandMore />}
-                  </IconButton>
-                </Stack>
-              </Box>
-
-              {/* Participants List (Collapsible) */}
-              <Collapse in={isExpanded}>
-                <Box sx={{ mt: 1, ml: 2, mr: 1 }}>
-                  <List sx={{ py: 1 }}>
-                    {courseParticipants.length > 0 ? (
-                      courseParticipants.map((p) => (
-                        <ParticipantCard
-                          key={extractParticipantData(p).id}
-                          participantData={extractParticipantData(p)}
-                          categoryColor={course.color}
-                        />
-                      ))
-                    ) : (
-                      <Box sx={{ textAlign: 'center', py: 2 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          No participants enrolled in this course
-                        </Typography>
-                      </Box>
-                    )}
-                  </List>
+                  </Collapse>
                 </Box>
-              </Collapse>
-            </Box>
-          );
-        })}
-      </Stack>
-
+              );
+            })}
+          </Stack>
+        </Box>
+      ))}
     </Paper>
   );
 };
 
-export default LearningObjectives;
+export default CourseCompletionTracker;

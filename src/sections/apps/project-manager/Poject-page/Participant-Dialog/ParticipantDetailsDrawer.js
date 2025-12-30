@@ -3,7 +3,8 @@ import {
   Dialog, Box, Typography, IconButton, Stack, Avatar, Divider, Chip,
   Card, CardContent, List, ListItem, ListItemIcon, ListItemText,
   Paper, Grid, Tab, Tabs, Alert, Button, CircularProgress,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel, Tooltip
 } from '@mui/material';
 import {
   Close, Email, Phone, School, CheckCircle, RadioButtonUnchecked,
@@ -11,42 +12,113 @@ import {
   Schedule, Group as GroupIcon, PlaylistAddCheck, Edit, Delete, Person
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { useSelector, useDispatch } from 'store';
+import { useDispatch } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
+import {
+  useUpdateParticipantChecklistProgressMutation,
+  useGetProjectAgendaQuery,
+  useGetParticipantAssessmentsQuery,
+  useRecordAssessmentScoreMutation,
+  useToggleAssessmentForProjectMutation
+} from 'store/api/projectApi';
+import { recordAssessmentScore } from 'store/commands/assessmentCommands';
+import AttendanceHistory from './AttendanceHistory';
+import AttendanceSummary from './AttendanceSummary';
 // getProjectChecklist removed - RTK Query handles cache updates via invalidation
 
-
-const generateMockAssessments = () => [
-  { id: 1, title: 'Module 1 Quiz', type: 'Quiz', score: 92, maxScore: 100, status: 'Passed', date: '2024-01-16', attempts: 1 },
-  { id: 2, title: 'Practical Exercise: Data Entry', type: 'Practical', score: 88, maxScore: 100, status: 'Passed', date: '2024-01-17', attempts: 2 },
-  { id: 3, title: 'Module 2 Quiz', type: 'Quiz', score: 0, maxScore: 100, status: 'Pending', date: null, attempts: 0 },
-  { id: 4, title: 'Final Assessment', type: 'Exam', score: 0, maxScore: 100, status: 'Not Started', date: null, attempts: 0 }
-];
-
-const generateMockAttendance = () => [
-  { date: '2024-01-15', status: 'present', checkIn: '09:00 AM', checkOut: '05:00 PM' },
-  { date: '2024-01-16', status: 'present', checkIn: '09:05 AM', checkOut: '05:15 PM' },
-  { date: '2024-01-17', status: 'late', checkIn: '09:35 AM', checkOut: '05:00 PM' },
-  { date: '2024-01-18', status: 'present', checkIn: '08:55 AM', checkOut: '05:10 PM' },
-  { date: '2024-01-19', status: 'absent', checkIn: null, checkOut: null }
-];
-
-
-const ParticipantDrawer = ({ open, onClose, participant }) => {
+const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
   const theme = useTheme();
   const [activeTab, setActiveTab] = useState(0);
   const [courseChecklists, setCourseChecklists] = useState([]);
   const [checklistLoading, setChecklistLoading] = useState(false);
   const [updatingItems, setUpdatingItems] = useState(new Set());
-  
+
   // Learning activities state
   const [learningActivities, setLearningActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
-  
-  const { singleProject } = useSelector((state) => state.projects);
+
+  // Assessment score recording state
+  const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
+  const [selectedAssessment, setSelectedAssessment] = useState(null);
+  const [scoreForm, setScoreForm] = useState({
+    scoreEarned: '',
+    feedback: '',
+    assessmentDate: new Date().toISOString().split('T')[0]
+  });
+
   const dispatch = useDispatch();
-  const assessments = generateMockAssessments();
-  const attendance = generateMockAttendance();
+
+  // CQRS: RTK Query for participant assessments
+  // Note: Using projectParticipantId (numeric ID from project_participants table)
+  // not the UUID from participants table
+  const {
+    data: assessmentData,
+    isLoading: assessmentsLoading,
+    refetch: refetchAssessments
+  } = useGetParticipantAssessmentsQuery(
+    { participantId: participant?.projectParticipantId, currentOnly: false },
+    {
+      skip: !participant?.projectParticipantId || !open,
+      refetchOnMountOrArgChange: true
+    }
+  );
+
+  // RTK Query mutation for toggling assessment status
+  const [toggleAssessmentForProject, { isLoading: isTogglingAssessment }] = useToggleAssessmentForProjectMutation();
+
+  // Transform assessment data to match expected format
+  const assessments = useMemo(() => {
+    if (!assessmentData?.groupedByAssessment) {
+      return [];
+    }
+
+    return assessmentData.groupedByAssessment.map(group => {
+      const current = group.currentScore || group.statistics?.latestAttempt;
+      const assessment = group.assessment;
+
+      return {
+        id: assessment.id,
+        title: assessment.title,
+        type: assessment.title.includes('Quiz') ? 'Quiz' :
+              assessment.title.includes('Practical') ? 'Practical' :
+              assessment.title.includes('Exam') ? 'Exam' : 'Assessment',
+        score: current ? current.scoreEarned : 0,
+        maxScore: assessment.maxScore || 100,
+        status: current
+          ? (current.passed ? 'Passed' : 'Failed')
+          : (group.statistics.totalAttempts > 0 ? 'Pending' : 'Not Started'),
+        date: current ? new Date(current.assessmentDate).toISOString().split('T')[0] : null,
+        attempts: group.statistics.totalAttempts || 0,
+        // Additional data for score recording
+        assessment: assessment,
+        allAttempts: group.attempts || [],
+        statistics: group.statistics
+      };
+    });
+  }, [assessmentData]);
+
+  // CQRS: RTK Query for project agenda data
+  const {
+    data: agendaData,
+    isLoading: isAgendaLoading,
+  } = useGetProjectAgendaQuery(projectId, {
+    skip: !projectId || !open, // Skip if no projectId or drawer is closed
+    pollingInterval: 0,
+    refetchOnFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMountOrArgChange: false,
+  });
+
+  // Create project structure for backward compatibility
+  const singleProject = agendaData ? {
+    ...agendaData.projectInfo,
+    events: agendaData.events || [],
+    groups: agendaData.groups || [],
+    id: projectId
+  } : { events: [], groups: [], id: projectId };
+
+  // CQRS: RTK Query mutation for updating participant checklist
+  const [updateParticipantProgress] = useUpdateParticipantChecklistProgressMutation();
 
   const fetchChecklistItems = async (participantId) => {
     if (!participantId) return;
@@ -94,37 +166,37 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
 
   const toggleItemCompletion = async (itemId, currentStatus) => {
     if (updatingItems.has(itemId)) return;
-    
-    setUpdatingItems(prev => new Set([...prev, itemId]));
-    
-    try {
-      const response = await fetch('/api/participants/checklist-items', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          participantId: participant.id,
-          checklistItemId: itemId,
-          completed: !currentStatus
-        })
-      });
 
-      if (response.ok) {
-        setCourseChecklists(prevChecklists => 
+    setUpdatingItems(prev => new Set([...prev, itemId]));
+
+    try {
+      // CQRS: Use RTK Query mutation instead of direct fetch
+      // This ensures RTK Query cache is invalidated and dashboard updates
+      const result = await updateParticipantProgress({
+        participantId: participant.id,
+        checklistItemId: itemId,
+        completed: !currentStatus,
+        projectId: singleProject?.id // Required for tag invalidation
+      }).unwrap();
+
+      if (result.success) {
+        // Update local state optimistically
+        setCourseChecklists(prevChecklists =>
           prevChecklists.map(checklist => ({
             ...checklist,
-            items: checklist.items.map(item => 
-              item.id === itemId 
-                ? { 
-                    ...item, 
+            items: checklist.items.map(item =>
+              item.id === itemId
+                ? {
+                    ...item,
                     completed: !currentStatus,
-                    completedAt: !currentStatus ? new Date().toISOString() : null 
+                    completedAt: !currentStatus ? new Date().toISOString() : null
                   }
                 : item
             )
           }))
         );
 
-        // RTK Query will automatically update checklist via cache invalidation
+        // RTK Query will automatically invalidate Checklist tag and update dashboard
         // No manual refresh needed
 
         dispatch(openSnackbar({
@@ -132,13 +204,6 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
           message: `Item ${!currentStatus ? 'completed' : 'uncompleted'} successfully`,
           variant: 'alert',
           alert: { color: 'success' }
-        }));
-      } else {
-        dispatch(openSnackbar({
-          open: true,
-          message: 'Failed to update completion status',
-          variant: 'alert',
-          alert: { color: 'error' }
         }));
       }
     } catch (error) {
@@ -155,6 +220,122 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
         newSet.delete(itemId);
         return newSet;
       });
+    }
+  };
+
+  // Handle opening the score recording dialog
+  const handleOpenScoreDialog = (assessment) => {
+    setSelectedAssessment(assessment);
+    setScoreForm({
+      scoreEarned: '',
+      feedback: '',
+      assessmentDate: new Date().toISOString().split('T')[0]
+    });
+    setScoreDialogOpen(true);
+  };
+
+  // Handle closing the score recording dialog
+  const handleCloseScoreDialog = () => {
+    setScoreDialogOpen(false);
+    setSelectedAssessment(null);
+    setScoreForm({
+      scoreEarned: '',
+      feedback: '',
+      assessmentDate: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  // Handle score form submission
+  const handleSubmitScore = async () => {
+    if (!selectedAssessment || !participant?.projectParticipantId) return;
+
+    // Validation
+    const scoreEarned = parseFloat(scoreForm.scoreEarned);
+    if (isNaN(scoreEarned) || scoreEarned < 0) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Please enter a valid score',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+      return;
+    }
+
+    if (scoreEarned > selectedAssessment.maxScore) {
+      dispatch(openSnackbar({
+        open: true,
+        message: `Score cannot exceed maximum score of ${selectedAssessment.maxScore}`,
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+      return;
+    }
+
+    try {
+      // CQRS: Use the command to record assessment score
+      // Note: Using projectParticipantId (numeric ID from project_participants table)
+      await dispatch(recordAssessmentScore({
+        assessmentId: selectedAssessment.assessment.id,
+        participantId: participant.projectParticipantId,
+        scoreData: {
+          courseAssessmentId: selectedAssessment.assessment.id, // API expects courseAssessmentId
+          participantId: participant.projectParticipantId,
+          scoreEarned: scoreEarned,
+          scoreMaximum: selectedAssessment.maxScore,
+          feedback: scoreForm.feedback || '',
+          assessmentDate: scoreForm.assessmentDate,
+          instructorId: null // TODO: Get from auth context if needed
+        }
+      })).unwrap();
+
+      // Close dialog and refetch assessments
+      handleCloseScoreDialog();
+      refetchAssessments();
+
+    } catch (error) {
+      // Error handling is done in the command
+      console.error('Failed to record score:', error);
+    }
+  };
+
+  // Handle toggling assessment enable/disable for project
+  const handleToggleAssessment = async (assessmentId, currentStatus) => {
+    if (!projectId) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Project ID is required to toggle assessment',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+      return;
+    }
+
+    try {
+      const result = await toggleAssessmentForProject({
+        projectId: projectId,
+        courseAssessmentId: assessmentId,
+        isActive: !currentStatus, // Toggle the status
+        createdBy: 'system' // TODO: Get from auth context
+      }).unwrap();
+
+      dispatch(openSnackbar({
+        open: true,
+        message: result.message || `Assessment ${!currentStatus ? 'enabled' : 'disabled'} successfully`,
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+
+      // Refetch assessments to show updated list
+      refetchAssessments();
+
+    } catch (error) {
+      dispatch(openSnackbar({
+        open: true,
+        message: error?.data?.message || 'Failed to toggle assessment status',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+      console.error('Failed to toggle assessment:', error);
     }
   };
 
@@ -228,19 +409,45 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
   const completedActivities = learningActivities.filter(a => a.completed).length;
   const totalActivities = learningActivities.length;
   const progressPercentage = totalActivities > 0 ? (completedActivities / totalActivities) * 100 : 0;
-  
+
   const averageScore = learningActivities
     .filter(a => a.score !== null)
     .reduce((acc, curr, _, arr) => acc + curr.score / arr.length, 0) || 0;
 
-  const attendanceStats = {
-    present: attendance.filter(a => a.status === 'present').length,
-    late: attendance.filter(a => a.status === 'late').length,
-    absent: attendance.filter(a => a.status === 'absent').length,
-    total: attendance.length
-  };
+  // Calculate attendance statistics from participantEvents
+  const attendanceStats = useMemo(() => {
+    if (!participantEvents || participantEvents.length === 0) {
+      return { present: 0, late: 0, absent: 0, total: 0 };
+    }
 
-  const attendanceRate = ((attendanceStats.present + attendanceStats.late) / attendanceStats.total) * 100;
+    return {
+      present: participantEvents.filter(e => e.attendanceStatus === 'present').length,
+      late: participantEvents.filter(e => e.attendanceStatus === 'late').length,
+      absent: participantEvents.filter(e => e.attendanceStatus === 'absent').length,
+      total: participantEvents.length
+    };
+  }, [participantEvents]);
+
+  const attendanceRate = attendanceStats.total > 0
+    ? ((attendanceStats.present + attendanceStats.late) / attendanceStats.total) * 100
+    : 0;
+
+  // Create attendance history from participantEvents (sorted by date, most recent first)
+  const attendanceHistory = useMemo(() => {
+    if (!participantEvents || participantEvents.length === 0) return [];
+
+    return participantEvents
+      .filter(event => event.start) // Only events with dates
+      .sort((a, b) => new Date(b.start) - new Date(a.start)) // Most recent first
+      .map(event => ({
+        date: new Date(event.start).toISOString().split('T')[0],
+        status: event.attendanceStatus || 'scheduled',
+        checkIn: event.checkInTime || null,
+        checkOut: event.checkOutTime || null,
+        eventTitle: event.title,
+        eventId: event.id
+      }));
+  }, [participantEvents]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -254,7 +461,8 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
       case 'present': return 'success';
       case 'late': return 'warning';
       case 'absent': return 'error';
-      default: return 'default';
+      case 'scheduled': return 'info';
+      default: return 'info';
     }
   };
 
@@ -446,7 +654,7 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
-                    Course Activities
+                    Assigned Courses
                   </Typography>
                   {activitiesLoading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
@@ -597,16 +805,18 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
                               </Stack>
                             </Box>
                             
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                console.log('Available events to move to:', availableEvents);
-                              }}
-                              disabled={availableEvents.length === 0}
-                              sx={{ ml: 1 }}
-                            >
-                              <SwapHoriz sx={{ fontSize: 18 }} />
-                            </IconButton>
+                            <Tooltip title="Move to another event">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  console.log('Available events to move to:', availableEvents);
+                                }}
+                                disabled={availableEvents.length === 0}
+                                sx={{ ml: 1 }}
+                              >
+                                <SwapHoriz sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            </Tooltip>
                           </Stack>
                         </Box>
                       ))}
@@ -636,24 +846,64 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
                   <TableCell sx={{ color: 'text.primary', fontWeight: 600 }}>Date</TableCell>
                   <TableCell align="center" sx={{ color: 'text.primary', fontWeight: 600 }}>Attempts</TableCell>
                   <TableCell align="center" sx={{ color: 'text.primary', fontWeight: 600 }}>Score</TableCell>
+                  <TableCell align="center" sx={{ color: 'text.primary', fontWeight: 600 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {assessments.map((assessment) => (
+                {assessmentsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <CircularProgress size={32} />
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                        Loading assessments...
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : assessments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <Grade sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No assessments found for this participant
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  assessments.map((assessment) => {
+                    const isDisabled = !assessment.assessment.isActive;
+                    return (
                   <TableRow
                     key={assessment.id}
                     sx={{
                       '&:hover': { bgcolor: '#2a2a2a' },
                       borderBottom: '1px solid',
-                      borderColor: 'divider'
+                      borderColor: 'divider',
+                      opacity: isDisabled ? 0.5 : 1,
+                      bgcolor: isDisabled ? alpha(theme.palette.error.main, 0.05) : 'transparent'
                     }}
                   >
-                    <TableCell sx={{ color: 'text.primary' }}>{assessment.title}</TableCell>
+                    <TableCell sx={{
+                      color: isDisabled ? 'text.disabled' : 'text.primary',
+                      textDecoration: isDisabled ? 'line-through' : 'none'
+                    }}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="body2">{assessment.title}</Typography>
+                        {isDisabled && (
+                          <Chip
+                            label="Disabled"
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                            sx={{ height: 18, fontSize: '0.65rem' }}
+                          />
+                        )}
+                      </Stack>
+                    </TableCell>
                     <TableCell>
                       <Chip
                         size="small"
                         label={assessment.type}
-                        color="primary"
+                        color={isDisabled ? 'default' : 'primary'}
                         variant="outlined"
                         sx={{ height: 20, fontSize: '0.7rem' }}
                       />
@@ -661,8 +911,12 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
                     <TableCell>
                       <Chip
                         size="small"
-                        label={assessment.status}
-                        color={assessment.status === 'Passed' ? 'success' : assessment.status === 'Pending' ? 'warning' : 'default'}
+                        label={isDisabled ? 'Disabled' : assessment.status}
+                        color={
+                          isDisabled ? 'error' :
+                          assessment.status === 'Passed' ? 'success' :
+                          assessment.status === 'Pending' ? 'warning' : 'default'
+                        }
                         sx={{ height: 20, fontSize: '0.7rem' }}
                       />
                     </TableCell>
@@ -677,14 +931,45 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
                         variant="body2"
                         sx={{
                           fontWeight: 600,
-                          color: assessment.score >= 80 ? 'success.main' : assessment.score >= 60 ? 'warning.main' : 'text.primary'
+                          color: isDisabled ? 'text.disabled' :
+                            assessment.score >= 80 ? 'success.main' :
+                            assessment.score >= 60 ? 'warning.main' : 'text.primary'
                         }}
                       >
                         {assessment.score}/{assessment.maxScore}
                       </Typography>
                     </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<Grade />}
+                          onClick={() => handleOpenScoreDialog(assessment)}
+                          disabled={!assessment.assessment.isActive}
+                          sx={{
+                            fontSize: '0.7rem',
+                            height: 24,
+                            textTransform: 'none'
+                          }}
+                        >
+                          {assessment.attempts > 0 ? 'Record Retake' : 'Record Score'}
+                        </Button>
+                        <Tooltip title={assessment.assessment.isActive ? 'Disable assessment for this project' : 'Enable assessment for this project'}>
+                          <Switch
+                            checked={assessment.assessment.isActive}
+                            onChange={() => handleToggleAssessment(assessment.assessment.id, assessment.assessment.isActive)}
+                            disabled={isTogglingAssessment}
+                            size="small"
+                            color="primary"
+                          />
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -693,80 +978,23 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
         {activeTab === 2 && (
           <Stack spacing={3}>
             {/* Attendance Summary */}
-            <Card sx={{ bgcolor: '#1e1e1e' }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Attendance Summary</Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={4}>
-                    <Box sx={{ textAlign: 'center', p: 2, bgcolor: alpha(theme.palette.success.main, 0.15), borderRadius: 2 }}>
-                      <Typography variant="h4" color="success.main">{attendanceStats.present}</Typography>
-                      <Typography variant="body2" color="text.secondary">Present</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Box sx={{ textAlign: 'center', p: 2, bgcolor: alpha(theme.palette.warning.main, 0.15), borderRadius: 2 }}>
-                      <Typography variant="h4" color="warning.main">{attendanceStats.late}</Typography>
-                      <Typography variant="body2" color="text.secondary">Late</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Box sx={{ textAlign: 'center', p: 2, bgcolor: alpha(theme.palette.error.main, 0.15), borderRadius: 2 }}>
-                      <Typography variant="h4" color="error.main">{attendanceStats.absent}</Typography>
-                      <Typography variant="body2" color="text.secondary">Absent</Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                Attendance Summary
+              </Typography>
+              <AttendanceSummary attendanceStats={attendanceStats} />
+            </Box>
 
-            {/* Attendance Details */}
-            <Card sx={{ bgcolor: '#1e1e1e' }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Attendance History</Typography>
-                <List sx={{ p: 0 }}>
-                  {attendance.map((record, index) => (
-                    <ListItem
-                      key={index}
-                      sx={{
-                        borderRadius: 1,
-                        mb: 1,
-                        p: 2,
-                        bgcolor: '#2a2a2a',
-                        border: 1,
-                        borderColor: alpha(theme.palette[getStatusColor(record.status)].main, 0.3),
-                        '&:hover': {
-                          bgcolor: '#333333'
-                        }
-                      }}
-                    >
-                      <ListItemText
-                        primary={record.date}
-                        secondary={
-                          <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
-                            <Chip
-                              size="small"
-                              label={record.status.toUpperCase()}
-                              color={getStatusColor(record.status)}
-                              sx={{ height: 20 }}
-                            />
-                            {record.checkIn && (
-                              <Typography variant="caption" color="text.secondary">
-                                Check-in: {record.checkIn}
-                              </Typography>
-                            )}
-                            {record.checkOut && (
-                              <Typography variant="caption" color="text.secondary">
-                                Check-out: {record.checkOut}
-                              </Typography>
-                            )}
-                          </Stack>
-                        }
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
+            {/* Attendance History */}
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                Attendance History
+              </Typography>
+              <AttendanceHistory
+                attendanceHistory={attendanceHistory}
+                getStatusColor={getStatusColor}
+              />
+            </Box>
           </Stack>
         )}
 
@@ -943,6 +1171,143 @@ const ParticipantDrawer = ({ open, onClose, participant }) => {
           </Box>
         </>
       )}
+
+      {/* Score Recording Dialog */}
+      <Dialog
+        open={scoreDialogOpen}
+        onClose={handleCloseScoreDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#1e1e1e',
+            borderRadius: 2
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              Record Assessment Score
+            </Typography>
+            <IconButton size="small" onClick={handleCloseScoreDialog}>
+              <Close />
+            </IconButton>
+          </Stack>
+          {selectedAssessment && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {selectedAssessment.title} - {participant?.firstName} {participant?.lastName}
+            </Typography>
+          )}
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2.5}>
+            {/* Score Input */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Score *
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  fullWidth
+                  type="number"
+                  placeholder="Enter score earned"
+                  value={scoreForm.scoreEarned}
+                  onChange={(e) => setScoreForm({ ...scoreForm, scoreEarned: e.target.value })}
+                  inputProps={{
+                    min: 0,
+                    max: selectedAssessment?.maxScore || 100,
+                    step: 0.1
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      bgcolor: '#2a2a2a'
+                    }
+                  }}
+                />
+                <Typography variant="body1" sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}>
+                  / {selectedAssessment?.maxScore || 100}
+                </Typography>
+              </Stack>
+              {scoreForm.scoreEarned && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  Percentage: {((parseFloat(scoreForm.scoreEarned) / (selectedAssessment?.maxScore || 100)) * 100).toFixed(1)}%
+                </Typography>
+              )}
+            </Box>
+
+            {/* Date Input */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Assessment Date *
+              </Typography>
+              <TextField
+                fullWidth
+                type="date"
+                value={scoreForm.assessmentDate}
+                onChange={(e) => setScoreForm({ ...scoreForm, assessmentDate: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: '#2a2a2a'
+                  }
+                }}
+              />
+            </Box>
+
+            {/* Feedback Input */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Feedback (Optional)
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                placeholder="Enter instructor feedback..."
+                value={scoreForm.feedback}
+                onChange={(e) => setScoreForm({ ...scoreForm, feedback: e.target.value })}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: '#2a2a2a'
+                  }
+                }}
+              />
+            </Box>
+
+            {/* Assessment Info */}
+            {selectedAssessment && (
+              <Alert severity="info" sx={{ bgcolor: alpha(theme.palette.info.main, 0.1) }}>
+                <Typography variant="caption" sx={{ display: 'block' }}>
+                  <strong>Current Attempts:</strong> {selectedAssessment.attempts}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block' }}>
+                  <strong>Passing Score:</strong> {selectedAssessment.assessment?.passingScore || 70}%
+                </Typography>
+                {selectedAssessment.assessment?.allowRetakes && (
+                  <Typography variant="caption" sx={{ display: 'block' }}>
+                    <strong>Max Retakes:</strong> {selectedAssessment.assessment?.maxRetakes || 'Unlimited'}
+                  </Typography>
+                )}
+              </Alert>
+            )}
+          </Stack>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={handleCloseScoreDialog}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmitScore}
+            disabled={!scoreForm.scoreEarned || !scoreForm.assessmentDate}
+            startIcon={<Grade />}
+          >
+            Record Score
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 };

@@ -4,10 +4,10 @@
  * to make them easier to maintain and update across the application
  */
 
-// Project Status Options
+// Project Status Options - Normalized values
 export const PROJECT_STATUS = {
-  ACTIVE: 'Active',
-  INACTIVE: 'Inactive',
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
   PENDING: 'pending',
   ONGOING: 'ongoing',
   STARTED: 'started',
@@ -19,6 +19,23 @@ export const PROJECT_STATUS = {
   SUSPENDED: 'suspended',
   ON_HOLD: 'on_hold'
 };
+
+// Project Status Configuration - Single source of truth
+// Contains value (for DB/logic), label (for display), and color (for UI)
+export const PROJECT_STATUS_CONFIG = [
+  { value: 'active', label: 'Active', color: 'success' },
+  { value: 'ongoing', label: 'Ongoing', color: 'primary' },
+  { value: 'pending', label: 'Pending', color: 'warning' },
+  { value: 'completed', label: 'Completed', color: 'default' },
+  { value: 'cancelled', label: 'Cancelled', color: 'error' },
+  { value: 'postponed', label: 'Postponed', color: 'warning' },
+  { value: 'suspended', label: 'Suspended', color: 'error' },
+  { value: 'on_hold', label: 'On Hold', color: 'warning' },
+  { value: 'draft', label: 'Draft', color: 'info' },
+  { value: 'archived', label: 'Archived', color: 'default' },
+  { value: 'inactive', label: 'Inactive', color: 'error' },
+  { value: 'started', label: 'Started', color: 'primary' }
+];
 
 // Participant Status Options
 export const PARTICIPANT_STATUS = {
@@ -328,6 +345,7 @@ export const PARTICIPANT_ACTION_CHOICES = [
 // Export all constants as default
 export default {
   PROJECT_STATUS,
+  PROJECT_STATUS_CONFIG,
   PARTICIPANT_STATUS,
   COURSE_STATUS,
   MODULE_STATUS,

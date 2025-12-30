@@ -3,13 +3,13 @@ import { Button, CircularProgress } from '@mui/material';
 import useUser from 'hooks/useUser';
 
 const AuthButton = ({ variant = 'contained', size = 'medium', ...props }) => {
-  const user = useUser();
+  const { user, isLoading, isAuthenticated } = useUser();
   const [loading, setLoading] = useState(false);
 
   const handleAuth = async () => {
     setLoading(true);
     try {
-      if (user) {
+      if (isAuthenticated) {
         // User is logged in, log them out
         window.location.href = '/api/auth/logout';
       } else {
@@ -24,7 +24,7 @@ const AuthButton = ({ variant = 'contained', size = 'medium', ...props }) => {
     }
   };
 
-  if (user === undefined) {
+  if (isLoading) {
     // Still loading user data
     return (
       <Button variant={variant} size={size} disabled {...props}>
@@ -43,7 +43,7 @@ const AuthButton = ({ variant = 'contained', size = 'medium', ...props }) => {
     >
       {loading ? (
         <CircularProgress size={20} />
-      ) : user ? (
+      ) : isAuthenticated ? (
         'Sign Out'
       ) : (
         'Sign In'

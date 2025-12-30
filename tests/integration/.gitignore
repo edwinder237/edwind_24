@@ -1,0 +1,12 @@
+# Ignore temporary files
+cookies_*.txt
+*.log
+
+# Ignore local test configurations
+test-config-local.js
+
+# Keep the test suite files
+!multi-org-test-suite.js
+!seed-test-data.js
+!README.md
+!QUICK_START.md

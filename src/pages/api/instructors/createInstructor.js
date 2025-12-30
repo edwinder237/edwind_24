@@ -1,9 +1,35 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * POST /api/instructors/createInstructor
+ * ============================================
+ *
+ * Creates a new instructor for the current organization.
+ * FIXED: Previously required manual sub_organizationId, now auto-scoped.
+ *
+ * Body:
+ * - firstName (required)
+ * - lastName (required)
+ * - email (required)
+ * - phone, bio, expertise, etc. (optional)
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   instructor: {...}
+ * }
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedCreate } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const {
@@ -19,16 +45,12 @@ export default async function handler(req, res) {
       qualifications,
       hourlyRate,
       availability,
-      sub_organizationId,
       createdBy
     } = req.body;
 
-    // Validate required fields
-    if (!firstName || !lastName || !email || !sub_organizationId || !createdBy) {
-      return res.status(400).json({
-        success: false,
-        message: 'First name, last name, email, sub-organization ID, and created by are required'
-      });
+    // Validate required fields (sub_organizationId no longer needed - auto-scoped)
+    if (!firstName || !lastName || !email) {
+      throw new ValidationError('First name, last name, and email are required');
     }
 
     // Check if instructor with email already exists
@@ -37,30 +59,26 @@ export default async function handler(req, res) {
     });
 
     if (existingInstructor) {
-      return res.status(400).json({
-        success: false,
-        message: 'An instructor with this email already exists'
-      });
+      throw new ValidationError('An instructor with this email already exists');
     }
 
-    const instructor = await prisma.instructors.create({
-      data: {
-        firstName,
-        lastName,
-        email,
-        phone,
-        bio,
-        expertise: expertise || [],
-        instructorType,
-        status,
-        profileImage,
-        qualifications,
-        hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
-        availability,
-        sub_organizationId: parseInt(sub_organizationId),
-        createdBy,
-        updatedBy: createdBy
-      },
+    // Create instructor with automatic org scoping
+    const instructor = await scopedCreate(orgContext, 'instructors', {
+      firstName,
+      lastName,
+      email,
+      phone,
+      bio,
+      expertise: expertise || [],
+      instructorType,
+      status,
+      profileImage,
+      qualifications,
+      hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
+      availability,
+      createdBy: createdBy || orgContext.userId,
+      updatedBy: createdBy || orgContext.userId
+    }, {
       select: {
         id: true,
         firstName: true,
@@ -90,10 +108,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error creating instructor:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create instructor',
-      error: error.message
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

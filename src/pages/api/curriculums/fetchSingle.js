@@ -1,18 +1,46 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * POST /api/curriculums/fetchSingle
+ * ============================================
+ *
+ * Returns detailed curriculum data with all relations.
+ * FIXED: Previously leaked curriculum data across organizations.
+ *
+ * Body:
+ * - curriculumId (required): Curriculum ID to fetch
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   curriculum: {...}
+ * }
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  try {
-    const { curriculumId } = req.body;
+  const { curriculumId } = req.body;
+  const { orgContext } = req;
 
-    if (!curriculumId) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Curriculum ID is required' 
-      });
+  if (!curriculumId) {
+    throw new ValidationError('Curriculum ID is required');
+  }
+
+  try {
+    // First verify curriculum exists and belongs to organization
+    const curriculumOwnership = await scopedFindUnique(orgContext, 'curriculums', {
+      where: { id: parseInt(curriculumId) }
+    });
+
+    if (!curriculumOwnership) {
+      throw new NotFoundError('Curriculum not found');
     }
 
     const curriculum = await prisma.curriculums.findUnique({
@@ -141,10 +169,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching curriculum:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to fetch curriculum',
-      error: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

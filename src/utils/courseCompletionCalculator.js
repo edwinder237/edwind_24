@@ -82,10 +82,10 @@ export function filterGroupEvents(events, groupParticipantIds) {
 export function transformCourseWithCompletion(course, groupParticipantIds) {
   // Filter events that are assigned to this specific group
   const groupEvents = filterGroupEvents(course.events || [], groupParticipantIds);
-  
+
   // Calculate completion status
   const completionData = calculateCourseCompletion(groupEvents, groupParticipantIds);
-  
+
   return {
     id: course.id,
     title: course.title,
@@ -97,4 +97,70 @@ export function transformCourseWithCompletion(course, groupParticipantIds) {
       title: event.title
     }))
   };
+}
+
+/**
+ * Calculate overall course completion rate for a project
+ * Based on participant-course completion (attended ALL events in course)
+ * Matches the logic from Course Completion Tracker
+ *
+ * @param {Array} events - All project events
+ * @param {Array} participants - All project participants (active only)
+ * @returns {number} - Completion percentage (0-100)
+ */
+export function calculateProjectCourseCompletion(events, participants) {
+  // Filter active participants only
+  const activeParticipants = participants.filter(p => p.status !== 'removed');
+
+  if (activeParticipants.length === 0 || events.length === 0) {
+    return 0;
+  }
+
+  // Group events by courseId
+  const eventsByCourse = {};
+  events.forEach(event => {
+    if (event.courseId) {
+      if (!eventsByCourse[event.courseId]) {
+        eventsByCourse[event.courseId] = [];
+      }
+      eventsByCourse[event.courseId].push(event);
+    }
+  });
+
+  const courseIds = Object.keys(eventsByCourse);
+  if (courseIds.length === 0) return 0;
+
+  let totalObjectives = 0;
+  let completedObjectives = 0;
+
+  // For each course, check each participant's completion
+  courseIds.forEach(courseId => {
+    const courseEvents = eventsByCourse[courseId];
+    const totalEventsInCourse = courseEvents.length;
+
+    activeParticipants.forEach(participant => {
+      // This is a participant-course objective
+      totalObjectives++;
+
+      // Count how many events this participant attended in this course
+      let eventsAttended = 0;
+      courseEvents.forEach(event => {
+        const attendee = event.event_attendees?.find(
+          a => a.enrolleeId === participant.id
+        );
+        if (attendee && isAttendanceValid(attendee.attendance_status)) {
+          eventsAttended++;
+        }
+      });
+
+      // Completed = attended ALL events in the course
+      if (eventsAttended === totalEventsInCourse && totalEventsInCourse > 0) {
+        completedObjectives++;
+      }
+    });
+  });
+
+  return totalObjectives > 0
+    ? Math.round((completedObjectives / totalObjectives) * 100)
+    : 0;
 }

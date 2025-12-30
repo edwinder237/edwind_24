@@ -146,12 +146,31 @@ const ResultsTableCell = ({ value, column, result, groupBy }) => {
             sx={{
               width: 8,
               height: 8,
-              bgcolor: value >= 90 ? 'success.main' : 
+              borderRadius: '50%',
+              bgcolor: value >= 90 ? 'success.main' :
                      value >= 70 ? 'warning.main' : 'error.main'
             }}
           />
         )}
       </Box>
+    );
+  }
+
+  // Special handling for assessment attempts column
+  if (column.key === 'assessmentAttempts') {
+    return (
+      <Typography variant="body2" fontWeight="medium">
+        {value || '—'}
+      </Typography>
+    );
+  }
+
+  // Special handling for assessment date column
+  if (column.key === 'assessmentDate') {
+    return (
+      <Typography variant="body2" fontWeight="medium">
+        {value || '—'}
+      </Typography>
     );
   }
   

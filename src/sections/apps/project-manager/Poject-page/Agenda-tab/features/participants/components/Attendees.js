@@ -24,10 +24,8 @@ import { useAttendanceManagementRTK } from '../hooks/useAttendanceManagementRTK'
 import { useAddParticipantsDialogRTK } from '../hooks/useAddParticipantsDialogRTK';
 import { useParticipantData } from '../hooks/useParticipantData';
 
-// Store (for move to event functionality)
+// Store (for move to event functionality - commands only, no legacy actions)
 import { useDispatch } from 'store';
-import { getEvents } from 'store/reducers/calendar';
-import { fetchProjectAgenda } from 'store/reducers/project/agenda';
 import { moveParticipantBetweenEvents } from 'store/commands/eventCommands';
 
 // Domain Events
@@ -82,12 +80,8 @@ const AttendeesRTK = ({
   const dispatch = useDispatch();
   const emitEvent = useDomainEventEmitter();
 
-  // Fetch calendar events when component mounts or projectId changes
-  useEffect(() => {
-    if (projectId) {
-      dispatch(getEvents(projectId));
-    }
-  }, [projectId, dispatch]);
+  // Note: No need to manually fetch events - RTK Query handles this automatically
+  // The useGetProjectAgendaQuery hook above manages all data fetching
 
   // Subscribe to attendance events for this event
   useDomainEvent(DomainEvents.PARTICIPANT_MARKED_PRESENT, (event) => {
@@ -128,7 +122,59 @@ const AttendeesRTK = ({
 
   // Event handlers
   const handleParticipantClick = (participant) => {
-    setSelectedParticipant(participant);
+    // In the Agenda context, participant might be from eventParticipants or participantData
+    // We need to find the full project_participant record
+    let projectParticipantId = null;
+    let participantUUID = null;
+    let participantInfo = null;
+
+    // Case 1: participant has event_attendee structure (has participantId field)
+    if (participant.participantId) {
+      projectParticipantId = participant.participantId; // This is the numeric ID from project_participants
+
+      // Find the full participant details from singleProject.participants
+      const fullParticipant = singleProject.participants?.find(p => p.id === projectParticipantId);
+      if (fullParticipant) {
+        participantUUID = fullParticipant.participant?.id;
+        participantInfo = fullParticipant.participant;
+      }
+    }
+    // Case 2: participant has project_participant structure (has id field with participant nested object)
+    else if (participant.participant) {
+      projectParticipantId = participant.id; // Numeric ID
+      participantUUID = participant.participant.id; // UUID
+      participantInfo = participant.participant;
+    }
+    // Case 3: participant is direct participant record (UUID)
+    else if (typeof participant.id === 'string' && participant.id.includes('-')) {
+      participantUUID = participant.id;
+      // Find project_participant record
+      const fullParticipant = singleProject.participants?.find(
+        p => p.participant?.id === participantUUID
+      );
+      if (fullParticipant) {
+        projectParticipantId = fullParticipant.id;
+        participantInfo = fullParticipant.participant;
+      }
+    }
+
+    if (!projectParticipantId || !participantUUID) {
+      console.error('[Attendees] Could not resolve participant IDs', participant);
+      return;
+    }
+
+    // Transform participant data to include projectParticipantId (numeric ID needed for assessments API)
+    const transformedParticipant = {
+      id: participantUUID, // UUID from participants table
+      projectParticipantId: projectParticipantId, // Numeric ID from project_participants table
+      firstName: participantInfo?.firstName || participant.firstName,
+      lastName: participantInfo?.lastName || participant.lastName,
+      email: participantInfo?.email || participant.email,
+      phone: participantInfo?.phone || participant.phone,
+      role: participantInfo?.role || participant.role
+    };
+
+    setSelectedParticipant(transformedParticipant);
     setDrawerOpen(true);
   };
 
@@ -148,15 +194,9 @@ const AttendeesRTK = ({
         projectId: projectId
       }));
 
-      // Force refresh to ensure state updates properly
-      if (projectId) {
-        // Force refresh the project agenda to update participant lists
-        await dispatch(fetchProjectAgenda(projectId, true));
-        // Also refresh calendar events
-        await dispatch(getEvents(projectId));
-        // Also refresh RTK Query data
-        await refetchAgenda();
-      }
+      // CQRS: Use RTK Query refetch to update data automatically via cache invalidation
+      // The moveParticipantBetweenEvents command handles tag invalidation
+      await refetchAgenda();
 
       console.log(`Participant moved from event ${selectedEvent?.id} to event ${targetEvent.id} using semantic command`);
     } catch (error) {
@@ -381,6 +421,7 @@ const AttendeesRTK = ({
         open={drawerOpen}
         onClose={handleDrawerClose}
         participant={selectedParticipant}
+        projectId={projectId}
       />
 
       {/* Add Participants Dialog */}

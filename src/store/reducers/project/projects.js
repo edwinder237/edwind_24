@@ -223,7 +223,19 @@ export function addProject(newProject, Projects, isAdding) {
         }
       );
       dispatch(slice.actions.isAdding(!isAdding));
-      
+
+      // Fetch all projects to get the complete data with user relations
+      // This ensures the newly created project has all its relations (user, training_recipient, etc.)
+      try {
+        const projectsResponse = await axios.get(dataRoutes.fetchProjects);
+        if (projectsResponse.data?.projects) {
+          dispatch(slice.actions.getProjectsSuccess(projectsResponse.data.projects));
+        }
+      } catch (fetchError) {
+        console.error('Error refreshing projects after creation:', fetchError);
+        // Don't fail the whole operation if refresh fails
+      }
+
       return {
         success: true,
         projectId: serverResponse.data.projectId,

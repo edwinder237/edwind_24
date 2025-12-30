@@ -1,0 +1,563 @@
+/**
+ * ============================================
+ * SUBSCRIPTION SERVICE LAYER
+ * ============================================
+ *
+ * Database service for managing subscriptions.
+ * Handles all CRUD operations and caching.
+ */
+
+import { PrismaClient } from '@prisma/client';
+import { PLAN_IDS } from './featureAccess';
+
+const prisma = new PrismaClient();
+
+// Simple in-memory cache for subscriptions (15 minute TTL)
+const subscriptionCache = new Map();
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Get organization's subscription (with caching)
+ *
+ * @param {string} organizationId - Organization ID
+ * @param {boolean} forceRefresh - Skip cache and fetch fresh
+ * @returns {Promise<Object|null>} Subscription object or null
+ */
+export async function getOrgSubscription(organizationId, forceRefresh = false) {
+  // Check cache first
+  if (!forceRefresh) {
+    const cached = subscriptionCache.get(organizationId);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`✅ Subscription cache hit for org: ${organizationId}`);
+      return cached.data;
+    }
+  }
+
+  try {
+    const subscription = await prisma.subscriptions.findUnique({
+      where: {organizationId},
+      include: {
+        plan: true,
+        organization: {
+          select: {
+            id: true,
+            title: true,
+            workos_org_id: true
+          }
+        }
+      }
+    });
+
+    // Cache the result
+    if (subscription) {
+      subscriptionCache.set(organizationId, {
+        data: subscription,
+        timestamp: Date.now()
+      });
+      console.log(`💾 Cached subscription for org: ${organizationId}`);
+    }
+
+    return subscription;
+  } catch (error) {
+    console.error('Error fetching subscription:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new subscription for an organization
+ *
+ * @param {Object} params - Parameters
+ * @param {string} params.organizationId - Organization ID
+ * @param {string} params.planId - Plan ID (free/pro/enterprise)
+ * @param {string} params.status - Subscription status
+ * @param {Date} params.currentPeriodEnd - End of current billing period
+ * @param {Object} params.stripeData - Stripe integration data (optional)
+ * @param {string} params.createdBy - User ID creating the subscription
+ * @returns {Promise<Object>} Created subscription
+ */
+export async function createSubscription({
+  organizationId,
+  planId = PLAN_IDS.FREE,
+  status = 'active',
+  currentPeriodEnd = null,
+  stripeData = {},
+  createdBy = 'system'
+}) {
+  try {
+    // Calculate default period end if not provided (30 days for monthly plans)
+    const periodEnd = currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const subscription = await prisma.subscriptions.create({
+      data: {
+        organizationId,
+        planId,
+        status,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: periodEnd,
+        stripeCustomerId: stripeData.customerId,
+        stripeSubscriptionId: stripeData.subscriptionId,
+        stripeProductId: stripeData.productId,
+        stripePriceId: stripeData.priceId,
+        createdBy,
+        history: {
+          create: {
+            eventType: 'created',
+            toPlanId: planId,
+            toStatus: status,
+            reason: 'Initial subscription creation',
+            changedBy: createdBy,
+            changedByRole: 'system'
+          }
+        }
+      },
+      include: {
+        plan: true,
+        organization: {
+          select: {
+            id: true,
+            title: true
+          }
+        }
+      }
+    });
+
+    // Invalidate cache
+    subscriptionCache.delete(organizationId);
+
+    console.log(`✅ Created subscription for org ${organizationId}: ${planId}`);
+
+    return subscription;
+  } catch (error) {
+    console.error('Error creating subscription:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update an existing subscription
+ *
+ * @param {Object} params - Parameters
+ * @param {number} params.subscriptionId - Subscription ID
+ * @param {Object} params.updates - Fields to update
+ * @param {string} params.updatedBy - User ID making the update
+ * @param {string} params.reason - Reason for the change
+ * @returns {Promise<Object>} Updated subscription
+ */
+export async function updateSubscription({
+  subscriptionId,
+  updates,
+  updatedBy = 'system',
+  reason = null
+}) {
+  try {
+    // Get current subscription for history
+    const currentSub = await prisma.subscriptions.findUnique({
+      where: { id: subscriptionId }
+    });
+
+    if (!currentSub) {
+      throw new Error(`Subscription ${subscriptionId} not found`);
+    }
+
+    // Determine event type based on what's changing
+    let eventType = 'updated';
+    if (updates.planId && updates.planId !== currentSub.planId) {
+      eventType = 'plan_changed';
+    } else if (updates.status === 'canceled') {
+      eventType = 'canceled';
+    } else if (updates.status === 'active' && currentSub.status === 'canceled') {
+      eventType = 'reactivated';
+    }
+
+    const subscription = await prisma.subscriptions.update({
+      where: { id: subscriptionId },
+      data: {
+        ...updates,
+        updatedBy,
+        history: {
+          create: {
+            eventType,
+            fromPlanId: currentSub.planId,
+            toPlanId: updates.planId || currentSub.planId,
+            fromStatus: currentSub.status,
+            toStatus: updates.status || currentSub.status,
+            reason: reason || `Subscription ${eventType}`,
+            changedBy: updatedBy,
+            metadata: {
+              previousValues: {
+                planId: currentSub.planId,
+                status: currentSub.status
+              },
+              newValues: updates
+            }
+          }
+        }
+      },
+      include: {
+        plan: true,
+        organization: {
+          select: {
+            id: true,
+            title: true
+          }
+        }
+      }
+    });
+
+    // Invalidate cache
+    subscriptionCache.delete(currentSub.organizationId);
+
+    console.log(`✅ Updated subscription ${subscriptionId}: ${eventType}`);
+
+    return subscription;
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    throw error;
+  }
+}
+
+/**
+ * Cancel a subscription
+ *
+ * @param {Object} params - Parameters
+ * @param {number} params.subscriptionId - Subscription ID
+ * @param {Date} params.cancelAt - When to cancel (null = immediate)
+ * @param {string} params.reason - Cancellation reason
+ * @param {string} params.canceledBy - User ID canceling
+ * @returns {Promise<Object>} Updated subscription
+ */
+export async function cancelSubscription({
+  subscriptionId,
+  cancelAt = null,
+  reason = 'User requested cancellation',
+  canceledBy = 'system'
+}) {
+  try {
+    const updates = cancelAt
+      ? {
+          cancelAt,
+          updatedBy: canceledBy
+        }
+      : {
+          status: 'canceled',
+          canceledAt: new Date(),
+          updatedBy: canceledBy
+        };
+
+    return await updateSubscription({
+      subscriptionId,
+      updates,
+      updatedBy: canceledBy,
+      reason
+    });
+  } catch (error) {
+    console.error('Error canceling subscription:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upgrade/downgrade a subscription plan
+ *
+ * @param {Object} params - Parameters
+ * @param {number} params.subscriptionId - Subscription ID
+ * @param {string} params.newPlanId - New plan ID
+ * @param {string} params.changedBy - User ID making the change
+ * @param {string} params.reason - Reason for change
+ * @returns {Promise<Object>} Updated subscription
+ */
+export async function changePlan({
+  subscriptionId,
+  newPlanId,
+  changedBy,
+  reason = null
+}) {
+  try {
+    const currentSub = await prisma.subscriptions.findUnique({
+      where: { id: subscriptionId }
+    });
+
+    const isUpgrade = ['free', 'pro', 'enterprise'].indexOf(newPlanId) >
+                      ['free', 'pro', 'enterprise'].indexOf(currentSub.planId);
+
+    const defaultReason = isUpgrade
+      ? `Upgraded to ${newPlanId}`
+      : `Downgraded to ${newPlanId}`;
+
+    return await updateSubscription({
+      subscriptionId,
+      updates: {
+        planId: newPlanId
+      },
+      updatedBy: changedBy,
+      reason: reason || defaultReason
+    });
+  } catch (error) {
+    console.error('Error changing plan:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get subscription history
+ *
+ * @param {number} subscriptionId - Subscription ID
+ * @param {number} limit - Maximum number of records
+ * @returns {Promise<Array>} History records
+ */
+export async function getSubscriptionHistory(subscriptionId, limit = 50) {
+  try {
+    return await prisma.subscription_history.findMany({
+      where: { subscriptionId },
+      orderBy: { changedAt: 'desc' },
+      take: limit
+    });
+  } catch (error) {
+    console.error('Error fetching subscription history:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get current resource usage for an organization
+ *
+ * @param {string} organizationId - Organization ID
+ * @returns {Promise<Object>} Current usage statistics
+ */
+export async function getResourceUsage(organizationId) {
+  try {
+    // Get org's sub-organizations
+    const subOrgs = await prisma.sub_organizations.findMany({
+      where: { organizationId },
+      select: { id: true }
+    });
+
+    const subOrgIds = subOrgs.map(so => so.id);
+
+    // Run queries in parallel
+    const [
+      projectCount,
+      instructorCount,
+      courseCount,
+      curriculumCount,
+      customRoleCount,
+      // Get projects created in the last 30 days
+      recentProjects
+    ] = await Promise.all([
+      // Total projects
+      prisma.projects.count({
+        where: { sub_organizationId: { in: subOrgIds } }
+      }),
+
+      // Total instructors
+      prisma.instructors.count({
+        where: { sub_organizationId: { in: subOrgIds } }
+      }),
+
+      // Total courses
+      prisma.courses.count({
+        where: { sub_organizationId: { in: subOrgIds } }
+      }),
+
+      // Total curriculums (approximate - linked to projects)
+      prisma.project_curriculums.count({
+        where: {
+          project: { sub_organizationId: { in: subOrgIds } }
+        }
+      }),
+
+      // Custom participant roles
+      prisma.sub_organization_participant_role.count({
+        where: { sub_organizationId: { in: subOrgIds } }
+      }),
+
+      // Projects created in last 30 days
+      prisma.projects.count({
+        where: {
+          sub_organizationId: { in: subOrgIds },
+          createdAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          }
+        }
+      })
+    ]);
+
+    // Get total participants across all projects
+    const participants = await prisma.project_participants.findMany({
+      where: {
+        project: { sub_organizationId: { in: subOrgIds } }
+      },
+      distinct: ['participantId'],
+      select: { participantId: true }
+    });
+
+    return {
+      projects: projectCount,
+      participants: participants.length,
+      sub_organizations: subOrgIds.length,
+      instructors: instructorCount,
+      courses: courseCount,
+      curriculums: curriculumCount,
+      projects_per_month: recentProjects,
+      custom_roles: customRoleCount,
+      storage: 0 // TODO: Calculate actual storage usage
+    };
+  } catch (error) {
+    console.error('Error getting resource usage:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if organization can create a new resource
+ *
+ * @param {Object} params - Parameters
+ * @param {string} params.organizationId - Organization ID
+ * @param {string} params.resource - Resource type
+ * @param {number} params.amount - Amount to create (default: 1)
+ * @returns {Promise<Object>} { allowed: boolean, current: number, limit: number }
+ */
+export async function checkResourceLimit({ organizationId, resource, amount = 1 }) {
+  try {
+    const subscription = await getOrgSubscription(organizationId);
+    const usage = await getResourceUsage(organizationId);
+
+    // Import here to avoid circular dependency
+    const { hasResourceCapacity, RESOURCES } = require('./featureAccess');
+
+    const currentUsage = usage[resource] || 0;
+
+    return hasResourceCapacity({
+      subscription,
+      resource: RESOURCES[resource.toUpperCase()],
+      currentUsage,
+      requestedAmount: amount
+    });
+  } catch (error) {
+    console.error('Error checking resource limit:', error);
+    throw error;
+  }
+}
+
+/**
+ * Set custom features for an organization
+ *
+ * @param {Object} params - Parameters
+ * @param {number} params.subscriptionId - Subscription ID
+ * @param {Array} params.features - Array of feature keys
+ * @param {string} params.updatedBy - User ID making the change
+ * @returns {Promise<Object>} Updated subscription
+ */
+export async function setCustomFeatures({ subscriptionId, features, updatedBy }) {
+  return await updateSubscription({
+    subscriptionId,
+    updates: {
+      customFeatures: features
+    },
+    updatedBy,
+    reason: 'Updated custom features'
+  });
+}
+
+/**
+ * Set custom resource limits for an organization
+ *
+ * @param {Object} params - Parameters
+ * @param {number} params.subscriptionId - Subscription ID
+ * @param {Object} params.limits - Object with custom limits
+ * @param {string} params.updatedBy - User ID making the change
+ * @returns {Promise<Object>} Updated subscription
+ */
+export async function setCustomLimits({ subscriptionId, limits, updatedBy }) {
+  return await updateSubscription({
+    subscriptionId,
+    updates: {
+      customLimits: limits
+    },
+    updatedBy,
+    reason: 'Updated custom resource limits'
+  });
+}
+
+/**
+ * Get all subscriptions (for admin use)
+ *
+ * @param {Object} filters - Optional filters
+ * @returns {Promise<Array>} List of subscriptions
+ */
+export async function getAllSubscriptions(filters = {}) {
+  try {
+    const where = {};
+
+    if (filters.planId) {
+      where.planId = filters.planId;
+    }
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    return await prisma.subscriptions.findMany({
+      where,
+      include: {
+        plan: true,
+        organization: {
+          select: {
+            id: true,
+            title: true,
+            workos_org_id: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+  } catch (error) {
+    console.error('Error getting all subscriptions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clear subscription cache for an organization
+ *
+ * @param {string} organizationId - Organization ID
+ */
+export function invalidateSubscriptionCache(organizationId) {
+  subscriptionCache.delete(organizationId);
+  console.log(`🗑️  Invalidated subscription cache for org: ${organizationId}`);
+}
+
+/**
+ * Clear all subscription caches
+ */
+export function clearAllSubscriptionCaches() {
+  subscriptionCache.clear();
+  console.log('🗑️  Cleared all subscription caches');
+}
+
+/**
+ * Cleanup function for graceful shutdown
+ */
+export async function disconnectPrisma() {
+  await prisma.$disconnect();
+}
+
+export default {
+  getOrgSubscription,
+  createSubscription,
+  updateSubscription,
+  cancelSubscription,
+  changePlan,
+  getSubscriptionHistory,
+  getResourceUsage,
+  checkResourceLimit,
+  setCustomFeatures,
+  setCustomLimits,
+  getAllSubscriptions,
+  invalidateSubscriptionCache,
+  clearAllSubscriptionCaches,
+  disconnectPrisma
+};

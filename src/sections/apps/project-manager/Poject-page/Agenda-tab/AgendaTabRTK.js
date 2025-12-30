@@ -18,12 +18,11 @@ import { FullCalendarMonthView, FullCalendarWeekView } from './views/calendar';
 import ScheduleExport from './features/scheduling/components/ScheduleExport';
 import ImportOptionsDialog from './features/scheduling/components/ImportOptionsDialog';
 import { AddEventDialog } from './features/events/dialogs';
-import AttendanceStoreTestPanel from './test/AttendanceStoreTestPanel';
-import CalendarStoreTestPanel from './test/CalendarStoreTestPanel';
 
 // Modernized hooks using CQRS architecture
 import { useNormalizedEvents } from './features/events/hooks';
 import { useEventsCRUDRTK } from './features/events/hooks';
+import { useGetProjectSettingsQuery } from 'store/api/projectApi';
 
 // Legacy hooks for UI state (keeping for now)
 import { useAgendaState } from './hooks/useAgendaState';
@@ -60,12 +59,18 @@ const AgendaTabRTK = React.memo(() => {
   // Get project data from derived selectors (computed from Redux store)
   const dashboardData = useSelector(derivedSelectors.dashboard.selectCompleteDashboard);
 
+  // CQRS: Fetch project settings using RTK Query for agenda time range
+  const { data: projectSettingsData } = useGetProjectSettingsQuery(projectId, {
+    skip: !projectId
+  });
+
   // Create a mock project object for backward compatibility with child components
   const project = dashboardData?.projectInfo ? {
     id: dashboardData.projectInfo.id,
     title: dashboardData.projectInfo.title,
     summary: dashboardData.projectInfo.summary,
     projectStatus: dashboardData.projectInfo.projectStatus,
+    project_settings: projectSettingsData?.settings // Add settings for agenda time range (CQRS)
   } : null;
 
   // Normalized data management with caching
@@ -115,8 +120,6 @@ const AgendaTabRTK = React.memo(() => {
   // Local state for dialogs
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
   const [addEventDialogOpen, setAddEventDialogOpen] = React.useState(false);
-  const [testPanelOpen, setTestPanelOpen] = React.useState(false);
-  const [testPanelType, setTestPanelType] = React.useState('attendance'); // 'attendance' or 'calendar'
 
   // Domain events subscription for real-time updates
   useEffect(() => {
@@ -326,30 +329,6 @@ const AgendaTabRTK = React.memo(() => {
         >
           Export
         </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          color="warning"
-          onClick={() => {
-            setTestPanelType('attendance');
-            setTestPanelOpen(true);
-          }}
-          sx={{ ...buttonStyles.common, ...buttonStyles.outlined }}
-        >
-          🧪 Attendance
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          color="info"
-          onClick={() => {
-            setTestPanelType('calendar');
-            setTestPanelOpen(true);
-          }}
-          sx={{ ...buttonStyles.common, ...buttonStyles.outlined }}
-        >
-          📅 Calendar
-        </Button>
       </Stack>
 
       {/* View Toggle Buttons - Hide on mobile */}
@@ -552,26 +531,6 @@ const AgendaTabRTK = React.memo(() => {
             projectTitle={project?.title || 'Project Schedule'}
           />
         </MainCard>
-      </Dialog>
-
-      {/* Entity Store Test Panels - Phase 1 & 2 Validation */}
-      <Dialog
-        open={testPanelOpen}
-        onClose={() => setTestPanelOpen(false)}
-        maxWidth="xl"
-        fullWidth
-        PaperProps={{
-          sx: {
-            height: '95vh',
-            borderRadius: 2
-          }
-        }}
-      >
-        {testPanelType === 'attendance' ? (
-          <AttendanceStoreTestPanel />
-        ) : (
-          <CalendarStoreTestPanel />
-        )}
       </Dialog>
     </Box>
   );

@@ -1,17 +1,31 @@
 import prisma from "../../../lib/prisma";
+import { calculateProjectCourseCompletion } from "../../../utils/courseCompletionCalculator";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { projectId } = req.body;
+  const { orgContext } = req;
 
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    throw new ValidationError('Project ID is required');
   }
 
   try {
+    // First verify project exists and belongs to organization
+    const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: parseInt(projectId) }
+    });
+
+    if (!projectOwnership) {
+      throw new NotFoundError('Project not found');
+    }
+
     // Fetch comprehensive project data with all necessary relations
     const project = await prisma.projects.findUnique({
       where: {
@@ -91,12 +105,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching project dashboard:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch project dashboard', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Failed to fetch project dashboard',
+      details: error.message
     });
   }
 }
+
+export default withOrgScope(asyncHandler(handler));
 
 function calculateDashboardMetrics(project) {
   // Basic project info
@@ -198,13 +214,27 @@ function calculateDashboardMetrics(project) {
       : 0
   };
 
-  // 8. Calculate Attendance Rate FIRST (needed for overall completion)
-  // Only count project_participants that have NOT been removed
+  // 8. Calculate basic counts
+  // Count sessions (events)
+  const sessionsCount = project.events?.length || 0;
+
+  // Count active participants (not removed)
   const activeProjectParticipants = project.participants?.filter(p =>
     p.status !== 'removed'
   ) || [];
-  const activeParticipantsCount = activeProjectParticipants.length;
+  const participantsCount = activeProjectParticipants.length;
 
+  // Count groups
+  const groupsCount = project.groups?.length || 0;
+
+  // Group details for metrics
+  const groupsDetails = project.groups?.map(group => ({
+    id: group.id,
+    groupName: group.groupName,
+    participantCount: group.participants?.filter(p => p.status !== 'removed').length || 0
+  })) || [];
+
+  // 9. Calculate Attendance Rate (needed for overall completion)
   // Create set of active project_participant IDs (the enrollment record IDs)
   // event_attendees.enrolleeId references project_participants.id (not participantId!)
   const activeEnrolleeIds = new Set(activeProjectParticipants.map(p => p.id));
@@ -212,14 +242,14 @@ function calculateDashboardMetrics(project) {
   let calculatedAttendanceRate = 0;
   let attendanceMetrics = {
     totalSessions: sessionsCount,
-    totalParticipants: activeParticipantsCount,
+    totalParticipants: participantsCount,
     totalPossibleAttendees: 0,
     actualAttendees: 0,
     attendancePercentage: 0
   };
 
-  if (sessionsCount > 0 && activeParticipantsCount > 0) {
-    const totalPossibleAttendees = sessionsCount * activeParticipantsCount;
+  if (sessionsCount > 0 && participantsCount > 0) {
+    const totalPossibleAttendees = sessionsCount * participantsCount;
 
     // Count attendance only for active project participants
     // Present and late both count as attendance (they showed up)
@@ -240,20 +270,9 @@ function calculateDashboardMetrics(project) {
       ? Math.round((actualAttendees / totalPossibleAttendees) * 100)
       : 0;
 
-    // Debug logging
-    console.log('[Dashboard] Attendance Calculation:', {
-      projectId: project.id,
-      sessionsCount,
-      activeParticipantsCount,
-      totalPossibleAttendees,
-      actualAttendees,
-      calculatedAttendanceRate: `${calculatedAttendanceRate}%`,
-      formula: `${actualAttendees} / ${totalPossibleAttendees} * 100`
-    });
-
     attendanceMetrics = {
       totalSessions: sessionsCount,
-      totalParticipants: activeParticipantsCount,
+      totalParticipants: participantsCount,
       totalPossibleAttendees,
       actualAttendees,
       attendancePercentage: calculatedAttendanceRate
@@ -261,7 +280,10 @@ function calculateDashboardMetrics(project) {
   }
 
   // 9. Overall Completion (project-level) - uses real calculated metrics
-  const learningProgress = 30; // TODO: Calculate from module/activity completion
+  const learningProgress = calculateProjectCourseCompletion(
+    project.events || [],
+    project.participants || []
+  );
   const attendanceRate = calculatedAttendanceRate;
   const technicalSetupProgress = technicalCompletion.completionPercentage;
 

@@ -88,9 +88,11 @@ const InstructorSettings = ({ courseId }) => {
     try {
       const response = await fetch('/api/instructors/fetchInstructors');
       const data = await response.json();
-      setAvailableInstructors(data || []);
+      // Ensure we always set an array
+      setAvailableInstructors(Array.isArray(data) ? data : (data.instructors || []));
     } catch (error) {
       console.error('Error fetching available instructors:', error);
+      setAvailableInstructors([]);
     }
   };
 
@@ -406,7 +408,7 @@ const InstructorSettings = ({ courseId }) => {
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <Autocomplete
-              options={availableInstructors.filter(instructor => 
+              options={(Array.isArray(availableInstructors) ? availableInstructors : []).filter(instructor =>
                 !courseInstructors.some(ci => ci.instructor.id === instructor.id)
               )}
               getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}

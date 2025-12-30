@@ -1,28 +1,56 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * GET /api/instructors/fetchInstructors
+ * ============================================
+ *
+ * Returns all instructors for the current organization.
+ * FIXED: Previously leaked instructor data across organizations.
+ *
+ * Query Params:
+ * - sub_organizationId (optional): Filter by specific sub-organization
+ * - instructorType (optional): Filter by instructor type
+ * - status (optional): Filter by status
+ *
+ * Response:
+ * [
+ *   {
+ *     id: number,
+ *     firstName: string,
+ *     lastName: string,
+ *     email: string,
+ *     ...
+ *   }
+ * ]
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  try {
-    const { sub_organizationId, instructorType, status } = req.query;
+  const { orgContext } = req;
 
+  try {
+    const { instructorType, status } = req.query;
+
+    // Build where clause with optional filters
     const whereClause = {};
-    
-    if (sub_organizationId) {
-      whereClause.sub_organizationId = parseInt(sub_organizationId);
-    }
-    
+
     if (instructorType) {
       whereClause.instructorType = instructorType;
     }
-    
+
     if (status) {
       whereClause.status = status;
     }
 
-    const instructors = await prisma.instructors.findMany({
+    // scopedFindMany automatically filters by orgContext.subOrganizationIds
+    const instructors = await scopedFindMany(orgContext, 'instructors', {
       where: whereClause,
       select: {
         id: true,
@@ -50,10 +78,8 @@ export default async function handler(req, res) {
     res.status(200).json(instructors);
   } catch (error) {
     console.error('Error fetching instructors:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to fetch instructors',
-      error: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

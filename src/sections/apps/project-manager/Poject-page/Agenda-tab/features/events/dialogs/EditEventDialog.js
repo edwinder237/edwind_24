@@ -35,19 +35,52 @@ import {
 } from '@mui/icons-material';
 import MainCard from 'components/MainCard';
 import { useDispatch, useSelector } from 'store';
-import { updateEvent } from 'store/commands/eventCommands';
+import { useGetProjectAgendaQuery } from 'store/api/projectApi';
+import { eventCommands } from 'store/commands';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
 
 const EditEventDialog = ({ open, onClose, event, project }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
-  
+
+  // Track if dialog was ever opened to prevent premature data loading
+  const [wasOpened, setWasOpened] = useState(false);
+
+  useEffect(() => {
+    if (open && event?.id) {
+      setWasOpened(true);
+    }
+  }, [open, event?.id]);
+
+  // CQRS: Fetch agenda data using RTK Query (includes instructors, curriculums)
+  // IMPORTANT: We subscribe to the query but DO NOT trigger any network requests
+  // The data should already be cached from parent components (AgendaTimeline, etc.)
+  // This prevents triggering Redux updates that would cause parent re-renders
+  const {
+    data: agendaData,
+    isLoading: isLoadingAgenda
+  } = useGetProjectAgendaQuery(
+    project?.id,
+    {
+      skip: !project?.id || !wasOpened,
+      refetchOnMountOrArgChange: false,
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
+      // Use selectFromResult to prevent re-renders when data doesn't change
+      selectFromResult: (result) => ({
+        data: result.data,
+        isLoading: result.isLoading
+      })
+    }
+  );
+
+  // Extract data from CQRS query - use cached data from Redux store
+  const curriculums = agendaData?.curriculums || [];
+  const projectInstructors = agendaData?.instructors || [];
+
   // Get groups from project data
   const groups = project?.groups || [];
-  
-  // Get courses and instructors from the project agenda store (new normalized architecture)
-  const { curriculums, instructors: projectInstructors } = useSelector((state) => state.projectAgenda);
   
   // Extract all courses from curriculums with proper nesting
   const availableCourses = useMemo(() => {
@@ -111,16 +144,18 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     if (!projectInstructors || projectInstructors.length === 0) {
       return [];
     }
-    
-    const instructors = projectInstructors.map(pi => ({
-      id: pi.instructor.id,
-      name: `${pi.instructor.firstName} ${pi.instructor.lastName}`,
-      email: pi.instructor.email,
-      instructorType: pi.instructorType,
-      phone: pi.instructor.phone,
-      expertise: pi.instructor.expertise
-    }));
-    
+
+    const instructors = projectInstructors
+      .filter(pi => pi?.instructor) // Safety check
+      .map(pi => ({
+        id: pi.instructor.id,
+        name: `${pi.instructor.firstName} ${pi.instructor.lastName}`,
+        email: pi.instructor.email,
+        instructorType: pi.instructorType,
+        phone: pi.instructor.phone,
+        expertise: pi.instructor.expertise
+      }));
+
     return instructors;
   }, [projectInstructors]);
 
@@ -229,8 +264,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
 
     setLoading(true);
     try {
-      // Use semantic command for updating event
-      await dispatch(updateEvent({
+      // CQRS: Use semantic command for updating event
+      await dispatch(eventCommands.updateEvent({
         eventId: parseInt(event.id),
         updates: {
           ...formData,
@@ -265,12 +300,24 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
 
   const selectedEventType = eventTypeOptions.find(option => option.value === formData.eventType);
 
+  // Early return if no event provided
+  if (!event) {
+    return null;
+  }
+
+  // Don't render anything if dialog was never opened (saves resources)
+  if (!wasOpened) {
+    return null;
+  }
+
   return (
     <Dialog
+      key={`edit-event-${event?.id}`}
       open={open}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
+      disablePortal={false}
       PaperProps={{
         sx: {
           borderRadius: 2,

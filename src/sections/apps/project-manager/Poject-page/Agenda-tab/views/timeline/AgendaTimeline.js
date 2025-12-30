@@ -51,6 +51,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import DraggableEventCard from '../../features/events/components/DraggableEventCard';
 import AddEventDialog from '../../features/events/dialogs/AddEventDialog';
+import EditEventDialog from '../../features/events/dialogs/EditEventDialog';
 import { useDispatch } from 'store';
 import { updateEvent } from 'store/commands/eventCommands';
 
@@ -143,6 +144,7 @@ const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect
           allEvents={localEvents}
           project={project}
           onEventUpdate={onEventUpdate}
+          onEditEvent={handleOpenEditDialog}
         />
       ) : (
         <Box
@@ -234,6 +236,15 @@ const AgendaViewContent = ({ project, events, onEventSelect }) => {
   const [selectedEventDate, setSelectedEventDate] = useState(null);
   const [conflictingEvents, setConflictingEvents] = useState([]);
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  // Edit dialog state - lifted from DraggableEventCard to prevent re-render issues
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState(null);
+
+  // Callback to open edit dialog from child components
+  const handleOpenEditDialog = useCallback((event) => {
+    setEventToEdit(event);
+    setEditDialogOpen(true);
+  }, []);
 
   // Function to detect overlapping/conflicting events
   const detectConflicts = useCallback((events) => {
@@ -796,6 +807,7 @@ const AgendaViewContent = ({ project, events, onEventSelect }) => {
                       project={project}
                       isCompact={true}
                       onEventUpdate={updateLocalEvent}
+                      onEditEvent={handleOpenEditDialog}
                     />
                   </Box>
                 );
@@ -1079,6 +1091,17 @@ const AgendaViewContent = ({ project, events, onEventSelect }) => {
             setIsCreatingEvent(false);
           }, 1000);
         }}
+      />
+
+      {/* Edit Event Dialog - Lifted from DraggableEventCard to prevent re-render issues */}
+      <EditEventDialog
+        open={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setEventToEdit(null);
+        }}
+        event={eventToEdit}
+        project={project}
       />
     </Box>
   );

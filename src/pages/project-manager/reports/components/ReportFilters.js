@@ -32,7 +32,8 @@ const ReportFilters = ({
     projects = [],
     topics = [],
     statusOptions = [],
-    companies = []
+    companies = [],
+    assessments = []
   } = filterOptions;
 
   return (
@@ -264,6 +265,52 @@ const ReportFilters = ({
                     {...params}
                     label="Topics"
                     placeholder="Search topics..."
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Assessments Filter */}
+            <Grid item xs={12} md={4}>
+              <Autocomplete
+                multiple
+                options={assessments}
+                getOptionLabel={(option) => `${option.name} (${option.course})`}
+                value={assessments.filter(assessment => filters.assessments.includes(assessment.id))}
+                onChange={(event, newValue) => {
+                  handleFilterChange('assessments', newValue.map(assessment => assessment.id));
+                }}
+                filterSelectedOptions
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip
+                      {...getTagProps({ index })}
+                      key={option.id}
+                      label={option.name}
+                      size="small"
+                    />
+                  ))
+                }
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <Box component="li" key={key} {...otherProps}>
+                      <Box>
+                        <Typography variant="body2">
+                          {option.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.course} • {option.type} • Max: {option.maxScore}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Assessments"
+                    placeholder="Search assessments..."
                   />
                 )}
               />

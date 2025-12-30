@@ -1,38 +1,42 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * GET /api/training-recipients/fetchTrainingRecipients
+ * ============================================
+ *
+ * Returns active training recipients for the current organization.
+ * Uses org scoping to filter by sub-organization.
+ */
 
-export default async function handler(req, res) {
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    const { sub_organizationId } = req.query;
+  const { orgContext } = req;
 
-    if (!sub_organizationId) {
-      return res.status(400).json({ error: 'sub_organizationId is required' });
-    }
-
-    const trainingRecipients = await prisma.training_recipients.findMany({
-      where: {
-        sub_organizationId: parseInt(sub_organizationId),
-        status: 'active' // Only fetch active recipients
-      },
-      include: {
-        _count: {
-          select: {
-            projects: true,
-            participants: true
-          }
+  // Fetch active training recipients with organization scoping
+  const trainingRecipients = await scopedFindMany(orgContext, 'training_recipients', {
+    where: {
+      status: 'active' // Only fetch active recipients
+    },
+    include: {
+      _count: {
+        select: {
+          projects: true,
+          participants: true
         }
-      },
-      orderBy: {
-        name: 'asc'
       }
-    });
+    },
+    orderBy: {
+      name: 'asc'
+    }
+  });
 
-    res.status(200).json(trainingRecipients);
-  } catch (error) {
-    console.error('Error fetching training recipients:', error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+  res.status(200).json(trainingRecipients);
 }
+
+export default withOrgScope(asyncHandler(handler));

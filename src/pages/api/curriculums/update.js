@@ -1,55 +1,45 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * PUT /api/curriculums/update
+ * ============================================
+ *
+ * Updates a curriculum with org scoping verification.
+ * Verifies curriculum belongs to user's organization before updating.
+ */
 
-export default async function handler(req, res) {
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  try {
-    const { id, title, description } = req.body;
+  const { orgContext } = req;
+  const { id, title, description } = req.body;
 
-    if (!id || !title || !title.trim()) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'ID and title are required' 
-      });
-    }
-
-    const curriculumId = parseInt(id);
-
-    // Check if curriculum exists
-    const existingCurriculum = await prisma.curriculums.findUnique({
-      where: { id: curriculumId }
-    });
-
-    if (!existingCurriculum) {
-      return res.status(404).json({
-        success: false,
-        message: 'Curriculum not found'
-      });
-    }
-
-    const updatedCurriculum = await prisma.curriculums.update({
-      where: { id: curriculumId },
-      data: {
-        title: title.trim(),
-        description: description?.trim() || null,
-        updatedAt: new Date()
-      }
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Curriculum updated successfully',
-      curriculum: updatedCurriculum
-    });
-
-  } catch (error) {
-    console.error('Error updating curriculum:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update curriculum',
-      error: error.message 
-    });
+  if (!id || !title || !title.trim()) {
+    throw new ValidationError('ID and title are required');
   }
+
+  const curriculumId = parseInt(id);
+
+  // Update with org scoping - scopedUpdate verifies ownership first
+  const updatedCurriculum = await scopedUpdate(orgContext, 'curriculums',
+    { id: curriculumId },
+    {
+      title: title.trim(),
+      description: description?.trim() || null,
+      updatedAt: new Date()
+    }
+  );
+
+  res.status(200).json({
+    success: true,
+    message: 'Curriculum updated successfully',
+    curriculum: updatedCurriculum
+  });
 }
+
+export default withOrgScope(asyncHandler(handler));

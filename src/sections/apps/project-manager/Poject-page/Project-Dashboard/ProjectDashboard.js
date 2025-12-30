@@ -19,7 +19,9 @@ import { useSelector, useDispatch } from "store";
 import { openSnackbar } from 'store/reducers/snackbar';
 import { updateProjectInfo } from 'store/reducers/project/settings';
 import { CalendarOutlined, DashboardOutlined } from "@ant-design/icons";
+import { useGetProjectDashboardQuery, useGetProjectChecklistQuery, useGetProjectSettingsQuery } from 'store/api/projectApi';
 import { derivedSelectors } from 'store/selectors';
+import { selectProjectSettings, selectProjectInfo, selectProjectInstructors } from 'store/reducers/project/settings';
 
 // ==============================|| PROJECT DASHBOARD ||============================== //
 
@@ -29,9 +31,39 @@ const ProjectDashboard = ({ project, styles }) => {
   const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
   const matchDownMD = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Use derived selectors as single source of truth (no API call needed)
-  const dashboardData = useSelector(derivedSelectors.dashboard.selectCompleteDashboard);
+  // HYBRID APPROACH: API for fast initial load + Selectors for real-time updates
+
+  // 1. Use RTK Query for initial fast load (metadata, counts, dates)
+  const {
+    data: dashboardResponse,
+    isLoading: dashboardLoading,
+    error: dashboardError
+  } = useGetProjectDashboardQuery(project?.id, {
+    skip: !project?.id
+  });
+
+  // Extract dashboard data from API response
+  const dashboardData = dashboardResponse?.data;
+
+  // 2. Initialize checklist query to populate RTK cache for selectors
+  useGetProjectChecklistQuery(project?.id, {
+    skip: !project?.id
+  });
+
+  // 2b. Initialize project settings query to populate settings cache
+  useGetProjectSettingsQuery(project?.id, {
+    skip: !project?.id
+  });
+
+  // 3. Use CQRS selectors for LIVE reactive updates
+  const technicalCompletion = useSelector(derivedSelectors.dashboard.selectTechnicalCompletion);
   const attendanceSummary = useSelector(derivedSelectors.attendance.selectAttendanceSummary);
+  const courseCompletionRate = useSelector(derivedSelectors.dashboard.selectCourseCompletionRate);
+
+  // 4. Use settings selectors for dates and instructors (CQRS pattern)
+  const projectSettings = useSelector(selectProjectSettings);
+  const projectInfo = useSelector(selectProjectInfo);
+  const projectInstructors = useSelector(selectProjectInstructors);
 
   // Use computed project data, fallback to prop
   const currentProject = dashboardData?.projectInfo || project;
@@ -122,50 +154,70 @@ const ProjectDashboard = ({ project, styles }) => {
       : null;
   };
 
-  // Get the actual project dates - ONLY use dashboard data
+  // Get the actual project dates - Use CQRS settings state first
   const getProjectStartDate = () => {
-    // Check in order: dashboardData metrics, dashboardData projectInfo, fallback to prop
-    return dashboardData?.metrics?.projectDates?.startDate ||
-           dashboardData?.projectInfo?.startDate ||
-           project?.startDate;
+    // PRIORITY 1: Project settings state (CQRS)
+    if (projectSettings?.startDate) return projectSettings.startDate;
+
+    // PRIORITY 2: Project info state (CQRS)
+    if (projectInfo?.startDate) return projectInfo.startDate;
+
+    // PRIORITY 3: Dashboard API data (fallback)
+    if (dashboardData?.metrics?.projectDates?.startDate) return dashboardData.metrics.projectDates.startDate;
+    if (dashboardData?.projectInfo?.startDate) return dashboardData.projectInfo.startDate;
+
+    // PRIORITY 4: Props (last resort)
+    return project?.startDate;
   };
 
   const getProjectEndDate = () => {
-    // Check in order: dashboardData metrics, dashboardData projectInfo, fallback to prop
-    return dashboardData?.metrics?.projectDates?.endDate ||
-           dashboardData?.projectInfo?.endDate ||
-           project?.endDate;
+    // PRIORITY 1: Project settings state (CQRS)
+    if (projectSettings?.endDate) return projectSettings.endDate;
+
+    // PRIORITY 2: Project info state (CQRS)
+    if (projectInfo?.endDate) return projectInfo.endDate;
+
+    // PRIORITY 3: Dashboard API data (fallback)
+    if (dashboardData?.metrics?.projectDates?.endDate) return dashboardData.metrics.projectDates.endDate;
+    if (dashboardData?.projectInfo?.endDate) return dashboardData.projectInfo.endDate;
+
+    // PRIORITY 4: Props (last resort)
+    return project?.endDate;
   };
 
-  // Get the main instructor from dashboard data or fallback to project data
+  // Get the lead instructor - Use CQRS settings state first
   const getMainInstructor = () => {
-    // Use dashboard data if available
+    // PRIORITY 1: Project instructors from settings state (CQRS)
+    if (projectInstructors && projectInstructors.length > 0) {
+      // Find lead instructor (instructorType: 'lead', 'main', or first instructor)
+      const leadInstructor = projectInstructors.find(
+        pi => pi.instructorType === 'lead' || pi.instructorType === 'main' || pi.role === 'lead' || pi.role === 'main'
+      ) || projectInstructors[0];
+
+      if (leadInstructor?.instructor) {
+        const instructor = leadInstructor.instructor;
+        return instructor.fullName || `${instructor.firstName} ${instructor.lastName}`;
+      }
+    }
+
+    // PRIORITY 2: Dashboard API data (fallback)
     if (dashboardData?.metrics?.projectLeadInstructor) {
       const instructor = dashboardData.metrics.projectLeadInstructor;
       return `${instructor.firstName} ${instructor.lastName}`;
     }
-    
-    // Fallback to project data
-    if (!project?.project_instructors || project.project_instructors.length === 0) {
-      return 'TBD';
+
+    // PRIORITY 3: Props (last resort)
+    if (project?.project_instructors && project.project_instructors.length > 0) {
+      const mainInstructor = project.project_instructors.find(
+        pi => pi.instructorType === 'lead' || pi.instructorType === 'main' || pi.role === 'lead' || pi.role === 'main'
+      ) || project.project_instructors[0];
+
+      if (mainInstructor?.instructor) {
+        const instructor = mainInstructor.instructor;
+        return `${instructor.firstName} ${instructor.lastName}`;
+      }
     }
-    
-    // Try both field names for compatibility
-    const mainInstructor = project.project_instructors.find(
-      pi => pi.instructorType === 'main' || pi.role === 'main'
-    );
-    
-    if (mainInstructor?.instructor) {
-      const instructor = mainInstructor.instructor;
-      return `${instructor.firstName} ${instructor.lastName}`;
-    }
-    
-    // If no main instructor found, return the first instructor as fallback
-    const firstInstructor = project.project_instructors[0]?.instructor;
-    if (firstInstructor) {
-      return `${firstInstructor.firstName} ${firstInstructor.lastName}`;
-    }
-    
+
     return 'TBD';
   };
 
@@ -178,40 +230,39 @@ const ProjectDashboard = ({ project, styles }) => {
     return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
   };
 
-  // Get progress metrics from dashboard data
+  // Get progress metrics with HYBRID approach
   const getProgressMetrics = () => {
-    // Use attendance from derived selector
-    const attendanceRate = Math.round(attendanceSummary?.attendanceRate || 0);
+    // PRIORITY 1: Use LIVE CQRS selectors for reactive metrics
+    const liveTechnical = technicalCompletion?.completionPercentage;
+    const liveAttendance = Math.round(attendanceSummary?.attendanceRate || 0);
+    const liveCourseCompletion = courseCompletionRate; // NEW: Real course completion from CQRS
 
-    // Use dashboard data if available for other metrics
-    if (dashboardData?.metrics) {
-      const { overallCompletion, technicalCompletion } = dashboardData.metrics;
+    // PRIORITY 2: Fallback to API data for initial load
+    const apiTechnical = dashboardData?.metrics?.technicalCompletion?.completionPercentage;
+    const apiAttendance = dashboardData?.metrics?.attendanceRate?.attendancePercentage;
+    const apiLearning = dashboardData?.metrics?.overallCompletion?.breakdown?.learning;
 
-      const learning = overallCompletion?.breakdown?.learning ?? 30;
-      const technical = technicalCompletion?.completionPercentage ?? 0;
+    // Use selectors if they have data (total items > 0), otherwise use API data
+    // Check if selector has actual checklist data (not just computed 0% from empty list)
+    const hasSelectorData = technicalCompletion?.totalChecklistItems > 0;
+    const technical = hasSelectorData ? liveTechnical : (apiTechnical ?? 0);
 
-      // Calculate overall progress from learning, technical, and attendance
-      const overall = (learning + technical + attendanceRate) / 3;
+    // For attendance, use selector if we have attendance data
+    const hasAttendanceData = attendanceSummary?.attendanceRate !== undefined;
+    const attendance = hasAttendanceData ? liveAttendance : (apiAttendance ?? 0);
 
-      return {
-        overall: Math.round(overall),
-        learning,
-        technical,
-        attendance: attendanceRate
-      };
-    }
+    // For course completion, use selector if data exists, otherwise fallback to API
+    const hasCourseCompletionData = courseCompletionRate !== undefined;
+    const learning = hasCourseCompletionData ? liveCourseCompletion : (apiLearning ?? 0);
 
-    // Fallback calculation (legacy logic for when dashboard data is not available)
-    const learningProgress = 30;
-    const technicalSetupProgress = 0; // No checklist data available
-
-    const projectProgress = (learningProgress + technicalSetupProgress + attendanceRate) / 3;
+    // Calculate overall progress
+    const overall = (learning + technical + attendance) / 3;
 
     return {
-      overall: Math.round(projectProgress),
-      learning: learningProgress,
-      technical: technicalSetupProgress,
-      attendance: attendanceRate
+      overall: Math.round(overall),
+      learning,
+      technical,
+      attendance
     };
   };
 
@@ -590,20 +641,20 @@ const ProjectDashboard = ({ project, styles }) => {
                 {/* Progress Breakdown */}
                 <Box sx={{ flex: 1 }}>
                   <Stack spacing={3}>
-                    <ProgressIndicator 
-                      label="Passing Rate" 
-                      value={Math.round(progressMetrics.learning)} 
-                      color="primary" 
+                    <ProgressIndicator
+                      label="Courses Completion"
+                      value={Math.round(progressMetrics.learning)}
+                      color="primary"
                     />
-                    <ProgressIndicator 
-                      label="Technical Setup" 
-                      value={Math.round(progressMetrics.technical)} 
-                      color="success" 
+                    <ProgressIndicator
+                      label="Technical Setup"
+                      value={Math.round(progressMetrics.technical)}
+                      color="success"
                     />
-                    <ProgressIndicator 
-                      label="Attendance Rate" 
-                      value={Math.round(progressMetrics.attendance)} 
-                      color="warning" 
+                    <ProgressIndicator
+                      label="Attendance Rate"
+                      value={Math.round(progressMetrics.attendance)}
+                      color="warning"
                     />
                   </Stack>
                 </Box>

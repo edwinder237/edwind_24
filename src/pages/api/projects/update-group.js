@@ -1,19 +1,42 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * POST /api/projects/update-group
+ * ============================================
+ *
+ * Updates a group in a project.
+ * FIXED: Previously accepted any projectId/groupId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
     const { groupId, updates, projectId } = req.body;
-    
+
     if (!groupId) {
-      return res.status(400).json({ error: 'Group ID is required' });
+      throw new ValidationError('Group ID is required');
     }
 
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      throw new ValidationError('Project ID is required');
+    }
+
+    // Verify project ownership
+    const project = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: parseInt(projectId) }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
     }
 
     // Check if group exists and belongs to the project
@@ -25,7 +48,7 @@ export default async function handler(req, res) {
     });
 
     if (!existingGroup) {
-      return res.status(404).json({ error: 'Group not found or does not belong to this project' });
+      throw new NotFoundError('Group not found or does not belong to this project');
     }
 
     // Check if group name is unique within the project (if name is being updated)
@@ -41,7 +64,7 @@ export default async function handler(req, res) {
       });
 
       if (existingGroupWithName) {
-        return res.status(400).json({ error: 'Group name already exists in this project' });
+        throw new ValidationError('Group name already exists in this project');
       }
     }
 
@@ -72,7 +95,7 @@ export default async function handler(req, res) {
         },
       },
     });
-    
+
     const result = {
       updatedGroup,
       allProjectGroups,
@@ -82,6 +105,8 @@ export default async function handler(req, res) {
     res.status(200).json(result);
   } catch (error) {
     console.error('Error updating group:', error);
-    res.status(500).json({ error: 'Failed to update group', details: error.message });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

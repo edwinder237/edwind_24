@@ -82,10 +82,12 @@ const CurriculumsPage = () => {
       setLoading(true);
       const response = await fetch('/api/curriculums/fetchCurriculums');
       const data = await response.json();
-      
-      setCurriculums(data || []);
+
+      // Ensure data is always an array (API might return error object or null)
+      setCurriculums(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching curriculums:', error);
+      setCurriculums([]); // Reset to empty array on error
       dispatch(openSnackbar({
         open: true,
         message: 'Failed to fetch curriculums',

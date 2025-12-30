@@ -1,55 +1,56 @@
-import { PrismaClient } from '@prisma/client';
+/**
+ * ============================================
+ * DELETE /api/participants/delete
+ * ============================================
+ *
+ * Deletes a participant and all related records.
+ * FIXED: Previously deleted any participant without org validation.
+ */
 
-const prisma = new PrismaClient();
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'DELETE') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const { participantId } = req.query;
 
     if (!participantId) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Participant ID is required' 
-      });
+      throw new ValidationError('Participant ID is required');
     }
 
-    // First, check if participant exists
-    const existingParticipant = await prisma.participants.findUnique({
-      where: {
-        id: participantId
-      }
+    // Verify participant ownership
+    const existingParticipant = await scopedFindUnique(orgContext, 'participants', {
+      where: { id: participantId }
     });
 
     if (!existingParticipant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Participant not found'
-      });
+      throw new NotFoundError('Participant not found');
     }
 
-    // Delete all related project_participants records first
-    await prisma.project_participants.deleteMany({
-      where: {
-        participantId: participantId
-      }
-    });
+    // Use transaction for atomicity
+    await prisma.$transaction(async (tx) => {
+      // Delete all related project_participants records first
+      await tx.project_participants.deleteMany({
+        where: { participantId: participantId }
+      });
 
-    // Delete any tool access records
-    await prisma.toolAccesses.deleteMany({
-      where: {
-        participantId: participantId
-      }
-    });
+      // Delete any tool access records
+      await tx.toolAccesses.deleteMany({
+        where: { participantId: participantId }
+      });
 
-    // Delete the participant
-    await prisma.participants.delete({
-      where: {
-        id: participantId
-      }
+      // Delete the participant
+      await tx.participants.delete({
+        where: { id: participantId }
+      });
     });
 
     return res.status(200).json({
@@ -59,12 +60,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error deleting participant:', error);
-    return res.status(500).json({ 
-      success: false,
-      message: 'Failed to delete participant',
-      error: error.message 
-    });
-  } finally {
-    await prisma.$disconnect();
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

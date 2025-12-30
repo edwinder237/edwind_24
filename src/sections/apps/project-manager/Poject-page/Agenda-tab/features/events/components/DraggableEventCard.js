@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -52,7 +52,6 @@ import { useDispatch, useSelector } from 'store';
 import { deleteEvent, updateEvent, duplicateEvent, addGroupToEvent } from 'store/commands/eventCommands';
 import { fetchProjectAgenda } from 'store/reducers/project/agenda';
 import { openSnackbar } from 'store/reducers/snackbar';
-import EditEventDialog from '../dialogs/EditEventDialog';
 import EventDetailsSection from './EventDetailsSection';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
 
@@ -61,13 +60,23 @@ const ItemTypes = {
   EVENT: 'event'
 };
 
-const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect, onTimeEdit, onMoveToNextDay, allEvents, project, isCompact = false, onEventUpdate }) => {
+const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect, onTimeEdit, onMoveToNextDay, allEvents, project, isCompact = false, onEventUpdate, onEditEvent }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Use new Redux architecture - get data from projectAgenda store
-  const { events, groups, participants, loading: agendaLoading } = useSelector((state) => state.projectAgenda);
+  // IMPORTANT: Use shallow equality to prevent unnecessary re-renders
+  const { events, groups, participants, loading: agendaLoading } = useSelector(
+    (state) => state.projectAgenda,
+    (left, right) => {
+      // Only re-render if the actual data changed, not just the reference
+      return left.events === right.events &&
+             left.groups === right.groups &&
+             left.participants === right.participants &&
+             left.loading === right.loading;
+    }
+  );
   const groupsLoading = agendaLoading;
   const project_participants = participants;
   
@@ -78,7 +87,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   const [allDay, setAllDay] = useState(false);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  // Edit dialog state removed - now managed at parent level (AgendaTimeline)
   const [colorPickerAnchorEl, setColorPickerAnchorEl] = useState(null);
   const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
   const [groupDropdownAnchorEl, setGroupDropdownAnchorEl] = useState(null);
@@ -320,11 +329,13 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
 
   const handleMenuAction = async (action, e) => {
     e?.stopPropagation();
-    
+
     switch (action) {
       case 'edit':
         handleMenuClose();
-        setEditDialogOpen(true);
+        if (onEditEvent) {
+          onEditEvent(event);
+        }
         break;
       case 'duplicate':
         handleMenuClose();
@@ -1394,13 +1405,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
       </DialogActions>
     </Dialog>
 
-    {/* Edit Event Dialog */}
-    <EditEventDialog
-      open={editDialogOpen}
-      onClose={() => setEditDialogOpen(false)}
-      event={event}
-      project={project}
-    />
+    {/* Edit Event Dialog - Now managed at parent level (AgendaTimeline) */}
 
     {/* Group Selection Popover */}
     <Popover
@@ -1703,11 +1708,13 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         >
           Close
         </Button>
-        <Button 
+        <Button
           onClick={() => {
             setManageEventDialogOpen(false);
             setEventDetailsLoading(false);
-            setEditDialogOpen(true);
+            if (onEditEvent) {
+              onEditEvent(event);
+            }
           }}
           variant="contained"
           fullWidth={matchDownSM}

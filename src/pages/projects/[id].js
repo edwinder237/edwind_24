@@ -18,8 +18,6 @@ import {
 import Layout from "layout";
 import Page from "components/Page";
 import Loader from "components/Loader";
-import EventMonitor from "components/EventMonitor";
-import EntityMonitor from "components/EntityMonitor";
 
 import ProjectPage from "../../sections/apps/project-manager/Poject-page/ProjectPage";
 
@@ -77,17 +75,7 @@ function ProjectDefault() {
     );
   }
 
-  return (
-    <>
-      <ProjectPage projectId={projectId} />
-      {process.env.NODE_ENV === 'development' && (
-        <>
-          <EventMonitor position="bottom-left" defaultOpen={false} maxEvents={100} />
-          <EntityMonitor position="top-left" defaultOpen={false} />
-        </>
-      )}
-    </>
-  );
+  return <ProjectPage projectId={projectId} />;
 }
 
 ProjectDefault.getLayout = function getLayout(page) {

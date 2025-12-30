@@ -1,25 +1,47 @@
+/**
+ * ============================================
+ * POST /api/curriculums/createCurriculum
+ * ============================================
+ *
+ * Creates a new curriculum for the current organization.
+ * FIXED: Previously created curriculums without org scoping.
+ *
+ * Body:
+ * - name (required): Curriculum name
+ * - description: Curriculum description
+ * - selectedCourses (required): Array of course IDs
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   curriculum: {...}
+ * }
+ */
+
 import prisma from '../../../lib/prisma';
 import { calculateCourseDurationFromModules } from '../../../utils/durationCalculations';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedCreate } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const { name, description, difficulty, estimatedDuration, selectedCourses } = req.body;
 
     if (!name || !selectedCourses || selectedCourses.length === 0) {
-      return res.status(400).json({ 
-        message: 'Name and at least one course are required' 
-      });
+      throw new ValidationError('Name and at least one course are required');
     }
 
-    const curriculum = await prisma.curriculums.create({
-      data: {
-        title: name,
-        description: description || null,
-      }
+    // Create curriculum with automatic org scoping
+    const curriculum = await scopedCreate(orgContext, 'curriculums', {
+      title: name,
+      description: description || null,
     });
 
     const curriculumCourses = await Promise.all(
@@ -73,10 +95,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error creating curriculum:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to create curriculum',
-      error: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

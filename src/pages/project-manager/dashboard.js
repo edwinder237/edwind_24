@@ -10,12 +10,12 @@ import Layout from 'layout';
 import Page from 'components/Page';
 import MainCard from 'components/MainCard';
 import AnalyticsDataCard from 'components/cards/statistics/AnalyticsDataCard';
-import UsersCardChart from 'sections/dashboard/analytics/UsersCardChart';
-import OrdersCardChart from 'sections/dashboard/analytics/OrdersCardChart';
-import SalesCardChart from 'sections/dashboard/analytics/SalesCardChart';
-import MarketingCardChart from 'sections/dashboard/analytics/MarketingCardChart';
-import IncomeChart from 'sections/dashboard/analytics/IncomeChart';
-import ReportChart from 'sections/dashboard/analytics/ReportChart';
+import UsersCardChart from 'components/dashboard/analytics/UsersCardChart';
+import OrdersCardChart from 'components/dashboard/analytics/OrdersCardChart';
+import SalesCardChart from 'components/dashboard/analytics/SalesCardChart';
+import MarketingCardChart from 'components/dashboard/analytics/MarketingCardChart';
+import IncomeChart from 'components/dashboard/analytics/IncomeChart';
+import ReportChart from 'components/dashboard/analytics/ReportChart';
 
 // ==============================|| PROJECT MANAGER DASHBOARD ||============================== //
 

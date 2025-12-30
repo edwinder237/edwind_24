@@ -1,83 +1,76 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * POST /api/training-recipients/create
+ * ============================================
+ *
+ * Creates a new training recipient for the current organization.
+ * Uses org scoping for proper sub-organization assignment.
+ */
 
-export default async function handler(req, res) {
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedCreate, scopedFindFirst } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    const { 
-      name, 
-      description, 
-      contactPerson,
-      email,
-      phone,
-      address,
-      website,
-      industry,
-      taxId,
-      notes,
-      location,
-      img,
-      sub_organizationId = 1, // Default to first sub-organization for now
-      createdBy = 'system' // Default value
-    } = req.body;
+  const { orgContext } = req;
+  const {
+    name,
+    description,
+    contactPerson,
+    email,
+    phone,
+    address,
+    website,
+    industry,
+    taxId,
+    notes,
+    location,
+    img
+  } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ 
-        error: 'Name is required' 
-      });
-    }
-
-    // Check if training recipient already exists
-    const existingRecipient = await prisma.training_recipients.findFirst({
-      where: {
-        name: name.trim(),
-        sub_organizationId: parseInt(sub_organizationId)
-      }
-    });
-
-    if (existingRecipient) {
-      return res.status(409).json({
-        error: 'Training recipient with this name already exists'
-      });
-    }
-
-    // Create new training recipient
-    const newRecipient = await prisma.training_recipients.create({
-      data: {
-        name: name.trim(),
-        description,
-        contactPerson,
-        email,
-        phone,
-        address,
-        website,
-        industry,
-        taxId,
-        notes,
-        location: location ? JSON.stringify(location) : null,
-        img: img || null,
-        sub_organizationId: parseInt(sub_organizationId),
-        createdBy
-      },
-      include: {
-        sub_organization: {
-          select: {
-            id: true,
-            title: true
-          }
-        }
-      }
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Training recipient created successfully',
-      trainingRecipient: newRecipient
-    });
-  } catch (error) {
-    console.error('Error creating training recipient:', error);
-    res.status(500).json({ error: "Internal Server Error" });
+  if (!name) {
+    throw new ValidationError('Name is required');
   }
+
+  // Check if training recipient already exists in this organization
+  const existingRecipient = await scopedFindFirst(orgContext, 'training_recipients', {
+    where: {
+      name: name.trim()
+    }
+  });
+
+  if (existingRecipient) {
+    return res.status(409).json({
+      error: 'Training recipient with this name already exists'
+    });
+  }
+
+  // Create new training recipient with automatic org scoping
+  const newRecipient = await scopedCreate(orgContext, 'training_recipients', {
+    name: name.trim(),
+    description: description || null,
+    contactPerson: contactPerson || null,
+    email: email || null,
+    phone: phone || null,
+    address: address || null,
+    website: website || null,
+    industry: industry || null,
+    taxId: taxId || null,
+    notes: notes || null,
+    location: location ? JSON.stringify(location) : null,
+    img: img || null,
+    createdBy: orgContext.userId
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Training recipient created successfully',
+    trainingRecipient: newRecipient
+  });
 }
+
+export default withOrgScope(asyncHandler(handler));

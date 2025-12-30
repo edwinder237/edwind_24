@@ -1,6 +1,19 @@
-import { v4 as uuidv4 } from 'uuid';
+/**
+ * ============================================
+ * POST /api/projects/updateParticipant
+ * ============================================
+ *
+ * Legacy client-side optimistic update endpoint for updating participant groups.
+ * NOTE: This is a mock endpoint that returns client-provided data without persistence.
+ * The actual participant updates happen via participants/updateParticipant.js.
+ * FIXED: Added org scope middleware for consistency.
+ */
 
-export default function handler(req, res) {
+import { v4 as uuidv4 } from 'uuid';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { asyncHandler } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   const { index, id, value, participants, groups } = req.body;
 
   const updatedParticipants = participants.map((person) => {
@@ -39,6 +52,7 @@ export default function handler(req, res) {
     groups: allGroups
   };
 
-  //console.log(allGroups);
   return res.status(200).json({ ...result });
 }
+
+export default withOrgScope(asyncHandler(handler));

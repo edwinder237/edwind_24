@@ -37,12 +37,8 @@ import {
   CheckCircleOutlined,
   TeamOutlined
 } from '@ant-design/icons';
-import { useDispatch, useSelector } from 'store';
-import { getGroupsDetails, getProjectCurriculums } from 'store/reducers/project';
 
-const CurriculumManageDialog = ({ open, onClose, group, onRefresh }) => {
-  const dispatch = useDispatch();
-  const { singleProject } = useSelector((state) => state.projects);
+const CurriculumManageDialog = ({ open, onClose, group, projectId, onRefresh }) => {
   
   const [availableCurriculums, setAvailableCurriculums] = useState([]);
   const [assignedCurriculums, setAssignedCurriculums] = useState([]);
@@ -50,16 +46,16 @@ const CurriculumManageDialog = ({ open, onClose, group, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
-  // Centralized refresh function using Redux
+  // Centralized refresh function - delegates to parent via callback
+  // Parent component uses RTK Query which will auto-invalidate caches
   const refreshGroupsData = async () => {
-    if (singleProject?.id) {
+    if (onRefresh) {
       try {
-        console.log('Refreshing groups data via Redux after curriculum change...');
-        await dispatch(getGroupsDetails(singleProject.id));
-        onRefresh && onRefresh(); // Also call parent refresh if provided
-        console.log('Groups data refreshed successfully');
+        console.log('Notifying parent to refresh groups data after curriculum change...');
+        await onRefresh(); // Parent component handles refresh via RTK Query
+        console.log('Parent refresh callback completed');
       } catch (error) {
-        console.error('Error refreshing groups data:', error);
+        console.error('Error in parent refresh callback:', error);
       }
     }
   };
@@ -192,13 +188,9 @@ const CurriculumManageDialog = ({ open, onClose, group, onRefresh }) => {
       setAvailableCurriculums([]);
       setAssignedCurriculums([]);
       setSearchTerm('');
-      
-      // Refresh project curriculums in Redux to get latest data
-      if (singleProject?.id) {
-        dispatch(getProjectCurriculums(singleProject.id));
-      }
-      
-      // Fetch fresh data
+
+      // Fetch fresh data directly from API
+      // No need to dispatch Redux actions - this dialog manages its own local state
       fetchAvailableCurriculums();
       fetchAssignedCurriculums();
     }

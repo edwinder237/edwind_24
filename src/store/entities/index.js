@@ -12,6 +12,7 @@ import groupsReducer, * as groupsSelectors from './groupsSlice';
 import settingsReducer, * as settingsSelectors from './settingsSlice';
 import attendanceReducer, * as attendanceSelectors from './attendanceSlice';
 import calendarReducer, * as calendarSelectors from './calendarSlice';
+import dailyNotesReducer, * as dailyNotesSelectors from './dailyNotesSlice';
 
 // Combine all entity reducers
 export const entityReducers = {
@@ -20,7 +21,8 @@ export const entityReducers = {
   groups: groupsReducer,
   settings: settingsReducer,
   attendance: attendanceReducer,
-  calendar: calendarReducer
+  calendar: calendarReducer,
+  dailyNotes: dailyNotesReducer
 };
 
 // Re-export all selectors with prefixed names for clarity
@@ -41,7 +43,10 @@ export const entitySelectors = {
   attendance: attendanceSelectors,
 
   // Calendar
-  calendar: calendarSelectors
+  calendar: calendarSelectors,
+
+  // Daily Notes
+  dailyNotes: dailyNotesSelectors
 };
 
 // Convenience selectors that work across entities

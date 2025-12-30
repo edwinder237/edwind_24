@@ -1,71 +1,118 @@
+/**
+ * ============================================
+ * GET /api/organization/get-organization
+ * ============================================
+ *
+ * Returns the current organization with sub-organizations.
+ * If organizationId query param provided, returns that specific org (if user has access).
+ *
+ * Query Params:
+ * - organizationId (optional): Specific organization to fetch
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   organization: {
+ *     id: "uuid",
+ *     workos_org_id: "org_xyz",
+ *     title: "Organization Name",
+ *     sub_organizations: [...]
+ *   }
+ * }
+ */
+
 import prisma from '../../../lib/prisma';
-import { WorkOS } from '@workos-inc/node';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { asyncHandler } from '../../../lib/errors/index.js';
 
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
-    // Check authentication
-    const userId = req.cookies.workos_user_id;
-    
-    if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
+  const { organizationId } = req.query;
+  const { orgContext } = req;
 
-    // Get user from WorkOS
-    const user = await workos.userManagement.getUser(userId);
-    
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    const { organizationId } = req.query;
-    
-    if (!organizationId) {
-      // For now, return the first organization (you may want to adjust this logic)
-      const organizations = await prisma.organizations.findMany({
-        take: 1,
-        include: {
-          sub_organizations: true
-        }
-      });
-
-      if (!organizations || organizations.length === 0) {
-        return res.status(404).json({ error: 'No organization found' });
-      }
-
-      return res.status(200).json({ 
-        success: true,
-        organization: organizations[0]
-      });
-    }
-
-    // Fetch specific organization
-    const organization = await prisma.organizations.findUnique({
-      where: { id: organizationId },
-      include: {
-        sub_organizations: true
-      }
-    });
-
-    if (!organization) {
+  // If specific organizationId requested
+  if (organizationId) {
+    // Check if user has access to this organization
+    if (organizationId !== orgContext.organizationId) {
+      // Return 404 to hide existence of other orgs
       return res.status(404).json({ error: 'Organization not found' });
     }
-
-    return res.status(200).json({ 
-      success: true,
-      organization 
-    });
-
-  } catch (error) {
-    console.error('Error fetching organization:', error);
-    return res.status(500).json({ 
-      error: 'Failed to fetch organization',
-      details: error.message 
-    });
   }
+
+  // Fetch current organization with sub-organizations
+  const organization = await prisma.organizations.findUnique({
+    where: { id: orgContext.organizationId },
+    include: {
+      sub_organizations: {
+        select: {
+          id: true,
+          title: true,
+          organizationId: true
+        }
+      }
+    }
+  });
+
+  if (!organization) {
+    return res.status(404).json({ error: 'Organization not found' });
+  }
+
+  // Get all sub-organizations for this organization
+  const subOrgs = await prisma.sub_organizations.findMany({
+    where: {
+      organizationId: orgContext.organizationId
+    },
+    select: {
+      id: true,
+      title: true,
+      organizationId: true
+    }
+  });
+
+  const subOrgIds = subOrgs.map(so => so.id);
+
+  // Count projects for this organization's sub-organizations
+  const projectCount = subOrgIds.length > 0 ? await prisma.projects.count({
+    where: {
+      sub_organizationId: {
+        in: subOrgIds
+      }
+    }
+  }) : 0;
+
+  // Count instructors for this organization's sub-organizations
+  const instructorCount = subOrgIds.length > 0 ? await prisma.instructors.count({
+    where: {
+      sub_organizationId: {
+        in: subOrgIds
+      }
+    }
+  }) : 0;
+
+  // Count participants for this organization's sub-organizations
+  const participantCount = subOrgIds.length > 0 ? await prisma.participants.count({
+    where: {
+      sub_organization: {
+        in: subOrgIds
+      }
+    }
+  }) : 0;
+
+  // Update the organization object to include all sub-organizations
+  organization.sub_organizations = subOrgs;
+
+  return res.status(200).json({
+    success: true,
+    organization,
+    statistics: {
+      projects: projectCount,
+      instructors: instructorCount,
+      participants: participantCount
+    }
+  });
 }
+
+export default withOrgScope(asyncHandler(handler));

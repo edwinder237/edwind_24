@@ -1,7 +1,45 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * POST /api/projects/fetchParticipants
+ * ============================================
+ *
+ * Returns all active participants for a project.
+ * FIXED: Previously leaked participant data across organizations.
+ *
+ * Body:
+ * - projectId (required): Project ID to fetch participants for
+ *
+ * Response:
+ * [
+ *   {
+ *     id: number,
+ *     participant: {...},
+ *     status: string
+ *   }
+ * ]
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   const { projectId } = req.body;
+  const { orgContext } = req;
+
+  if (!projectId) {
+    throw new ValidationError('Project ID is required');
+  }
+
+  // Verify project ownership
+  const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
+    where: { id: parseInt(projectId) }
+  });
+
+  if (!projectOwnership) {
+    throw new NotFoundError('Project not found');
+  }
 
   try {
     const projectParticipants = await prisma.project_participants.findMany({
@@ -33,9 +71,8 @@ export default async function handler(req, res) {
     res.status(200).json(projectParticipants);
   } catch (error) {
     console.error('[fetchParticipants] Error:', error);
-    res.status(500).json({ 
-      error: "Internal Server Error",
-      ...(process.env.NODE_ENV === 'development' && { details: error.message })
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

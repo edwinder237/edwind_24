@@ -12,20 +12,20 @@ import Layout from 'layout';
 
 const HomePage = () => {
   const router = useRouter();
-  const user = useUser();
-  
+  const { user, isLoading, isAuthenticated } = useUser();
+
   useEffect(() => {
     // Only redirect when we have determined the user's auth status
-    if (user === undefined) return; // Still loading
-    
-    if (user === null) {
+    if (isLoading) return; // Still loading
+
+    if (!isAuthenticated) {
       // User is not authenticated, redirect to landing page
       router.push('/landing');
     } else {
       // User is authenticated, redirect to projects
       router.push('/projects');
     }
-  }, [user, router]);
+  }, [isLoading, isAuthenticated, router]);
   
   // Show loading spinner while determining auth status or redirecting
   return (

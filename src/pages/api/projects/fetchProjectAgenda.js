@@ -1,17 +1,30 @@
 import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { projectId } = req.body;
+  const { orgContext } = req;
 
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    throw new ValidationError('Project ID is required');
   }
 
   try {
+    // First verify project exists and belongs to organization
+    const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: parseInt(projectId) }
+    });
+
+    if (!projectOwnership) {
+      throw new NotFoundError('Project not found');
+    }
+
     // Single optimized query to get all agenda-related data
     const agendaData = await prisma.projects.findUnique({
       where: {
@@ -52,6 +65,8 @@ export default async function handler(req, res) {
                 level: true,
                 courseCategory: true,
                 backgroundImg: true,
+                code: true,
+                version: true,
                 
                 // Modules and activities for course content
                 modules: {
@@ -268,13 +283,13 @@ export default async function handler(req, res) {
             participants: {
               select: {
                 id: true,
-                
+
                 participant: {
                   select: {
                     id: true,
                     participantId: true,
                     status: true,
-                    
+
                     participant: {
                       select: {
                         id: true,
@@ -284,7 +299,7 @@ export default async function handler(req, res) {
                         participantStatus: true,
                         participantType: true,
                         profileImg: true,
-                        
+
                         role: {
                           select: {
                             id: true,
@@ -292,7 +307,7 @@ export default async function handler(req, res) {
                             description: true
                           }
                         },
-                        
+
                         training_recipient: {
                           select: {
                             id: true,
@@ -308,6 +323,36 @@ export default async function handler(req, res) {
                 participant: {
                   status: {
                     not: 'removed'
+                  }
+                }
+              }
+            },
+
+            group_curriculums: {
+              select: {
+                id: true,
+                curriculumId: true,
+                isActive: true,
+                assignedAt: true,
+                assignedBy: true,
+
+                curriculum: {
+                  select: {
+                    id: true,
+                    title: true,
+                    description: true,
+                    curriculum_courses: {
+                      select: {
+                        id: true,
+                        courseId: true,
+                        course: {
+                          select: {
+                            id: true,
+                            title: true
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -468,9 +513,11 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching project agenda:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch project agenda', 
-      details: error.message 
+    res.status(500).json({
+      error: 'Failed to fetch project agenda',
+      details: error.message
     });
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

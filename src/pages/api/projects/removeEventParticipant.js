@@ -1,30 +1,29 @@
+/**
+ * ============================================
+ * POST /api/projects/removeEventParticipant
+ * ============================================
+ *
+ * Removes a participant from an event.
+ * FIXED: Previously accepted any eventId/participantId without validation.
+ */
+
 import prisma from '../../../lib/prisma';
-import { WorkOS } from '@workos-inc/node';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-const workos = new WorkOS(process.env.WORKOS_API_KEY);
-
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
-    const userId = req.cookies.workos_user_id;
-    
-    if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const user = await workos.userManagement.getUser(userId);
-    
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
     const { eventId, participantId } = req.body;
 
     if (!eventId || !participantId) {
-      return res.status(400).json({ error: 'Event ID and participant ID are required' });
+      throw new ValidationError('Event ID and participant ID are required');
     }
 
     const parsedEventId = parseInt(eventId);
@@ -54,7 +53,16 @@ export default async function handler(req, res) {
       });
 
       if (!event) {
-        return res.status(404).json({ error: 'Event not found' });
+        throw new NotFoundError('Event not found');
+      }
+
+      // Verify project ownership
+      const project = await scopedFindUnique(orgContext, 'projects', {
+        where: { id: event.projectId }
+      });
+
+      if (!project) {
+        throw new NotFoundError('Event not found');
       }
 
       // Find the project_participants record
@@ -67,17 +75,31 @@ export default async function handler(req, res) {
       });
 
       if (!projectParticipant) {
-        // Debug: Check what participants exist for this project
-        const allProjectParticipants = await prisma.project_participants.findMany({
-          where: { projectId: event.projectId },
-          select: { id: true, participantId: true },
-          take: 5
-        });
-
-        return res.status(404).json({ error: 'Participant not enrolled in this project' });
+        throw new NotFoundError('Participant not enrolled in this project');
       }
 
       enrolleeId = projectParticipant.id;
+    }
+
+    // If we have enrolleeId as integer, still need to validate event ownership
+    if (!isUUID) {
+      const event = await prisma.events.findUnique({
+        where: { id: parsedEventId },
+        select: { projectId: true }
+      });
+
+      if (!event) {
+        throw new NotFoundError('Event not found');
+      }
+
+      // Verify project ownership
+      const project = await scopedFindUnique(orgContext, 'projects', {
+        where: { id: event.projectId }
+      });
+
+      if (!project) {
+        throw new NotFoundError('Event not found');
+      }
     }
 
     // Find the existing attendee record
@@ -89,7 +111,7 @@ export default async function handler(req, res) {
     });
 
     if (!existingAttendee) {
-      return res.status(404).json({ error: 'Participant not found in this event' });
+      throw new NotFoundError('Participant not found in this event');
     }
 
     // Remove participant from event
@@ -105,6 +127,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error removing participant from event:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

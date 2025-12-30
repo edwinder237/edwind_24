@@ -14,6 +14,8 @@ import { eventCommands } from './eventCommands';
 import { checklistCommands } from './checklistCommands';
 import { settingsCommands } from './settingsCommands';
 import { calendarCommands } from './calendarCommands';
+import { assessmentCommands } from './assessmentCommands';
+import { dailyNotesCommands } from './dailyNotesCommands';
 
 // Export individual command modules
 export { participantCommands } from './participantCommands';
@@ -23,9 +25,11 @@ export { eventCommands } from './eventCommands';
 export { checklistCommands } from './checklistCommands';
 export { settingsCommands } from './settingsCommands';
 export { calendarCommands } from './calendarCommands';
+export { assessmentCommands } from './assessmentCommands';
+export { dailyNotesCommands } from './dailyNotesCommands';
 
 // Export command dispatcher utilities
-export { executeCommand, createCommandContext } from './commandDispatcher';
+export { createCommandDispatcher, useCommands, CommandShortcuts } from './commandDispatcher';
 
 // Export combined commands object for convenience
 export const commands = {
@@ -35,7 +39,9 @@ export const commands = {
   event: eventCommands,
   checklist: checklistCommands,
   settings: settingsCommands,
-  calendar: calendarCommands
+  calendar: calendarCommands,
+  assessment: assessmentCommands,
+  dailyNotes: dailyNotesCommands
 };
 
 // Export default as commands for backward compatibility

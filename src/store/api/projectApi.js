@@ -52,7 +52,12 @@ export const projectApi = createApi({
     'Attendance',
     'Progress',
     'Checklist',
-    'ChecklistProgress'
+    'ChecklistProgress',
+    'Assessment',
+    'ParticipantScores',
+    'AssessmentAttempts',
+    'ProjectAssessments',
+    'DailyNotes'
   ],
   
   endpoints: (builder) => ({
@@ -130,8 +135,11 @@ export const projectApi = createApi({
       }),
       providesTags: (_, __, projectId) => [
         { type: 'Project', id: projectId },
+        { type: 'Checklist', id: projectId },
+        { type: 'ChecklistProgress', id: projectId },
         'Event',
-        'Participant'
+        'Participant',
+        'Attendance'
       ],
       transformResponse: (response) => {
         if (response.success) {
@@ -946,6 +954,23 @@ export const projectApi = createApi({
     }),
 
     /**
+     * Get group curriculums with course details and completion data
+     * CQRS: Read model for group curriculum management
+     */
+    getGroupCurriculums: builder.query({
+      query: ({ groupId }) => ({
+        url: `groups/fetch-group-curriculums?groupId=${groupId}`,
+        method: 'GET'
+      }),
+      providesTags: (result, error, { groupId }) => [
+        { type: 'GroupCurriculum', id: groupId },
+        { type: 'Group', id: groupId }
+      ],
+      // Cache for 5 minutes
+      keepUnusedDataFor: 300
+    }),
+
+    /**
      * Assign curriculum to group
      * Affects expected modules for events where group is enrolled
      */
@@ -1368,12 +1393,13 @@ export const projectApi = createApi({
     /**
      * Toggle checklist item completion (project-level)
      * Updates both completion status and optional notes
+     * Handles both course and curriculum checklist items
      */
     toggleChecklistItem: builder.mutation({
-      query: ({ projectId, checklistItemId, completed, notes, completedBy }) => ({
+      query: ({ projectId, checklistItemId, completed, notes, completedBy, itemType }) => ({
         url: 'projects/checklist-progress',
         method: 'POST',
-        body: { projectId, checklistItemId, completed, notes, completedBy }
+        body: { projectId, checklistItemId, completed, notes, completedBy, itemType }
       }),
       invalidatesTags: (_, __, { projectId, checklistItemId }) => [
         { type: 'Checklist', id: projectId },
@@ -1416,6 +1442,271 @@ export const projectApi = createApi({
         throw new Error(response.message || 'Failed to update participant progress');
       },
     }),
+
+    // ==============================|| CURRICULUM CHECKLIST MANAGEMENT ||============================== //
+
+    /**
+     * Get curriculum checklist items
+     * Fetches checklist templates for a curriculum
+     */
+    getCurriculumChecklistItems: builder.query({
+      query: (curriculumId) => ({
+        url: 'curriculums/checklist-items',
+        params: { curriculumId }
+      }),
+      providesTags: (_, __, curriculumId) => [
+        { type: 'Checklist', id: `curriculum-${curriculumId}` }
+      ],
+      transformResponse: (response) => {
+        if (Array.isArray(response)) {
+          return response;
+        }
+        throw new Error('Failed to fetch curriculum checklist items');
+      },
+    }),
+
+    /**
+     * Create new curriculum checklist item
+     * Adds a new checklist template to the curriculum
+     */
+    createCurriculumChecklistItem: builder.mutation({
+      query: (itemData) => ({
+        url: 'curriculums/checklist-items',
+        method: 'POST',
+        body: itemData
+      }),
+      invalidatesTags: (_, __, { curriculumId }) => [
+        { type: 'Checklist', id: `curriculum-${curriculumId}` }
+      ],
+      transformResponse: (response) => {
+        if (response.id) {
+          return response;
+        }
+        throw new Error('Failed to create checklist item');
+      },
+    }),
+
+    /**
+     * Update curriculum checklist item
+     * Modifies an existing checklist template
+     */
+    updateCurriculumChecklistItem: builder.mutation({
+      query: ({ id, ...updates }) => ({
+        url: `curriculums/checklist-items?id=${id}`,
+        method: 'PUT',
+        body: updates
+      }),
+      invalidatesTags: (result, _, { curriculumId }) => [
+        { type: 'Checklist', id: `curriculum-${curriculumId}` }
+      ],
+      transformResponse: (response) => {
+        if (response.id) {
+          return response;
+        }
+        throw new Error('Failed to update checklist item');
+      },
+    }),
+
+    /**
+     * Delete curriculum checklist item
+     * Removes a checklist template from the curriculum
+     */
+    deleteCurriculumChecklistItem: builder.mutation({
+      query: ({ id, curriculumId }) => ({
+        url: `curriculums/checklist-items?id=${id}`,
+        method: 'DELETE'
+      }),
+      invalidatesTags: (_, __, { curriculumId }) => [
+        { type: 'Checklist', id: `curriculum-${curriculumId}` }
+      ],
+      transformResponse: (response) => {
+        if (response.message) {
+          return response;
+        }
+        throw new Error('Failed to delete checklist item');
+      },
+    }),
+
+    // ==============================|| ASSESSMENT MANAGEMENT ||============================== //
+
+    /**
+     * Get all assessments and scores for a participant
+     * Fetches grouped assessment data with attempts and statistics
+     */
+    getParticipantAssessments: builder.query({
+      query: ({ participantId, courseId, currentOnly = false }) => ({
+        url: 'score-cards/getParticipantScores',
+        params: { participantId, courseId, currentOnly: currentOnly ? 'true' : 'false' }
+      }),
+      providesTags: (_, __, { participantId }) => [
+        { type: 'ParticipantScores', id: participantId },
+        'Assessment',
+        'Progress'
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response;
+        }
+        throw new Error(response.message || 'Failed to fetch participant assessments');
+      }
+    }),
+
+    /**
+     * Record a new assessment score for a participant
+     * Handles automatic attempt tracking and retake validation
+     */
+    recordAssessmentScore: builder.mutation({
+      query: (scoreData) => ({
+        url: 'score-cards/recordScore',
+        method: 'POST',
+        body: scoreData
+      }),
+      invalidatesTags: (_, __, { participantId, projectId }) => [
+        { type: 'ParticipantScores', id: participantId },
+        'Assessment',
+        'Progress',
+        'Participant',
+        ...(projectId ? [{ type: 'ProjectAssessments', id: projectId }] : [])
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response;
+        }
+        throw new Error(response.message || 'Failed to record score');
+      }
+    }),
+
+    /**
+     * Get assessment attempt history for a specific participant and assessment
+     * Returns all attempts with details
+     */
+    getAssessmentAttempts: builder.query({
+      query: ({ assessmentId, participantId }) => ({
+        url: 'score-cards/getAttemptHistory',
+        params: { assessmentId, participantId }
+      }),
+      providesTags: (_, __, { participantId, assessmentId }) => [
+        { type: 'AssessmentAttempts', id: `${participantId}-${assessmentId}` },
+        { type: 'ParticipantScores', id: participantId }
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response;
+        }
+        throw new Error(response.message || 'Failed to fetch attempt history');
+      }
+    }),
+
+    /**
+     * Override an assessment score (instructor manual adjustment)
+     * Allows changing pass/fail status with reason
+     */
+    overrideAssessmentScore: builder.mutation({
+      query: ({ scoreId, passed, overrideReason, overriddenBy }) => ({
+        url: 'score-cards/overrideScore',
+        method: 'POST',
+        body: { scoreId, passed, overrideReason, overriddenBy }
+      }),
+      invalidatesTags: (_, __, { participantId }) => [
+        { type: 'ParticipantScores', id: participantId },
+        'Assessment',
+        'Progress'
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response;
+        }
+        throw new Error(response.message || 'Failed to override score');
+      }
+    }),
+
+    /**
+     * Toggle assessment active status for a project
+     * Creates or updates project_assessment_config override
+     */
+    toggleAssessmentForProject: builder.mutation({
+      query: ({ projectId, courseAssessmentId, isActive, createdBy }) => ({
+        url: 'score-cards/toggleAssessmentForProject',
+        method: 'POST',
+        body: { projectId, courseAssessmentId, isActive, createdBy }
+      }),
+      invalidatesTags: (_, __, { projectId }) => [
+        'Assessment',
+        'ParticipantScores',
+        { type: 'Project', id: projectId },
+        { type: 'ProjectAssessments', id: projectId },
+        'Progress'
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response;
+        }
+        throw new Error(response.message || 'Failed to toggle assessment');
+      }
+    }),
+
+    /**
+     * Get project-level assessment data aggregated across all participants
+     * Returns assessment statistics and individual participant scores
+     */
+    getProjectAssessments: builder.query({
+      query: (projectId) => ({
+        url: 'score-cards/getProjectAssessments',
+        params: { projectId }
+      }),
+      providesTags: (_, __, projectId) => [
+        { type: 'ProjectAssessments', id: projectId },
+        { type: 'Project', id: projectId },
+        'Assessment',
+        'Progress'
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response;
+        }
+        throw new Error(response.message || 'Failed to fetch project assessments');
+      }
+    }),
+
+    // ===== Daily Training Notes Management =====
+
+    getDailyTrainingNotes: builder.query({
+      query: ({ projectId, date }) => ({
+        url: `projects/daily-training-notes`,
+        params: { projectId, date }
+      }),
+      providesTags: (result, error, { projectId, date }) => [
+        { type: 'DailyNotes', id: `${projectId}-${date || 'all'}` },
+        { type: 'Project', id: projectId }
+      ]
+    }),
+
+    updateDailyTrainingNotes: builder.mutation({
+      query: ({ projectId, date, keyHighlights, challenges, sessionNotes, author, authorRole }) => ({
+        url: `projects/daily-training-notes`,
+        method: 'POST',
+        params: { projectId, date },
+        body: { keyHighlights, challenges, sessionNotes, author, authorRole }
+      }),
+      invalidatesTags: (result, error, { projectId, date }) => [
+        { type: 'DailyNotes', id: `${projectId}-${date}` },
+        { type: 'DailyNotes', id: `${projectId}-all` },
+        { type: 'Project', id: projectId }
+      ]
+    }),
+
+    deleteDailyTrainingNotes: builder.mutation({
+      query: ({ projectId, date }) => ({
+        url: `projects/daily-training-notes`,
+        method: 'DELETE',
+        params: { projectId, date }
+      }),
+      invalidatesTags: (result, error, { projectId, date }) => [
+        { type: 'DailyNotes', id: `${projectId}-${date}` },
+        { type: 'DailyNotes', id: `${projectId}-all` },
+        { type: 'Project', id: projectId }
+      ]
+    }),
   }),
 });
 
@@ -1427,6 +1718,7 @@ export const {
   useGetProjectSettingsQuery,
   useGetProjectParticipantsQuery,
   useGetTrainingRecipientParticipantsQuery,
+  useGetGroupsDetailsQuery,
   useGetEventProgressQuery,
   useGetSingleProjectQuery,
   useGetAvailableRolesQuery,
@@ -1455,6 +1747,7 @@ export const {
   useImportCurriculumScheduleMutation,
 
   // Group Management
+  useGetGroupCurriculumsQuery,
   useAddGroupMutation,
   useUpdateGroupMutation,
   useRemoveGroupMutation,
@@ -1471,6 +1764,23 @@ export const {
   // Checklist Management
   useToggleChecklistItemMutation,
   useUpdateParticipantChecklistProgressMutation,
+  useGetCurriculumChecklistItemsQuery,
+  useCreateCurriculumChecklistItemMutation,
+  useUpdateCurriculumChecklistItemMutation,
+  useDeleteCurriculumChecklistItemMutation,
+
+  // Assessment Management
+  useGetParticipantAssessmentsQuery,
+  useGetProjectAssessmentsQuery,
+  useRecordAssessmentScoreMutation,
+  useGetAssessmentAttemptsQuery,
+  useOverrideAssessmentScoreMutation,
+  useToggleAssessmentForProjectMutation,
+
+  // Daily Training Notes Management
+  useGetDailyTrainingNotesQuery,
+  useUpdateDailyTrainingNotesMutation,
+  useDeleteDailyTrainingNotesMutation,
 
   // Utilities
   useLazyGetProjectAgendaQuery,

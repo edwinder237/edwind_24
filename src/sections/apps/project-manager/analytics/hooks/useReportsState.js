@@ -12,7 +12,8 @@ export const useReportsState = () => {
     startDate: '',
     endDate: '',
     status: [],
-    topics: []
+    topics: [],
+    assessments: []
   });
 
   // State for results
@@ -45,7 +46,8 @@ export const useReportsState = () => {
       startDate: '',
       endDate: '',
       status: [],
-      topics: []
+      topics: [],
+      assessments: []
     });
     setShowResults(false);
   };

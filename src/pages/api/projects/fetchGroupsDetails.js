@@ -1,4 +1,29 @@
+/**
+ * ============================================
+ * POST /api/projects/fetchGroupsDetails
+ * ============================================
+ *
+ * Returns detailed group data with participants and curriculum progress.
+ * FIXED: Previously leaked group data across organizations.
+ *
+ * Body:
+ * - projectId (required): Project ID to fetch groups for
+ *
+ * Response:
+ * [
+ *   {
+ *     id: number,
+ *     groupName: string,
+ *     participants: [...],
+ *     group_curriculums: [...]
+ *   }
+ * ]
+ */
+
 import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
 // Helper function to calculate individual participant progress
 async function calculateIndividualParticipantProgress(participantId, projectParticipantId, groupId, projectId) {
@@ -182,18 +207,28 @@ async function calculateGroupCurriculumProgress(groupId, projectId) {
   }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  
+
   const { projectId } = req.body;
+  const { orgContext } = req;
+
+  if (!projectId) {
+    throw new ValidationError('Project ID is required');
+  }
+
+  // Verify project ownership
+  const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
+    where: { id: parseInt(projectId) }
+  });
+
+  if (!projectOwnership) {
+    throw new NotFoundError('Project not found');
+  }
 
   try {
-    
-    if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
-    }
 
     // OPTIMIZED: Fast query without progress calculation
     const groups = await prisma.groups.findMany({
@@ -275,9 +310,8 @@ export default async function handler(req, res) {
     res.status(200).json(optimizedGroups);
   } catch (error) {
     console.error('[fetchGroupsDetails] Error:', error);
-    res.status(500).json({ 
-      error: "Internal Server Error",
-      ...(process.env.NODE_ENV === 'development' && { details: error.message })
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

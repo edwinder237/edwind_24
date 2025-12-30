@@ -21,7 +21,7 @@ import { MoreOutlined } from '@ant-design/icons';
 
 const ProfileTabs = ({ focusInput }) => {
   const theme = useTheme();
-  const user = useUser();
+  const { user } = useUser();
 
   // Generate initials from user name
   const getInitials = (name) => {

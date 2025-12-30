@@ -19,18 +19,35 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { EditEventDialog, AddEventDialog } from '../../features/events/dialogs';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { getEvents } from 'store/reducers/calendar';
-import { getSingleProject } from 'store/reducers/project';
+// CQRS imports - RTK Query
+import { useGetProjectAgendaQuery } from 'store/api/projectApi';
 
 const FullCalendarMonthView = ({ project, events, onEventSelect }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
+
+  // CQRS: Fetch agenda data using RTK Query (auto-updates entity stores)
+  const {
+    data: agendaData,
+    isLoading: isLoadingAgenda,
+    isFetching: isFetchingAgenda,
+    refetch: refetchAgenda
+  } = useGetProjectAgendaQuery(
+    project?.id,
+    {
+      skip: !project?.id,
+      refetchOnMountOrArgChange: true
+    }
+  );
+
   const calendarRef = useRef(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const refetchTimeoutRef = useRef(null);
 
   // Transform events for FullCalendar
   const calendarEvents = events.map(event => ({
@@ -52,6 +69,35 @@ const FullCalendarMonthView = ({ project, events, onEventSelect }) => {
     }
   }));
 
+  // Safe refetch wrapper - prevents overlapping refetches that crash Prisma
+  const safeRefetch = useCallback(async () => {
+    // Clear any pending refetch
+    if (refetchTimeoutRef.current) {
+      clearTimeout(refetchTimeoutRef.current);
+      refetchTimeoutRef.current = null;
+    }
+
+    // If already refetching, queue this refetch for later
+    if (isRefetching) {
+      console.log('[FullCalendarMonthView] Refetch already in progress, queuing...');
+      refetchTimeoutRef.current = setTimeout(() => {
+        safeRefetch();
+      }, 1000);
+      return;
+    }
+
+    setIsRefetching(true);
+    try {
+      console.log('[FullCalendarMonthView] Safe refetch starting...');
+      await refetchAgenda();
+      console.log('[FullCalendarMonthView] Safe refetch completed');
+    } catch (error) {
+      console.error('[FullCalendarMonthView] Refetch error:', error);
+    } finally {
+      setIsRefetching(false);
+    }
+  }, [refetchAgenda, isRefetching]);
+
   // Get calendar API
   const getCalendarApi = () => calendarRef.current?.getApi();
 
@@ -63,6 +109,15 @@ const FullCalendarMonthView = ({ project, events, onEventSelect }) => {
         calendarApi.updateSize();
       }, 100);
     }
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (refetchTimeoutRef.current) {
+        clearTimeout(refetchTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Handle navigation
@@ -138,10 +193,9 @@ const FullCalendarMonthView = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to update event');
       }
 
-      // Refresh events
+      // CQRS: Refresh agenda data using RTK Query (safe wrapper prevents DB crashes)
       if (project?.id) {
-        await dispatch(getEvents(project.id));
-        await dispatch(getSingleProject(project.id));
+        await safeRefetch();
       }
 
       dispatch(

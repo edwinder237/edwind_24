@@ -33,9 +33,8 @@ import {
 import MainCard from 'components/MainCard';
 import { useDispatch, useSelector } from 'store';
 import { useGetProjectAgendaQuery } from 'store/api/projectApi';
-import { createEvent } from 'store/commands/eventCommands';
+import { eventCommands } from 'store/commands';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { getProjectCurriculums } from 'store/reducers/project/projects';
 import EventModalCards from '../components/EventModalCards';
 import { calculateCourseDurationFromModules } from 'utils/durationCalculations';
 
@@ -71,14 +70,22 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const theme = useTheme();
   const dispatch = useDispatch();
 
-  const { events } = useSelector((state) => state.calendar);
-  const { project_curriculums, singleProject } = useSelector((state) => state.projects);
-
-  // Get data from project agenda store (new CQRS architecture)
+  // CQRS: Fetch agenda data using RTK Query (includes instructors, events, curriculums)
   const {
-    instructors: projectInstructors,
-    events: agendaEvents
-  } = useSelector((state) => state.projectAgenda);
+    data: agendaData,
+    isLoading: isLoadingAgenda
+  } = useGetProjectAgendaQuery(
+    project?.id,
+    {
+      skip: !project?.id || !open,
+      refetchOnMountOrArgChange: true
+    }
+  );
+
+  // Extract data from CQRS query
+  const projectInstructors = agendaData?.instructors || [];
+  const agendaEvents = agendaData?.events || [];
+  const projectCurriculums = agendaData?.curriculums || project?.project_curriculums || [];
 
   // Find the main lead instructor (assuming first instructor or specific role)
   const defaultInstructor = useMemo(() => {
@@ -131,11 +138,11 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
 
       setIsCreatingEvent(true);
 
-      // Use semantic command for event creation
+      // CQRS: Use semantic command for event creation
       // RTK Query automatically invalidates cache and refetches data
       // Event bus publishes domain events for real-time updates
       const startTime = Date.now();
-      await dispatch(createEvent({
+      await dispatch(eventCommands.createEvent({
         projectId: project.id,
         eventData: eventData
       }));
@@ -233,9 +240,9 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
 
   // Function to find next available time slot
   const findNextAvailableTime = (requestedTime, date, projectEvents) => {
-    
-    // Use projectEvents if available (from project.events), otherwise fall back to calendar events
-    const eventsToCheck = projectEvents || events || [];
+
+    // CQRS: Use projectEvents passed as parameter (from agendaEvents)
+    const eventsToCheck = projectEvents || [];
     
     if (!eventsToCheck.length || !date) {
       return requestedTime;
@@ -303,10 +310,6 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   // Update editableTime when selectedTime prop changes or dialog opens
   useEffect(() => {
     if (open && selectedDate) {
-      console.log('[AddEventDialog] selectedTime:', selectedTime);
-      console.log('[AddEventDialog] selectedDate:', selectedDate);
-      console.log('[AddEventDialog] agendaEvents:', agendaEvents);
-
       // If selectedTime is explicitly provided (from Week/Month view clicks), use it directly
       // If selectedTime is empty/null (from Agenda view "Add Event" buttons), find next available
       let timeToUse;
@@ -314,9 +317,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         // Week/Month view: use the clicked time directly
         timeToUse = selectedTime;
       } else {
-        // Agenda view: find next available time slot using latest events from Redux store
-        // Use agendaEvents (from CQRS architecture) as primary source, fallback to events
-        const currentEvents = agendaEvents || events || project?.events || [];
+        // Agenda view: find next available time slot using latest events from CQRS
+        const currentEvents = agendaEvents || project?.events || [];
         const baseTime = '9:00 AM';
         timeToUse = findNextAvailableTime(baseTime, selectedDate, currentEvents);
       }
@@ -325,7 +327,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       // Set default end time (1 hour after start)
       setEditableEndTime(calculateDefaultEndTime(timeToUse));
     }
-  }, [open, selectedTime, selectedDate, agendaEvents, events, project?.events]);
+  }, [open, selectedTime, selectedDate, agendaEvents, project?.events]);
 
   // Reset editing state when dialog opens/closes
   useEffect(() => {
@@ -337,13 +339,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     }
   }, [open]);
 
-  // Load project curriculums when dialog opens to populate course list
-  // TODO: Migrate this to RTK Query in future phase
-  useEffect(() => {
-    if (open && project?.id) {
-      dispatch(getProjectCurriculums(project.id));
-    }
-  }, [open, project?.id, dispatch]);
+  // CQRS: Project curriculums are automatically loaded via useGetProjectAgendaQuery
+  // No manual dispatch needed - RTK Query handles it
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -467,14 +464,12 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     }
   };
 
-  // Get all courses from project curriculums (use Redux state for fresh data)
+  // CQRS: Get all courses from project curriculums (loaded via RTK Query)
   const availableCourses = useMemo(() => {
-    // Use Redux state if available, fallback to project prop
-    const curriculums = project_curriculums || project?.project_curriculums;
-    if (!curriculums) return [];
-    
+    if (!projectCurriculums) return [];
+
     const courses = [];
-    curriculums.forEach(projectCurriculum => {
+    projectCurriculums.forEach(projectCurriculum => {
       const curriculum = projectCurriculum.curriculum;
       if (curriculum?.curriculum_courses) {
         curriculum.curriculum_courses.forEach(curriculumCourse => {
@@ -482,7 +477,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
           if (course) {
             // Calculate course duration from modules
             const duration = calculateCourseDurationFromModules(course.modules || []);
-            
+
             courses.push({
               ...course,
               curriculumName: curriculum.title,
@@ -493,9 +488,9 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         });
       }
     });
-    
+
     return courses;
-  }, [project_curriculums, project?.project_curriculums]);
+  }, [projectCurriculums]);
 
   // Get support activities from project curriculums
   const [availableSupportActivities, setAvailableSupportActivities] = useState([]);
@@ -625,13 +620,13 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     );
   }, [availableCourses, searchQuery]);
 
-  // Get scheduled course IDs (existing only)
+  // CQRS: Get scheduled course IDs from agendaEvents
   const scheduledCourseIds = useMemo(() => {
-    if (!events || !project?.id) return [];
-    return events
+    if (!agendaEvents || !project?.id) return [];
+    return agendaEvents
       .filter(event => event.courseId && event.projectId === project.id && event.eventType === 'course')
       .map(event => event.courseId);
-  }, [events, project?.id]);
+  }, [agendaEvents, project?.id]);
 
   // Filter support activities based on search query
   const filteredSupportActivities = useMemo(() => {
@@ -646,13 +641,13 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     );
   }, [availableSupportActivities, searchQuery]);
 
-  // Get scheduled support activity IDs (existing only)
+  // CQRS: Get scheduled support activity IDs from agendaEvents
   const scheduledSupportActivityIds = useMemo(() => {
-    if (!events || !project?.id) return [];
-    return events
+    if (!agendaEvents || !project?.id) return [];
+    return agendaEvents
       .filter(event => event.supportActivityId && event.projectId === project.id && event.eventType === 'supportActivity')
       .map(event => event.supportActivityId);
-  }, [events, project?.id]);
+  }, [agendaEvents, project?.id]);
 
   // Convert pendingEventIds Set to Array for passing to components
   const pendingEventIdsArray = useMemo(() => [...pendingEventIds], [pendingEventIds]);

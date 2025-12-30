@@ -324,8 +324,6 @@ const calendarSlice = createSlice({
         const projectId = action.meta.arg.originalArgs;
         state.activeProjectId = projectId;
         state.isLoading = false;
-
-        console.log('[CalendarSlice] RTK Query: Agenda loaded for project:', projectId);
       }
     );
 

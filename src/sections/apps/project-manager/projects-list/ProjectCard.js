@@ -35,24 +35,11 @@ import AlertProjectDelete from "./AlertProjectDelete";
 import MainCard from "components/MainCard";
 import IconButton from "components/@extended/IconButton";
 import Loader from "components/Loader";
-import { PROJECT_STATUS, STATUS_COLORS } from "constants/index";
+import { PROJECT_STATUS, PROJECT_STATUS_CONFIG } from "constants/index";
 
 // ===================|| CONSTANTS ||=================== //
 const { publicRuntimeConfig } = getConfig();
 const basePath = publicRuntimeConfig?.basePath || '';
-
-const PROJECT_STATUSES = [
-  { value: PROJECT_STATUS.ACTIVE, label: 'Active', color: STATUS_COLORS.active || 'success' },
-  { value: PROJECT_STATUS.ONGOING, label: 'Ongoing', color: STATUS_COLORS.ongoing || 'success' },
-  { value: PROJECT_STATUS.PENDING, label: 'Pending', color: STATUS_COLORS.pending || 'warning' },
-  { value: PROJECT_STATUS.COMPLETED, label: 'Completed', color: STATUS_COLORS.completed || 'primary' },
-  { value: PROJECT_STATUS.CANCELLED, label: 'Cancelled', color: 'error' },
-  { value: PROJECT_STATUS.POSTPONED, label: 'Postponed', color: 'warning' },
-  { value: PROJECT_STATUS.SUSPENDED, label: 'Suspended', color: 'error' },
-  { value: PROJECT_STATUS.ON_HOLD, label: 'On Hold', color: 'warning' },
-  { value: PROJECT_STATUS.DRAFT, label: 'Draft', color: STATUS_COLORS.draft || 'info' },
-  { value: PROJECT_STATUS.ARCHIVED, label: 'Archived', color: STATUS_COLORS.archived || 'default' }
-];
 
 const FALLBACK_IMAGE = `${basePath}/assets/images/logos/95983458_padded_logo.png`;
 
@@ -136,7 +123,7 @@ const cleanImageUrl = (imageUrl) => {
  * @returns {Object} Status configuration
  */
 const getStatusConfig = (status) => {
-  return PROJECT_STATUSES.find(s => s.value === status) || PROJECT_STATUSES[0];
+  return PROJECT_STATUS_CONFIG.find(s => s.value === status) || PROJECT_STATUS_CONFIG[0];
 };
 
 // ===================|| CUSTOM HOOKS ||=================== //
@@ -253,12 +240,12 @@ const StatusDisplay = ({ project, statusEditor }) => {
               }
             }}
           >
-            {PROJECT_STATUSES.map((status) => (
+            {PROJECT_STATUS_CONFIG.map((status) => (
               <MenuItem key={status.value} value={status.value}>
-                <Chip 
-                  label={status.label} 
-                  color={status.color} 
-                  size="small" 
+                <Chip
+                  label={status.label}
+                  color={status.color}
+                  size="small"
                   variant="light"
                 />
               </MenuItem>
@@ -349,11 +336,11 @@ const TrainingRecipientDisplay = ({ trainingRecipient }) => {
 const TimelineDisplay = ({ formattedDates }) => {
   return (
     <Box>
-      <Typography 
-        variant="caption" 
-        color="text.secondary" 
-        sx={{ 
-          fontWeight: 600, 
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{
+          fontWeight: 600,
           fontSize: '0.6rem',
           letterSpacing: '0.2px',
           textTransform: 'uppercase',
@@ -364,9 +351,9 @@ const TimelineDisplay = ({ formattedDates }) => {
       >
         Timeline
       </Typography>
-      <Typography 
-        variant="caption" 
-        sx={{ 
+      <Typography
+        variant="caption"
+        sx={{
           fontSize: '0.7rem',
           color: 'text.secondary',
           fontWeight: 400,
@@ -451,7 +438,7 @@ const ProjectCard = ({ Project, projectId }) => {
   const [openAlert, setOpenAlert] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [projectTopics, setProjectTopics] = useState([]);
-  
+
   // Custom hooks
   const statusEditor = useStatusEditor(Project, dispatch);
   
@@ -617,9 +604,9 @@ const ProjectCard = ({ Project, projectId }) => {
               </Stack>
 
               {/* Refined Details in Two Columns */}
-              <Grid 
-                container 
-                justifyContent="space-between" 
+              <Grid
+                container
+                justifyContent="space-between"
                 alignItems="flex-start"
                 sx={{ width: '100%' }}
               >
@@ -628,11 +615,11 @@ const ProjectCard = ({ Project, projectId }) => {
                   <Stack spacing={1}>
                     {/* Lead by */}
                     <Box>
-                      <Typography 
-                        variant="caption" 
-                        color="text.secondary" 
-                        sx={{ 
-                          fontWeight: 700, 
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          fontWeight: 700,
                           fontSize: '0.65rem',
                           letterSpacing: '0.3px',
                           textTransform: 'uppercase',
@@ -642,10 +629,10 @@ const ProjectCard = ({ Project, projectId }) => {
                       >
                         Lead by
                       </Typography>
-                      <Typography 
-                        variant="body2" 
+                      <Typography
+                        variant="body2"
                         color="text.primary"
-                        sx={{ 
+                        sx={{
                           fontSize: '0.8rem',
                           fontWeight: 500
                         }}
@@ -653,7 +640,7 @@ const ProjectCard = ({ Project, projectId }) => {
                         {mainInstructor ? `${mainInstructor.firstName} ${mainInstructor.lastName}` : 'Unassigned'}
                       </Typography>
                     </Box>
-                    
+
                     <TimelineDisplay formattedDates={formattedDates} />
                   </Stack>
                 </Grid>
@@ -676,17 +663,71 @@ const ProjectCard = ({ Project, projectId }) => {
           justifyContent="space-between"
           sx={{ mt: "auto", mb: 0, pt: 2.25 }}
         >
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              fontSize: '0.7rem',
-              color: 'text.secondary',
-              fontWeight: 400,
-              opacity: 0.8
-            }}
-          >
-            Created: {formattedDates.creation}  by: {Project?.user?.name}
-          </Typography>
+          <Stack spacing={0.5}>
+            {Project?.sub_organization?.organization?.title && (
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: '0.65rem',
+                    color: 'text.secondary',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.3px'
+                  }}
+                >
+                  Org:
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: '0.7rem',
+                    color: 'primary.main',
+                    fontWeight: 500
+                  }}
+                >
+                  {Project.sub_organization.organization.title}
+                </Typography>
+              </Stack>
+            )}
+            {Project?.sub_organization?.title && (
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: '0.65rem',
+                    color: 'text.secondary',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.3px'
+                  }}
+                >
+                  Sub-Org:
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: '0.7rem',
+                    color: 'secondary.main',
+                    fontWeight: 500
+                  }}
+                >
+                  {Project.sub_organization.title}
+                </Typography>
+              </Stack>
+            )}
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: '0.7rem',
+                color: 'text.secondary',
+                fontWeight: 400,
+                opacity: 0.8
+              }}
+            >
+              Created: {formattedDates.creation}  by: {Project?.user?.name}
+            </Typography>
+          </Stack>
           <Stack direction="row" spacing={1}>
             <NextLink href={`/projects/${projectId}`} passHref>
               <Button variant="contained" size="small">

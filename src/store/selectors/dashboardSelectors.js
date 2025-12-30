@@ -7,11 +7,13 @@
 
 import { createSelector } from '@reduxjs/toolkit';
 import { entitySelectors } from '../entities';
-import { 
-  selectAttendanceSummary, 
+import {
+  selectAttendanceSummary,
   selectEventCapacityAnalysis,
-  selectParticipantEngagementAnalysis 
+  selectParticipantEngagementAnalysis
 } from './attendanceSelectors';
+import { selectCourseCompletionData } from './courseCompletionSelectors';
+import { projectApi } from '../api/projectApi';
 
 // ==============================|| DASHBOARD OVERVIEW ||============================== //
 
@@ -170,9 +172,15 @@ export const selectResourceUtilization = createSelector(
   (events, participants, groups) => {
     // Instructor workload analysis
     const instructorWorkload = new Map();
+
     events.forEach(event => {
-      if (event.instructors) {
-        event.instructors.forEach(instructor => {
+      // Handle both event.instructors and event.event_instructors structures
+      const eventInstructors = event.instructors ||
+        (event.event_instructors?.map(ei => ei.instructor).filter(Boolean)) ||
+        [];
+
+      if (eventInstructors.length > 0) {
+        eventInstructors.forEach(instructor => {
           if (!instructorWorkload.has(instructor.id)) {
             instructorWorkload.set(instructor.id, {
               instructor,
@@ -182,16 +190,16 @@ export const selectResourceUtilization = createSelector(
               upcomingEvents: 0
             });
           }
-          
+
           const workload = instructorWorkload.get(instructor.id);
           workload.totalEvents++;
-          
+
           // Calculate hours if end time available
           if (event.end) {
             const duration = (new Date(event.end) - new Date(event.start)) / (1000 * 60 * 60);
             workload.totalHours += duration;
           }
-          
+
           // Count upcoming events
           if (new Date(event.start) > new Date()) {
             workload.upcomingEvents++;
@@ -233,16 +241,17 @@ export const selectResourceUtilization = createSelector(
       }).length,
       large: groups.filter(g => (g.participants?.length || 0) > 15).length
     };
-    
+
+    const instructorsArray = Array.from(instructorWorkload.values());
+    const venuesArray = Array.from(venueUtilization.values());
+
     return {
-      instructors: Array.from(instructorWorkload.values())
-        .sort((a, b) => b.totalEvents - a.totalEvents),
-      venues: Array.from(venueUtilization.values())
-        .sort((a, b) => b.totalBookings - a.totalBookings),
+      instructors: instructorsArray.sort((a, b) => b.totalEvents - a.totalEvents),
+      venues: venuesArray.sort((a, b) => b.totalBookings - a.totalBookings),
       groupDistribution: groupSizeDistribution,
       recommendations: generateResourceRecommendations(
-        Array.from(instructorWorkload.values()),
-        Array.from(venueUtilization.values()),
+        instructorsArray,
+        venuesArray,
         groupSizeDistribution
       )
     };
@@ -486,13 +495,21 @@ function eventsOverlap(event1, event2) {
 function calculateConflictSeverity(event1, event2) {
   // Check if same instructor, venue, or participants
   let severity = 'low';
-  
-  if (event1.instructors?.some(i1 => event2.instructors?.some(i2 => i1.id === i2.id))) {
+
+  // Extract instructors from both event structures
+  const event1Instructors = event1.instructors ||
+    (event1.event_instructors?.map(ei => ei.instructor).filter(Boolean)) ||
+    [];
+  const event2Instructors = event2.instructors ||
+    (event2.event_instructors?.map(ei => ei.instructor).filter(Boolean)) ||
+    [];
+
+  if (event1Instructors.some(i1 => event2Instructors.some(i2 => i1.id === i2.id))) {
     severity = 'high';
-  } else if (event1.venue === event2.venue) {
+  } else if (event1.venue === event2.venue && event1.venue) {
     severity = 'medium';
   }
-  
+
   return severity;
 }
 
@@ -644,9 +661,20 @@ export const selectLeadInstructor = createSelector(
 
 /**
  * Select technical completion (checklist progress)
+ * CQRS-compliant: Reads from RTK Query cache instead of legacy Redux state
  */
 export const selectTechnicalCompletion = createSelector(
-  [(state) => state.projectSettings?.checklistProgress || []],
+  [
+    (state) => {
+      // Get the current project ID from the active project
+      const projectId = state.projectSettings?.projectInfo?.id;
+      if (!projectId) return [];
+
+      // CQRS: Read checklist data from RTK Query cache
+      const checklistData = projectApi.endpoints.getProjectChecklist.select(projectId)(state);
+      return checklistData?.data || [];
+    }
+  ],
   (checklistProgress) => {
     const totalItems = checklistProgress.length;
     const completedItems = checklistProgress.filter((item) => item.completed).length;
@@ -660,6 +688,18 @@ export const selectTechnicalCompletion = createSelector(
       completedChecklistItems: completedItems,
       completionPercentage
     };
+  }
+);
+
+/**
+ * Select course completion rate (participant-course completion percentage)
+ * CQRS-compliant: Reuses existing courseCompletionSelectors logic
+ * Returns the overall completion rate matching Course Completion Tracker display
+ */
+export const selectCourseCompletionRate = createSelector(
+  [selectCourseCompletionData],
+  (completionData) => {
+    return completionData?.overallCompletionRate ?? 0;
   }
 );
 

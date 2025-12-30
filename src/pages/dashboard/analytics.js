@@ -22,22 +22,22 @@ import MainCard from 'components/MainCard';
 import IconButton from 'components/@extended/IconButton';
 import AnalyticsDataCard from 'components/cards/statistics/AnalyticsDataCard';
 
-import WelcomeBanner from 'sections/dashboard/analytics/WelcomeBanner';
+import WelcomeBanner from 'components/dashboard/analytics/WelcomeBanner';
 import Layout from 'layout';
 import Page from 'components/Page';
-import IncomeChart from 'sections/dashboard/analytics/IncomeChart';
-import MarketingCardChart from 'sections/dashboard/analytics/MarketingCardChart';
-import OrdersCardChart from 'sections/dashboard/analytics/OrdersCardChart';
-import OrdersList from 'sections/dashboard/analytics/OrdersList';
-import PageViews from 'sections/dashboard/analytics/PageViews';
-import ReportChart from 'sections/dashboard/analytics/ReportChart';
-import SalesCardChart from 'sections/dashboard/analytics/SalesCardChart';
-import SalesChart from 'sections/dashboard/SalesChart';
-import TransactionHistory from 'sections/dashboard/analytics/TransactionHistory';
-import UsersCardChart from 'sections/dashboard/analytics/UsersCardChart';
-import LabelledTasks from 'sections/dashboard/analytics/LabelledTasks';
-import ReaderCard from 'sections/dashboard/analytics/ReaderCard';
-import AcquisitionChannels from 'sections/dashboard/analytics/AcquisitionChannels';
+import IncomeChart from 'components/dashboard/analytics/IncomeChart';
+import MarketingCardChart from 'components/dashboard/analytics/MarketingCardChart';
+import OrdersCardChart from 'components/dashboard/analytics/OrdersCardChart';
+import OrdersList from 'components/dashboard/analytics/OrdersList';
+import PageViews from 'components/dashboard/analytics/PageViews';
+import ReportChart from 'components/dashboard/analytics/ReportChart';
+import SalesCardChart from 'components/dashboard/analytics/SalesCardChart';
+import SalesChart from 'components/dashboard/SalesChart';
+import TransactionHistory from 'components/dashboard/analytics/TransactionHistory';
+import UsersCardChart from 'components/dashboard/analytics/UsersCardChart';
+import LabelledTasks from 'components/dashboard/analytics/LabelledTasks';
+import ReaderCard from 'components/dashboard/analytics/ReaderCard';
+import AcquisitionChannels from 'components/dashboard/analytics/AcquisitionChannels';
 
 // assets
 import { DownloadOutlined, CaretDownOutlined } from '@ant-design/icons';

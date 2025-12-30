@@ -1,35 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useDispatch, useSelector } from 'store';
+import { fetchUser } from 'store/reducers/user';
 
+/**
+ * Custom hook to access WorkOS user data from Redux store
+ * Automatically fetches user on first mount if not already loaded
+ *
+ * @returns {Object} - { user, isLoading, isAuthenticated, error }
+ */
 const useUser = () => {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { user, isLoading, isAuthenticated, error, initialized } = useSelector((state) => state.user);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    // Fetch user data from API endpoint
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/user');
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Only fetch once if not initialized and haven't fetched before
+    if (!initialized && !hasFetched.current) {
+      hasFetched.current = true;
+      dispatch(fetchUser());
+    }
+  }, []); // Empty dependency array - only run on mount
 
-    fetchUser();
-  }, []);
-
-  if (isLoading) {
-    return undefined; // Still loading
-  }
-
-  return user; // null if not authenticated, user object if authenticated
+  return {
+    user,           // Full WorkOS user object with all attributes
+    isLoading,      // true while fetching user data or during initial load
+    isAuthenticated, // true if user is authenticated
+    error           // Error message if fetch failed
+  };
 };
 
 export default useUser;

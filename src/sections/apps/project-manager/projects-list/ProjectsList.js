@@ -2,6 +2,8 @@ import { useMemo, useState, useEffect, Fragment } from "react";
 import { useDispatch, useSelector } from "store";
 import { getProjects } from "store/reducers/project";
 import { motion, AnimatePresence } from "framer-motion";
+import useUser from "hooks/useUser";
+import axios from "utils/axios";
 
 // material-ui
 import {
@@ -40,6 +42,7 @@ import DateRangeFilterButton from "components/DateRangeFilter";
 
 import { GlobalFilter } from "utils/react-table";
 import usePagination from "hooks/usePagination";
+import { PROJECT_STATUS_CONFIG } from "constants/index";
 
 // assets
 import { PlusOutlined, ReloadOutlined, FilterOutlined, ClearOutlined, UpOutlined, DownOutlined } from "@ant-design/icons";
@@ -77,6 +80,13 @@ const ProjectsList = () => {
   const dispatch = useDispatch();
   const [localError, setLocalError] = useState(null);
 
+  // Get current user for role-based filtering
+  const { user } = useUser();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
+  // Organization users for admin filter
+  const [orgUsers, setOrgUsers] = useState([]);
+
   const fetchProjects = async () => {
     try {
       setLocalError(null);
@@ -99,12 +109,30 @@ const ProjectsList = () => {
     };
     
     loadProjects();
-    
+
     return () => {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount, not when isAdding changes
+
+  // Fetch organization users for admin user filter
+  useEffect(() => {
+    const fetchOrgUsers = async () => {
+      if (!isAdmin) return;
+
+      try {
+        const response = await axios.get('/api/organization/users');
+        if (response.data?.success && response.data?.users) {
+          setOrgUsers(response.data.users);
+        }
+      } catch (err) {
+        console.error('Error fetching organization users:', err);
+      }
+    };
+
+    fetchOrgUsers();
+  }, [isAdmin]);
 
   const matchDownSM = useMediaQuery((theme) => theme.breakpoints.down("sm"));
 
@@ -120,7 +148,10 @@ const ProjectsList = () => {
   const [statusFilter, setStatusFilter] = useState([]);
   const [typeFilter, setTypeFilter] = useState([]);
   const [trainingRecipientFilter, setTrainingRecipientFilter] = useState([]);
+  const [userFilter, setUserFilter] = useState([]);
   const [tagFilter, setTagFilter] = useState([]);
+  const [organizationFilter, setOrganizationFilter] = useState([]);
+  const [subOrganizationFilter, setSubOrganizationFilter] = useState([]);
   const [dateRange, setDateRange] = useState({ start: null, end: null });
   const handleChange = (event) => {
     setSortBy(event.target.value);
@@ -135,7 +166,10 @@ const ProjectsList = () => {
     setStatusFilter([]);
     setTypeFilter([]);
     setTrainingRecipientFilter([]);
+    setUserFilter([]);
     setTagFilter([]);
+    setOrganizationFilter([]);
+    setSubOrganizationFilter([]);
     setDateRange({ start: null, end: null });
     setGlobalFilter("");
   };
@@ -145,7 +179,10 @@ const ProjectsList = () => {
     if (statusFilter.length > 0) count++;
     if (typeFilter.length > 0) count++;
     if (trainingRecipientFilter.length > 0) count++;
+    if (userFilter.length > 0) count++;
     if (tagFilter.length > 0) count++;
+    if (organizationFilter.length > 0) count++;
+    if (subOrganizationFilter.length > 0) count++;
     if (dateRange.start || dateRange.end) count++;
     if (globalFilter) count++;
     return count;
@@ -154,9 +191,27 @@ const ProjectsList = () => {
   // Get unique values for filter options
   const getUniqueValues = (key) => {
     if (!isValidProjectsArray) return [];
+
+    // For user filter: if admin, show all organization users
+    if (key === 'user') {
+      if (isAdmin && orgUsers.length > 0) {
+        // Return all organization users' names
+        return orgUsers.map(u => u.name).filter(Boolean);
+      }
+      // Non-admin: only show users from existing projects
+      const values = projects.map(project => project.user?.name).filter(Boolean);
+      return [...new Set(values)];
+    }
+
     const values = projects.map(project => {
       if (key === 'training_recipient') {
         return project.training_recipient?.name;
+      }
+      if (key === 'organization') {
+        return project.sub_organization?.organization?.title;
+      }
+      if (key === 'sub_organization') {
+        return project.sub_organization?.title;
       }
       if (key === 'tags') {
         const tags = project.tags && (Array.isArray(project.tags) ? project.tags : JSON.parse(project.tags));
@@ -164,7 +219,7 @@ const ProjectsList = () => {
       }
       return project[key];
     }).filter(Boolean);
-    
+
     if (key === 'tags') {
       return [...new Set(values.flat().map(tag => tag.label || tag))];
     }
@@ -222,12 +277,36 @@ const ProjectsList = () => {
         }
       }
 
+      // User filter (project creator)
+      if (userFilter.length > 0) {
+        const userName = project.user?.name;
+        if (!userName || !userFilter.includes(userName)) {
+          return false;
+        }
+      }
+
       // Tag filter
       if (tagFilter.length > 0) {
         const projectTags = project.tags && (Array.isArray(project.tags) ? project.tags : JSON.parse(project.tags));
         const projectTagLabels = projectTags?.map(tag => tag.label || tag) || [];
         const hasMatchingTag = tagFilter.some(filterTag => projectTagLabels.includes(filterTag));
         if (!hasMatchingTag) return false;
+      }
+
+      // Organization filter
+      if (organizationFilter.length > 0) {
+        const organizationName = project.sub_organization?.organization?.title;
+        if (!organizationName || !organizationFilter.includes(organizationName)) {
+          return false;
+        }
+      }
+
+      // Sub-Organization filter
+      if (subOrganizationFilter.length > 0) {
+        const subOrganizationName = project.sub_organization?.title;
+        if (!subOrganizationName || !subOrganizationFilter.includes(subOrganizationName)) {
+          return false;
+        }
       }
 
       // Date range filter
@@ -320,15 +399,18 @@ const ProjectsList = () => {
     setUserCard(sortedData);
     setPage(1); // Reset to first page when filters change
   }, [
-    globalFilter, 
-    statusFilter, 
-    typeFilter, 
-    trainingRecipientFilter, 
-    tagFilter, 
-    dateRange, 
+    globalFilter,
+    statusFilter,
+    typeFilter,
+    trainingRecipientFilter,
+    userFilter,
+    tagFilter,
+    organizationFilter,
+    subOrganizationFilter,
+    dateRange,
     sortBy,
-    projects, 
-    hasError, 
+    projects,
+    hasError,
     isValidProjectsArray
   ]);
 
@@ -542,7 +624,7 @@ const ProjectsList = () => {
                 
                 <Grid container spacing={matchDownSM ? 1.5 : 2.5} alignItems="flex-start">
                   {/* Status Filter */}
-                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
                     <FormControl fullWidth size="medium">
                       <Select
                         multiple
@@ -556,9 +638,14 @@ const ProjectsList = () => {
                           </Typography>
                         )}
                       >
-                        {getUniqueValues('projectStatus').map((status) => (
-                          <MenuItem key={status} value={status}>
-                            <Typography sx={{ textTransform: 'capitalize' }}>{status}</Typography>
+                        {PROJECT_STATUS_CONFIG.map((status) => (
+                          <MenuItem key={status.value} value={status.value}>
+                            <Chip
+                              label={status.label}
+                              color={status.color}
+                              size="small"
+                              variant="light"
+                            />
                           </MenuItem>
                         ))}
                       </Select>
@@ -566,7 +653,7 @@ const ProjectsList = () => {
                   </Grid>
 
                   {/* Type Filter */}
-                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
                     <FormControl fullWidth size="medium">
                       <Select
                         multiple
@@ -590,7 +677,7 @@ const ProjectsList = () => {
                   </Grid>
 
                   {/* Training Recipient Filter */}
-                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
                     <FormControl fullWidth size="medium">
                       <Select
                         multiple
@@ -613,8 +700,32 @@ const ProjectsList = () => {
                     </FormControl>
                   </Grid>
 
+                  {/* User Filter */}
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
+                    <FormControl fullWidth size="medium">
+                      <Select
+                        multiple
+                        value={userFilter}
+                        onChange={(e) => setUserFilter(e.target.value)}
+                        displayEmpty
+                        size="medium"
+                        renderValue={(selected) => (
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {selected.length > 0 ? `User (${selected.length})` : "User"}
+                          </Typography>
+                        )}
+                      >
+                        {getUniqueValues('user').map((user) => (
+                          <MenuItem key={user} value={user}>
+                            {user}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
                   {/* Topics Filter */}
-                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
                     <FormControl fullWidth size="medium">
                       <Select
                         multiple
@@ -637,8 +748,56 @@ const ProjectsList = () => {
                     </FormControl>
                   </Grid>
 
+                  {/* Organization Filter */}
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
+                    <FormControl fullWidth size="medium">
+                      <Select
+                        multiple
+                        value={organizationFilter}
+                        onChange={(e) => setOrganizationFilter(e.target.value)}
+                        displayEmpty
+                        size="medium"
+                        renderValue={(selected) => (
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {selected.length > 0 ? `Organization (${selected.length})` : "Organization"}
+                          </Typography>
+                        )}
+                      >
+                        {getUniqueValues('organization').map((org) => (
+                          <MenuItem key={org} value={org}>
+                            {org}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  {/* Sub-Organization Filter */}
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
+                    <FormControl fullWidth size="medium">
+                      <Select
+                        multiple
+                        value={subOrganizationFilter}
+                        onChange={(e) => setSubOrganizationFilter(e.target.value)}
+                        displayEmpty
+                        size="medium"
+                        renderValue={(selected) => (
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {selected.length > 0 ? `Sub-Organization (${selected.length})` : "Sub-Organization"}
+                          </Typography>
+                        )}
+                      >
+                        {getUniqueValues('sub_organization').map((subOrg) => (
+                          <MenuItem key={subOrg} value={subOrg}>
+                            {subOrg}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
                   {/* Date Range Filter */}
-                  <Grid item xs={12} sm={6} md={4} lg={2.4}>
+                  <Grid item xs={12} sm={6} md={4} lg={2}>
                     <DateRangeFilterButton
                       dateRange={dateRange}
                       onDateRangeChange={setDateRange}

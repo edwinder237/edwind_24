@@ -34,6 +34,10 @@ import {
   DialogActions,
   FormControlLabel,
   Checkbox,
+  Switch,
+  Select,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
@@ -55,6 +59,8 @@ import {
   SaveOutlined,
   CloseOutlined,
   AppstoreOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
 } from '@ant-design/icons';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { calculateCourseDurationFromModules, getModuleDisplayDuration } from 'utils/durationCalculations';
@@ -82,17 +88,23 @@ const CourseSyllabus = ({ course, modules }) => {
   const [editingDescription, setEditingDescription] = useState(false);
   const [tempDescription, setTempDescription] = useState('');
   
-  // Assessment methods management states
-  const [assessmentMethods, setAssessmentMethods] = useState([
-    { type: "Quizzes", weight: "30%", description: "Module-based knowledge checks" },
-    { type: "Practical Exercises", weight: "40%", description: "Hands-on CRM implementations" },
-    { type: "Final Project", weight: "30%", description: "Comprehensive CRM strategy development" }
-  ]);
-  const [editingAssessment, setEditingAssessment] = useState(null);
-  const [editAssessment, setEditAssessment] = useState({ type: '', weight: '', description: '' });
-  const [newAssessment, setNewAssessment] = useState({ type: '', weight: '', description: '' });
-  const [showAddAssessmentField, setShowAddAssessmentField] = useState(false);
-  const [deleteAssessmentConfirm, setDeleteAssessmentConfirm] = useState({ open: false, index: -1, anchorEl: null });
+  // Assessment methods management states - Connected to database API
+  const [assessmentMethods, setAssessmentMethods] = useState([]);
+  const [loadingAssessments, setLoadingAssessments] = useState(false);
+  const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
+  const [currentAssessment, setCurrentAssessment] = useState(null);
+  const [assessmentForm, setAssessmentForm] = useState({
+    title: '',
+    description: '',
+    maxScore: 100,
+    passingScore: 70,
+    allowRetakes: true,
+    maxAttempts: '',
+    scoreStrategy: 'latest',
+    assessmentOrder: ''
+  });
+  const [savingAssessment, setSavingAssessment] = useState(false);
+  const [deleteAssessmentConfirm, setDeleteAssessmentConfirm] = useState({ open: false, assessment: null, anchorEl: null });
   
   // Prerequisites management states
   const [prerequisites, setPrerequisites] = useState([
@@ -154,11 +166,11 @@ const CourseSyllabus = ({ course, modules }) => {
 
   const fetchAvailableRoles = useCallback(async () => {
     if (!course?.id) return;
-    
+
     try {
       const response = await fetch(`/api/courses/manage-role-assignments?courseId=${course.id}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         setAvailableRoles(data.availableRoles || []);
       }
@@ -167,13 +179,38 @@ const CourseSyllabus = ({ course, modules }) => {
     }
   }, [course?.id]);
 
-  // Fetch course objectives on component mount
+  const fetchAssessments = useCallback(async () => {
+    if (!course?.id) return;
+
+    setLoadingAssessments(true);
+    try {
+      const response = await fetch(`/api/score-cards/getCourseAssessments?courseId=${course.id}&includeInactive=true`);
+
+      if (!response.ok) {
+        console.error('Error fetching assessments: HTTP', response.status);
+        setAssessmentMethods([]);
+        setLoadingAssessments(false);
+        return;
+      }
+
+      const data = await response.json();
+      setAssessmentMethods(data.assessments || []);
+    } catch (error) {
+      console.error('Error fetching assessments:', error);
+      setAssessmentMethods([]);
+    } finally {
+      setLoadingAssessments(false);
+    }
+  }, [course?.id]);
+
+  // Fetch course objectives and assessments on component mount
   useEffect(() => {
     if (course?.id) {
       dispatch(getCourseObjectives(course.id));
       fetchRoleAssignments();
+      fetchAssessments(); // Fetch assessments from API
     }
-  }, [course?.id, dispatch, fetchRoleAssignments]);
+  }, [course?.id, dispatch, fetchRoleAssignments, fetchAssessments]);
 
   // Cache available roles to avoid repeated fetching
   useEffect(() => {
@@ -268,67 +305,157 @@ const CourseSyllabus = ({ course, modules }) => {
     setTempDescription('');
   };
 
-  // Assessment methods management functions
-  const handleAddAssessment = () => {
-    if (newAssessment.type.trim() && newAssessment.weight.trim() && newAssessment.description.trim()) {
-      setAssessmentMethods([...assessmentMethods, {
-        type: newAssessment.type.trim(),
-        weight: newAssessment.weight.trim(),
-        description: newAssessment.description.trim()
-      }]);
-      setNewAssessment({ type: '', weight: '', description: '' });
-      setShowAddAssessmentField(false);
+  // Assessment methods management functions - Connected to API
+  const handleOpenAssessmentDialog = (assessment = null) => {
+    if (assessment) {
+      // Edit existing assessment
+      setCurrentAssessment(assessment);
+      setAssessmentForm({
+        title: assessment.title || '',
+        description: assessment.description || '',
+        maxScore: assessment.maxScore || 100,
+        passingScore: assessment.passingScore || 70,
+        allowRetakes: assessment.allowRetakes !== undefined ? assessment.allowRetakes : true,
+        maxAttempts: assessment.maxAttempts || '',
+        scoreStrategy: assessment.scoreStrategy || 'latest',
+        assessmentOrder: assessment.assessmentOrder || ''
+      });
+    } else {
+      // New assessment
+      setCurrentAssessment(null);
+      setAssessmentForm({
+        title: '',
+        description: '',
+        maxScore: 100,
+        passingScore: 70,
+        allowRetakes: true,
+        maxAttempts: '',
+        scoreStrategy: 'latest',
+        assessmentOrder: ''
+      });
+    }
+    setAssessmentDialogOpen(true);
+  };
+
+  const handleCloseAssessmentDialog = () => {
+    setAssessmentDialogOpen(false);
+    setCurrentAssessment(null);
+    setAssessmentForm({
+      title: '',
+      description: '',
+      maxScore: 100,
+      passingScore: 70,
+      allowRetakes: true,
+      maxAttempts: '',
+      scoreStrategy: 'latest',
+      assessmentOrder: ''
+    });
+  };
+
+  const handleSaveAssessment = async () => {
+    if (!course?.id || !assessmentForm.title.trim()) {
+      alert('Please provide an assessment title');
+      return;
+    }
+
+    setSavingAssessment(true);
+
+    try {
+      const isEdit = Boolean(currentAssessment);
+      const url = isEdit ? '/api/score-cards/updateAssessment' : '/api/score-cards/createAssessment';
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const payload = {
+        ...assessmentForm,
+        courseId: course.id,
+        maxScore: parseFloat(assessmentForm.maxScore),
+        passingScore: parseFloat(assessmentForm.passingScore),
+        assessmentOrder: assessmentForm.assessmentOrder ? parseInt(assessmentForm.assessmentOrder) : null,
+        maxAttempts: assessmentForm.maxAttempts ? parseInt(assessmentForm.maxAttempts) : null
+      };
+
+      if (isEdit) {
+        payload.id = currentAssessment.id;
+      }
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`Assessment ${isEdit ? 'updated' : 'created'} successfully!`);
+        handleCloseAssessmentDialog();
+        fetchAssessments(); // Refresh list
+      } else {
+        alert(data.message || `Failed to ${isEdit ? 'update' : 'create'} assessment`);
+      }
+    } catch (error) {
+      console.error('Error saving assessment:', error);
+      alert('Failed to save assessment. Please try again.');
+    } finally {
+      setSavingAssessment(false);
     }
   };
 
-  const handleShowAddAssessmentField = () => {
-    setShowAddAssessmentField(true);
-  };
-
-  const handleCancelAddAssessment = () => {
-    setShowAddAssessmentField(false);
-    setNewAssessment({ type: '', weight: '', description: '' });
-  };
-
-  const handleDeleteAssessmentClick = (event, index) => {
+  const handleDeleteAssessmentClick = (event, assessment) => {
     setDeleteAssessmentConfirm({
       open: true,
-      index: index,
+      assessment: assessment,
       anchorEl: event.currentTarget
     });
   };
 
-  const handleDeleteAssessmentConfirm = () => {
-    setAssessmentMethods(assessmentMethods.filter((_, i) => i !== deleteAssessmentConfirm.index));
-    setDeleteAssessmentConfirm({ open: false, index: -1, anchorEl: null });
+  const handleDeleteAssessmentConfirm = async () => {
+    if (!deleteAssessmentConfirm.assessment) return;
+
+    try {
+      const response = await fetch(`/api/score-cards/deleteAssessment?id=${deleteAssessmentConfirm.assessment.id}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Assessment deleted successfully!');
+        setDeleteAssessmentConfirm({ open: false, assessment: null, anchorEl: null });
+        fetchAssessments(); // Refresh list
+      } else {
+        alert(data.message || 'Failed to delete assessment. It may have participant scores.');
+      }
+    } catch (error) {
+      console.error('Error deleting assessment:', error);
+      alert('Failed to delete assessment. Please try again.');
+    }
   };
 
   const handleDeleteAssessmentCancel = () => {
-    setDeleteAssessmentConfirm({ open: false, index: -1, anchorEl: null });
+    setDeleteAssessmentConfirm({ open: false, assessment: null, anchorEl: null });
   };
 
-  const handleEditAssessment = (index) => {
-    setEditingAssessment(index);
-    setEditAssessment(assessmentMethods[index]);
-  };
+  const handleToggleAssessmentStatus = async (assessment) => {
+    try {
+      const response = await fetch('/api/score-cards/updateAssessment', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: assessment.id,
+          isActive: !assessment.isActive
+        })
+      });
 
-  const handleSaveAssessmentEdit = () => {
-    if (editAssessment.type.trim() && editAssessment.weight.trim() && editAssessment.description.trim()) {
-      const updated = [...assessmentMethods];
-      updated[editingAssessment] = {
-        type: editAssessment.type.trim(),
-        weight: editAssessment.weight.trim(),
-        description: editAssessment.description.trim()
-      };
-      setAssessmentMethods(updated);
+      if (response.ok) {
+        fetchAssessments(); // Refresh list
+      } else {
+        alert('Failed to update assessment status');
+      }
+    } catch (error) {
+      console.error('Error updating assessment status:', error);
+      alert('Failed to update assessment status. Please try again.');
     }
-    setEditingAssessment(null);
-    setEditAssessment({ type: '', weight: '', description: '' });
-  };
-
-  const handleCancelAssessmentEdit = () => {
-    setEditingAssessment(null);
-    setEditAssessment({ type: '', weight: '', description: '' });
   };
 
   // Prerequisites management functions
@@ -1042,166 +1169,111 @@ const CourseSyllabus = ({ course, modules }) => {
                     Assessment Methods
                   </Typography>
                 </Stack>
-                {!showAddAssessmentField && (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={handleShowAddAssessmentField}
-                    startIcon={<PlusOutlined />}
-                  >
-                    Add
-                  </Button>
-                )}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleOpenAssessmentDialog()}
+                  startIcon={<PlusOutlined />}
+                >
+                  Add
+                </Button>
               </Stack>
 
-              <Stack spacing={2}>
-                {assessmentMethods.map((method, index) => (
-                  <Box key={index}>
-                    {editingAssessment === index ? (
-                      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                        <Stack spacing={2}>
-                          <Stack direction="row" spacing={2}>
-                            <TextField
-                              fullWidth
-                              label="Assessment Type"
-                              value={editAssessment.type}
-                              onChange={(e) => setEditAssessment({...editAssessment, type: e.target.value})}
-                              size="small"
-                            />
-                            <TextField
-                              label="Weight"
-                              value={editAssessment.weight}
-                              onChange={(e) => setEditAssessment({...editAssessment, weight: e.target.value})}
-                              size="small"
-                              sx={{ minWidth: '100px' }}
-                            />
-                          </Stack>
-                          <TextField
-                            fullWidth
-                            label="Description"
-                            value={editAssessment.description}
-                            onChange={(e) => setEditAssessment({...editAssessment, description: e.target.value})}
-                            multiline
-                            rows={2}
-                            size="small"
-                          />
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Button
-                              size="small"
-                              onClick={handleSaveAssessmentEdit}
-                              variant="contained"
-                              startIcon={<SaveOutlined />}
-                              disabled={!editAssessment.type.trim() || !editAssessment.weight.trim() || !editAssessment.description.trim()}
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              size="small"
-                              onClick={handleCancelAssessmentEdit}
-                              variant="outlined"
-                              startIcon={<CloseOutlined />}
-                            >
-                              Cancel
-                            </Button>
-                          </Stack>
-                        </Stack>
-                      </Box>
-                    ) : (
+              {loadingAssessments ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Stack spacing={2}>
+                  {assessmentMethods.map((method, index) => (
+                    <Box key={method.id || index}>
                       <Box sx={{ position: 'relative', '&:hover .assessment-actions': { opacity: 1 } }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                          <Typography variant="subtitle2" fontWeight={600}>
-                            {method.type}
-                          </Typography>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <Chip label={method.weight} size="small" color="primary" variant="outlined" />
-                            <Stack 
-                              direction="row" 
-                              spacing={0.5} 
-                              className="assessment-actions"
-                              sx={{ opacity: 0, transition: 'opacity 0.2s' }}
-                            >
-                              <IconButton
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                          <Box sx={{ flexGrow: 1 }}>
+                            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                              {method.title}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              {method.description}
+                            </Typography>
+                            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                              <Chip
+                                label={`Max Score: ${method.maxScore}`}
                                 size="small"
-                                onClick={() => handleEditAssessment(index)}
                                 color="primary"
-                              >
-                                <EditOutlined />
-                              </IconButton>
-                              <IconButton
+                                variant="outlined"
+                              />
+                              <Chip
+                                label={`Passing: ${method.passingScore}%`}
                                 size="small"
-                                onClick={(e) => handleDeleteAssessmentClick(e, index)}
-                                color="error"
-                              >
-                                <DeleteOutlined />
-                              </IconButton>
+                                color="success"
+                                variant="outlined"
+                              />
+                              {method.allowRetakes && (
+                                <Chip
+                                  label={method.maxAttempts ? `Max ${method.maxAttempts} attempts` : 'Unlimited retakes'}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              )}
+                              {!method.isActive && (
+                                <Chip
+                                  label="Inactive"
+                                  size="small"
+                                  color="error"
+                                  variant="filled"
+                                />
+                              )}
                             </Stack>
+                          </Box>
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            className="assessment-actions"
+                            sx={{ opacity: 0, transition: 'opacity 0.2s', ml: 2 }}
+                          >
+                            <IconButton
+                              size="small"
+                              onClick={() => handleToggleAssessmentStatus(method)}
+                              color={method.isActive ? "warning" : "success"}
+                              title={method.isActive ? "Deactivate" : "Activate"}
+                            >
+                              {method.isActive ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenAssessmentDialog(method)}
+                              color="primary"
+                            >
+                              <EditOutlined />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => handleDeleteAssessmentClick(e, method)}
+                              color="error"
+                            >
+                              <DeleteOutlined />
+                            </IconButton>
                           </Stack>
                         </Stack>
-                        <Typography variant="body2" color="text.secondary">
-                          {method.description}
-                        </Typography>
                       </Box>
-                    )}
-                    {index < assessmentMethods.length - 1 && editingAssessment !== index && <Divider sx={{ mt: 2 }} />}
-                  </Box>
-                ))}
+                      {index < assessmentMethods.length - 1 && <Divider sx={{ mt: 2 }} />}
+                    </Box>
+                  ))}
 
-                {/* Add new assessment */}
-                {showAddAssessmentField && (
-                  <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                    <Stack spacing={2}>
-                      <Stack direction="row" spacing={2}>
-                        <TextField
-                          fullWidth
-                          label="Assessment Type"
-                          placeholder="e.g., Quizzes, Projects, Assignments"
-                          value={newAssessment.type}
-                          onChange={(e) => setNewAssessment({...newAssessment, type: e.target.value})}
-                          size="small"
-                          autoFocus
-                        />
-                        <TextField
-                          label="Weight"
-                          placeholder="e.g., 30%"
-                          value={newAssessment.weight}
-                          onChange={(e) => setNewAssessment({...newAssessment, weight: e.target.value})}
-                          size="small"
-                          sx={{ minWidth: '100px' }}
-                        />
-                      </Stack>
-                      <TextField
-                        fullWidth
-                        label="Description"
-                        placeholder="Describe the assessment method..."
-                        value={newAssessment.description}
-                        onChange={(e) => setNewAssessment({...newAssessment, description: e.target.value})}
-                        multiline
-                        rows={2}
-                        size="small"
-                      />
-                      <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button
-                          size="small"
-                          onClick={handleAddAssessment}
-                          variant="contained"
-                          startIcon={<SaveOutlined />}
-                          disabled={!newAssessment.type.trim() || !newAssessment.weight.trim() || !newAssessment.description.trim()}
-                        >
-                          Add Assessment
-                        </Button>
-                        <Button
-                          size="small"
-                          onClick={handleCancelAddAssessment}
-                          variant="outlined"
-                          startIcon={<CloseOutlined />}
-                        >
-                          Cancel
-                        </Button>
-                      </Stack>
-                    </Stack>
-                  </Box>
-                )}
-              </Stack>
+                  {assessmentMethods.length === 0 && !loadingAssessments && (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <TrophyOutlined style={{ fontSize: 48, color: theme.palette.grey[400], marginBottom: 16 }} />
+                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                        No Assessments Configured
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Add assessment methods to evaluate participant performance.
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
+              )}
             </CardContent>
           </Card>
 
@@ -1600,6 +1672,133 @@ const CourseSyllabus = ({ course, modules }) => {
             startIcon={savingCurriculums ? <CircularProgress size={16} color="inherit" /> : <SaveOutlined />}
           >
             {savingCurriculums ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Assessment Dialog */}
+      <Dialog
+        open={assessmentDialogOpen}
+        onClose={handleCloseAssessmentDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <TrophyOutlined style={{ color: theme.palette.error.main, fontSize: 24 }} />
+            <Typography variant="h6" fontWeight={600}>
+              {currentAssessment ? 'Edit Assessment' : 'Add Assessment'}
+            </Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Assessment Title"
+              placeholder="e.g., Quizzes, Final Exam, Project Presentation"
+              value={assessmentForm.title}
+              onChange={(e) => setAssessmentForm({ ...assessmentForm, title: e.target.value })}
+              required
+            />
+
+            <TextField
+              fullWidth
+              label="Description"
+              placeholder="Describe the assessment method and criteria..."
+              value={assessmentForm.description}
+              onChange={(e) => setAssessmentForm({ ...assessmentForm, description: e.target.value })}
+              multiline
+              rows={3}
+            />
+
+            <Stack direction="row" spacing={2}>
+              <TextField
+                fullWidth
+                label="Maximum Score"
+                type="number"
+                value={assessmentForm.maxScore}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, maxScore: e.target.value })}
+                inputProps={{ min: 1, step: 1 }}
+                required
+              />
+              <TextField
+                fullWidth
+                label="Passing Score (%)"
+                type="number"
+                value={assessmentForm.passingScore}
+                onChange={(e) => setAssessmentForm({ ...assessmentForm, passingScore: e.target.value })}
+                inputProps={{ min: 0, max: 100, step: 0.1 }}
+                required
+              />
+            </Stack>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={assessmentForm.allowRetakes}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, allowRetakes: e.target.checked })}
+                  color="primary"
+                />
+              }
+              label="Allow Retakes"
+            />
+
+            {assessmentForm.allowRetakes && (
+              <Stack direction="row" spacing={2}>
+                <TextField
+                  fullWidth
+                  label="Maximum Attempts"
+                  type="number"
+                  placeholder="Leave empty for unlimited"
+                  value={assessmentForm.maxAttempts}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, maxAttempts: e.target.value })}
+                  inputProps={{ min: 1, step: 1 }}
+                  helperText="Leave blank for unlimited retakes"
+                />
+                <FormControl fullWidth>
+                  <InputLabel>Score Strategy</InputLabel>
+                  <Select
+                    value={assessmentForm.scoreStrategy}
+                    label="Score Strategy"
+                    onChange={(e) => setAssessmentForm({ ...assessmentForm, scoreStrategy: e.target.value })}
+                  >
+                    <MenuItem value="latest">Latest Score</MenuItem>
+                    <MenuItem value="highest">Highest Score</MenuItem>
+                    <MenuItem value="average">Average Score</MenuItem>
+                    <MenuItem value="first">First Attempt Only</MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+            )}
+
+            <TextField
+              fullWidth
+              label="Assessment Order"
+              type="number"
+              placeholder="Optional - determines display order"
+              value={assessmentForm.assessmentOrder}
+              onChange={(e) => setAssessmentForm({ ...assessmentForm, assessmentOrder: e.target.value })}
+              inputProps={{ min: 1, step: 1 }}
+              helperText="Leave blank to add at the end"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button
+            onClick={handleCloseAssessmentDialog}
+            variant="outlined"
+            disabled={savingAssessment}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveAssessment}
+            variant="contained"
+            disabled={savingAssessment || !assessmentForm.title.trim()}
+            startIcon={savingAssessment ? <CircularProgress size={16} color="inherit" /> : <SaveOutlined />}
+          >
+            {savingAssessment ? 'Saving...' : (currentAssessment ? 'Update Assessment' : 'Create Assessment')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -21,7 +21,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 
 // Direct imports for Google Maps components
-import { GoogleMap, LoadScript, DirectionsRenderer } from '@react-google-maps/api';
+import { GoogleMap, LoadScriptNext, DirectionsRenderer } from '@react-google-maps/api';
 
 // Utility functions separated from component
 const mapUtils = {
@@ -557,27 +557,20 @@ const ProjectsMap = ({ projects = [], height = 500, showDirections = false, goog
   const theme = useTheme();
   const [map, setMap] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
-  const [shouldRenderMap, setShouldRenderMap] = useState(false);
-  
+
   // Custom hooks for better separation of concerns
   const { geocodedProjects, isGeocoding } = useGeocodedProjects(projects, map);
   const projectsWithLocation = useProjectsWithLocation(projects, geocodedProjects);
   const mapCenter = useMapBounds(projectsWithLocation, map);
   const directionsResponse = useDirections(projectsWithLocation, showDirections);
-  
+
   // Memoized callbacks
   const onMapLoad = useCallback((map) => {
     setMap(map);
   }, []);
-  
+
   const onMarkerClick = useCallback((project) => {
     setSelectedProject(project);
-  }, []);
-  
-  // Delayed rendering to prevent conflicts
-  useEffect(() => {
-    const timer = setTimeout(() => setShouldRenderMap(true), 100);
-    return () => clearTimeout(timer);
   }, []);
   
   // Memoized location data validation
@@ -597,7 +590,7 @@ const ProjectsMap = ({ projects = [], height = 500, showDirections = false, goog
             Google Maps API Key Required
           </Typography>
           <Typography>
-            Google Maps API key is required to display the interactive map. 
+            Google Maps API key is required to display the interactive map.
             Please ensure GOOGLE_MAPS_API_KEY is set in your environment variables.
           </Typography>
         </Alert>
@@ -624,85 +617,58 @@ const ProjectsMap = ({ projects = [], height = 500, showDirections = false, goog
     <Box sx={{ height: '100%' }}>
       {/* Legend at the top */}
       <ProjectStatusLegend theme={theme} />
-      
+
       <Box sx={{ display: 'flex', gap: 2, height: height - 100 }}>
         {/* Map Container - Full width */}
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <Paper sx={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0, width: '100%' }}>
-            {shouldRenderMap ? (
-              <LoadScript
-                googleMapsApiKey={googleMapsApiKey}
-                libraries={GOOGLE_MAPS_LIBRARIES}
-                preventGoogleFontsLoading
-                id="google-maps-script"
-                loadingElement={
-                  <Box
-                    sx={{
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexDirection: 'column',
-                      gap: 2
-                    }}
-                  >
-                    <CircularProgress size={32} />
-                    <Typography variant="body2">Loading Google Maps...</Typography>
-                  </Box>
-                }
+            <LoadScriptNext
+              googleMapsApiKey={googleMapsApiKey}
+              libraries={GOOGLE_MAPS_LIBRARIES}
+              loadingElement={
+                <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress />
+                </Box>
+              }
+            >
+              <GoogleMap
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={mapCenter}
+                zoom={4}
+                onLoad={onMapLoad}
+                options={{
+                  mapId: 'project-timeline-map',
+                  zoomControl: true,
+                  streetViewControl: false,
+                  mapTypeControl: true,
+                  fullscreenControl: true,
+                }}
               >
-                <GoogleMap
-                  mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={mapCenter}
-                  zoom={4}
-                  onLoad={onMapLoad}
-                  options={{
-                    mapId: 'project-timeline-map',
-                    zoomControl: true,
-                    streetViewControl: false,
-                    mapTypeControl: true,
-                    fullscreenControl: true,
-                  }}
-                >
-                  <MapMarkers 
+                {map && (
+                  <MapMarkers
                     map={map}
                     projectsWithLocation={projectsWithLocation}
                     onMarkerClick={onMarkerClick}
                     theme={theme}
                   />
+                )}
 
-                  {/* Directions */}
-                  {showDirections && directionsResponse && (
-                    <DirectionsRenderer
-                      directions={directionsResponse}
-                      options={{
-                        suppressMarkers: true,
-                        polylineOptions: {
-                          strokeColor: theme.palette.primary.main,
-                          strokeWeight: 4,
-                          strokeOpacity: 0.8,
-                        }
-                      }}
-                    />
-                  )}
-                </GoogleMap>
-              </LoadScript>
-            ) : (
-              <Box
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'column',
-                  gap: 2,
-                  backgroundColor: 'background.paper'
-                }}
-              >
-                <CircularProgress size={32} />
-                <Typography variant="body2">Preparing map...</Typography>
-              </Box>
-            )}
+                {/* Directions */}
+                {showDirections && directionsResponse && (
+                  <DirectionsRenderer
+                    directions={directionsResponse}
+                    options={{
+                      suppressMarkers: true,
+                      polylineOptions: {
+                        strokeColor: theme.palette.primary.main,
+                        strokeWeight: 4,
+                        strokeOpacity: 0.8,
+                      }
+                    }}
+                  />
+                )}
+              </GoogleMap>
+            </LoadScriptNext>
             
             {/* Loading Overlay */}
             {isGeocoding && (

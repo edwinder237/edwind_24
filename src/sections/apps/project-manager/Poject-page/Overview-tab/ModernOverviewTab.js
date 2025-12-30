@@ -40,7 +40,6 @@ import { useSelector } from 'store';
 import MainCard from 'components/MainCard';
 import ChartWrapper from 'components/ChartWrapper';
 import DailyNotes from './DailyNotes';
-import SessionNotes from './SessionNotes';
 import LearningObjectives from './LearningObjectives';
 import { derivedSelectors } from 'store/selectors';
 
@@ -52,8 +51,8 @@ const ModernOverviewTab = () => {
   const participants = useSelector(selectAllParticipants);
   const hasParticipants = participants && participants.length > 0;
 
-  // Get project info from agenda store (CQRS architecture)
-  const project = useSelector((state) => state.projectAgenda?.projectInfo);
+  // Get project info from derived selector (CQRS architecture)
+  const project = useSelector(derivedSelectors.dashboard.selectProjectInfo);
 
   // Get attendance summary from derived selectors (same logic as ProjectDashboard)
   const attendanceSummary = useSelector(derivedSelectors.attendance.selectAttendanceSummary);
@@ -269,12 +268,7 @@ const ModernOverviewTab = () => {
           </Paper>
         </Grid>
 
-        {/* Second Row - Session Notes (Full Width) */}
-        <Grid item xs={12}>
-          <SessionNotes project={project} />
-        </Grid>
-
-        {/* Third Row - Learning Objectives (Full Width) */}
+        {/* Second Row - Learning Objectives (Full Width) */}
         <Grid item xs={12}>
           <LearningObjectives project={project} />
         </Grid>

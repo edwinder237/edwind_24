@@ -1,21 +1,43 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * POST/PUT /api/participants/updateParticipant
+ * ============================================
+ *
+ * Updates a participant's information.
+ * FIXED: Previously updated any participant without org validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique, scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'PUT') {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const { orgContext } = req;
   const { participantId, updates } = req.body;
 
   if (!participantId) {
-    return res.status(400).json({ error: "Participant ID is required" });
+    throw new ValidationError('Participant ID is required');
   }
 
   if (!updates || typeof updates !== 'object') {
-    return res.status(400).json({ error: "Updates object is required" });
+    throw new ValidationError('Updates object is required');
   }
 
   try {
+    // Verify participant ownership
+    const existingParticipant = await scopedFindUnique(orgContext, 'participants', {
+      where: { id: participantId }
+    });
+
+    if (!existingParticipant) {
+      throw new NotFoundError('Participant not found');
+    }
+
     // Extract valid fields for updating
     const validFields = {};
 
@@ -42,11 +64,9 @@ export default async function handler(req, res) {
     validFields.updatedby = updates.updatedby || 'system';
     validFields.lastUpdated = new Date();
 
-    // Update the participant
-    const updatedParticipant = await prisma.participants.update({
-      where: {
-        id: participantId
-      },
+    // Update the participant with org scoping
+    const updatedParticipant = await scopedUpdate(orgContext, 'participants', {
+      where: { id: participantId },
       data: validFields,
       include: {
         role: {
@@ -75,20 +95,17 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error updating participant:', error);
-    
+
     if (error.code === 'P2025') {
-      return res.status(404).json({ error: "Participant not found" });
-    }
-    
-    if (error.code === 'P2002') {
-      return res.status(400).json({ 
-        error: "Email already exists. Please use a different email address." 
-      });
+      throw new NotFoundError('Participant not found');
     }
 
-    res.status(500).json({ 
-      error: "Internal server error",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    if (error.code === 'P2002') {
+      throw new ValidationError('Email already exists. Please use a different email address.');
+    }
+
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

@@ -10,7 +10,8 @@ export const useTrainingData = (projectId, subOrganizationId) => {
     trainingRecipients: [],
     topics: [],
     statusOptions: [],
-    companies: []
+    companies: [],
+    assessments: []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -81,6 +82,9 @@ export const useTrainingData = (projectId, subOrganizationId) => {
       }
       if (filters.endDate) {
         params.endDate = filters.endDate;
+      }
+      if (filters.assessments?.length > 0) {
+        params.assessments = filters.assessments;
       }
 
       const response = await axios.get('/api/training-records', { params });

@@ -1,38 +1,56 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * GET /api/courses/fetchCourses
+ * ============================================
+ *
+ * Returns all active courses for the current organization.
+ * FIXED: Previously leaked ALL courses across ALL organizations.
+ *
+ * Response:
+ * [
+ *   {
+ *     id: number,
+ *     name: string,
+ *     course_instructors: [...],
+ *     modules: [...]
+ *   }
+ * ]
+ */
 
-export default async function handler(req, res) {
-  try {
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler } from '../../../lib/errors/index.js';
 
+async function handler(req, res) {
+  const { orgContext } = req;
 
-    const courses = await prisma.courses.findMany({
-      where: {
-        isActive: true,
+  // Fetch courses filtered by organization's sub-organizations
+  const courses = await scopedFindMany(orgContext, 'courses', {
+    where: {
+      isActive: true
+    },
+    include: {
+      course_instructors: {
+        include: {
+          instructor: true
+        }
       },
-      include: {
-        course_instructors: {
-          include: {
-            instructor: true,
-          },
+      modules: {
+        orderBy: {
+          moduleOrder: 'asc'
         },
-        modules: {
-          orderBy: {
-            moduleOrder: 'asc',
-          },
-          include: {
-            activities: {
-              orderBy: {
-                ActivityOrder: 'asc',
-              },
-            },
-          },
-        },
-      },
-    });
+        include: {
+          activities: {
+            orderBy: {
+              ActivityOrder: 'asc'
+            }
+          }
+        }
+      }
+    }
+  });
 
-
-    res.status(200).json(courses );
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+  return res.status(200).json(courses);
 }
+
+export default withOrgScope(asyncHandler(handler));

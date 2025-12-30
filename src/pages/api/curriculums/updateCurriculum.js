@@ -1,24 +1,57 @@
+/**
+ * ============================================
+ * PUT /api/curriculums/updateCurriculum
+ * ============================================
+ *
+ * Updates an existing curriculum.
+ * FIXED: Previously updated any curriculum without org validation.
+ *
+ * Body:
+ * - id (required): Curriculum ID
+ * - name (required): Curriculum name
+ * - description: Curriculum description
+ * - selectedCourses (required): Array of course IDs
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   curriculum: {...}
+ * }
+ */
+
 import prisma from '../../../lib/prisma';
 import { calculateCourseDurationFromModules } from '../../../utils/durationCalculations';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique, scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const { id, name, description, difficulty, estimatedDuration, selectedCourses } = req.body;
 
     if (!id || !name || !selectedCourses || selectedCourses.length === 0) {
-      return res.status(400).json({ 
-        message: 'ID, name and at least one course are required' 
-      });
+      throw new ValidationError('ID, name and at least one course are required');
     }
 
     const curriculumId = parseInt(id);
 
-    // Update curriculum basic info
-    const updatedCurriculum = await prisma.curriculums.update({
+    // Verify curriculum ownership
+    const curriculumOwnership = await scopedFindUnique(orgContext, 'curriculums', {
+      where: { id: curriculumId }
+    });
+
+    if (!curriculumOwnership) {
+      throw new NotFoundError('Curriculum not found');
+    }
+
+    // Update curriculum basic info with org scoping
+    const updatedCurriculum = await scopedUpdate(orgContext, 'curriculums', {
       where: { id: curriculumId },
       data: {
         title: name,
@@ -92,10 +125,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error updating curriculum:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update curriculum',
-      error: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

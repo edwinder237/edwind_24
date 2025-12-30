@@ -1,29 +1,42 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * POST /api/projects/add-group
+ * ============================================
+ *
+ * Creates a new group in a project and syncs with curriculums.
+ * FIXED: Previously accepted any projectId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
-    const { newGroup, index } = req.body;
-
-    if (!newGroup || !newGroup.groupName) {
-      return res.status(400).json({
-        success: false,
-        error: 'Group name is required'
-      });
-    }
-
-    // Get the project ID from the Redux state index (this needs to be passed)
-    // For now, we need to get the project ID somehow
-    const projectId = req.body.projectId; // This should be passed from frontend
+    const { newGroup, index, projectId } = req.body;
 
     if (!projectId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Project ID is required'
-      });
+      throw new ValidationError('Project ID is required');
+    }
+
+    if (!newGroup || !newGroup.groupName) {
+      throw new ValidationError('Group name is required');
+    }
+
+    // Verify project ownership
+    const project = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: parseInt(projectId) }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
     }
 
     // Create the group in the database
@@ -116,11 +129,8 @@ export default async function handler(req, res) {
     res.status(201).json(result);
   } catch (error) {
     console.error('Error creating group:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create group',
-      message: error.message,
-      details: error.message
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

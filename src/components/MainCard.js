@@ -45,7 +45,7 @@ const MainCard = forwardRef(
         ref={ref}
         {...others}
         sx={{
-          bgcolor:theme.palette.primary,
+          bgcolor: theme.palette.background.paper,
           position: 'relative',
           border: border ? '1px solid' : 'none',
           borderRadius: 1,

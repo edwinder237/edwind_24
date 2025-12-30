@@ -189,26 +189,66 @@ async function updateParticipantChecklistProgress(req, res) {
     if (completed) {
       const checklistItem = await prisma.course_checklist_items.findUnique({
         where: { id: parseInt(checklistItemId) },
-        select: { participantOnly: true }
+        select: { participantOnly: true, courseId: true }
       });
 
       if (checklistItem?.participantOnly) {
-        // Count total participants and completed participants
+        // CRITICAL FIX: Count ONLY participants assigned to events for this specific course
+        // This matches the logic in checklist-progress.js (lines 129-164)
         const [totalParticipants, completedParticipants] = await Promise.all([
+          // Count participants assigned to events with this courseId (active only)
           prisma.project_participants.count({
-            where: { projectId: projectParticipant.projectId }
+            where: {
+              projectId: projectParticipant.projectId,
+              status: 'active',
+              OR: [
+                // Participants in groups assigned to events with this courseId
+                {
+                  group: {
+                    some: {
+                      group: {
+                        event_groups: {
+                          some: {
+                            event: {
+                              courseId: checklistItem.courseId,
+                              projectId: projectParticipant.projectId
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                // Participants directly assigned to events with this courseId
+                {
+                  event_attendees: {
+                    some: {
+                      event: {
+                        courseId: checklistItem.courseId,
+                        projectId: projectParticipant.projectId
+                      }
+                    }
+                  }
+                }
+              ]
+            }
           }),
+          // Count completed participants for this checklist item
           prisma.project_participants_course_checklist_progress.count({
             where: {
               projectId: projectParticipant.projectId,
               checklistItemId: parseInt(checklistItemId),
-              completed: true
+              completed: true,
+              // Only count active participants
+              participant: {
+                status: 'active'
+              }
             }
           })
         ]);
 
-        // If all participants completed, auto-complete the main task
-        if (completedParticipants === totalParticipants) {
+        // If all course-assigned active participants completed, auto-complete the main task
+        if (completedParticipants === totalParticipants && totalParticipants > 0) {
           await prisma.project_course_checklist_progress.upsert({
             where: {
               projectId_checklistItemId: {

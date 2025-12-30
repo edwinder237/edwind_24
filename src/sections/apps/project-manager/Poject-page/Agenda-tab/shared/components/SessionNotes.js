@@ -2,11 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import React from "react";
 
 // material-ui
-import { 
-  Typography, 
-  Stack, 
-  IconButton, 
-  Tooltip, 
+import {
+  Typography,
+  Stack,
+  IconButton,
+  Tooltip,
   TextField
 } from "@mui/material";
 import { SaveOutlined } from "@ant-design/icons";
@@ -91,8 +91,8 @@ const SessionNotes = React.memo(({ notes, selectedEvent, events }) => {
           )}
           <Tooltip title="Save Notes">
             <span>
-              <IconButton 
-                onClick={handleSave} 
+              <IconButton
+                onClick={handleSave}
                 disabled={isSaving || !hasUnsavedChanges}
                 color="primary"
                 size="small"

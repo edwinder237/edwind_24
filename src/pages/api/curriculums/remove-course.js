@@ -1,18 +1,38 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * DELETE /api/curriculums/remove-course
+ * ============================================
+ *
+ * Removes a course from a curriculum.
+ * FIXED: Previously accepted any curriculumId/courseId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'DELETE') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const { curriculumId, courseId } = req.body;
 
     if (!curriculumId || !courseId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Curriculum ID and Course ID are required'
-      });
+      throw new ValidationError('Curriculum ID and Course ID are required');
+    }
+
+    // Verify curriculum ownership
+    const curriculum = await scopedFindUnique(orgContext, 'curriculums', {
+      where: { id: parseInt(curriculumId) }
+    });
+
+    if (!curriculum) {
+      throw new NotFoundError('Curriculum not found');
     }
 
     // Check if relationship exists
@@ -24,10 +44,7 @@ export default async function handler(req, res) {
     });
 
     if (!existingRelation) {
-      return res.status(404).json({
-        success: false,
-        message: 'Course is not assigned to this curriculum'
-      });
+      throw new NotFoundError('Course is not assigned to this curriculum');
     }
 
     // Remove the relationship
@@ -44,10 +61,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error removing course from curriculum:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to remove course from curriculum',
-      error: error.message
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

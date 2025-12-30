@@ -1,13 +1,38 @@
-import prisma from '../../../lib/prisma';
-import { calculateCourseDurationFromModules } from '../../../utils/durationCalculations';
+/**
+ * ============================================
+ * GET /api/curriculums/fetchCurriculums
+ * ============================================
+ *
+ * Returns all curriculums for the current organization.
+ * Uses org scoping to filter by sub-organization.
+ *
+ * Response:
+ * [
+ *   {
+ *     id: number,
+ *     title: string,
+ *     curriculum_courses: [...],
+ *     supportActivities: [...],
+ *     project_curriculums: [...]
+ *   }
+ * ]
+ */
 
-export default async function handler(req, res) {
+import { calculateCourseDurationFromModules } from '../../../utils/durationCalculations';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
-    const curriculums = await prisma.curriculums.findMany({
+    // Fetch curriculums filtered by organization's sub-organizations
+    const curriculums = await scopedFindMany(orgContext, 'curriculums', {
       include: {
         curriculum_courses: {
           include: {
@@ -81,10 +106,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching curriculums:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch curriculums',
-      error: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

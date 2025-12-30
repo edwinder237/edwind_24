@@ -1,18 +1,38 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * DELETE /api/projects/remove-curriculum
+ * ============================================
+ *
+ * Removes a curriculum from a project and all groups.
+ * FIXED: Previously accepted any projectId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'DELETE') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const { projectId, curriculumId } = req.body;
 
     if (!projectId || !curriculumId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Project ID and Curriculum ID are required' 
-      });
+      throw new ValidationError('Project ID and Curriculum ID are required');
+    }
+
+    // Verify project ownership
+    const project = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: parseInt(projectId) }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Project not found');
     }
 
     // Use a transaction for atomicity and better performance
@@ -56,10 +76,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error removing curriculum from project:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to remove curriculum from project',
-      error: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

@@ -829,6 +829,7 @@ const Groups = React.memo(({ index }) => {
             open={curriculumDialogOpen}
             onClose={handleCurriculumDialogClose}
             group={selectedGroup}
+            projectId={projectId}
             onRefresh={forceRefresh}
           />
         </Suspense>

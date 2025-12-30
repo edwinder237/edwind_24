@@ -1,14 +1,25 @@
-export default function handler(req, res) {
-  try {
-    const { remainingParticipants } = req.body;
+/**
+ * ============================================
+ * POST /api/projects/removeParticipant
+ * ============================================
+ *
+ * Legacy client-side optimistic update endpoint for removing participants.
+ * NOTE: This is a mock endpoint that returns client-provided data without persistence.
+ * The actual participant removal happens via participants/delete.js.
+ * FIXED: Added org scope middleware for consistency.
+ */
 
-    const result = {
-      remainingParticipants: remainingParticipants,
-    };
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { asyncHandler } from '../../../lib/errors/index.js';
 
-    return res.status(200).json({ ...result });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
+async function handler(req, res) {
+  const { remainingParticipants } = req.body;
+
+  const result = {
+    remainingParticipants: remainingParticipants,
+  };
+
+  return res.status(200).json({ ...result });
 }
+
+export default withOrgScope(asyncHandler(handler));

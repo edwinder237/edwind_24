@@ -1,9 +1,23 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * PUT /api/instructors/updateInstructor
+ * ============================================
+ *
+ * Updates an instructor's information.
+ * FIXED: Previously updated any instructor without org validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique, scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const {
@@ -24,35 +38,30 @@ export default async function handler(req, res) {
     } = req.body;
 
     if (!id || !updatedBy) {
-      return res.status(400).json({
-        success: false,
-        message: 'Instructor ID and updated by are required'
-      });
+      throw new ValidationError('Instructor ID and updated by are required');
     }
 
-    // Check if instructor exists
-    const existingInstructor = await prisma.instructors.findUnique({
+    // Verify instructor ownership
+    const existingInstructor = await scopedFindUnique(orgContext, 'instructors', {
       where: { id: parseInt(id) }
     });
 
     if (!existingInstructor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Instructor not found'
-      });
+      throw new NotFoundError('Instructor not found');
     }
 
     // If email is being updated, check if it's already taken by another instructor
     if (email && email !== existingInstructor.email) {
-      const emailExists = await prisma.instructors.findUnique({
-        where: { email }
+      const emailExists = await prisma.instructors.findFirst({
+        where: {
+          email,
+          sub_organizationId: { in: orgContext.subOrganizationIds },
+          NOT: { id: parseInt(id) }
+        }
       });
 
       if (emailExists) {
-        return res.status(400).json({
-          success: false,
-          message: 'An instructor with this email already exists'
-        });
+        throw new ValidationError('An instructor with this email already exists');
       }
     }
 
@@ -75,7 +84,7 @@ export default async function handler(req, res) {
     if (hourlyRate !== undefined) updateData.hourlyRate = hourlyRate ? parseFloat(hourlyRate) : null;
     if (availability !== undefined) updateData.availability = availability;
 
-    const instructor = await prisma.instructors.update({
+    const instructor = await scopedUpdate(orgContext, 'instructors', {
       where: { id: parseInt(id) },
       data: updateData,
       select: {
@@ -106,10 +115,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error updating instructor:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update instructor',
-      error: error.message
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

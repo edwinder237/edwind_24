@@ -1,9 +1,33 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * PUT /api/projects/updateProject
+ * ============================================
+ *
+ * Updates an existing project.
+ * FIXED: Previously updated any project without org validation.
+ *
+ * Body:
+ * - id (required): Project ID
+ * - title, description, dates, status, etc.
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   project: {...}
+ * }
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique, scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'PUT') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const {
@@ -25,22 +49,16 @@ export default async function handler(req, res) {
     } = req.body;
 
     if (!id) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Project ID is required' 
-      });
+      throw new ValidationError('Project ID is required');
     }
 
-    // Check if project exists
-    const existingProject = await prisma.projects.findUnique({
+    // Verify project ownership
+    const existingProject = await scopedFindUnique(orgContext, 'projects', {
       where: { id: parseInt(id) }
     });
 
     if (!existingProject) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Project not found' 
-      });
+      throw new NotFoundError('Project not found');
     }
 
     // Build update data object - only include fields that were provided
@@ -59,9 +77,9 @@ export default async function handler(req, res) {
     if (backgroundImg !== undefined) updateData.backgroundImg = backgroundImg;
     if (color !== undefined) updateData.color = color;
     if (projectStatus !== undefined) updateData.projectStatus = projectStatus;
-    
-    // Update the project
-    const updatedProject = await prisma.projects.update({
+
+    // Update the project with org scoping
+    const updatedProject = await scopedUpdate(orgContext, 'projects', {
       where: {
         id: parseInt(id)
       },
@@ -128,10 +146,8 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error updating project:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to update project',
-      error: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

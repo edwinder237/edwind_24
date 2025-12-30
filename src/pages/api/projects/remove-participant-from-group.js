@@ -1,15 +1,48 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * POST /api/projects/remove-participant-from-group
+ * ============================================
+ *
+ * Removes a participant from a group.
+ * FIXED: Previously accepted any groupId/participantId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
     const { groupId, participantId } = req.body;
-    
+
     if (!groupId || !participantId) {
-      return res.status(400).json({ error: 'Group ID and Participant ID are required' });
+      throw new ValidationError('Group ID and Participant ID are required');
+    }
+
+    // Get group and verify it belongs to a project in user's org
+    const group = await prisma.groups.findUnique({
+      where: { id: parseInt(groupId) },
+      select: { id: true, projectId: true }
+    });
+
+    if (!group) {
+      throw new NotFoundError('Group not found');
+    }
+
+    // Verify project ownership (validates group ownership)
+    const project = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: group.projectId }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Group not found');
     }
 
     // Remove participant from group
@@ -21,7 +54,7 @@ export default async function handler(req, res) {
     });
 
     if (deletedRelation.count === 0) {
-      return res.status(404).json({ error: 'Participant not found in this group' });
+      throw new NotFoundError('Participant not found in this group');
     }
 
     // Fetch the updated group with all participants
@@ -49,13 +82,15 @@ export default async function handler(req, res) {
       },
     });
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: 'Participant removed from group successfully',
-      group: updatedGroup 
+      group: updatedGroup
     });
   } catch (error) {
     console.error('Error removing participant from group:', error);
-    res.status(500).json({ error: 'Failed to remove participant from group', details: error.message });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

@@ -145,7 +145,8 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
 
     // Transform data for drawer
     const participant = {
-      id: participantData.participant?.id,
+      id: participantData.participant?.id, // UUID from participants table
+      projectParticipantId: participantData.id, // Numeric ID from project_participants table
       firstName: participantData.participant?.firstName,
       lastName: participantData.participant?.lastName,
       email: participantData.participant?.email,
@@ -356,6 +357,7 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
         open={drawerOpen}
         onClose={handleCloseDrawer}
         participant={selectedParticipant}
+        projectId={projectId}
       />
     </>
   );

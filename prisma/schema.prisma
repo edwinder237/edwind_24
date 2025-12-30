@@ -8,43 +8,51 @@ datasource db {
 }
 
 model User {
-  id                 String            @id @default(cuid())
-  name               String?
-  email              String?           @unique
-  emailVerified      DateTime?         @map("email_verified")
-  image              String?
-  username           String?           @unique
-  password           String
-  firstName          String
-  midName            String?
-  lastName           String
-  status             String            @default("active")
-  info               Json
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime?         @updatedAt
-  sub_organizationId Int
-  projects           projects[]
-  sub_organization   sub_organizations @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+  id                      String                      @id @default(cuid())
+  workos_user_id          String?                     @unique
+  name                    String?
+  email                   String?                     @unique
+  emailVerified           DateTime?                   @map("email_verified")
+  image                   String?
+  username                String?                     @unique
+  password                String
+  firstName               String
+  midName                 String?
+  lastName                String
+  status                  String                      @default("active")
+  info                    Json
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime?                   @updatedAt
+  sub_organizationId      Int?
+  projects                projects[]
+  organization_memberships organization_memberships[]
+  sub_organization        sub_organizations?          @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 
   @@index([sub_organizationId])
+  @@index([workos_user_id])
   @@map("users")
 }
 
 model organizations {
-  id                String             @id @default(uuid())
-  title             String
-  description       String?
-  createdAt         DateTime           @default(now())
-  lastUpdated       DateTime           @default(now())
-  updatedby         String
-  createdBy         String
-  info              Json?
-  logo_url          String?
-  status            String?
-  type              String?
-  notes             String?
-  published         Boolean
-  sub_organizations sub_organizations?
+  id                      String                      @id @default(uuid())
+  workos_org_id           String?                     @unique
+  title                   String
+  description             String?
+  createdAt               DateTime                    @default(now())
+  lastUpdated             DateTime                    @default(now())
+  updatedby               String
+  createdBy               String
+  info                    Json?
+  logo_url                String?
+  status                  String?
+  type                    String?
+  notes                   String?
+  published               Boolean
+  sub_organizations       sub_organizations[]
+  organization_memberships organization_memberships[]
+  subscription            subscriptions?
+
+  @@index([workos_org_id])
 }
 
 model sub_organizations {
@@ -55,9 +63,10 @@ model sub_organizations {
   lastUpdated         DateTime                            @default(now())
   updatedby           String
   createdBy           String
-  organizationId      String                              @unique
+  organizationId      String
   course_tags         course_tags[]
   courses             courses[]
+  curriculums         curriculums[]
   instructors         instructors[]
   projects            projects[]
   participant_roles   sub_organization_participant_role[]
@@ -65,6 +74,8 @@ model sub_organizations {
   topics              topics[]
   training_recipients training_recipients[]
   users               User[]
+
+  @@index([organizationId])
 }
 
 model sub_organization_participant_role {
@@ -140,10 +151,13 @@ model projects {
   language                           String                                        @default("English")
   location                           Json?
   trainingRecipientId                Int?
+  assessment_configs                 project_assessment_config[]
   daily_focus                        daily_focus[]
+  daily_training_notes               daily_training_notes[]
   events                             events[]
   groups                             groups[]
   checklist_progress                 project_course_checklist_progress[]
+  curriculum_checklist_progress      project_curriculum_checklist_progress[]
   participant_checklist_progress     project_participants_course_checklist_progress[]
   project_curriculums                project_curriculums[]
   project_instructors                project_instructors[]
@@ -161,27 +175,28 @@ model projects {
 }
 
 model instructors {
-  id                  Int                   @id @default(autoincrement())
+  id                  Int                           @id @default(autoincrement())
   firstName           String
   lastName            String
-  email               String                @unique
+  email               String                        @unique
   phone               String?
   bio                 String?
   expertise           String[]
-  instructorType      String                @default("main")
-  status              String                @default("active")
+  instructorType      String                        @default("main")
+  status              String                        @default("active")
   profileImage        String?
   qualifications      Json?
   hourlyRate          Float?
   availability        Json?
   sub_organizationId  Int
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
   createdBy           String
   updatedBy           String?
+  assessment_scores   participant_assessment_scores[]
   course_instructors  course_instructors[]
   event_instructors   event_instructors[]
-  sub_organization    sub_organizations     @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+  sub_organization    sub_organizations             @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
   project_instructors project_instructors[]
 
   @@index([sub_organizationId])
@@ -272,6 +287,7 @@ model project_participants {
   participantId                       String
   trainingRecipientId                 Int?
   status                              String                                        @default("active")
+  assessment_scores                   participant_assessment_scores[]
   courses_enrollee_progress           courses_enrollee_progress[]
   event_attendees                     event_attendees[]
   group                               group_participants[]
@@ -365,6 +381,7 @@ model courses {
   rating                    Float?
   code                      String?
   version                   String?
+  course_assessments        course_assessments[]
   course_checklist_items    course_checklist_items[]
   course_instructors        course_instructors[]
   course_objectives         course_objectives[]
@@ -427,17 +444,23 @@ model modules {
 }
 
 model curriculums {
-  id                  Int                   @id @default(autoincrement())
-  cuid                String                @default(cuid())
-  title               String
-  description         String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @default(now())
-  curriculum_courses  curriculum_courses[]
-  group_curriculums   group_curriculums[]
-  project_curriculums project_curriculums[]
-  supportActivities   supportActivities[]
-  training_plans      training_plans[]
+  id                       Int                                   @id @default(autoincrement())
+  cuid                     String                                @default(cuid())
+  title                    String
+  description              String?
+  sub_organizationId       Int?
+  createdAt                DateTime                              @default(now())
+  updatedAt                DateTime                              @default(now())
+  assessment_configs       curriculum_assessment_config[]
+  curriculum_checklist_items curriculum_checklist_items[]
+  curriculum_courses       curriculum_courses[]
+  group_curriculums        group_curriculums[]
+  project_curriculums      project_curriculums[]
+  supportActivities        supportActivities[]
+  training_plans           training_plans[]
+  sub_organization         sub_organizations?                    @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+
+  @@index([sub_organizationId])
 }
 
 model curriculum_courses {
@@ -549,6 +572,26 @@ model daily_focus {
 
   @@unique([date, projectId])
   @@index([projectId])
+}
+
+model daily_training_notes {
+  id            Int      @id @default(autoincrement())
+  projectId     Int
+  date          DateTime @db.Date
+  keyHighlights String[] @default([])
+  challenges    String[] @default([])
+  sessionNotes  String?  @db.Text
+  author        String?
+  authorRole    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String
+  updatedBy     String?
+  project       projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, date])
+  @@index([projectId])
+  @@index([date])
 }
 
 model supportActivities {
@@ -918,4 +961,272 @@ model event_module_progress {
   @@unique([eventId, moduleId])
   @@index([eventId])
   @@index([moduleId])
+}
+
+model course_assessments {
+  id              Int      @id @default(autoincrement())
+  courseId        Int
+  title           String
+  description     String?  @db.Text
+  maxScore        Float    @default(100)
+  passingScore    Float    @default(70)
+  isActive        Boolean  @default(true)
+  assessmentOrder Int?
+  allowRetakes    Boolean  @default(true)
+  maxAttempts     Int?
+  scoreStrategy   String   @default("latest")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String
+  updatedBy       String?
+  course                     courses                           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  participant_scores         participant_assessment_scores[]
+  curriculum_overrides       curriculum_assessment_config[]
+  project_overrides          project_assessment_config[]
+
+  @@index([courseId])
+  @@index([isActive])
+}
+
+model curriculum_assessment_config {
+  id                 Int      @id @default(autoincrement())
+  curriculumId       Int
+  courseAssessmentId Int
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdBy          String?
+  updatedBy          String?
+  curriculum       curriculums        @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  courseAssessment course_assessments @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([curriculumId, courseAssessmentId], name: "unique_curriculum_assessment")
+  @@index([curriculumId])
+  @@index([courseAssessmentId])
+  @@index([isActive])
+}
+
+model project_assessment_config {
+  id                 Int      @id @default(autoincrement())
+  projectId          Int
+  courseAssessmentId Int
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdBy          String?
+  updatedBy          String?
+  project          projects           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  courseAssessment course_assessments @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, courseAssessmentId], name: "unique_project_assessment")
+  @@index([projectId])
+  @@index([courseAssessmentId])
+  @@index([isActive])
+}
+
+model participant_assessment_scores {
+  id                 Int      @id @default(autoincrement())
+  courseAssessmentId Int
+  participantId      Int
+  instructorId       Int?
+  attemptNumber      Int      @default(1)
+  scoreEarned        Float
+  scoreMaximum       Float
+  scorePercentage    Float
+  passed             Boolean?
+  isOverridden       Boolean  @default(false)
+  overrideReason     String?  @db.Text
+  feedback           String?  @db.Text
+  assessmentDate     DateTime
+  isCurrent          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdBy          String
+  updatedBy          String?
+  courseAssessment course_assessments   @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
+  participant      project_participants @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  instructor       instructors?         @relation(fields: [instructorId], references: [id])
+
+  @@unique([courseAssessmentId, participantId, attemptNumber], name: "unique_participant_attempt")
+  @@index([courseAssessmentId])
+  @@index([participantId])
+  @@index([instructorId])
+  @@index([passed])
+  @@index([attemptNumber])
+  @@index([isCurrent])
+  @@index([assessmentDate])
+  @@index([scorePercentage])
+}
+
+model curriculum_checklist_items {
+  id              Int                                        @id @default(autoincrement())
+  curriculumId    Int
+  title           String
+  description     String?
+  category        String                                     @default("trainer_prep")
+  priority        String                                     @default("medium")
+  itemOrder       Int?
+  createdAt       DateTime                                   @default(now())
+  updatedAt       DateTime                                   @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  curriculum      curriculums                                @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  progress        project_curriculum_checklist_progress[]
+
+  @@index([curriculumId])
+  @@index([category])
+  @@index([priority])
+  @@index([itemOrder])
+}
+
+model project_curriculum_checklist_progress {
+  id              Int                        @id @default(autoincrement())
+  projectId       Int
+  checklistItemId Int
+  completed       Boolean                    @default(false)
+  completedAt     DateTime?
+  completedBy     String?
+  notes           String?                    @db.VarChar(160)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  checklistItem   curriculum_checklist_items @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  project         projects                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, checklistItemId])
+  @@index([projectId])
+  @@index([checklistItemId])
+  @@index([completed])
+}
+
+model organization_memberships {
+  id                   String        @id @default(uuid())
+  userId               String
+  organizationId       String
+  workos_membership_id String        @unique
+  workos_role          String
+  status               String        @default("active")
+  cached_at            DateTime      @default(now())
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization         organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([workos_membership_id])
+  @@index([status])
+}
+
+// ============================================
+// SUBSCRIPTION MANAGEMENT TABLES
+// ============================================
+
+model subscription_plans {
+  id                  Int             @id @default(autoincrement())
+  planId              String          @unique // "free", "pro", "enterprise", "custom"
+  name                String          // "Free Plan", "Professional", "Enterprise"
+  description         String?         @db.Text
+  price               Float           @default(0)
+  currency            String          @default("USD")
+  billingInterval     String          @default("monthly") // "monthly", "annual", "one_time"
+  trialDays           Int             @default(0)
+  isActive            Boolean         @default(true)
+  isPublic            Boolean         @default(true) // Show on pricing page
+
+  // Features and Limits (stored as JSON for flexibility)
+  features            Json            // Array of feature keys
+  resourceLimits      Json            // { maxProjects: 50, maxParticipants: 500, etc. }
+
+  // Display
+  displayOrder        Int             @default(0)
+  highlightText       String?         // "Most Popular", "Best Value"
+
+  // Metadata
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  createdBy           String?
+  updatedBy           String?
+
+  subscriptions       subscriptions[]
+
+  @@index([planId])
+  @@index([isActive])
+  @@index([isPublic])
+  @@index([displayOrder])
+}
+
+model subscriptions {
+  id                  Int                @id @default(autoincrement())
+  organizationId      String             @unique
+  organization        organizations      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Plan information
+  planId              String             // "free", "pro", "enterprise", "custom"
+  plan                subscription_plans @relation(fields: [planId], references: [planId])
+  status              String             @default("active") // "active", "trialing", "past_due", "canceled", "suspended"
+
+  // Billing
+  billingInterval     String?            // "monthly", "annual"
+  currentPeriodStart  DateTime           @default(now())
+  currentPeriodEnd    DateTime
+  cancelAt            DateTime?          // Scheduled cancellation date
+  canceledAt          DateTime?          // When it was actually canceled
+  trialStart          DateTime?
+  trialEnd            DateTime?
+
+  // Payment integration (Stripe, etc.)
+  stripeCustomerId    String?            @unique
+  stripeSubscriptionId String?           @unique
+  stripeProductId     String?
+  stripePriceId       String?
+
+  // Custom overrides per organization
+  customFeatures      Json?              // Override features for this org
+  customLimits        Json?              // Override resource limits for this org
+
+  // Metadata
+  notes               String?            @db.Text
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  createdBy           String?
+  updatedBy           String?
+
+  history             subscription_history[]
+
+  @@index([organizationId])
+  @@index([planId])
+  @@index([status])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@index([currentPeriodEnd])
+}
+
+model subscription_history {
+  id                  Int           @id @default(autoincrement())
+  subscriptionId      Int
+  subscription        subscriptions @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  // Change information
+  eventType           String        // "created", "plan_changed", "canceled", "reactivated", "trial_started", "trial_ended", "payment_failed"
+  fromPlanId          String?       // Previous plan (for upgrades/downgrades)
+  toPlanId            String?       // New plan
+  fromStatus          String?       // Previous status
+  toStatus            String        // New status
+
+  // Context
+  reason              String?       @db.Text // Why the change happened
+  changedBy           String?       // User ID who made the change
+  changedByRole       String?       // Role of the person who made the change
+
+  // Metadata
+  metadata            Json?         // Additional context (prices, discounts, etc.)
+  changedAt           DateTime      @default(now())
+
+  @@index([subscriptionId])
+  @@index([eventType])
+  @@index([changedAt])
+  @@index([toPlanId])
 }

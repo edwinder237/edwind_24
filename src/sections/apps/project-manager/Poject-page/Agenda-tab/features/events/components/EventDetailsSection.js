@@ -4,7 +4,7 @@ import { fetchProjectAgenda } from "store/reducers/project/agenda";
 
 // Child components
 import { Attendees } from "../../participants/components";
-import { moduleswidget as Moduleswidget } from "../../../shared/components";
+import { ModulesWidget } from "../../modules/components";
 import { SessionNotes } from "../../../shared/components";
 
 // Material-UI
@@ -397,14 +397,14 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project, available
           
           {/* Course Modules - Only show for course event types */}
           {scheduleState.selectedEvent.eventType === 'course' && (
-            <Moduleswidget eventState={scheduleState} />
+            <ModulesWidget eventState={scheduleState} />
           )}
-          
+
           {/* Session Notes - Available for all event types */}
-          <SessionNotes 
-            notes={scheduleState.selectedEvent?.extendedProps?.notes || scheduleState.selectedEvent?.instructorNotes || ""} 
+          <SessionNotes
+            notes={scheduleState.instructorNotes}
             selectedEvent={scheduleState.selectedEvent}
-            events={agendaEvents || []}
+            events={agendaEvents}
           />
         </>
       ) : (

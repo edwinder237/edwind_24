@@ -28,11 +28,13 @@ import {
   CalendarOutlined,
   CheckSquareOutlined,
   SettingOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import Loader from "components/Loader";
 // Import from index.js which controls which version to use (Legacy or RTK)
 import TabSettings from "./Settings-tab";
 import ProjectChecklist from "./Project-Checklist-tab";
+import ProjectAssessmentsTab from "./Assessments-tab";
 import AgendaTab from "./Agenda-tab";
 import getTabIcons from "utils/getTabIcons";
 import GroupTable from "./Groups";
@@ -123,8 +125,8 @@ const ProjectTabs = ({
   const handleChange = async (_, newValue) => {
     setTabValue(newValue);
 
-    // If switching to Settings tab (index 4), ensure settings data is loaded
-    if (newValue === 4 && projectId && !hasLoadedSettingsData) {
+    // If switching to Settings tab (index 5), ensure settings data is loaded
+    if (newValue === 5 && projectId && !hasLoadedSettingsData) {
       dispatch(fetchProjectSettings(projectId));
       setHasLoadedSettingsData(true);
     }
@@ -219,36 +221,45 @@ const ProjectTabs = ({
             }
             {...a11yProps(1)} 
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={styles.tabLabel}>
                 <CheckSquareOutlined />
                 <span>Checklist</span>
                 {checklistItems.length > 0 && getTabIcons(
-                  checklistItems.length > 0 && 
+                  checklistItems.length > 0 &&
                   checklistItems.every(item => item.completed)
                 )}
               </Box>
             }
-            {...a11yProps(2)} 
+            {...a11yProps(2)}
           />
-          <Tab 
+          <Tab
+            label={
+              <Box sx={styles.tabLabel}>
+                <FileTextOutlined />
+                <span>Assessments</span>
+              </Box>
+            }
+            {...a11yProps(3)}
+          />
+          <Tab
             label={
               <Box sx={styles.tabLabel}>
                 <TeamOutlined />
                 <span>Groups</span>
               </Box>
             }
-            {...a11yProps(3)} 
+            {...a11yProps(4)}
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={styles.tabLabel}>
                 <SettingOutlined />
                 <span>Settings</span>
               </Box>
             }
-            {...a11yProps(4)} 
+            {...a11yProps(5)}
           />
         </Tabs>
 
@@ -320,11 +331,14 @@ const ProjectTabs = ({
           />
         </TabPanel>
         <TabPanel value={tabValue} index={3} isMobile={matchDownSM}>
+          <ProjectAssessmentsTab />
+        </TabPanel>
+        <TabPanel value={tabValue} index={4} isMobile={matchDownSM}>
           <DndProvider backend={isMobile ? TouchBackend : HTML5Backend}>
             <GroupTable index={0} />
           </DndProvider>
         </TabPanel>
-        <TabPanel value={tabValue} index={4} isMobile={matchDownSM}>
+        <TabPanel value={tabValue} index={5} isMobile={matchDownSM}>
           <TabSettings project={project} />
         </TabPanel>
       </Box>

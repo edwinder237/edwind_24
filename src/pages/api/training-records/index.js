@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     const {
       projectId,
       courses,
-      participants, 
+      participants,
       instructors,
       companies,
       trainingRecipients,
@@ -18,6 +18,7 @@ export default async function handler(req, res) {
       startDate,
       endDate,
       topics,
+      assessments,
       page = 1,
       limit = 100
     } = req.query;
@@ -31,6 +32,7 @@ export default async function handler(req, res) {
     const trainingRecipientsArray = trainingRecipients || req.query['trainingRecipients[]'];
     const statusArray = status || req.query['status[]'];
     const topicsArray = topics || req.query['topics[]'];
+    const assessmentsArray = assessments || req.query['assessments[]'];
 
 
     // Build where clause for events
@@ -141,9 +143,51 @@ export default async function handler(req, res) {
       }
     });
 
+    // Fetch assessment scores if assessments filter is provided
+    let assessmentScoresMap = {};
+    if (assessmentsArray && (Array.isArray(assessmentsArray) ? assessmentsArray.length > 0 : assessmentsArray)) {
+      const assessmentIds = Array.isArray(assessmentsArray) ? assessmentsArray : [assessmentsArray];
+      const validAssessmentIds = assessmentIds.filter(id => id && id.toString().trim() !== '').map(id => parseInt(id));
+
+      if (validAssessmentIds.length > 0) {
+        // Get all participant IDs from events (use project_participants.id, not participants UUID)
+        const participantIds = events.flatMap(event =>
+          event.event_attendees.map(attendee => attendee.enrollee.id)
+        );
+
+        // Fetch assessment scores for these participants and assessments
+        const assessmentScores = await prisma.participant_assessment_scores.findMany({
+          where: {
+            participantId: { in: participantIds },
+            courseAssessmentId: { in: validAssessmentIds },
+            isCurrent: true
+          },
+          include: {
+            courseAssessment: {
+              select: {
+                id: true,
+                title: true,
+                maxScore: true,
+                passingScore: true
+              }
+            }
+          },
+          orderBy: {
+            assessmentDate: 'desc'
+          }
+        });
+
+        // Create a map for quick lookup: participantId_assessmentId -> score
+        assessmentScores.forEach(score => {
+          const key = `${score.participantId}_${score.courseAssessmentId}`;
+          assessmentScoresMap[key] = score;
+        });
+      }
+    }
+
     // Transform the data into training records format
     const trainingRecords = [];
-    
+
     for (const event of events) {
       for (const attendee of event.event_attendees) {
         const participant = attendee.enrollee.participant;
@@ -194,9 +238,35 @@ export default async function handler(req, res) {
         }
 
         // Calculate duration - only for completed events
-        const duration = isCompleted && event.end && event.start 
+        const duration = isCompleted && event.end && event.start
           ? Math.round((new Date(event.end) - new Date(event.start)) / 60000) // minutes
           : null;
+
+        // Get assessment scores for this participant if assessment filter is active
+        let assessmentData = null;
+        if (assessmentsArray && (Array.isArray(assessmentsArray) ? assessmentsArray.length > 0 : assessmentsArray)) {
+          const assessmentIds = Array.isArray(assessmentsArray) ? assessmentsArray : [assessmentsArray];
+          const validAssessmentIds = assessmentIds.filter(id => id && id.toString().trim() !== '').map(id => parseInt(id));
+
+          // Get the first assessment score (in case multiple assessments selected, show first one)
+          const firstAssessmentId = validAssessmentIds[0];
+          const scoreKey = `${attendee.enrollee.id}_${firstAssessmentId}`;
+          const scoreRecord = assessmentScoresMap[scoreKey];
+
+          if (scoreRecord) {
+            assessmentData = {
+              assessmentId: scoreRecord.courseAssessmentId,
+              assessmentName: scoreRecord.courseAssessment.title,
+              score: scoreRecord.scorePercentage,
+              scoreEarned: scoreRecord.scoreEarned,
+              scoreMaximum: scoreRecord.scoreMaximum,
+              passed: scoreRecord.passed,
+              attemptNumber: scoreRecord.attemptNumber,
+              assessmentDate: scoreRecord.assessmentDate?.toISOString()?.split('T')[0],
+              feedback: scoreRecord.feedback
+            };
+          }
+        }
 
         trainingRecords.push({
           id: `${event.id}-${attendee.id}`,
@@ -211,7 +281,7 @@ export default async function handler(req, res) {
           courseName: event.course?.title || event.title,
           courseTopics: event.course?.course_topics?.map(ct => ct.topic.title) || [],
           instructorId: event.event_instructors[0]?.instructorId || null,
-          instructorName: event.event_instructors[0]?.instructor 
+          instructorName: event.event_instructors[0]?.instructor
             ? `${event.event_instructors[0].instructor.firstName} ${event.event_instructors[0].instructor.lastName}`
             : 'No Instructor',
           instructorSpecialization: event.event_instructors[0]?.instructor?.expertise || [],
@@ -223,13 +293,17 @@ export default async function handler(req, res) {
           duration: duration,
           status: completionStatus,
           attendanceStatus: attendee.attendance_status,
-          score: null, // No score data available in current schema
-          passed: isCompleted,
+          score: assessmentData?.score || null,
+          passed: assessmentData ? assessmentData.passed : isCompleted,
+          assessmentAttempts: assessmentData?.attemptNumber || null,
+          assessmentDate: assessmentData?.assessmentDate || null,
           certificateIssued: false,
           certificateUrl: null,
           notes: event.description || null,
           createdAt: attendee.createdAt,
-          updatedAt: attendee.lastUpdated
+          updatedAt: attendee.lastUpdated,
+          // Assessment-specific fields (only populated when assessments filter is active)
+          assessment: assessmentData
         });
       }
     }

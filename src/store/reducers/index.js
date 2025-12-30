@@ -14,6 +14,7 @@ import { entityReducers } from '../entities';
 import calendar from './calendar';
 import menu from './menu';
 import snackbar from './snackbar';
+import user from './user';
 import courses from './courses';
 import projects from './project'; // Modular structure with projects.js instead of core.js
 // projectDashboard removed - dashboard metrics now computed via derived selectors
@@ -30,6 +31,7 @@ const reducers = combineReducers({
   calendar,
   menu,
   snackbar,
+  user,
   courses,
   projects,
   // projectDashboard removed - using derived selectors (selectCompleteDashboard)

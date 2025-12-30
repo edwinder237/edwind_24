@@ -1,18 +1,55 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * POST /api/projects/fetchProjectSettings
+ * ============================================
+ *
+ * Returns comprehensive project settings and available resources.
+ * FIXED: Previously leaked project settings across organizations.
+ *
+ * Body:
+ * - projectId (required): Project ID to fetch settings for
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   data: {
+ *     project: {...},
+ *     settings: {...},
+ *     availableRoles: [...],
+ *     availableInstructors: [...],
+ *     etc.
+ *   }
+ * }
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { projectId } = req.body;
+  const { orgContext } = req;
 
   if (!projectId) {
-    return res.status(400).json({ error: 'Project ID is required' });
+    throw new ValidationError('Project ID is required');
   }
 
   try {
     const projectIdInt = parseInt(projectId);
+
+    // First verify project exists and belongs to organization
+    const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: projectIdInt }
+    });
+
+    if (!projectOwnership) {
+      throw new NotFoundError('Project not found');
+    }
     
     // Get project with its settings and basic related data
     const project = await prisma.projects.findUnique({
@@ -370,14 +407,11 @@ export default async function handler(req, res) {
     };
     
     return res.status(200).json(settingsData);
-    
+
   } catch (error) {
     console.error('Error fetching project settings:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to fetch project settings',
-      message: error.message,
-      timestamp: new Date().toISOString()
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

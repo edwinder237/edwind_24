@@ -1,42 +1,57 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * POST /api/events/assignInstructor
+ * ============================================
+ *
+ * Assigns an instructor to an event.
+ * FIXED: Previously accepted any eventId/instructorId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const { eventId, instructorId, role = 'main' } = req.body;
 
     if (!eventId || !instructorId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Event ID and Instructor ID are required'
-      });
+      throw new ValidationError('Event ID and Instructor ID are required');
     }
 
-    // Check if event exists
+    // Get event and verify it belongs to a project in user's org
     const event = await prisma.events.findUnique({
-      where: { id: parseInt(eventId) }
+      where: { id: parseInt(eventId) },
+      select: { id: true, projectId: true }
     });
 
     if (!event) {
-      return res.status(404).json({
-        success: false,
-        message: 'Event not found'
-      });
+      throw new NotFoundError('Event not found');
     }
 
-    // Check if instructor exists
-    const instructor = await prisma.instructors.findUnique({
+    // Verify project ownership (which validates event ownership)
+    const project = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: event.projectId }
+    });
+
+    if (!project) {
+      throw new NotFoundError('Event not found');
+    }
+
+    // Verify instructor belongs to same organization
+    const instructor = await scopedFindUnique(orgContext, 'instructors', {
       where: { id: parseInt(instructorId) }
     });
 
     if (!instructor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Instructor not found'
-      });
+      throw new NotFoundError('Instructor not found');
     }
 
     // Check if instructor is already assigned to this event
@@ -50,10 +65,7 @@ export default async function handler(req, res) {
     });
 
     if (existingAssignment) {
-      return res.status(400).json({
-        success: false,
-        message: 'Instructor is already assigned to this event'
-      });
+      throw new ValidationError('Instructor is already assigned to this event');
     }
 
     // Create the assignment
@@ -93,10 +105,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error assigning instructor to event:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to assign instructor to event',
-      error: error.message
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

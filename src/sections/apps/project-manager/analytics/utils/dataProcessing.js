@@ -259,7 +259,9 @@ export const getColumnOrder = (groupBy) => {
     { key: 'instructorName', label: 'Instructor', sortKey: 'instructorName' },
     { key: 'completionDate', label: 'Completion Date', sortKey: 'completionDate' },
     { key: 'status', label: 'Status', sortKey: 'status' },
-    { key: 'score', label: 'Score', sortKey: 'score' }
+    { key: 'score', label: 'Score', sortKey: 'score' },
+    { key: 'assessmentAttempts', label: 'Attempts', sortKey: 'assessmentAttempts' },
+    { key: 'assessmentDate', label: 'Assessment Date', sortKey: 'assessmentDate' }
   ];
 
   if (groupBy === 'none') return allColumns;
@@ -355,7 +357,9 @@ export const exportToCSV = (data, filename = 'training-report') => {
     'INSTRUCTOR',
     'COMPLETION DATE',
     'STATUS',
-    'SCORE'
+    'SCORE',
+    'ATTEMPTS',
+    'ASSESSMENT DATE'
   ];
 
   // Convert data to CSV format
@@ -373,7 +377,9 @@ export const exportToCSV = (data, filename = 'training-report') => {
         row.instructorName || 'No Instructor',
         row.completionDate ? new Date(row.completionDate).toLocaleDateString() : '',
         row.status || '',
-        row.score !== undefined && row.score !== null ? row.score : ''
+        row.score !== undefined && row.score !== null ? row.score : '',
+        row.assessmentAttempts || '',
+        row.assessmentDate || ''
       ];
       
       // Escape values that contain commas or quotes

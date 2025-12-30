@@ -1,5 +1,19 @@
+/**
+ * ============================================
+ * POST /api/projects/addParticipant
+ * ============================================
+ *
+ * Legacy client-side optimistic update endpoint for adding participants.
+ * NOTE: This is a mock endpoint that returns client-provided data without persistence.
+ * The actual participant addition happens via import-csv.js or other endpoints.
+ * FIXED: Added org scope middleware for consistency.
+ */
+
 import { v4 as uuidv4 } from 'uuid';
-export default function handler(req, res) {
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { asyncHandler } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   const { participants, newParticipant, groups, index, projectParticipant, projectId } = req.body;
 
   // Validate input data
@@ -18,12 +32,12 @@ export default function handler(req, res) {
   }
 
   // Extract group name - handle both string and object formats
-  const groupName = typeof newParticipant.group === 'string' 
-    ? newParticipant.group 
+  const groupName = typeof newParticipant.group === 'string'
+    ? newParticipant.group
     : newParticipant.group?.groupName;
 
   // Check if the group exists in the groups array (only if groupName is provided)
-  const existingGroupIndex = groupName && groupName.trim() !== '' 
+  const existingGroupIndex = groupName && groupName.trim() !== ''
     ? groups.findIndex(group => group.groupName === groupName)
     : -1;
 
@@ -47,14 +61,14 @@ export default function handler(req, res) {
     } else {
       // If group exists, add the participant to the existing group
       const existingGroup = groups[existingGroupIndex];
-      
+
       // Handle both 'employees' and 'participants' properties
-      const currentMembers = Array.isArray(existingGroup.employees) 
-        ? existingGroup.employees 
+      const currentMembers = Array.isArray(existingGroup.employees)
+        ? existingGroup.employees
         : Array.isArray(existingGroup.participants)
           ? existingGroup.participants
           : [];
-      
+
       const updatedGroup = {
         ...existingGroup,
         employees: [...currentMembers, newParticipant],
@@ -71,23 +85,16 @@ export default function handler(req, res) {
     }
   };
 
+  const result = {
+    participants: [projectParticipant, ...participants],
+    index: index,
+    updatedGroups: updatedGroups(), // Update the groups array with the new group
+  };
 
-  try {
-    const result = {
-      participants: [projectParticipant, ...participants],
-      index: index,
-      updatedGroups: updatedGroups(), // Update the groups array with the new group
-    };
-    return res.status(200).json({ 
-      success: true,
-      ...result 
-    });
-  } catch (error) {
-    console.error('Error in addParticipant:', error);
-    return res.status(500).json({
-      success: false,
-      error: "Failed to add participant to group",
-      details: error.message
-    });
-  }
+  return res.status(200).json({
+    success: true,
+    ...result
+  });
 }
+
+export default withOrgScope(asyncHandler(handler));

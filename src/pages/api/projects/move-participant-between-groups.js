@@ -1,31 +1,59 @@
-import prisma from "../../../lib/prisma";
-
 /**
- * API endpoint for moving a participant between groups
- * Handles atomic operation to remove from one group and add to another
+ * ============================================
+ * POST /api/projects/move-participant-between-groups
+ * ============================================
+ *
+ * Moves a participant between groups atomically.
+ * FIXED: Previously accepted any groupId/participantId without validation.
  */
-export default async function handler(req, res) {
+
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
   const { participantId, fromGroupId, toGroupId } = req.body;
 
   // Validate: participantId is always required
   if (!participantId) {
-    return res.status(400).json({
-      error: 'Participant ID is required'
-    });
+    throw new ValidationError('Participant ID is required');
   }
 
   // If both fromGroupId and toGroupId are null, nothing to do
   if (!fromGroupId && !toGroupId) {
-    return res.status(400).json({
-      error: 'At least one of fromGroupId or toGroupId must be specified'
-    });
+    throw new ValidationError('At least one of fromGroupId or toGroupId must be specified');
   }
 
   try {
+    // Verify ownership of involved groups through their project
+    const groupsToVerify = [fromGroupId, toGroupId].filter(Boolean);
+
+    for (const groupId of groupsToVerify) {
+      const group = await prisma.groups.findUnique({
+        where: { id: parseInt(groupId) },
+        select: { id: true, projectId: true }
+      });
+
+      if (!group) {
+        throw new NotFoundError('Group not found');
+      }
+
+      // Verify project ownership (validates group ownership)
+      const project = await scopedFindUnique(orgContext, 'projects', {
+        where: { id: group.projectId }
+      });
+
+      if (!project) {
+        throw new NotFoundError('Group not found');
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const operations = [];
 
@@ -45,7 +73,6 @@ export default async function handler(req, res) {
       }
 
       // Step 2: Add to target group (if specified)
-      // If toGroupId is null, we're just removing from groups without adding to a new one
       if (toGroupId) {
         // First check if participant is already in the target group
         const existingMembership = await tx.group_participants.findFirst({
@@ -102,9 +129,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error moving participant between groups:', error);
-    res.status(500).json({ 
-      error: 'Failed to move participant between groups', 
-      details: error.message 
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

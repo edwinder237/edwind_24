@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "store";
 import { addProject, updateProject, getProjects } from "store/reducers/project";
 import { setLoading, clearLoading } from "store/reducers/loading";
+import { fetchUser } from "store/reducers/user";
 import axios from "utils/axios";
 
 // material-ui
@@ -215,14 +216,18 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   const dispatch = useDispatch();
   const router = useRouter();
   const isCreating = !project;
-  // Replace with your authentication logic
-  const mockUserData = {
-    user: { name: 'John Doe' },
-    sub_orgId: 'default-org',
-    sub_org_name: 'Default Organization'
-  };
   const today = new Date();
   const { projects,isAdding } = useSelector((state) => state.projects);
+
+  // Get logged-in user from Redux store
+  const { user: currentUser } = useSelector((state) => state.user);
+
+  // Fetch user on component mount if not already loaded
+  useEffect(() => {
+    if (!currentUser) {
+      dispatch(fetchUser());
+    }
+  }, [dispatch, currentUser]);
 
   // Step management
   const [activeStep, setActiveStep] = useState(0);
@@ -267,7 +272,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
         try {
           const response = await axios.get('/api/training-recipients/fetchTrainingRecipients', {
             params: {
-              sub_organizationId: 1 // TODO: Get from current user's sub-organization
+              sub_organizationId: currentUser?.sub_organizationId
             }
           });
           const recipient = response.data.find(r => r.id === project.trainingRecipientId);
@@ -383,7 +388,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           try {
             const recipientResponse = await axios.post('/api/training-recipients/create', {
               ...newRecipientData,
-              sub_organizationId: 1 // TODO: Get from current user's sub-organization
+              sub_organizationId: currentUser?.sub_organizationId
             });
 
             if (recipientResponse.data.success) {
@@ -408,11 +413,37 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           }
         }
 
+        // Use current logged-in user's ID (from WorkOS)
+        const createdByUserId = currentUser?.id || currentUser?.workos_user_id;
+
+        if (!createdByUserId) {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Unable to identify current user. Please refresh and try again.',
+            variant: 'alert',
+            alert: { color: 'error' }
+          }));
+          setSubmitting(false);
+          return;
+        }
+
+        // Validate sub_organizationId is set - this ensures project is created in correct org context
+        if (!currentUser?.sub_organizationId) {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Unable to determine your current sub-organization. Please try refreshing the page.',
+            variant: 'alert',
+            alert: { color: 'error' }
+          }));
+          setSubmitting(false);
+          return;
+        }
+
         const newProject = {
           sortorder: 1,
           cuid: createId(),
-          sub_organizationId: 1,
-          createdBy: 'clun74oh10003wszp0rpz6fzy',
+          sub_organizationId: currentUser.sub_organizationId,
+          createdBy: createdByUserId, // Use logged-in user's WorkOS ID
           createdAt: today,
           published: values.shared,
           title: values.title,
@@ -754,7 +785,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     try {
       const response = await axios.post('/api/training-recipients/create', {
         ...newRecipientData,
-        sub_organizationId: 1 // TODO: Get from current user's sub-organization
+        sub_organizationId: currentUser?.sub_organizationId
       });
 
       if (response.data.success) {

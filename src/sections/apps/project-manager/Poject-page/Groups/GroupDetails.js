@@ -319,8 +319,9 @@ const GroupDetails = ({ Group, onProgressLoad, projectId }) => {
               }
               sx={{ "& .MuiCardHeader-root": { p: 1.75 } }}
             >
-              <GroupCurriculumWidget 
-                groupId={Group?.id} 
+              <GroupCurriculumWidget
+                groupId={Group?.id}
+                projectId={projectId}
                 onManageCurriculums={handleCurriculumManage}
                 refreshTrigger={refreshKey}
               />
@@ -360,6 +361,7 @@ const GroupDetails = ({ Group, onProgressLoad, projectId }) => {
           open={curriculumDialogOpen}
           onClose={handleCurriculumDialogClose}
           group={Group}
+          projectId={projectId}
           onRefresh={handleRefresh}
         />
 

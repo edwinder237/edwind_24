@@ -25,16 +25,37 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { EditEventDialog, AddEventDialog } from '../../features/events/dialogs';
+import DeleteCard from 'components/cards/DeleteCard';
 import { useDispatch, useSelector } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { getEvents } from 'store/reducers/calendar';
-import { getSingleProject, getGroupsDetails } from 'store/reducers/project';
-import { deleteEvent } from 'store/commands/eventCommands';
+// CQRS imports - RTK Query
+import { useGetProjectAgendaQuery } from 'store/api/projectApi';
+// CQRS imports - Commands
+import { eventCommands } from 'store/commands';
+// CQRS imports - Entity Store Selectors
+import { selectAllGroups } from 'store/entities/groupsSlice';
 
 const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
-  const { groups } = useSelector((state) => state.projects);
+
+  // CQRS: Fetch agenda data using RTK Query (auto-updates entity stores)
+  const {
+    data: agendaData,
+    isLoading: isLoadingAgenda,
+    isFetching: isFetchingAgenda,
+    refetch: refetchAgenda
+  } = useGetProjectAgendaQuery(
+    project?.id,
+    {
+      skip: !project?.id,
+      refetchOnMountOrArgChange: true
+    }
+  );
+
+  // CQRS: Get groups from entity store (populated by RTK Query)
+  const groups = useSelector(state => selectAllGroups(state));
+
   const calendarRef = useRef(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -44,6 +65,18 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const [calendarReady, setCalendarReady] = useState(false);
   const [conflictingEvents, setConflictingEvents] = useState([]);
   const [assigningGroup, setAssigningGroup] = useState(false);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const refetchTimeoutRef = useRef(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const operationInProgressRef = useRef(false);
+  const isFetchingAgendaRef = useRef(isFetchingAgenda);
+
+  // Update ref whenever isFetchingAgenda changes
+  useEffect(() => {
+    isFetchingAgendaRef.current = isFetchingAgenda;
+  }, [isFetchingAgenda]);
 
   // Function to detect overlapping/conflicting events
   const detectConflicts = useCallback((events) => {
@@ -81,6 +114,35 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     
     return conflicts;
   }, []);
+
+  // Safe refetch wrapper - prevents overlapping refetches that crash Prisma
+  const safeRefetch = useCallback(async () => {
+    // Clear any pending refetch
+    if (refetchTimeoutRef.current) {
+      clearTimeout(refetchTimeoutRef.current);
+      refetchTimeoutRef.current = null;
+    }
+
+    // If already refetching, queue this refetch for later
+    if (isRefetching) {
+      console.log('[FullCalendarWeekView] Refetch already in progress, queuing...');
+      refetchTimeoutRef.current = setTimeout(() => {
+        safeRefetch();
+      }, 1000);
+      return;
+    }
+
+    setIsRefetching(true);
+    try {
+      console.log('[FullCalendarWeekView] Safe refetch starting...');
+      await refetchAgenda();
+      console.log('[FullCalendarWeekView] Safe refetch completed');
+    } catch (error) {
+      console.error('[FullCalendarWeekView] Refetch error:', error);
+    } finally {
+      setIsRefetching(false);
+    }
+  }, [refetchAgenda, isRefetching]);
 
   // Update conflicts when events change
   useEffect(() => {
@@ -131,12 +193,17 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     }
   }, []);
 
-  // Load groups when component mounts or project changes (with guard to prevent repeated calls)
+  // Cleanup timeout on unmount
   useEffect(() => {
-    if (project?.id && (!project.groups || project.groups.length === 0)) {
-      dispatch(getGroupsDetails(project.id));
-    }
-  }, [project?.id, project?.groups?.length, dispatch]);
+    return () => {
+      if (refetchTimeoutRef.current) {
+        clearTimeout(refetchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // CQRS: Groups are automatically fetched via useGetProjectAgendaQuery
+  // No need for manual dispatch - RTK Query handles it and updates entity store
 
   // Handle navigation
   const handleNavigate = useCallback((action) => {
@@ -182,16 +249,32 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
 
   // Handle slot selection for adding new events
   const handleDateSelect = useCallback((selectInfo) => {
+    // CRITICAL: Check ref FIRST - blocks if operation in progress
+    if (operationInProgressRef.current) {
+      console.log('[FullCalendarWeekView] Dialog open BLOCKED by ref');
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Please wait - an operation is currently in progress',
+        variant: 'alert',
+        alert: { color: 'warning' },
+        close: false,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        autoHideDuration: 2000
+      }));
+      selectInfo.view.calendar.unselect();
+      return;
+    }
+
     setSelectedSlot({
       start: selectInfo.start,
       end: selectInfo.end,
       allDay: selectInfo.allDay
     });
     setAddEventDialogOpen(true);
-    
+
     // Clear the selection
     selectInfo.view.calendar.unselect();
-  }, []);
+  }, [dispatch]);
 
   // Handle event drop (drag and drop)
   const handleEventDrop = useCallback(async (dropInfo) => {
@@ -218,10 +301,9 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to update event');
       }
 
-      // Refresh events
+      // CQRS: Refresh agenda data using RTK Query (safe wrapper prevents DB crashes)
       if (project?.id) {
-        await dispatch(getEvents(project.id));
-        await dispatch(getSingleProject(project.id));
+        await safeRefetch();
       }
 
       dispatch(
@@ -277,10 +359,9 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to update event');
       }
 
-      // Refresh events
+      // CQRS: Refresh agenda data using RTK Query (safe wrapper prevents DB crashes)
       if (project?.id) {
-        await dispatch(getEvents(project.id));
-        await dispatch(getSingleProject(project.id));
+        await safeRefetch();
       }
 
       dispatch(
@@ -311,31 +392,82 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     }
   }, [project?.id, dispatch]);
 
-  // Handle delete event directly from calendar using semantic command
-  const handleEventDelete = useCallback(async (eventId, e) => {
+  // Handle delete event - open DeleteCard dialog
+  const handleEventDelete = useCallback((eventId, e) => {
     e?.stopPropagation();
-    
-    if (!window.confirm('Are you sure you want to delete this event?')) {
+
+    // Check ref FIRST - it's synchronous and won't have stale closure issues
+    if (operationInProgressRef.current) {
+      console.log('[FullCalendarWeekView] handleEventDelete BLOCKED by ref - operation already in progress');
+
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Please wait - an operation is already in progress',
+          variant: 'alert',
+          alert: { color: 'warning' },
+          close: false,
+          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+          autoHideDuration: 2000
+        })
+      );
       return;
     }
-    
+
+    // Set ref IMMEDIATELY to block all subsequent clicks
+    operationInProgressRef.current = true;
+    const event = events?.find(evt => evt.id == eventId);
+    console.log(`[FullCalendarWeekView] Delete initiated for event: "${event?.title}" (ID: ${eventId})`);
+
+    setEventToDelete({ id: eventId, title: event?.title || 'Event' });
+    setDeleteDialogOpen(true);
+  }, [events, dispatch]);
+
+  // Confirm delete event using semantic command
+  const confirmDeleteEvent = useCallback(async () => {
+    if (!eventToDelete || isDeleting) return;
+
+    const startTime = Date.now();
+    console.log(`[FullCalendarWeekView] Confirm delete clicked for "${eventToDelete.title}"`);
+
+    setIsDeleting(true);
     try {
-      // Find the event to get its title
-      const event = events?.find(evt => evt.id == eventId);
-      const eventTitle = event?.title || 'Event';
-      
-      // Use semantic command for delete with proper state management
-      await dispatch(deleteEvent({
-        eventId: parseInt(eventId),
-        eventTitle,
+      console.log(`[FullCalendarWeekView] Dispatching delete command...`);
+      await dispatch(eventCommands.deleteEvent({
+        eventId: parseInt(eventToDelete.id),
+        eventTitle: eventToDelete.title,
         projectId: project?.id
       }));
-      
+      console.log(`[FullCalendarWeekView] Delete command completed`);
+
+      setDeleteDialogOpen(false);
+      setEventToDelete(null);
+
+      // CRITICAL: Wait for RTK Query agenda refetch to complete
+      console.log(`[FullCalendarWeekView] Waiting for agenda refetch...`);
+
+      const maxWaitTime = 30000;
+      const pollInterval = 100;
+      let waited = 0;
+
+      while (isFetchingAgendaRef.current && waited < maxWaitTime) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        waited += pollInterval;
+      }
+
+      if (waited >= maxWaitTime) {
+        console.warn(`[FullCalendarWeekView] Timeout waiting for agenda refetch`);
+      } else {
+        console.log(`[FullCalendarWeekView] Agenda refetch completed (waited ${waited}ms)`);
+      }
     } catch (error) {
-      console.error('Error deleting event:', error);
-      // Error notification is handled by the semantic command
+      console.error('[FullCalendarWeekView] Error deleting event:', error);
+    } finally {
+      setIsDeleting(false);
+      operationInProgressRef.current = false;
+      console.log(`[FullCalendarWeekView] Operation complete (total time: ${Date.now() - startTime}ms)`);
     }
-  }, [dispatch, project?.id, events]);
+  }, [dispatch, project?.id, eventToDelete, isDeleting]);
 
   // Handle quick group assignment
   const handleQuickGroupAssign = useCallback(async (eventId, groupId, e) => {
@@ -381,10 +513,9 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to assign group to event');
       }
 
-      // Refresh both calendar events and project data to show the update
+      // CQRS: Refresh agenda data using RTK Query (safe wrapper prevents DB crashes)
       if (project?.id) {
-        await dispatch(getEvents(project.id));
-        await dispatch(getSingleProject(project.id));
+        await safeRefetch();
       }
 
       dispatch(
@@ -460,10 +591,9 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to remove group from event');
       }
 
-      // Refresh both calendar events and project data to show the update
+      // CQRS: Refresh agenda data using RTK Query (safe wrapper prevents DB crashes)
       if (project?.id) {
-        await dispatch(getEvents(project.id));
-        await dispatch(getSingleProject(project.id));
+        await safeRefetch();
       }
 
       dispatch(
@@ -521,7 +651,23 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
       >
         {/* Delete button */}
         <Box
-          onClick={(e) => handleEventDelete(event.id, e)}
+          onClick={(e) => {
+            e.stopPropagation();
+
+            // CRITICAL: Check ref FIRST
+            if (operationInProgressRef.current) {
+              console.log('[FullCalendarWeekView] Delete button BLOCKED by ref');
+              return;
+            }
+
+            const isBlocked = isDeleting || deleteDialogOpen || isRefetching;
+            if (isBlocked) {
+              console.log('[FullCalendarWeekView] Delete button BLOCKED by state');
+              return;
+            }
+
+            handleEventDelete(event.id, e);
+          }}
           sx={{
             position: 'absolute',
             top: 2,
@@ -532,24 +678,35 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '50%',
-            backgroundColor: 'rgba(255, 255, 255, 0.8)',
-            cursor: 'pointer',
+            backgroundColor: (isDeleting || deleteDialogOpen || isRefetching)
+              ? 'rgba(150, 150, 150, 0.5)'
+              : 'rgba(255, 255, 255, 0.8)',
+            cursor: (isDeleting || deleteDialogOpen || isRefetching)
+              ? 'not-allowed'
+              : 'pointer',
             opacity: 0,
             transition: 'opacity 0.2s ease',
             '.fc-event:hover &': {
               opacity: 1
             },
             '&:hover': {
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              transform: 'scale(1.1)'
+              backgroundColor: (isDeleting || deleteDialogOpen || isRefetching)
+                ? 'rgba(150, 150, 150, 0.5)'
+                : 'rgba(255, 255, 255, 0.95)',
+              transform: (isDeleting || deleteDialogOpen || isRefetching)
+                ? 'none'
+                : 'scale(1.1)'
             },
-            zIndex: 10
+            zIndex: 10,
+            pointerEvents: (isDeleting || deleteDialogOpen || isRefetching)
+              ? 'none'
+              : 'auto'
           }}
         >
-          <Typography sx={{ 
-            fontSize: '10px', 
-            lineHeight: 1, 
-            color: 'red',
+          <Typography sx={{
+            fontSize: '10px',
+            lineHeight: 1,
+            color: (isDeleting || deleteDialogOpen || isRefetching) ? '#999' : 'red',
             fontWeight: 'bold'
           }}>
             ×
@@ -1213,10 +1370,46 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
             }}
           />
         </Box>
+
+        {/* Operation Overlay */}
+        {(isDeleting || isRefetching) && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              pointerEvents: 'all',
+              cursor: 'wait'
+            }}
+          >
+            <Box
+              sx={{
+                backgroundColor: 'background.paper',
+                padding: 2,
+                borderRadius: 1,
+                boxShadow: 3,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}
+            >
+              <Typography variant="body2">
+                {isDeleting ? 'Deleting event...' : 'Refreshing calendar...'}
+              </Typography>
+            </Box>
+          </Box>
+        )}
       </Box>
-      
-      <Typography 
-        variant="caption" 
+
+      <Typography
+        variant="caption"
         color="text.secondary" 
         sx={{ 
           fontSize: '0.75rem',
@@ -1249,18 +1442,41 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           setAddEventDialogOpen(false);
           setSelectedSlot(null);
         }}
-        selectedTime={selectedSlot ? 
-          selectedSlot.start.toLocaleTimeString('en-US', { 
-            hour: 'numeric', 
+        selectedTime={selectedSlot ?
+          selectedSlot.start.toLocaleTimeString('en-US', {
+            hour: 'numeric',
             minute: '2-digit',
-            hour12: true 
+            hour12: true
           }) : ''
         }
         selectedDate={selectedSlot?.start}
         project={project}
+        operationInProgressRef={operationInProgressRef}
+        isFetchingAgendaRef={isFetchingAgendaRef}
         onEventCreated={() => {
-          // Events will be refreshed via Redux
+          // Events will be refreshed via RTK Query
         }}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteCard
+        open={deleteDialogOpen}
+        onClose={() => {
+          if (isDeleting) {
+            console.log('[FullCalendarWeekView] Cannot close dialog - delete in progress');
+            return;
+          }
+          console.log('[FullCalendarWeekView] Dialog canceled - ref reset');
+          setDeleteDialogOpen(false);
+          setEventToDelete(null);
+          operationInProgressRef.current = false;
+        }}
+        onDelete={confirmDeleteEvent}
+        title="Delete Event"
+        itemName={eventToDelete?.title}
+        message={`Are you sure you want to delete "${eventToDelete?.title}"? This action cannot be undone.`}
+        deleteLabel={isDeleting ? "Deleting..." : "Delete"}
+        cancelLabel="Cancel"
       />
     </Box>
   );

@@ -1,42 +1,47 @@
-import prisma from '../../../lib/prisma';
+/**
+ * ============================================
+ * POST /api/curriculums/add-course
+ * ============================================
+ *
+ * Adds a course to a curriculum.
+ * FIXED: Previously accepted any curriculumId/courseId without validation.
+ */
 
-export default async function handler(req, res) {
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const { curriculumId, courseId } = req.body;
 
     if (!curriculumId || !courseId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Curriculum ID and Course ID are required'
-      });
+      throw new ValidationError('Curriculum ID and Course ID are required');
     }
 
-    // Check if curriculum exists
-    const curriculum = await prisma.curriculums.findUnique({
+    // Verify curriculum ownership
+    const curriculum = await scopedFindUnique(orgContext, 'curriculums', {
       where: { id: parseInt(curriculumId) }
     });
 
     if (!curriculum) {
-      return res.status(404).json({
-        success: false,
-        message: 'Curriculum not found'
-      });
+      throw new NotFoundError('Curriculum not found');
     }
 
-    // Check if course exists
-    const course = await prisma.courses.findUnique({
+    // Verify course belongs to same organization
+    const course = await scopedFindUnique(orgContext, 'courses', {
       where: { id: parseInt(courseId) }
     });
 
     if (!course) {
-      return res.status(404).json({
-        success: false,
-        message: 'Course not found'
-      });
+      throw new NotFoundError('Course not found');
     }
 
     // Check if relationship already exists
@@ -48,10 +53,7 @@ export default async function handler(req, res) {
     });
 
     if (existingRelation) {
-      return res.status(400).json({
-        success: false,
-        message: 'Course is already assigned to this curriculum'
-      });
+      throw new ValidationError('Course is already assigned to this curriculum');
     }
 
     // Create the relationship
@@ -90,10 +92,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error adding course to curriculum:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to add course to curriculum',
-      error: error.message
-    });
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

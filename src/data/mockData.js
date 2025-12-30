@@ -44,14 +44,14 @@ export const mockInstructors = [
   }
 ];
 
-// Mock Projects Data
+// Mock Projects Data - Updated for October 31, 2025
 export const mockProjects = [
   {
     id: '1',
     name: 'Advanced React Development',
     description: 'Comprehensive training on React.js including hooks, state management, and performance optimization',
-    startDate: new Date(2024, 0, 15).toISOString(),
-    endDate: new Date(2024, 1, 28).toISOString(),
+    startDate: new Date(2025, 9, 15).toISOString(), // Oct 15, 2025
+    endDate: new Date(2025, 11, 28).toISOString(), // Dec 28, 2025
     status: 'in-progress',
     projectStatus: 'ongoing',
     title: 'Advanced React Development',
@@ -72,8 +72,8 @@ export const mockProjects = [
     id: '2',
     name: 'Python for Data Science',
     description: 'Introduction to Python programming with focus on data analysis and visualization',
-    startDate: new Date(2024, 1, 1).toISOString(),
-    endDate: new Date(2024, 2, 15).toISOString(),
+    startDate: new Date(2025, 10, 1).toISOString(), // Nov 1, 2025
+    endDate: new Date(2025, 11, 15).toISOString(), // Dec 15, 2025
     status: 'upcoming',
     projectStatus: 'pending',
     title: 'Python for Data Science',
@@ -94,8 +94,8 @@ export const mockProjects = [
     id: '3',
     name: 'AWS Cloud Architecture',
     description: 'Enterprise-level AWS cloud infrastructure design and implementation',
-    startDate: new Date(2023, 11, 1).toISOString(),
-    endDate: new Date(2024, 0, 31).toISOString(),
+    startDate: new Date(2025, 8, 1).toISOString(), // Sep 1, 2025
+    endDate: new Date(2025, 9, 31).toISOString(), // Oct 31, 2025
     status: 'completed',
     projectStatus: 'completed',
     title: 'AWS Cloud Architecture',
@@ -116,8 +116,8 @@ export const mockProjects = [
     id: '4',
     name: 'UI/UX Design Fundamentals',
     description: 'Complete guide to user interface and user experience design principles',
-    startDate: new Date(2024, 2, 1).toISOString(),
-    endDate: new Date(2024, 3, 30).toISOString(),
+    startDate: new Date(2025, 11, 1).toISOString(), // Dec 1, 2025
+    endDate: new Date(2026, 0, 30).toISOString(), // Jan 30, 2026
     status: 'upcoming',
     projectStatus: 'pending',
     title: 'UI/UX Design Fundamentals',
@@ -138,8 +138,8 @@ export const mockProjects = [
     id: '5',
     name: 'DevOps Pipeline Implementation',
     description: 'Building and maintaining CI/CD pipelines with modern DevOps tools',
-    startDate: new Date(2024, 0, 20).toISOString(),
-    endDate: new Date(2024, 2, 10).toISOString(),
+    startDate: new Date(2025, 9, 20).toISOString(), // Oct 20, 2025
+    endDate: new Date(2025, 11, 10).toISOString(), // Dec 10, 2025
     status: 'in-progress',
     projectStatus: 'ongoing',
     title: 'DevOps Pipeline Implementation',
@@ -160,8 +160,8 @@ export const mockProjects = [
     id: '6',
     name: 'Mobile App Development with React Native',
     description: 'Cross-platform mobile application development using React Native',
-    startDate: new Date(2024, 3, 15).toISOString(),
-    endDate: new Date(2024, 5, 30).toISOString(),
+    startDate: new Date(2026, 0, 15).toISOString(), // Jan 15, 2026
+    endDate: new Date(2026, 2, 30).toISOString(), // Mar 30, 2026
     status: 'upcoming',
     instructorId: '1',
     color: '#1abc9c',
@@ -175,8 +175,8 @@ export const mockProjects = [
     id: '7',
     name: 'Machine Learning Basics',
     description: 'Introduction to machine learning algorithms and applications',
-    startDate: new Date(2023, 10, 15).toISOString(),
-    endDate: new Date(2023, 11, 30).toISOString(),
+    startDate: new Date(2025, 7, 15).toISOString(), // Aug 15, 2025
+    endDate: new Date(2025, 8, 30).toISOString(), // Sep 30, 2025
     status: 'completed',
     instructorId: '2',
     color: '#34495e',
@@ -190,8 +190,8 @@ export const mockProjects = [
     id: '8',
     name: 'Kubernetes Orchestration',
     description: 'Container orchestration with Kubernetes for scalable applications',
-    startDate: new Date(2024, 1, 10).toISOString(),
-    endDate: new Date(2024, 3, 5).toISOString(),
+    startDate: new Date(2025, 10, 10).toISOString(), // Nov 10, 2025
+    endDate: new Date(2026, 0, 5).toISOString(), // Jan 5, 2026
     status: 'in-progress',
     instructorId: '3',
     color: '#e67e22',
@@ -205,8 +205,8 @@ export const mockProjects = [
     id: '9',
     name: 'Agile Project Management',
     description: 'Scrum and Agile methodologies for effective project management',
-    startDate: new Date(2024, 0, 5).toISOString(),
-    endDate: new Date(2024, 0, 25).toISOString(),
+    startDate: new Date(2025, 9, 5).toISOString(), // Oct 5, 2025
+    endDate: new Date(2025, 9, 25).toISOString(), // Oct 25, 2025
     status: 'completed',
     instructorId: '5',
     color: '#16a085',
@@ -220,8 +220,8 @@ export const mockProjects = [
     id: '10',
     name: 'Database Design and SQL',
     description: 'Relational database design principles and advanced SQL queries',
-    startDate: new Date(2024, 2, 20).toISOString(),
-    endDate: new Date(2024, 4, 10).toISOString(),
+    startDate: new Date(2025, 11, 20).toISOString(), // Dec 20, 2025
+    endDate: new Date(2026, 1, 10).toISOString(), // Feb 10, 2026
     status: 'upcoming',
     instructorId: '1',
     color: '#8e44ad',
@@ -235,8 +235,8 @@ export const mockProjects = [
     id: '11',
     name: 'Cybersecurity Essentials',
     description: 'Fundamentals of information security and threat prevention',
-    startDate: new Date(2024, 1, 5).toISOString(),
-    endDate: new Date(2024, 2, 25).toISOString(),
+    startDate: new Date(2025, 10, 5).toISOString(), // Nov 5, 2025
+    endDate: new Date(2025, 11, 25).toISOString(), // Dec 25, 2025
     status: 'in-progress',
     instructorId: null,
     color: '#c0392b',
@@ -250,8 +250,8 @@ export const mockProjects = [
     id: '12',
     name: 'Blockchain Development',
     description: 'Smart contract development and blockchain architecture',
-    startDate: new Date(2023, 9, 1).toISOString(),
-    endDate: new Date(2023, 10, 15).toISOString(),
+    startDate: new Date(2025, 6, 1).toISOString(), // Jul 1, 2025
+    endDate: new Date(2025, 7, 15).toISOString(), // Aug 15, 2025
     status: 'cancelled',
     instructorId: '3',
     color: '#7f8c8d',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -25,80 +25,37 @@ import {
   InfoCircleOutlined,
   CheckCircleOutlined
 } from '@ant-design/icons';
-import { useDispatch, useSelector } from 'store';
-import {
-  getGroupsDetails
-} from 'store/reducers/project';
+import { useGetGroupCurriculumsQuery } from 'store/api/projectApi';
 import DeleteCard from 'components/cards/DeleteCard';
 
-const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger }) => {
-  const dispatch = useDispatch();
-  const { singleProject } = useSelector((state) => state.projects);
-  
-  // Local state for detailed curriculum data (with courses, events, etc.)
-  const [curriculums, setCurriculums] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  
+const GroupCurriculumWidget = ({ groupId, projectId, onManageCurriculums, refreshTrigger }) => {
+  // RTK Query - Fetch group curriculums with automatic caching
+  const {
+    data: curriculumData,
+    isLoading: loading,
+    error,
+    refetch: refetchCurriculums
+  } = useGetGroupCurriculumsQuery(
+    { groupId },
+    { skip: !groupId }
+  );
+
+  // Extract curriculums from RTK Query response
+  const curriculums = curriculumData?.curriculums || [];
+
   // State for curriculum removal
   const [confirmDialog, setConfirmDialog] = useState({ open: false, curriculum: null });
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  
+
   // Use local state for expanded curriculums to avoid Redux re-renders
   const [expandedCurriculums, setExpandedCurriculums] = useState([]);
 
-  // Fetch detailed curriculum data with courses and events
-  const fetchGroupCurriculums = async () => {
-    if (!groupId) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await fetch(`/api/groups/fetch-group-curriculums?groupId=${groupId}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        const newCurriculums = data.curriculums || [];
-        setCurriculums(newCurriculums);
-        
-        // Clean up expansion state - remove any curriculum IDs that no longer exist
-        if (expandedCurriculums.length > 0) {
-          const existingCurriculumIds = new Set(newCurriculums.map(assignment => assignment.curriculum.id));
-          setExpandedCurriculums(prev => 
-            prev.filter(curriculumId => existingCurriculumIds.has(curriculumId))
-          );
-        }
-      } else {
-        setError('Failed to fetch curriculums');
-      }
-    } catch (error) {
-      console.error('Error fetching group curriculums:', error);
-      setError('Failed to fetch curriculums');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleToggleCurriculumExpansion = (curriculumId) => {
-    setExpandedCurriculums(prev => 
-      prev.includes(curriculumId) 
+    setExpandedCurriculums(prev =>
+      prev.includes(curriculumId)
         ? prev.filter(id => id !== curriculumId)
         : [...prev, curriculumId]
     );
-  };
-
-  // Refresh groups data after curriculum changes
-  const refreshGroupsData = async () => {
-    if (singleProject?.id) {
-      try {
-        console.log('Refreshing groups data after curriculum removal...');
-        await dispatch(getGroupsDetails(singleProject.id));
-        console.log('Groups data refreshed successfully');
-      } catch (error) {
-        console.error('Error refreshing groups data:', error);
-      }
-    }
   };
 
   // Show notification
@@ -140,13 +97,10 @@ const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger })
       if (result.success) {
         showNotification('Curriculum removed successfully', 'success');
 
-        // Refresh local curriculum data
-        await fetchGroupCurriculums();
-
-        // Also refresh groups data for the status indicators
-        setTimeout(async () => {
-          await refreshGroupsData();
-        }, 500);
+        // RTK Query will auto-refetch due to cache invalidation tags
+        // The remove-curriculum API endpoint invalidates 'GroupCurriculum' tag
+        // which will automatically refresh this query
+        refetchCurriculums();
       } else {
         showNotification(result.error || 'Failed to remove curriculum', 'error');
       }
@@ -157,20 +111,6 @@ const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger })
       handleCloseConfirmDialog();
     }
   };
-
-  // Fetch data on component mount and groupId change
-  useEffect(() => {
-    if (groupId) {
-      fetchGroupCurriculums();
-    }
-  }, [groupId]);
-
-  // Refresh when external trigger changes (e.g., from CurriculumManageDialog)
-  useEffect(() => {
-    if (groupId && refreshTrigger) {
-      fetchGroupCurriculums();
-    }
-  }, [refreshTrigger]);
 
   // Loading state
   if (loading) {
@@ -189,15 +129,15 @@ const GroupCurriculumWidget = ({ groupId, onManageCurriculums, refreshTrigger })
   if (error) {
     return (
       <Box sx={{ p: 2 }}>
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           action={
-            <Button size="small" onClick={fetchGroupCurriculums}>
+            <Button size="small" onClick={refetchCurriculums}>
               Retry
             </Button>
           }
         >
-          {error}
+          {error?.data?.message || error?.message || 'Failed to fetch curriculums'}
         </Alert>
       </Box>
     );

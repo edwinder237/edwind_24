@@ -1,8 +1,44 @@
-import prisma from "../../../lib/prisma";
+/**
+ * ============================================
+ * POST /api/projects/fetchSingleProject
+ * ============================================
+ *
+ * Returns comprehensive project data with all relations.
+ * FIXED: Previously leaked project data across organizations.
+ *
+ * Body:
+ * - id (required): Project ID to fetch
+ *
+ * Response:
+ * {
+ *   project: {...}
+ * }
+ */
 
-export default async function handler(req, res) {
+import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+
+async function handler(req, res) {
   const { id } = req.body;
+  const { orgContext } = req;
+
+  if (!id) {
+    throw new ValidationError('Project ID is required');
+  }
+
   try {
+    const projectId = parseInt(id);
+
+    // First verify project exists and belongs to organization
+    const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: projectId }
+    });
+
+    if (!projectOwnership) {
+      throw new NotFoundError('Project not found');
+    }
     const project = await prisma.projects.findUnique({
       where: {
         id: parseInt(id),
@@ -156,9 +192,9 @@ export default async function handler(req, res) {
 
     res.status(200).json({ project });
   } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ error: `Internal Server Error from fetch single project ${id}` });
+    console.error('Error fetching single project:', error);
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));

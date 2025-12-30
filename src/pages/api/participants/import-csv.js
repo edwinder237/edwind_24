@@ -1,43 +1,50 @@
-import { PrismaClient } from '@prisma/client';
+/**
+ * ============================================
+ * POST /api/participants/import-csv
+ * ============================================
+ *
+ * Imports participants from CSV data into a project.
+ * FIXED: Previously accepted any projectId without validation.
+ */
 
-const prisma = new PrismaClient({
-  transactionOptions: {
-    timeout: 60000, // 60 seconds for slow connections
-    maxWait: 30000,  // 30 seconds max wait time
-  },
-});
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
     const { participants, projectId } = req.body;
-    
+
     if (!participants || !Array.isArray(participants) || participants.length === 0) {
-      return res.status(400).json({ error: 'Participants array is required' });
+      throw new ValidationError('Participants array is required');
     }
 
     if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+      throw new ValidationError('Project ID is required');
     }
 
-
-    // Get project to find its training recipient and sub-organization
-    const project = await prisma.projects.findUnique({
+    // Verify project ownership
+    const project = await scopedFindUnique(orgContext, 'projects', {
       where: { id: parseInt(projectId) },
-      select: { 
+      select: {
         trainingRecipientId: true,
-        sub_organizationId: true 
+        sub_organizationId: true
       }
     });
 
-    if (!project || !project.trainingRecipientId) {
-      return res.status(400).json({ 
-        error: 'Project has no training recipient',
-        message: 'Cannot import participants: project must be linked to a training recipient'
-      });
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
+
+    if (!project.trainingRecipientId) {
+      throw new ValidationError('Project has no training recipient. Cannot import participants: project must be linked to a training recipient');
     }
 
     const createdParticipants = [];
@@ -224,11 +231,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error importing participants:', error);
-    res.status(500).json({ 
-      error: 'Failed to import participants', 
-      details: error.message 
-    });
-  } finally {
-    await prisma.$disconnect();
+    throw error;
   }
 }
+
+export default withOrgScope(asyncHandler(handler));
