@@ -94,7 +94,7 @@ importers:
         version: 5.18.1(react@18.3.1)
       '@workos-inc/node':
         specifier: ^7.58.0
-        version: 7.58.0(next@15.3.5(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
+        version: 7.58.0(next@15.3.8(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
       apexcharts:
         specifier: ^3.37.1
         version: 3.42.0
@@ -141,8 +141,8 @@ importers:
         specifier: ^1.0.2
         version: 1.0.2
       next:
-        specifier: ^15.3.5
-        version: 15.3.5(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 15.3.8
+        version: 15.3.8(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-images:
         specifier: ^1.8.5
         version: 1.8.5(webpack@5.88.2)
@@ -1694,8 +1694,8 @@ packages:
   '@next/bundle-analyzer@13.4.19':
     resolution: {integrity: sha512-nXKHz63dM0Kn3XPFOKrv2wK+hP9rdBg2iR1PsxuXLHVBoZhMyS1/ldRcX80YFsm2VUws9zM4a0E/1HlLI+P92g==}
 
-  '@next/env@15.3.5':
-    resolution: {integrity: sha512-7g06v8BUVtN2njAX/r8gheoVffhiKFVt4nx74Tt6G4Hqw9HCLYQVx/GkH2qHvPtAHZaUNZ0VXAa0pQP6v1wk7g==}
+  '@next/env@15.3.8':
+    resolution: {integrity: sha512-SAfHg0g91MQVMPioeFeDjE+8UPF3j3BvHjs8ZKJAUz1BG7eMPvfCKOAgNWJ6s1MLNeP6O2InKQRTNblxPWuq+Q==}
 
   '@next/eslint-plugin-next@15.3.5':
     resolution: {integrity: sha512-BZwWPGfp9po/rAnJcwUBaM+yT/+yTWIkWdyDwc74G9jcfTrNrmsHe+hXHljV066YNdVs8cxROxX5IgMQGX190w==}
@@ -4665,8 +4665,8 @@ packages:
     peerDependencies:
       webpack: ^4.0.0 || ^5.0.0
 
-  next@15.3.5:
-    resolution: {integrity: sha512-RkazLBMMDJSJ4XZQ81kolSpwiCt907l0xcgcpF4xC2Vml6QVcPNXW0NQRwQ80FFtSn7UM52XN0anaw8TEJXaiw==}
+  next@15.3.8:
+    resolution: {integrity: sha512-L+4c5Hlr84fuaNADZbB9+ceRX9/CzwxJ+obXIGHupboB/Q1OLbSUapFs4bO8hnS/E6zV/JDX7sG1QpKVR2bguA==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
     peerDependencies:
@@ -7973,7 +7973,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@next/env@15.3.5': {}
+  '@next/env@15.3.8': {}
 
   '@next/eslint-plugin-next@15.3.5':
     dependencies:
@@ -8897,9 +8897,9 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@xtuc/long': 4.2.2
 
-  '@workos-inc/node@7.58.0(next@15.3.5(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))':
+  '@workos-inc/node@7.58.0(next@15.3.8(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))':
     dependencies:
-      iron-session: 6.3.1(next@15.3.5(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
+      iron-session: 6.3.1(next@15.3.8(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
       jose: 5.6.3
       leb: 1.0.0
       pluralize: 8.0.0
@@ -10756,7 +10756,7 @@ snapshots:
 
   ip@1.1.9: {}
 
-  iron-session@6.3.1(next@15.3.5(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)):
+  iron-session@6.3.1(next@15.3.8(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)):
     dependencies:
       '@peculiar/webcrypto': 1.5.0
       '@types/cookie': 0.5.4
@@ -10766,7 +10766,7 @@ snapshots:
       cookie: 0.5.0
       iron-webcrypto: 0.2.8
     optionalDependencies:
-      next: 15.3.5(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 15.3.8(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
   iron-webcrypto@0.2.8:
     dependencies:
@@ -11653,9 +11653,9 @@ snapshots:
       url-loader: 4.1.1(file-loader@6.2.0(webpack@5.88.2))(webpack@5.88.2)
       webpack: 5.88.2
 
-  next@15.3.5(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  next@15.3.8(@babel/core@7.28.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      '@next/env': 15.3.5
+      '@next/env': 15.3.8
       '@swc/counter': 0.1.3
       '@swc/helpers': 0.5.15
       busboy: 1.6.0
@@ -11958,7 +11958,7 @@ snapshots:
   postcss@8.4.31:
     dependencies:
       nanoid: 3.3.6
-      picocolors: 1.0.0
+      picocolors: 1.1.1
       source-map-js: 1.0.2
 
   preact@10.12.1: {}
