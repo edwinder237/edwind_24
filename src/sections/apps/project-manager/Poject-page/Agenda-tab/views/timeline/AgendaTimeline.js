@@ -64,7 +64,7 @@ const ItemTypes = {
 
 // ==============================|| DROP ZONE TIME SLOT ||============================== //
 
-const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect, onTimeEdit, selectedTimeSlot, theme, localEvents, project, setSelectedEventTime, setSelectedEventDate, setAddEventDialogOpen, onEventUpdate, conflictingEvents, isMobile }) => {
+const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect, onTimeEdit, selectedTimeSlot, theme, localEvents, project, setSelectedEventTime, setSelectedEventDate, setAddEventDialogOpen, onEventUpdate, onEditEvent, conflictingEvents, isMobile }) => {
   const [isHovering, setIsHovering] = useState(false);
   
   const [{ isOver, canDrop }, drop] = useDrop({
@@ -144,7 +144,7 @@ const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect
           allEvents={localEvents}
           project={project}
           onEventUpdate={onEventUpdate}
-          onEditEvent={handleOpenEditDialog}
+          onEditEvent={onEditEvent}
         />
       ) : (
         <Box
@@ -887,6 +887,7 @@ const AgendaViewContent = ({ project, events, onEventSelect }) => {
                   setSelectedEventDate={setSelectedEventDate}
                   setAddEventDialogOpen={setAddEventDialogOpen}
                   onEventUpdate={updateLocalEvent}
+                  onEditEvent={handleOpenEditDialog}
                   conflictingEvents={conflictingEvents}
                   isMobile={matchDownSM}
                 />
@@ -930,6 +931,30 @@ const AgendaViewContent = ({ project, events, onEventSelect }) => {
         title="Agenda"
         secondary={
           <Stack direction="row" spacing={1} alignItems="center">
+            {/* Time Range Toggle - Only show in detailed view, positioned left of view buttons */}
+            {!matchDownSM && viewMode === 'detailed' && (
+              <>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={useProjectTimeRange}
+                      onChange={(e) => setUseProjectTimeRange(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+                      {useProjectTimeRange ? 'Project Hours' : 'Extended Hours'}
+                    </Typography>
+                  }
+                  labelPlacement="start"
+                  sx={{ mr: 1 }}
+                />
+
+                <Divider orientation="vertical" flexItem />
+              </>
+            )}
+
             {/* View Toggle */}
             <Stack direction="row" spacing={0.5}>
               <Tooltip title="Detailed Timeline View">
@@ -957,31 +982,6 @@ const AgendaViewContent = ({ project, events, onEventSelect }) => {
                 </IconButton>
               </Tooltip>
             </Stack>
-
-            {!matchDownSM && (
-              <>
-                <Divider orientation="vertical" flexItem />
-
-                {/* Time Range Toggle */}
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={useProjectTimeRange}
-                      onChange={(e) => setUseProjectTimeRange(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
-                      {useProjectTimeRange ? 'Project Hours' : 'Extended Hours'}
-                    </Typography>
-                  }
-                  sx={{ mr: 1 }}
-                />
-
-                <Divider orientation="vertical" flexItem />
-              </>
-            )}
 
             {/* Controls - Show for both detailed and compact view */}
             <Button

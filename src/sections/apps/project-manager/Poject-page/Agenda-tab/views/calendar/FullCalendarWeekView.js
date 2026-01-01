@@ -1296,6 +1296,8 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
             droppable={true}
             selectable={true}
             selectMirror={true}
+            selectLongPressDelay={150}
+            longPressDelay={150}
             eventClick={handleEventClick}
             select={handleDateSelect}
             eventDrop={handleEventDrop}
