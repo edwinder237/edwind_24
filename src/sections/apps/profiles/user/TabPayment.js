@@ -95,9 +95,8 @@ const PaymentCard = ({ card }) => {
                   <Image
                     src={type === 'master' ? masterCard : visaCard}
                     alt="payment card"
-                    width={type === 'master' ? '22px' : '30px'}
-                    height={type === 'master' ? '22px' : '30px'}
-                    layout="intrinsic"
+                    width={type === 'master' ? 22 : 30}
+                    height={type === 'master' ? 22 : 30}
                   />
                   <IconButton color="secondary">
                     <DeleteOutlined />
@@ -150,7 +149,7 @@ const TabPayment = () => {
                 color={method === 'card' || method === 'add' ? 'primary' : 'secondary'}
                 sx={buttonStyle}
                 onClick={() => setMethod(method !== 'card' ? 'card' : method)}
-                startIcon={<Image src={masterCard} alt="master card" width="12px" height="12px" layout="intrinsic" />}
+                startIcon={<Image src={masterCard} alt="master card" width={12} height={12} />}
               >
                 Card
               </Button>
@@ -159,7 +158,7 @@ const TabPayment = () => {
                 color={method === 'paypal' ? 'primary' : 'secondary'}
                 sx={buttonStyle}
                 onClick={() => setMethod(method !== 'paypal' ? 'paypal' : method)}
-                startIcon={<Image src={paypal} alt="paypal" width="12px" height="12px" layout="intrinsic" />}
+                startIcon={<Image src={paypal} alt="paypal" width={12} height={12} />}
               >
                 Paypal
               </Button>

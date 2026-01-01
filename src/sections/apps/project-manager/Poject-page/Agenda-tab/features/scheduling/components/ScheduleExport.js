@@ -50,12 +50,15 @@ import {
   PersonAdd
 } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { useSelector } from 'store';
+import { selectAllGroups } from 'store/entities/groupsSlice';
 import { EmailTemplateEditor } from '../../../shared/components';
 
 const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" }) => {
-  const { singleProject: project } = useSelector((state) => state.projects);
+  // Get projectId from projectSettings store (proper CQRS pattern - same as ParticipantsTable)
+  const projectId = useSelector(state => state.projectSettings?.projectId);
+  // Read groups from normalized entities store (CQRS Read Model)
+  const groups = useSelector(selectAllGroups);
   const [viewMode, setViewMode] = useState('timeline');
   const [dailyFocusData, setDailyFocusData] = useState({});
   const focusCache = useRef(new Map());
@@ -80,13 +83,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
 
   // Fetch daily focus data
   useEffect(() => {
-    if (project?.id && projectEvents.length > 0) {
+    if (projectId && projectEvents.length > 0) {
       fetchAllDailyFocus();
     }
-  }, [project?.id, projectEvents]);
+  }, [projectId, projectEvents]);
 
   const fetchAllDailyFocus = async () => {
-    if (!project?.id) return;
+    if (!projectId) return;
     
     const uniqueDates = [...new Set(projectEvents.map(event => {
       const eventDate = typeof event.start === 'string' ? parseISO(event.start) : new Date(event.start);
@@ -96,7 +99,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
     const focusData = {};
     
     for (const dateKey of uniqueDates) {
-      const cacheKey = `${project.id}_${dateKey}`;
+      const cacheKey = `${projectId}_${dateKey}`;
       if (focusCache.current.has(cacheKey)) {
         const cachedData = focusCache.current.get(cacheKey);
         if (cachedData?.focus) {
@@ -104,7 +107,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
         }
       } else {
         try {
-          const response = await fetch(`/api/projects/daily-focus?projectId=${project.id}&date=${dateKey}`);
+          const response = await fetch(`/api/projects/daily-focus?projectId=${projectId}&date=${dateKey}`);
           if (response.ok) {
             const data = await response.json();
             const focusText = data?.focus || '';
@@ -196,6 +199,19 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
       return;
     }
 
+    // Validate project ID from Redux store
+    if (!projectId) {
+      setTrainerEmailResult({ type: 'error', message: 'Project not loaded. Please try again.' });
+      return;
+    }
+
+    // Parse and validate emails
+    const emailList = trainerEmails.split(',').map(email => email.trim()).filter(Boolean);
+    if (emailList.length === 0) {
+      setTrainerEmailResult({ type: 'error', message: 'Please enter at least one valid email address.' });
+      return;
+    }
+
     setSendingTrainerEmail(true);
     setTrainerEmailResult(null);
 
@@ -206,11 +222,11 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          projectId: project.id,
+          projectId,
           projectTitle,
           events: projectEvents,
           dailyFocusData,
-          trainerEmails: trainerEmails.split(',').map(email => email.trim()).filter(Boolean),
+          trainerEmails: emailList,
           customTemplate,
           templateType: 'summary',
           includeEventSummaries
@@ -268,7 +284,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          projectId: project.id,
+          projectId,
           groupIds: selectedGroups,
           events: eventsToSend,
           projectTitle,
@@ -323,14 +339,14 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
   const renderTimelineView = () => (
     <Box sx={{ p: 2 }}>
       {/* Project Groups Section */}
-      {project?.groups && project.groups.length > 0 && (
+      {groups && groups.length > 0 && (
         <Box sx={{ mb: 4 }}>
           <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Group color="primary" />
-            Project Groups ({project.groups.length})
+            Project Groups ({groups.length})
           </Typography>
           <Grid container spacing={2}>
-            {project.groups.map((group) => (
+            {groups.map((group) => (
               <Grid item xs={12} sm={6} md={4} key={group.id}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
                   <CardContent sx={{ p: 2 }}>
@@ -385,14 +401,14 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
                 }}>
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                      {format(eventDate, 'EEEE, MMMM d, yyyy', { locale: fr })}
+                      {format(eventDate, 'EEEE, MMMM d, yyyy')}
                     </Typography>
                     <Typography variant="body2" sx={{ opacity: 0.9 }}>
                       {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}
                     </Typography>
                   </Box>
                   <Chip 
-                    label={format(eventDate, 'd MMM', { locale: fr })} 
+                    label={format(eventDate, 'd MMM')} 
                     sx={{ 
                       backgroundColor: 'rgba(255,255,255,0.2)', 
                       color: 'inherit',
@@ -456,7 +472,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
                               {groupNames.length > 0 && (
                                 <Stack direction="row" flexWrap="wrap" gap={0.5}>
                                   {groupNames.map((groupName, index) => {
-                                    const group = project?.groups?.find(g => g.groupName === groupName);
+                                    const group = groups?.find(g => g.groupName === groupName);
                                     return (
                                       <Chip 
                                         key={index} 
@@ -733,9 +749,9 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
                 </Alert>
               )}
               
-              {project?.groups && project.groups.length > 0 ? (
+              {groups && groups.length > 0 ? (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {project.groups.map((group) => {
+                  {groups.map((group) => {
                     const eventCount = onlyAssignedEvents 
                       ? projectEvents.filter(event => 
                           event.event_groups?.some(eg => eg.groupId === group.id)

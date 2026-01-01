@@ -41,9 +41,8 @@ import {
 // ==============================|| REPORTS ||============================== //
 
 const Reports = () => {
-  // TODO: Get these from context or props
-  const projectId = null; // Will be passed from parent component
-  const subOrganizationId = 1; // Will be from user context
+  // Project ID can be passed from parent component for project-specific reports
+  const projectId = null;
 
   const {
     // State
@@ -69,14 +68,14 @@ const Reports = () => {
     setFiltersExpanded
   } = useReportsState();
 
-  // Database integration
+  // Database integration - organization scoping is handled by the API middleware
   const {
     trainingRecords,
     filterOptions,
     loading: dataLoading,
     error,
     fetchTrainingRecords
-  } = useTrainingData(projectId, subOrganizationId);
+  } = useTrainingData(projectId);
 
   const loading = uiLoading || dataLoading;
 

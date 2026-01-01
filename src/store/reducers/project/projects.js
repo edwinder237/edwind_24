@@ -82,6 +82,10 @@ const slice = createSlice({
     removeProjectSuccess(state, action) {
       state.projects = action.payload;
     },
+    removeProjectById(state, action) {
+      const projectId = action.payload;
+      state.projects = state.projects.filter(p => p.id !== projectId);
+    },
     getSingleProjectSuccess(state, action) {
       state.singleProject = action.payload;
       if (action.payload?.participants) {
@@ -409,7 +413,7 @@ export function getProjectSettings(projectId) {
   };
 }
 
-export const { 
+export const {
   hasError,
   hasSuccess,
   isAdding,
@@ -421,4 +425,5 @@ export const {
   getGroupsSuccess,
   getParticipantsSuccess,
   getProjectSettingsSuccess,
+  removeProjectById,
 } = slice.actions;

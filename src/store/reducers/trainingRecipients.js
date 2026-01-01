@@ -57,6 +57,7 @@ const slice = createSlice({
     hasError(state, action) {
       state.error = action.payload;
       state.loading = false;
+      state.singleLoading = false;
       state.submitting = false;
     },
 

@@ -418,6 +418,70 @@ export const importParticipants = createAsyncThunk(
 );
 
 /**
+ * Bulk assign role to multiple participants
+ * @param {Object} params - Command parameters
+ * @param {Array} params.participantIds - Array of participant IDs to update
+ * @param {number|null} params.roleId - Role ID to assign (null to remove role)
+ * @param {string} params.roleName - Role name for display
+ */
+export const bulkAssignRole = createAsyncThunk(
+  'participant/bulkAssignRole',
+  async ({ participantIds, roleId, roleName }, { dispatch, rejectWithValue }) => {
+    try {
+      const command = {
+        type: 'BULK_ASSIGN_ROLE',
+        participantIds,
+        roleId,
+        roleName,
+        participantsCount: participantIds.length,
+        timestamp: new Date().toISOString()
+      };
+
+      const result = await dispatch(projectApi.endpoints.bulkAssignRole.initiate({
+        participantIds,
+        roleId
+      })).unwrap();
+
+      const actionText = roleId === null ? 'removed from' : `assigned to "${roleName}"`;
+      dispatch(openSnackbar({
+        open: true,
+        message: `Role ${actionText} for ${participantIds.length} participant(s)`,
+        variant: 'alert',
+        alert: { color: 'success' },
+        close: false
+      }));
+
+      // Publish domain event for role bulk update
+      eventBus.publish(DomainEvents.PARTICIPANT_ROLE_UPDATED, {
+        participantIds,
+        roleId,
+        roleName,
+        bulkUpdate: true
+      }, {
+        source: 'participant-command',
+        correlationId: `bulk_role_update_${Date.now()}`
+      });
+
+      return { ...result, command };
+
+    } catch (error) {
+      console.error('[Command] Failed to bulk assign role:', error);
+
+      const errorMessage = error.data?.message || error.data?.error || 'Failed to assign role to participants';
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: { color: 'error' },
+        close: false
+      }));
+
+      return rejectWithValue({ error: errorMessage, originalError: error });
+    }
+  }
+);
+
+/**
  * Assign participant to group
  * @param {Object} params - Command parameters
  * @param {string} params.participantId - ID of participant to assign
@@ -467,6 +531,76 @@ export const assignParticipantToGroup = createAsyncThunk(
   }
 );
 
+/**
+ * Bulk assign participants to a group
+ * @param {Object} params - Command parameters
+ * @param {Array} params.participantIds - Array of project_participant IDs
+ * @param {number|null} params.groupId - Group ID to assign (null to remove from all groups)
+ * @param {number} params.projectId - Project ID
+ * @param {string} params.groupName - Group name for display
+ */
+export const bulkAssignGroup = createAsyncThunk(
+  'participant/bulkAssignGroup',
+  async ({ participantIds, groupId, projectId, groupName }, { dispatch, rejectWithValue }) => {
+    try {
+      const command = {
+        type: 'BULK_ASSIGN_GROUP',
+        participantIds,
+        groupId,
+        projectId,
+        groupName,
+        participantsCount: participantIds.length,
+        timestamp: new Date().toISOString()
+      };
+
+      const result = await dispatch(projectApi.endpoints.bulkAssignGroup.initiate({
+        participantIds,
+        groupId,
+        projectId
+      })).unwrap();
+
+      const actionText = groupId === null
+        ? 'removed from all groups'
+        : `assigned to "${groupName}"`;
+      dispatch(openSnackbar({
+        open: true,
+        message: `${participantIds.length} participant(s) ${actionText}`,
+        variant: 'alert',
+        alert: { color: 'success' },
+        close: false
+      }));
+
+      // Publish domain event for group bulk update
+      eventBus.publish(DomainEvents.GROUP_PARTICIPANTS_UPDATED, {
+        participantIds,
+        groupId,
+        groupName,
+        projectId,
+        bulkUpdate: true
+      }, {
+        source: 'participant-command',
+        correlationId: `bulk_group_update_${Date.now()}`
+      });
+
+      return { ...result, command };
+
+    } catch (error) {
+      console.error('[Command] Failed to bulk assign group:', error);
+
+      const errorMessage = error.data?.message || error.data?.error || 'Failed to assign participants to group';
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: { color: 'error' },
+        close: false
+      }));
+
+      return rejectWithValue({ error: errorMessage, originalError: error });
+    }
+  }
+);
+
 // Export all participant commands
 export const participantCommands = {
   addParticipant,
@@ -475,5 +609,7 @@ export const participantCommands = {
   removeParticipant,
   removeMultipleParticipants,
   importParticipants,
-  assignParticipantToGroup
+  assignParticipantToGroup,
+  bulkAssignRole,
+  bulkAssignGroup
 };

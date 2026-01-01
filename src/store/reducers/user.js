@@ -9,7 +9,9 @@ const initialState = {
   isLoading: true, // Start as true to prevent premature redirects
   isAuthenticated: false,
   error: null,
-  initialized: false // Track if we've attempted to fetch user at least once
+  initialized: false, // Track if we've attempted to fetch user at least once
+  profileLoading: false, // Loading state for profile operations
+  profileError: null // Error state for profile operations
 };
 
 // Async thunk to fetch user data from WorkOS
@@ -47,6 +49,32 @@ export const refreshUser = createAsyncThunk(
       return response.data.user;
     } catch (error) {
       return rejectWithValue(error.response?.data || { error: 'Failed to refresh user from WorkOS' });
+    }
+  }
+);
+
+// Async thunk to fetch full user profile (WorkOS + DB + Subscription)
+export const fetchUserProfile = createAsyncThunk(
+  'user/fetchUserProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get('/api/user/profile');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { error: 'Failed to fetch user profile' });
+    }
+  }
+);
+
+// Async thunk to update user profile
+export const updateUserProfile = createAsyncThunk(
+  'user/updateUserProfile',
+  async (profileData, { rejectWithValue }) => {
+    try {
+      const response = await axios.put('/api/user/profile', profileData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { error: 'Failed to update profile' });
     }
   }
 );
@@ -127,6 +155,41 @@ const userSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload?.error || 'Failed to refresh user';
         // Keep user authenticated even if refresh fails
+      })
+      // Fetch full user profile
+      .addCase(fetchUserProfile.pending, (state) => {
+        state.profileLoading = true;
+        state.profileError = null;
+      })
+      .addCase(fetchUserProfile.fulfilled, (state, action) => {
+        state.profileLoading = false;
+        state.user = { ...state.user, ...action.payload };
+        state.profileError = null;
+      })
+      .addCase(fetchUserProfile.rejected, (state, action) => {
+        state.profileLoading = false;
+        state.profileError = action.payload?.error || 'Failed to fetch profile';
+      })
+      // Update user profile
+      .addCase(updateUserProfile.pending, (state) => {
+        state.profileLoading = true;
+        state.profileError = null;
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        state.profileLoading = false;
+        // Merge updated fields into user
+        if (action.payload.updated) {
+          state.user = {
+            ...state.user,
+            ...action.payload.updated,
+            name: `${action.payload.updated.firstName || state.user?.firstName || ''} ${action.payload.updated.lastName || state.user?.lastName || ''}`.trim()
+          };
+        }
+        state.profileError = null;
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
+        state.profileLoading = false;
+        state.profileError = action.payload?.error || 'Failed to update profile';
       });
   }
 });

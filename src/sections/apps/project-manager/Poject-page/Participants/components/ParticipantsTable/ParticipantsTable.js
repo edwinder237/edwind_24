@@ -2,7 +2,7 @@ import React, { useCallback, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useSelector, useDispatch } from 'store';
 import { Box, Button, Typography, Dialog, Alert } from '@mui/material';
-import { useGetProjectParticipantsQuery } from 'store/api/projectApi';
+import { useGetProjectParticipantsQuery, useGetAvailableRolesQuery } from 'store/api/projectApi';
 
 // Project imports
 import MainCard from 'components/MainCard';
@@ -44,6 +44,14 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
     isFetching: refreshingParticipants,
     error: participantsError
   } = useGetProjectParticipantsQuery(projectId, {
+    skip: !projectId
+  });
+
+  // Fetch available roles for bulk assignment
+  const {
+    data: availableRoles = [],
+    isLoading: rolesLoading
+  } = useGetAvailableRolesQuery(projectId, {
     skip: !projectId
   });
 
@@ -255,6 +263,61 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
     }));
   }, [dispatch, projectId]);
 
+  // Handler for bulk role assignment from Actions dropdown
+  const handleBulkAssignRole = useCallback(async (roleId, participantIds) => {
+    // Validate input
+    if (!participantIds || participantIds.length === 0) {
+      console.warn('[ParticipantsTable] No participants selected for role assignment');
+      return;
+    }
+
+    // Get the participant UUIDs from project_participants IDs
+    // The participantIds passed are project_participant IDs, we need the actual participant UUIDs
+    const participantUuids = participantIds
+      .map(id => {
+        const enrollment = participants.find(p => p.id === id);
+        return enrollment?.participant?.id;
+      })
+      .filter(Boolean);
+
+    if (participantUuids.length === 0) {
+      console.warn('[ParticipantsTable] Could not find participant UUIDs');
+      return;
+    }
+
+    // Find role name for display
+    const role = availableRoles.find(r => r.id === roleId);
+    const roleName = role?.title || 'No Role';
+
+    await dispatch(participantCommands.bulkAssignRole({
+      participantIds: participantUuids,
+      roleId,
+      roleName
+    }));
+  }, [dispatch, participants, availableRoles]);
+
+  // Handler for bulk group assignment from Actions dropdown
+  const handleBulkAssignGroup = useCallback(async (groupId, participantIds) => {
+    // Validate input
+    if (!participantIds || participantIds.length === 0) {
+      console.warn('[ParticipantsTable] No participants selected for group assignment');
+      return;
+    }
+
+    // Find group name for display
+    const group = groups.find(g => g.id === groupId);
+    const groupName = group?.groupName || 'Unknown Group';
+
+    // For group assignment, we use project_participant IDs directly
+    // (group_participants links to project_participants, not participants)
+    await dispatch(participantCommands.bulkAssignGroup({
+      participantIds,
+      groupId,
+      projectId,
+      groupName
+    }));
+  }, [dispatch, groups, projectId]);
+
   // Show loading state
   if (loading && !refreshing) {
     return <Loader />;
@@ -329,6 +392,12 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
             onViewParticipant={handleViewParticipant}
             refreshing={refreshing}
             hideToolbar={false}
+            roles={availableRoles}
+            rolesLoading={rolesLoading}
+            onAssignRole={handleBulkAssignRole}
+            groups={groups}
+            groupsLoading={false}
+            onAssignGroup={handleBulkAssignGroup}
           />
         </Box>
       </MainCard>

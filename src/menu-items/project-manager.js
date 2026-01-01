@@ -42,7 +42,8 @@ const ProjectManager = {
       type: 'item',
       url: '/project-manager/dashboard',
       icon: icons.DashboardOutlined,
-      breadcrumbs: true
+      breadcrumbs: true,
+      permission: 'access-projects-dashboard'
     },
     {
       id: 'pm-timeline',
@@ -50,7 +51,8 @@ const ProjectManager = {
       type: 'item',
       url: '/project-manager/projects/timeline',
       icon: icons.ScheduleOutlined,
-      breadcrumbs: true
+      breadcrumbs: true,
+      permission: 'access-timeline'
     },
     {
       id: 'pm-projects-list',

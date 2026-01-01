@@ -1,134 +1,141 @@
-import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import {
+  scopedFindMany,
+  scopedFindFirst,
+  scopedCreate
+} from '../../../lib/prisma/scopedQueries.js';
+import { errorHandler, ValidationError } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const { method } = req;
+  const { orgContext } = req;
 
   try {
     switch (method) {
       case 'GET':
-        await handleGet(req, res);
-        break;
+        return await handleGet(res, orgContext);
       case 'POST':
-        await handlePost(req, res);
-        break;
+        return await handlePost(req, res, orgContext);
       default:
         res.setHeader('Allow', ['GET', 'POST']);
-        res.status(405).end(`Method ${method} Not Allowed`);
+        return res.status(405).end(`Method ${method} Not Allowed`);
     }
   } catch (error) {
     console.error('API Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    await prisma.$disconnect();
+    return errorHandler(error, req, res);
   }
 }
 
-async function handleGet(req, res) {
-  try {
-    // Note: For now, we'll fetch all participant roles. In a real app, you'd filter by sub_organizationId
-    // based on the authenticated user's organization
-    
-    // Fetch all participant roles
-    const participantRoles = await prisma.sub_organization_participant_role.findMany({
-      include: {
-        sub_organization: {
-          select: {
-            id: true,
-            title: true
-          }
+async function handleGet(res, orgContext) {
+  // Fetch participant roles scoped to user's accessible sub-organizations
+  const participantRoles = await scopedFindMany(orgContext, 'sub_organization_participant_role', {
+    where: {
+      isActive: true
+    },
+    include: {
+      sub_organization: {
+        select: {
+          id: true,
+          title: true
         }
       },
-      where: {
-        isActive: true
-      },
-      orderBy: {
-        title: 'asc'
-      }
-    });
-
-    // Transform data for response
-    const rolesWithDetails = participantRoles.map(role => ({
-      id: role.id,
-      title: role.title,
-      description: role.description,
-      isActive: role.isActive,
-      organization: role.sub_organization.title,
-      createdAt: role.createdAt,
-      updatedAt: role.updatedAt,
-      createdBy: role.createdBy,
-      updatedBy: role.updatedBy
-    }));
-
-    res.status(200).json(rolesWithDetails);
-  } catch (error) {
-    console.error('Error fetching participant roles:', error);
-    res.status(500).json({ error: 'Failed to fetch participant roles' });
-  }
-}
-
-async function handlePost(req, res) {
-  try {
-    const { title, description } = req.body;
-
-    if (!title || !title.trim()) {
-      return res.status(400).json({ error: 'Role title is required' });
-    }
-
-    // For now, we'll use a default sub_organizationId. In a real app, 
-    // you'd get this from the authenticated user's session
-    const defaultSubOrgId = 1; // You should replace this with actual user's organization
-    const defaultCreatedBy = 'system'; // You should replace this with actual user ID
-
-    // Check if role already exists in this organization
-    const existingRole = await prisma.sub_organization_participant_role.findFirst({
-      where: {
-        title: title.trim(),
-        sub_organizationId: defaultSubOrgId,
-        isActive: true
-      }
-    });
-
-    if (existingRole) {
-      return res.status(409).json({ error: 'Role with this title already exists in your organization' });
-    }
-
-    // Create new participant role
-    const newRole = await prisma.sub_organization_participant_role.create({
-      data: {
-        title: title.trim(),
-        description: description?.trim() || null,
-        sub_organizationId: defaultSubOrgId,
-        createdBy: defaultCreatedBy
-      },
-      include: {
-        sub_organization: {
-          select: {
-            id: true,
-            title: true
-          }
+      _count: {
+        select: {
+          participants: true,
+          course_participant_roles: true,
+          module_participant_roles: true
         }
       }
-    });
-
-    res.status(201).json({
-      id: newRole.id,
-      title: newRole.title,
-      description: newRole.description,
-      isActive: newRole.isActive,
-      organization: newRole.sub_organization.title,
-      createdAt: newRole.createdAt,
-      updatedAt: newRole.updatedAt,
-      createdBy: newRole.createdBy,
-      updatedBy: newRole.updatedBy
-    });
-  } catch (error) {
-    console.error('Error creating participant role:', error);
-    
-    // Handle unique constraint violation
-    if (error.code === 'P2002' && error.meta?.target?.includes('unique_role_per_organization')) {
-      return res.status(409).json({ error: 'Role with this title already exists in your organization' });
+    },
+    orderBy: {
+      title: 'asc'
     }
-    
-    res.status(500).json({ error: 'Failed to create participant role' });
-  }
+  });
+
+  // Transform data for response
+  const rolesWithDetails = participantRoles.map(role => ({
+    id: role.id,
+    title: role.title,
+    description: role.description,
+    isActive: role.isActive,
+    organization: role.sub_organization.title,
+    sub_organizationId: role.sub_organizationId,
+    usageCount: role._count.participants + role._count.course_participant_roles + role._count.module_participant_roles,
+    participantCount: role._count.participants,
+    createdAt: role.createdAt,
+    updatedAt: role.updatedAt,
+    createdBy: role.createdBy,
+    updatedBy: role.updatedBy
+  }));
+
+  return res.status(200).json(rolesWithDetails);
 }
+
+async function handlePost(req, res, orgContext) {
+  const { title, description, sub_organizationId } = req.body;
+
+  if (!title || !title.trim()) {
+    throw new ValidationError('Role title is required');
+  }
+
+  // Use provided sub_organizationId or default to first accessible sub-org
+  const targetSubOrgId = sub_organizationId
+    ? parseInt(sub_organizationId)
+    : orgContext.subOrganizationIds[0];
+
+  // Validate the sub_organizationId belongs to user's organization
+  if (!orgContext.subOrganizationIds.includes(targetSubOrgId)) {
+    throw new ValidationError('Invalid sub-organization');
+  }
+
+  // Check if role already exists in this organization
+  const existingRole = await scopedFindFirst(orgContext, 'sub_organization_participant_role', {
+    where: {
+      title: title.trim(),
+      sub_organizationId: targetSubOrgId,
+      isActive: true
+    }
+  });
+
+  if (existingRole) {
+    return res.status(409).json({ error: 'Role with this title already exists in your organization' });
+  }
+
+  // Create new participant role with proper organization scoping
+  const newRole = await scopedCreate(orgContext, 'sub_organization_participant_role', {
+    title: title.trim(),
+    description: description?.trim() || null,
+    sub_organizationId: targetSubOrgId,
+    createdBy: orgContext.userId
+  });
+
+  // Fetch the complete role with relations
+  const roleWithRelations = await scopedFindFirst(orgContext, 'sub_organization_participant_role', {
+    where: { id: newRole.id },
+    include: {
+      sub_organization: {
+        select: {
+          id: true,
+          title: true
+        }
+      }
+    }
+  });
+
+  return res.status(201).json({
+    id: roleWithRelations.id,
+    title: roleWithRelations.title,
+    description: roleWithRelations.description,
+    isActive: roleWithRelations.isActive,
+    organization: roleWithRelations.sub_organization.title,
+    sub_organizationId: roleWithRelations.sub_organizationId,
+    usageCount: 0,
+    participantCount: 0,
+    createdAt: roleWithRelations.createdAt,
+    updatedAt: roleWithRelations.updatedAt,
+    createdBy: roleWithRelations.createdBy,
+    updatedBy: roleWithRelations.updatedBy
+  });
+}
+
+export default withOrgScope(handler);

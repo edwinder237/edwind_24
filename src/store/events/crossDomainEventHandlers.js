@@ -267,16 +267,22 @@ export const initializeCrossDomainHandlers = (store) => {
   /**
    * When participant role updated
    * May affect group eligibility or permissions
+   * Supports both single updates and bulk updates
    */
   eventBus.subscribe(DomainEvents.PARTICIPANT_ROLE_UPDATED, (event) => {
-    const { participant, newRole, previousRole } = event.payload;
+    const { participant, newRole, previousRole, participantIds, roleId, roleName, bulkUpdate } = event.payload;
 
-    console.log(`[Cross-Domain] Participant ${participant.id} role updated from ${previousRole} to ${newRole}`);
+    if (bulkUpdate) {
+      console.log(`[Cross-Domain] Bulk role update: ${participantIds?.length || 0} participants assigned to "${roleName || 'No Role'}"`);
+    } else if (participant) {
+      console.log(`[Cross-Domain] Participant ${participant.id} role updated from ${previousRole} to ${newRole}`);
+    }
 
     // Refresh Groups to reflect role changes
     store.dispatch(projectApi.util.invalidateTags([
       'Group',
-      'GroupParticipants'
+      'GroupParticipants',
+      'ProjectParticipants'
     ]));
   });
 

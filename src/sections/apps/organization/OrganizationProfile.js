@@ -3,15 +3,14 @@ import React, { useState, useEffect } from 'react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
-import { Box, Divider, Grid, Menu, MenuItem, Stack, Typography } from '@mui/material';
+import { Box, Chip, Divider, Grid, Stack, Typography } from '@mui/material';
 
 // project import
 import useUser from 'hooks/useUser';
 import MainCard from 'components/MainCard';
-import IconButton from 'components/@extended/IconButton';
 
 // assets
-import { MoreOutlined, BankOutlined } from '@ant-design/icons';
+import { BankOutlined, CrownOutlined, StarOutlined, RocketOutlined } from '@ant-design/icons';
 
 // ==============================|| ORGANIZATION PROFILE ||============================== //
 
@@ -19,14 +18,14 @@ const OrganizationProfile = ({ focusInput }) => {
   const theme = useTheme();
   const { user } = useUser();
 
-  const [anchorEl, setAnchorEl] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [logoUrl, setLogoUrl] = useState(null);
   const [statistics, setStatistics] = useState({ projects: 0, instructors: 0, participants: 0 });
-  const open = Boolean(anchorEl);
+  const [subscription, setSubscription] = useState(null);
 
   useEffect(() => {
     fetchOrganization();
+    fetchSubscription();
   }, []);
 
   const fetchOrganization = async () => {
@@ -47,14 +46,40 @@ const OrganizationProfile = ({ focusInput }) => {
     }
   };
 
-  const handleClick = (event) => {
-    setAnchorEl(event?.currentTarget);
+  const fetchSubscription = async () => {
+    try {
+      const response = await fetch('/api/subscriptions');
+      if (response.ok) {
+        const data = await response.json();
+        setSubscription(data.subscription);
+      }
+    } catch (error) {
+      // Non-admin users will get 403, which is expected
+      console.log('Subscription not available (may require admin access)');
+    }
   };
 
-  const handleClose = () => {
-    setAnchorEl(null);
+  const getPlanIcon = (planId) => {
+    switch (planId) {
+      case 'enterprise':
+        return <CrownOutlined />;
+      case 'pro':
+        return <StarOutlined />;
+      default:
+        return <RocketOutlined />;
+    }
   };
 
+  const getPlanColor = (planId) => {
+    switch (planId) {
+      case 'enterprise':
+        return 'success';
+      case 'pro':
+        return 'primary';
+      default:
+        return 'default';
+    }
+  };
 
   return (
     <MainCard>
@@ -105,7 +130,7 @@ const OrganizationProfile = ({ focusInput }) => {
         </Grid>
 
         {/* Statistics */}
-        <Grid item xs={12} md={5}>
+        <Grid item xs={12} md={6}>
           <Stack direction="row" justifyContent="space-around" alignItems="center">
             <Stack spacing={0.5} alignItems="center">
               <Typography variant="h5">{statistics.projects}</Typography>
@@ -121,47 +146,20 @@ const OrganizationProfile = ({ focusInput }) => {
               <Typography variant="h5">{statistics.participants}</Typography>
               <Typography color="secondary">Participants</Typography>
             </Stack>
-          </Stack>
-        </Grid>
-
-        {/* Menu Button */}
-        <Grid item xs={12} md={1}>
-          <Stack direction="row" justifyContent="flex-end">
-            <IconButton
-              variant="light"
-              color="secondary"
-              id="basic-button"
-              aria-controls={open ? 'basic-menu' : undefined}
-              aria-haspopup="true"
-              aria-expanded={open ? 'true' : undefined}
-              onClick={handleClick}
-            >
-              <MoreOutlined />
-            </IconButton>
-            <Menu
-              id="basic-menu"
-              anchorEl={anchorEl}
-              open={open}
-              onClose={handleClose}
-              MenuListProps={{
-                'aria-labelledby': 'basic-button'
-              }}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right'
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right'
-              }}
-            >
-              <MenuItem onClick={handleClose}>
-                Edit
-              </MenuItem>
-              <MenuItem onClick={handleClose} disabled>
-                Delete
-              </MenuItem>
-            </Menu>
+            {subscription && (
+              <>
+                <Divider orientation="vertical" flexItem />
+                <Stack spacing={0.5} alignItems="center">
+                  <Chip
+                    icon={getPlanIcon(subscription.planId)}
+                    label={subscription.plan?.name || subscription.planId}
+                    color={getPlanColor(subscription.planId)}
+                    size="small"
+                  />
+                  <Typography color="secondary">Plan</Typography>
+                </Stack>
+              </>
+            )}
           </Stack>
         </Grid>
       </Grid>

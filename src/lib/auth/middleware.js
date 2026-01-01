@@ -321,6 +321,71 @@ export function isAdmin(req) {
 }
 
 /**
+ * Extracts JWT permissions from WorkOS access token cookie
+ *
+ * @param {Object} req - Next.js request object
+ * @returns {string[]} Array of JWT permissions
+ */
+export function getJwtPermissions(req) {
+  const accessToken = req.cookies?.workos_access_token;
+  if (!accessToken) return [];
+
+  try {
+    const tokenParts = accessToken.split('.');
+    if (tokenParts.length === 3) {
+      const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+      return payload.permissions || [];
+    }
+  } catch (e) {
+    console.error('Error decoding JWT:', e.message);
+  }
+  return [];
+}
+
+/**
+ * Requires user to have a specific JWT permission from WorkOS
+ * Returns 403 if permission denied
+ *
+ * @param {Object} req - Next.js request object
+ * @param {Object} res - Next.js response object
+ * @param {string} permission - Required JWT permission (e.g., "access-projects-dashboard")
+ * @returns {Promise<boolean>} True if permission granted
+ */
+export async function requireJwtPermission(req, res, permission) {
+  const isAuthenticated = await requireAuth(req, res);
+  if (!isAuthenticated) return false;
+
+  const permissions = getJwtPermissions(req);
+
+  if (!permissions.includes(permission)) {
+    res.status(403).json({
+      error: 'Forbidden',
+      message: `You do not have permission: ${permission}`
+    });
+    return false;
+  }
+
+  req.jwtPermissions = permissions;
+  return true;
+}
+
+/**
+ * Helper to wrap API handlers with JWT permission checks
+ * Usage:
+ * export default withJwtPermission('access-projects-dashboard')(async (req, res) => { ... })
+ *
+ * @param {string} permission - Required JWT permission
+ * @returns {Function} Wrapped handler
+ */
+export function withJwtPermission(permission) {
+  return (handler) => async (req, res) => {
+    const hasPermission = await requireJwtPermission(req, res, permission);
+    if (!hasPermission) return;
+    return handler(req, res);
+  };
+}
+
+/**
  * Export all middleware functions
  */
 export default {
@@ -333,5 +398,8 @@ export default {
   withRole,
   withAuth,
   getAccessibleSubOrgs,
-  isAdmin
+  isAdmin,
+  getJwtPermissions,
+  requireJwtPermission,
+  withJwtPermission
 };

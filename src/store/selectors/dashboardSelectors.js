@@ -19,50 +19,62 @@ import { projectApi } from '../api/projectApi';
 
 /**
  * Main dashboard metrics combining all key indicators
+ * Uses normalized entities store as primary source for real-time updates
  */
 export const selectDashboardOverview = createSelector(
   [
-    // Use existing Redux data for compatibility
+    // Primary: Use normalized entities store (updated by RTK Query mutations)
+    entitySelectors.participants.selectAllParticipants,
+    entitySelectors.events.selectAllEvents,
+    entitySelectors.groups.selectAllGroups,
+    // Fallback: Legacy projectAgenda store (for initial load compatibility)
     (state) => state.projectAgenda?.participants || [],
     (state) => state.projectAgenda?.events || [],
     (state) => state.projectAgenda?.groups || [],
     selectAttendanceSummary
   ],
-  (participants, events, groups, attendanceStats) => ({
-    keyMetrics: {
-      totalParticipants: Array.isArray(participants) ? participants.length : 0,
-      totalEvents: Array.isArray(events) ? events.length : 0,
-      totalGroups: Array.isArray(groups) ? groups.length : 0,
-      overallAttendanceRate: Math.round(attendanceStats?.attendanceRate || 0)
-    },
-    trends: {
-      attendanceDirection: getAttendanceTrend(attendanceStats),
-      participantGrowth: calculateParticipantGrowth(participants),
-      eventFrequency: calculateEventFrequency(events),
-      groupEfficiency: calculateGroupEfficiency(groups)
-    },
-    alerts: generateDashboardAlerts(participants, events, groups, attendanceStats),
-    quickActions: [
-      {
-        title: 'View Problem Participants',
-        count: attendanceStats?.problemParticipants?.length || 0,
-        severity: 'warning',
-        action: 'navigate_participants'
+  (normalizedParticipants, normalizedEvents, normalizedGroups, legacyParticipants, legacyEvents, legacyGroups, attendanceStats) => {
+    // Prefer normalized entities if available, otherwise fall back to legacy
+    const participants = normalizedParticipants.length > 0 ? normalizedParticipants : legacyParticipants;
+    const events = normalizedEvents.length > 0 ? normalizedEvents : legacyEvents;
+    const groups = normalizedGroups.length > 0 ? normalizedGroups : legacyGroups;
+
+    return {
+      keyMetrics: {
+        totalParticipants: Array.isArray(participants) ? participants.length : 0,
+        totalEvents: Array.isArray(events) ? events.length : 0,
+        totalGroups: Array.isArray(groups) ? groups.length : 0,
+        overallAttendanceRate: Math.round(attendanceStats?.attendanceRate || 0)
       },
-      {
-        title: 'Underutilized Events',
-        count: 0, // Would be filled by capacity analysis
-        severity: 'info',
-        action: 'navigate_events'
+      trends: {
+        attendanceDirection: getAttendanceTrend(attendanceStats),
+        participantGrowth: calculateParticipantGrowth(participants),
+        eventFrequency: calculateEventFrequency(events),
+        groupEfficiency: calculateGroupEfficiency(groups)
       },
-      {
-        title: 'At-Risk Groups',
-        count: 0, // Would be calculated from group performance
-        severity: 'error',
-        action: 'navigate_groups'
-      }
-    ]
-  })
+      alerts: generateDashboardAlerts(participants, events, groups, attendanceStats),
+      quickActions: [
+        {
+          title: 'View Problem Participants',
+          count: attendanceStats?.problemParticipants?.length || 0,
+          severity: 'warning',
+          action: 'navigate_participants'
+        },
+        {
+          title: 'Underutilized Events',
+          count: 0, // Would be filled by capacity analysis
+          severity: 'info',
+          action: 'navigate_events'
+        },
+        {
+          title: 'At-Risk Groups',
+          count: 0, // Would be calculated from group performance
+          severity: 'error',
+          action: 'navigate_groups'
+        }
+      ]
+    };
+  }
 );
 
 /**

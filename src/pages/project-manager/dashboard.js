@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Grid, Typography, Paper, Box, Stack, MenuItem, Select, TextField } from '@mui/material';
-import { DashboardOutlined, ProjectOutlined, TeamOutlined, CalendarOutlined } from '@ant-design/icons';
+import { useRouter } from 'next/router';
+import { Grid, Typography, Paper, Box, Stack, MenuItem, Select, TextField, CircularProgress } from '@mui/material';
+import { DashboardOutlined, ProjectOutlined, TeamOutlined, CalendarOutlined, LockOutlined } from '@ant-design/icons';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -9,6 +10,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import Layout from 'layout';
 import Page from 'components/Page';
 import MainCard from 'components/MainCard';
+import useUser from 'hooks/useUser';
 import AnalyticsDataCard from 'components/cards/statistics/AnalyticsDataCard';
 import UsersCardChart from 'components/dashboard/analytics/UsersCardChart';
 import OrdersCardChart from 'components/dashboard/analytics/OrdersCardChart';
@@ -19,7 +21,11 @@ import ReportChart from 'components/dashboard/analytics/ReportChart';
 
 // ==============================|| PROJECT MANAGER DASHBOARD ||============================== //
 
+const REQUIRED_PERMISSION = 'access-projects-dashboard';
+
 const ProjectManagerDashboard = () => {
+  const { user, isLoading } = useUser();
+  const router = useRouter();
   const [slot, setSlot] = useState('week');
   const [quantity, setQuantity] = useState('By volume');
   const [startDate, setStartDate] = useState(null);
@@ -33,6 +39,42 @@ const ProjectManagerDashboard = () => {
     console.log('Start Date:', startDate);
     console.log('End Date:', endDate);
   }, [startDate, endDate]);
+
+  // Check if user has required permission
+  const hasPermission = user?.permissions?.includes(REQUIRED_PERMISSION);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Page title="Project Manager Dashboard">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+          <CircularProgress />
+        </Box>
+      </Page>
+    );
+  }
+
+  // Show access denied if user doesn't have permission
+  if (!hasPermission) {
+    return (
+      <Page title="Access Denied">
+        <MainCard>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <LockOutlined style={{ fontSize: '4rem', color: '#8c8c8c', marginBottom: 16 }} />
+            <Typography variant="h4" gutterBottom>
+              Access Denied
+            </Typography>
+            <Typography color="textSecondary" sx={{ mb: 3 }}>
+              You don't have permission to access the Project Manager Dashboard.
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Contact your administrator if you need access to this feature.
+            </Typography>
+          </Box>
+        </MainCard>
+      </Page>
+    );
+  }
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>

@@ -1,7 +1,10 @@
-import prisma from "../../../lib/prisma";
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
+import { errorHandler } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const { method } = req;
+  const { orgContext } = req;
 
   if (method !== 'GET') {
     res.setHeader('Allow', ['GET']);
@@ -9,29 +12,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Note: For now, we'll fetch all active participant roles. In a real app, you'd filter by sub_organizationId
-    // based on the authenticated user's organization
-    
-    // Fetch active participant roles for dropdown
-    const participantRoles = await prisma.sub_organization_participant_role.findMany({
+    // Fetch active participant roles scoped to user's accessible sub-organizations
+    const participantRoles = await scopedFindMany(orgContext, 'sub_organization_participant_role', {
       where: {
         isActive: true
       },
       select: {
         id: true,
         title: true,
-        description: true
+        description: true,
+        sub_organizationId: true
       },
       orderBy: {
         title: 'asc'
       }
     });
 
-    res.status(200).json(participantRoles);
+    return res.status(200).json(participantRoles);
   } catch (error) {
     console.error('Error fetching participant roles for dropdown:', error);
-    res.status(500).json({ error: 'Failed to fetch participant roles' });
-  } finally {
-    await prisma.$disconnect();
+    return errorHandler(error, req, res);
   }
 }
+
+export default withOrgScope(handler);

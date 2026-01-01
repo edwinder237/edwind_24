@@ -134,9 +134,9 @@ export const projectApi = createApi({
         body: { projectId }
       }),
       providesTags: (_, __, projectId) => [
-        { type: 'Project', id: projectId },
-        { type: 'Checklist', id: projectId },
-        { type: 'ChecklistProgress', id: projectId },
+        { type: 'Project', id: parseInt(projectId) },
+        { type: 'Checklist', id: parseInt(projectId) },
+        { type: 'ChecklistProgress', id: parseInt(projectId) },
         'Event',
         'Participant',
         'Attendance'
@@ -255,8 +255,8 @@ export const projectApi = createApi({
         body: { projectId }
       }),
       providesTags: (_, __, projectId) => [
-        { type: 'ProjectParticipants', id: projectId },
-        { type: 'Project', id: projectId },
+        { type: 'ProjectParticipants', id: parseInt(projectId) },
+        { type: 'Project', id: parseInt(projectId) },
         'Participant'
       ],
       // Transform response to ensure consistent format
@@ -1093,6 +1093,21 @@ export const projectApi = createApi({
     }),
 
     /**
+     * Delete project
+     */
+    deleteProject: builder.mutation({
+      query: ({ projectId }) => ({
+        url: 'projects/db-delete-project',
+        method: 'POST',
+        body: { projectCUID: projectId }
+      }),
+      invalidatesTags: (_, __, { projectId }) => [
+        { type: 'Project', id: projectId },
+        'ProjectAgenda'
+      ],
+    }),
+
+    /**
      * Fetch single project
      * For backward compatibility with existing code
      */
@@ -1124,18 +1139,33 @@ export const projectApi = createApi({
         return response;
       },
       invalidatesTags: (_, __, { projectId }) => [
-        { type: 'Project', id: projectId },
-        { type: 'ProjectParticipants', id: projectId },
+        { type: 'Project', id: parseInt(projectId) },
+        { type: 'ProjectParticipants', id: parseInt(projectId) },
         'ProjectAgenda',
         'Participant'
       ],
-      onQueryStarted: async (_, { dispatch, queryFulfilled, getState }) => {
+      onQueryStarted: async ({ projectId }, { dispatch, queryFulfilled, getState }) => {
         try {
           const { data } = await queryFulfilled;
 
           // Check if the API operation was successful
           if (data?.success === true) {
-            // RTK Query will automatically refetch due to invalidatesTags
+            // Immediately add participant to normalized entities store for instant UI update
+            // Use projectParticipant which is the enrollment record with nested participant data
+            // This matches the structure returned by getProjectParticipants
+            if (data.projectParticipant) {
+              dispatch(participantAdded(data.projectParticipant));
+
+              // Update metadata count
+              const currentState = getState();
+              const currentCount = currentState.participants?.metadata?.totalCount || 0;
+              dispatch(updateMetadata({
+                projectId: parseInt(projectId),
+                totalCount: currentCount + 1,
+                lastFetch: new Date().toISOString()
+              }));
+            }
+            // RTK Query will also refetch due to invalidatesTags for full sync
           } else if (data?.success === false) {
             // Handle API-level errors (like participant already exists)
             throw new Error(data.message || data.error || 'Failed to add participant');
@@ -1158,8 +1188,8 @@ export const projectApi = createApi({
         body: { projectId, newParticipants: participants }
       }),
       invalidatesTags: (_, __, { projectId }) => [
-        { type: 'Project', id: projectId },
-        { type: 'ProjectParticipants', id: projectId },
+        { type: 'Project', id: parseInt(projectId) },
+        { type: 'ProjectParticipants', id: parseInt(projectId) },
         'ProjectAgenda',
         'Participant'
       ],
@@ -1185,7 +1215,7 @@ export const projectApi = createApi({
       }),
       invalidatesTags: (_, __, { participantId, projectId }) => [
         { type: 'Participant', id: participantId },
-        { type: 'ProjectParticipants', id: projectId },
+        { type: 'ProjectParticipants', id: projectId ? parseInt(projectId) : undefined },
         'ProjectAgenda'
       ],
       onQueryStarted: async ({ participantId, updates, projectId }, { dispatch, queryFulfilled, getState }) => {
@@ -1213,7 +1243,7 @@ export const projectApi = createApi({
           const currentProjectId = projectId || state.projectSettings?.projectId;
           if (currentProjectId) {
             dispatch(projectApi.util.invalidateTags([
-              { type: 'ProjectParticipants', id: currentProjectId }
+              { type: 'ProjectParticipants', id: parseInt(currentProjectId) }
             ]));
           }
         } catch (error) {
@@ -1232,8 +1262,8 @@ export const projectApi = createApi({
         body: { participantId }
       }),
       invalidatesTags: (_, __, { projectId, participantId }) => [
-        { type: 'Project', id: projectId },
-        { type: 'ProjectParticipants', id: projectId },
+        { type: 'Project', id: parseInt(projectId) },
+        { type: 'ProjectParticipants', id: parseInt(projectId) },
         { type: 'Participant', id: participantId },
         'ProjectAgenda'
       ],
@@ -1261,8 +1291,8 @@ export const projectApi = createApi({
         body: { projectId, participantIds }
       }),
       invalidatesTags: (_, __, { projectId }) => [
-        { type: 'Project', id: projectId },
-        { type: 'ProjectParticipants', id: projectId },
+        { type: 'Project', id: parseInt(projectId) },
+        { type: 'ProjectParticipants', id: parseInt(projectId) },
         'ProjectAgenda',
         'Participant'
       ],
@@ -1305,6 +1335,47 @@ export const projectApi = createApi({
           console.error('Failed to import participants from CSV:', error);
         }
       },
+    }),
+
+    /**
+     * Bulk assign role to multiple participants
+     */
+    bulkAssignRole: builder.mutation({
+      query: ({ participantIds, roleId }) => ({
+        url: 'participants/bulk-assign-role',
+        method: 'POST',
+        body: { participantIds, roleId }
+      }),
+      invalidatesTags: ['Participant', 'ProjectParticipants', 'ProjectAgenda'],
+      onQueryStarted: async ({ participantIds, roleId }, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          // Update participants in normalized store with new role data
+          if (data?.participants) {
+            data.participants.forEach(participant => {
+              dispatch(participantUpdated({
+                id: participant.id,
+                changes: { role: participant.role }
+              }));
+            });
+          }
+        } catch (error) {
+          console.error('Failed to bulk assign role:', error);
+        }
+      },
+    }),
+
+    /**
+     * Bulk assign participants to a group
+     */
+    bulkAssignGroup: builder.mutation({
+      query: ({ participantIds, groupId, projectId }) => ({
+        url: 'participants/bulk-assign-group',
+        method: 'POST',
+        body: { participantIds, groupId, projectId }
+      }),
+      invalidatesTags: ['Group', 'GroupParticipants', 'ProjectParticipants', 'ProjectAgenda'],
     }),
 
     // ==============================|| ROLES ||============================== //

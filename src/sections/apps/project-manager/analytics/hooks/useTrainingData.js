@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'utils/axios';
 
-export const useTrainingData = (projectId, subOrganizationId) => {
+export const useTrainingData = (projectId) => {
   const [trainingRecords, setTrainingRecords] = useState([]);
   const [filterOptions, setFilterOptions] = useState({
     courses: [],
@@ -16,17 +16,17 @@ export const useTrainingData = (projectId, subOrganizationId) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch filter options
+  // Fetch filter options - organization scoping is handled by the API middleware
   const fetchFilterOptions = useCallback(async () => {
     try {
       setLoading(true);
-      const params = { sub_organizationId: subOrganizationId };
+      const params = {};
       if (projectId) {
         params.projectId = projectId;
       }
 
       const response = await axios.get('/api/training-records/filter-options', { params });
-      
+
       if (response.data.success) {
         setFilterOptions(response.data.data);
       } else {
@@ -38,16 +38,16 @@ export const useTrainingData = (projectId, subOrganizationId) => {
     } finally {
       setLoading(false);
     }
-  }, [projectId, subOrganizationId]);
+  }, [projectId]);
 
-  // Fetch training records with filters
+  // Fetch training records with filters - organization scoping is handled by the API middleware
   const fetchTrainingRecords = useCallback(async (filters = {}) => {
     try {
       setLoading(true);
       setError(null);
 
       const params = {};
-      
+
       if (projectId) {
         params.projectId = projectId;
       }
@@ -88,7 +88,7 @@ export const useTrainingData = (projectId, subOrganizationId) => {
       }
 
       const response = await axios.get('/api/training-records', { params });
-      
+
       if (response.data.success) {
         setTrainingRecords(response.data.data);
         return response.data.data;
@@ -107,10 +107,8 @@ export const useTrainingData = (projectId, subOrganizationId) => {
 
   // Initialize filter options on mount
   useEffect(() => {
-    if (subOrganizationId) {
-      fetchFilterOptions();
-    }
-  }, [fetchFilterOptions, subOrganizationId]);
+    fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
   return {
     trainingRecords,

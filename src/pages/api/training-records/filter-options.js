@@ -1,39 +1,31 @@
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
 import prisma from '../../../lib/prisma';
+import { errorHandler } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
+  const { orgContext } = req;
+
   try {
-    const { projectId, sub_organizationId } = req.query;
+    const { projectId } = req.query;
 
-    if (!sub_organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'sub_organizationId is required' 
-      });
-    }
+    // Use organization context for multi-tenant scoping
+    const subOrgIds = orgContext.subOrganizationIds;
 
-    const orgId = parseInt(sub_organizationId);
-    
-    // Build base where clause
+    // Build base where clause with multi-tenant scoping
     const baseWhere = {
-      sub_organizationId: orgId,
+      sub_organizationId: {
+        in: subOrgIds
+      },
       isActive: true
     };
 
-    if (projectId) {
-      baseWhere.projects = {
-        some: {
-          id: parseInt(projectId)
-        }
-      };
-    }
-
-    // Fetch all filter options in parallel
+    // Fetch all filter options in parallel, scoped to user's accessible sub-organizations
     const [courses, participants, instructors, trainingRecipients, topics, projects, assessments] = await Promise.all([
-      // Courses
+      // Courses - scoped by sub_organizationId
       prisma.courses.findMany({
         where: baseWhere,
         select: {
@@ -51,7 +43,7 @@ export default async function handler(req, res) {
         }
       }),
 
-      // Participants (through project if specified)
+      // Participants - scoped by sub_organization field and optionally project
       prisma.participants.findMany({
         where: {
           ...(projectId ? {
@@ -61,7 +53,9 @@ export default async function handler(req, res) {
               }
             }
           } : {}),
-          sub_organization: orgId
+          sub_organization: {
+            in: subOrgIds
+          }
         },
         include: {
           role: true,
@@ -73,10 +67,12 @@ export default async function handler(req, res) {
         ]
       }),
 
-      // Instructors
+      // Instructors - scoped by sub_organizationId
       prisma.instructors.findMany({
         where: {
-          sub_organizationId: orgId,
+          sub_organizationId: {
+            in: subOrgIds
+          },
           status: 'active'
         },
         select: {
@@ -92,10 +88,12 @@ export default async function handler(req, res) {
         ]
       }),
 
-      // Training Recipients
+      // Training Recipients - scoped by sub_organizationId
       prisma.training_recipients.findMany({
         where: {
-          sub_organizationId: orgId
+          sub_organizationId: {
+            in: subOrgIds
+          }
         },
         select: {
           id: true,
@@ -108,10 +106,12 @@ export default async function handler(req, res) {
         }
       }),
 
-      // Topics
+      // Topics - scoped by sub_organizationId
       prisma.topics.findMany({
         where: {
-          sub_organizationId: orgId,
+          sub_organizationId: {
+            in: subOrgIds
+          },
           isActive: true
         },
         select: {
@@ -126,10 +126,12 @@ export default async function handler(req, res) {
         }
       }),
 
-      // Projects
+      // Projects - scoped by sub_organizationId
       prisma.projects.findMany({
         where: {
-          sub_organizationId: orgId
+          sub_organizationId: {
+            in: subOrgIds
+          }
         },
         select: {
           id: true,
@@ -142,12 +144,14 @@ export default async function handler(req, res) {
         }
       }),
 
-      // Assessments
+      // Assessments - scoped through course's sub_organizationId
       prisma.course_assessments.findMany({
         where: {
           isActive: true,
           course: {
-            sub_organizationId: orgId,
+            sub_organizationId: {
+              in: subOrgIds
+            },
             isActive: true
           }
         },
@@ -246,10 +250,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching filter options:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error',
-      error: error.message 
-    });
+    return errorHandler(error, req, res);
   }
 }
+
+export default withOrgScope(handler);

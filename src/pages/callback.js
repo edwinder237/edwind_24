@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { useRouter } from 'next/router';
 import { Container, Typography, Box, CircularProgress } from '@mui/material';
 import { WorkOS } from '@workos-inc/node';
+import { serialize } from 'cookie';
 import prisma from '../lib/prisma';
 import { buildAndCacheClaims } from '../lib/auth/claimsManager';
+import { encrypt } from '../lib/crypto/index.js';
 
 // Initialize WorkOS only when needed to avoid build-time errors
 let workos;
@@ -16,8 +17,6 @@ const getWorkOS = () => {
 };
 
 const CallbackPage = () => {
-  const router = useRouter();
-
   useEffect(() => {
     // The actual authentication was handled in getServerSideProps
     // This component just shows a loading message while redirecting
@@ -61,9 +60,17 @@ export async function getServerSideProps(context) {
 
     // Exchange the code for a session
     const workosInstance = getWorkOS();
-    const { user, accessToken, refreshToken, impersonator } = await workosInstance.userManagement.authenticateWithCode({
+    const authResult = await workosInstance.userManagement.authenticateWithCode({
       code,
       clientId: process.env.WORKOS_CLIENT_ID,
+    });
+
+    const { user, accessToken, organizationId: workosOrgId } = authResult;
+
+    console.log('🔐 Auth result:', {
+      userId: user.id,
+      email: user.email,
+      organizationId: workosOrgId || 'none selected'
     });
 
     // Extract session ID and permissions from the access token JWT
@@ -199,12 +206,61 @@ export async function getServerSideProps(context) {
       // Continue with authentication even if claims building fails
     }
 
+    // Build organization cookie if user selected an organization during login
+    let orgCookie = null;
+    if (workosOrgId) {
+      try {
+        // Find the DB organization by WorkOS org ID
+        const selectedOrg = await prisma.organizations.findFirst({
+          where: { workos_org_id: workosOrgId },
+          select: {
+            id: true,
+            workos_org_id: true,
+            title: true
+          }
+        });
+
+        if (selectedOrg) {
+          console.log(`🏢 Setting organization from WorkOS selection: ${selectedOrg.title} (${selectedOrg.id})`);
+
+          // Encrypt organization data for the cookie
+          const encryptedData = encrypt({
+            organizationId: selectedOrg.id,
+            workosOrgId: selectedOrg.workos_org_id,
+            title: selectedOrg.title,
+            setAt: new Date().toISOString()
+          });
+
+          // Create organization cookie
+          orgCookie = serialize('edwind_current_org', encryptedData, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 30 * 24 * 60 * 60, // 30 days
+            path: '/'
+          });
+        } else {
+          console.warn(`⚠️  WorkOS org ${workosOrgId} not found in database`);
+        }
+      } catch (orgError) {
+        console.error('Error setting organization cookie:', orgError);
+        // Continue without setting org cookie
+      }
+    }
+
     // Set session cookies including session ID for logout
-    context.res.setHeader('Set-Cookie', [
+    const cookies = [
       `workos_user_id=${user.id}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}`, // 7 days
       `workos_access_token=${accessToken}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}`, // 7 days
       `workos_session_id=${sessionId}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}`, // 7 days
-    ]);
+    ];
+
+    // Add organization cookie if we have one
+    if (orgCookie) {
+      cookies.push(orgCookie);
+    }
+
+    context.res.setHeader('Set-Cookie', cookies);
 
     
     // Redirect to the main app after successful authentication

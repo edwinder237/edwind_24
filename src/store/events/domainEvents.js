@@ -89,6 +89,7 @@ export const GroupEvents = {
   PARTICIPANT_REMOVE_FROM_GROUP_FAILED: 'group.participant_remove_failed',
   PARTICIPANT_MOVED_BETWEEN_GROUPS: 'group.participant_moved',
   PARTICIPANT_MOVE_BETWEEN_GROUPS_FAILED: 'group.participant_move_failed',
+  GROUP_PARTICIPANTS_UPDATED: 'group.participants_updated',
 
   // Curriculum
   CURRICULUM_ASSIGNED_TO_GROUP: 'group.curriculum_assigned',

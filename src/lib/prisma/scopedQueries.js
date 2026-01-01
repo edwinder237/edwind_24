@@ -193,16 +193,35 @@ export async function scopedCreate(orgContext, model, data) {
  * Update record with ownership verification
  * Verifies record belongs to org before updating
  *
+ * Supports two call signatures:
+ * 1. scopedUpdate(orgContext, model, { where, data, include, select })  - Prisma-style options
+ * 2. scopedUpdate(orgContext, model, where, data)  - Legacy separate args
+ *
  * @param {Object} orgContext - Organization context
  * @param {string} model - Prisma model name
- * @param {Object} where - Where clause to find record
- * @param {Object} data - Data to update
+ * @param {Object} whereOrOptions - Where clause OR full options object { where, data, include, select }
+ * @param {Object} [data] - Data to update (only if using legacy signature)
  * @returns {Promise<Object>} Updated record
  * @throws {NotFoundError} If record doesn't exist or doesn't belong to org
  */
-export async function scopedUpdate(orgContext, model, where, data) {
+export async function scopedUpdate(orgContext, model, whereOrOptions, data) {
   if (!orgContext) {
     throw new ValidationError('Organization context is required');
+  }
+
+  // Detect call signature - if whereOrOptions has 'where' and 'data' keys, it's Prisma-style
+  let where, updateData, include, select;
+
+  if (whereOrOptions.where && whereOrOptions.data) {
+    // Prisma-style: scopedUpdate(ctx, model, { where, data, include?, select? })
+    where = whereOrOptions.where;
+    updateData = whereOrOptions.data;
+    include = whereOrOptions.include;
+    select = whereOrOptions.select;
+  } else {
+    // Legacy style: scopedUpdate(ctx, model, where, data)
+    where = whereOrOptions;
+    updateData = data;
   }
 
   // First verify record exists and belongs to org
@@ -213,15 +232,17 @@ export async function scopedUpdate(orgContext, model, where, data) {
   }
 
   // If updating sub_organizationId, validate new value
-  if (data.sub_organizationId && data.sub_organizationId !== existing.sub_organizationId) {
-    validateSubOrganization(orgContext, data.sub_organizationId);
+  if (updateData.sub_organizationId && updateData.sub_organizationId !== existing.sub_organizationId) {
+    validateSubOrganization(orgContext, updateData.sub_organizationId);
   }
 
+  // Build update options
+  const updateOptions = { where, data: updateData };
+  if (include) updateOptions.include = include;
+  if (select) updateOptions.select = select;
+
   // Perform update
-  return await prisma[model].update({
-    where,
-    data
-  });
+  return await prisma[model].update(updateOptions);
 }
 
 /**

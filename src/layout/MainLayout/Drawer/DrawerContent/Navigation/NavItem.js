@@ -12,6 +12,7 @@ import { Avatar, Chip, ListItemButton, ListItemIcon, ListItemText, Typography, u
 // project import
 import Dot from 'components/@extended/Dot';
 import useConfig from 'hooks/useConfig';
+import useUser from 'hooks/useUser';
 import { dispatch, useSelector } from 'store';
 import { activeItem, openDrawer } from 'store/reducers/menu';
 import { LAYOUT_CONST } from 'config';
@@ -20,6 +21,7 @@ import { LAYOUT_CONST } from 'config';
 
 const NavItem = ({ item, level }) => {
   const theme = useTheme();
+  const { user } = useUser();
 
   const menu = useSelector((state) => state.menu);
   const matchDownLg = useMediaQuery(theme.breakpoints.down('lg'));
@@ -28,6 +30,14 @@ const NavItem = ({ item, level }) => {
   const downLG = useMediaQuery(theme.breakpoints.down('lg'));
 
   const { menuOrientation } = useConfig();
+
+  // Check if item requires a specific permission
+  if (item.permission) {
+    const userPermissions = user?.permissions || [];
+    if (!userPermissions.includes(item.permission)) {
+      return null; // Hide menu item if user doesn't have required permission
+    }
+  }
 
   let itemTarget = '_self';
   if (item.target) {

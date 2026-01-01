@@ -13,13 +13,14 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    // Debug: Check permissions in stored JWT
+    // Extract permissions from stored JWT
+    let jwtPermissions = [];
     if (accessToken) {
       try {
         const tokenParts = accessToken.split('.');
         if (tokenParts.length === 3) {
           const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-          console.log('🔍 Stored JWT permissions:', payload.permissions || []);
+          jwtPermissions = payload.permissions || [];
         }
       } catch (e) {
         console.error('Error decoding stored JWT:', e.message);
@@ -156,6 +157,7 @@ export default async function handler(req, res) {
 
       // Role and organization (from WorkOS memberships)
       role: primaryRole,
+      permissions: jwtPermissions, // WorkOS JWT permissions for menu/feature gating
       organizationName: currentOrgName, // Use current organization name from session
       memberships: memberships,
 

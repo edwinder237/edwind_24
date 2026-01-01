@@ -117,7 +117,13 @@ const ReactTable = ({
   setEditableRowIndex,
   onRefresh,
   onViewParticipant,
-  hideToolbar = false
+  hideToolbar = false,
+  roles = [],
+  rolesLoading = false,
+  onAssignRole,
+  groups = [],
+  groupsLoading = false,
+  onAssignGroup
 }) => {
   const theme = useTheme();
   
@@ -623,6 +629,12 @@ const ReactTable = ({
                     handleCRUD={{ handleRemoveMany: onRemoveMany }}
                     iDs={selectedIds}
                     onEmailAccess={onEmailAccess}
+                    roles={roles}
+                    rolesLoading={rolesLoading}
+                    onAssignRole={onAssignRole}
+                    groups={groups}
+                    groupsLoading={groupsLoading}
+                    onAssignGroup={onAssignGroup}
                   />
                   {Object.keys(selectedRowIds).length > 0 && (
                     <Chip

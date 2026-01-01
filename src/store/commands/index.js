@@ -16,6 +16,7 @@ import { settingsCommands } from './settingsCommands';
 import { calendarCommands } from './calendarCommands';
 import { assessmentCommands } from './assessmentCommands';
 import { dailyNotesCommands } from './dailyNotesCommands';
+import { projectCommands } from './projectCommands';
 
 // Export individual command modules
 export { participantCommands } from './participantCommands';
@@ -27,6 +28,7 @@ export { settingsCommands } from './settingsCommands';
 export { calendarCommands } from './calendarCommands';
 export { assessmentCommands } from './assessmentCommands';
 export { dailyNotesCommands } from './dailyNotesCommands';
+export { projectCommands, deleteProject } from './projectCommands';
 
 // Export command dispatcher utilities
 export { createCommandDispatcher, useCommands, CommandShortcuts } from './commandDispatcher';
@@ -41,7 +43,8 @@ export const commands = {
   settings: settingsCommands,
   calendar: calendarCommands,
   assessment: assessmentCommands,
-  dailyNotes: dailyNotesCommands
+  dailyNotes: dailyNotesCommands,
+  project: projectCommands
 };
 
 // Export default as commands for backward compatibility

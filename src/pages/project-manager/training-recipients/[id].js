@@ -44,7 +44,9 @@ import {
   CloseOutlined,
   CameraOutlined,
   UploadOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  LockOutlined,
+  StopOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'store';
 import { getSingleTrainingRecipient, updateTrainingRecipient, deleteParticipant } from 'store/reducers/trainingRecipients';
@@ -88,10 +90,11 @@ const TrainingRecipientDetail = () => {
 
   // Fetch training recipient data
   useEffect(() => {
-    if (id && !loading && (!recipient || recipient.id !== parseInt(id))) {
+    // Don't re-fetch if there's an error (e.g., 404 access denied)
+    if (id && !loading && !error && (!recipient || recipient.id !== parseInt(id))) {
       dispatch(getSingleTrainingRecipient(id));
     }
-  }, [id, dispatch, recipient, loading]);
+  }, [id, dispatch, recipient, loading, error]);
 
   // Initialize edited title when recipient loads
   useEffect(() => {
@@ -446,14 +449,56 @@ const TrainingRecipientDetail = () => {
     );
   }
 
-  if (!recipient && !loading) {
+  if (error || (!recipient && !loading)) {
     return (
-      <Page title="Not Found">
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-          <Stack spacing={2} alignItems="center">
-            <Typography variant="h6">Training recipient not found</Typography>
-            <Button variant="outlined" onClick={handleBackToList}>
-              Back to List
+      <Page title="Access Denied">
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '60vh',
+            textAlign: 'center',
+            p: 3
+          }}
+        >
+          <Box
+            sx={{
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              bgcolor: 'error.lighter',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mb: 3
+            }}
+          >
+            <LockOutlined style={{ fontSize: 48, color: '#f44336' }} />
+          </Box>
+          <Typography variant="h3" gutterBottom>
+            Access Denied
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 1, maxWidth: 400 }}>
+            You don't have permission to view this training recipient. This may belong to a different organization.
+          </Typography>
+          <Typography variant="body2" color="text.disabled" sx={{ mb: 3 }}>
+            Training Recipient ID: {id}
+          </Typography>
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="contained"
+              onClick={handleBackToList}
+              startIcon={<ArrowLeftOutlined />}
+            >
+              Back To Training Recipients
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => router.push('/')}
+            >
+              Go To Dashboard
             </Button>
           </Stack>
         </Box>

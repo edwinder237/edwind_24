@@ -11,15 +11,34 @@ import { entitySelectors } from '../entities';
 
 // ==============================|| BASE SELECTORS ||============================== //
 
-// Use existing Redux stores for compatibility
-const selectAllEvents = (state) => state.projectAgenda?.events || [];
-const selectAllParticipants = (state) => state.projectAgenda?.participants || [];
-const selectAllGroups = (state) => state.projectAgenda?.groups || [];
+// Primary: Use normalized entities store (updated by RTK Query mutations)
+const selectNormalizedEvents = entitySelectors.events.selectAllEvents;
+const selectNormalizedParticipants = entitySelectors.participants.selectAllParticipants;
+const selectNormalizedGroups = entitySelectors.groups.selectAllGroups;
 
-// Fallback to normalized entities if available
-const selectAllEventsNormalized = entitySelectors.events.selectAllEvents;
-const selectAllParticipantsNormalized = entitySelectors.participants.selectAllParticipants;
-const selectAllGroupsNormalized = entitySelectors.groups.selectAllGroups;
+// Fallback: Legacy projectAgenda store (for initial load compatibility)
+const selectLegacyEvents = (state) => state.projectAgenda?.events || [];
+const selectLegacyParticipants = (state) => state.projectAgenda?.participants || [];
+const selectLegacyGroups = (state) => state.projectAgenda?.groups || [];
+
+// Combined selectors: Prefer normalized entities if available, otherwise fall back to legacy
+const selectAllEvents = createSelector(
+  [selectNormalizedEvents, selectLegacyEvents],
+  (normalizedEvents, legacyEvents) =>
+    normalizedEvents.length > 0 ? normalizedEvents : legacyEvents
+);
+
+const selectAllParticipants = createSelector(
+  [selectNormalizedParticipants, selectLegacyParticipants],
+  (normalizedParticipants, legacyParticipants) =>
+    normalizedParticipants.length > 0 ? normalizedParticipants : legacyParticipants
+);
+
+const selectAllGroups = createSelector(
+  [selectNormalizedGroups, selectLegacyGroups],
+  (normalizedGroups, legacyGroups) =>
+    normalizedGroups.length > 0 ? normalizedGroups : legacyGroups
+);
 
 // ==============================|| ATTENDANCE ANALYTICS ||============================== //
 

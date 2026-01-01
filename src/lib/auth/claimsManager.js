@@ -17,15 +17,7 @@ import {
   CLAIMS_CONFIG
 } from './claims.js';
 
-// Ensure cache is initialized
-let cacheInitialized = false;
-
-async function ensureCacheInitialized() {
-  if (!cacheInitialized) {
-    await cache.initializeCache();
-    cacheInitialized = true;
-  }
-}
+// In-memory cache is always ready - no initialization needed
 
 /**
  * Gets user claims from cache or builds fresh
@@ -37,7 +29,6 @@ async function ensureCacheInitialized() {
  * @returns {Promise<UserClaims|null>} User claims or null if user not found
  */
 export async function getUserClaims(workosUserId, workosClient, forceRefresh = false, req = null) {
-  await ensureCacheInitialized();
 
   try {
     const cacheKey = getClaimsKey(workosUserId);
@@ -84,7 +75,6 @@ export async function getUserClaims(workosUserId, workosClient, forceRefresh = f
  * @returns {Promise<void>}
  */
 export async function cacheClaims(claims) {
-  await ensureCacheInitialized();
 
   if (!validateClaims(claims)) {
     throw new Error('Invalid claims structure');
@@ -110,7 +100,6 @@ export async function cacheClaims(claims) {
  * @returns {Promise<void>}
  */
 export async function invalidateClaims(workosUserId) {
-  await ensureCacheInitialized();
 
   try {
     const cacheKey = getClaimsKey(workosUserId);
@@ -129,7 +118,6 @@ export async function invalidateClaims(workosUserId) {
  * @returns {Promise<number>} Number of claims invalidated
  */
 export async function invalidateAllClaims() {
-  await ensureCacheInitialized();
 
   try {
     const pattern = `${CLAIMS_CONFIG.KEY_PREFIX}*`;
@@ -206,7 +194,6 @@ export async function getClaimsFromRequest(req, workosClient) {
  * @returns {Promise<UserClaims|null>} Built and cached claims
  */
 export async function buildAndCacheClaims(workosUserId, workOSMemberships, jwtPermissions = []) {
-  await ensureCacheInitialized();
 
   try {
     // Sync memberships to database first
@@ -236,7 +223,6 @@ export async function buildAndCacheClaims(workosUserId, workOSMemberships, jwtPe
  * @returns {Promise<Object>} Cache statistics
  */
 export async function getCacheStats() {
-  await ensureCacheInitialized();
   return await cache.getStats();
 }
 

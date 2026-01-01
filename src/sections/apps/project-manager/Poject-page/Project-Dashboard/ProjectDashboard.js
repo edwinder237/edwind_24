@@ -59,6 +59,7 @@ const ProjectDashboard = ({ project, styles }) => {
   const technicalCompletion = useSelector(derivedSelectors.dashboard.selectTechnicalCompletion);
   const attendanceSummary = useSelector(derivedSelectors.attendance.selectAttendanceSummary);
   const courseCompletionRate = useSelector(derivedSelectors.dashboard.selectCourseCompletionRate);
+  const dashboardOverview = useSelector(derivedSelectors.dashboard.selectDashboardOverview);
 
   // 4. Use settings selectors for dates and instructors (CQRS pattern)
   const projectSettings = useSelector(selectProjectSettings);
@@ -327,23 +328,19 @@ const ProjectDashboard = ({ project, styles }) => {
   );
 
 
-  // Get metrics from dashboard data or calculate fallbacks
+  // Get metrics from live selectors (primary) with API/prop fallbacks
   const getProjectMetrics = () => {
-    if (dashboardData?.metrics) {
-      return {
-        participants: dashboardData.metrics.participantsCount || 0,
-        sessions: dashboardData.metrics.sessionsCount || 0,
-        groups: dashboardData.metrics.groupsCount || 0,
-        duration: dashboardData.metrics.projectDates?.duration || 30
-      };
-    }
-    
-    // Fallback to project data
+    // Use live selector data as primary source (updates in real-time when participants/events/groups change)
+    const liveParticipants = dashboardOverview?.keyMetrics?.totalParticipants;
+    const liveEvents = dashboardOverview?.keyMetrics?.totalEvents;
+    const liveGroups = dashboardOverview?.keyMetrics?.totalGroups;
+
+    // Fallback chain: live selector → API response → project prop → 0
     return {
-      participants: project?.participants?.length || 0,
-      sessions: project?.events?.length || 0,
-      groups: project?.groups?.length || 0,
-      duration: 30
+      participants: liveParticipants ?? dashboardData?.metrics?.participantsCount ?? project?.participants?.length ?? 0,
+      sessions: liveEvents ?? dashboardData?.metrics?.sessionsCount ?? project?.events?.length ?? 0,
+      groups: liveGroups ?? dashboardData?.metrics?.groupsCount ?? project?.groups?.length ?? 0,
+      duration: dashboardData?.metrics?.projectDates?.duration || 30
     };
   };
 

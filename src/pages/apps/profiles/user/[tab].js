@@ -1,5 +1,3 @@
-import { useRef } from 'react';
-
 // next
 import { useRouter } from 'next/router';
 
@@ -19,12 +17,6 @@ import TabSettings from 'sections/apps/profiles/user/TabSettings';
 // ==============================|| PROFILE - USER ||============================== //
 
 const UserProfile = () => {
-  const inputRef = useRef(null);
-
-  const focusInput = () => {
-    inputRef.current?.focus();
-  };
-
   const router = useRouter();
   const { tab } = router.query;
 
@@ -32,10 +24,10 @@ const UserProfile = () => {
     <Page title="User Profile">
       <Grid container spacing={3}>
         <Grid item xs={12}>
-          <ProfileCard focusInput={focusInput} />
+          <ProfileCard />
         </Grid>
         <Grid item xs={12} md={3}>
-          <ProfileTabs focusInput={focusInput} />
+          <ProfileTabs />
         </Grid>
         <Grid item xs={12} md={9}>
           {tab === 'personal' && <TabPersonal />}

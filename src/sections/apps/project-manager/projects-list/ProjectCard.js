@@ -6,8 +6,9 @@ import { format } from "date-fns";
 
 // Redux
 import { useDispatch, useSelector } from "store";
-import { removeProject, updateProject } from "store/reducers/project";
+import { updateProject } from "store/reducers/project";
 import { openSnackbar } from "store/reducers/snackbar";
+import { deleteProject } from "store/commands";
 
 // Material-UI
 import {
@@ -433,7 +434,6 @@ const TopicsDisplay = ({ topics }) => {
 
 const ProjectCard = ({ Project, projectId }) => {
   const dispatch = useDispatch();
-  const { projects, success } = useSelector((state) => state.projects);
   // Local state
   const [openAlert, setOpenAlert] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -495,19 +495,13 @@ const ProjectCard = ({ Project, projectId }) => {
     setOpenAlert(!openAlert);
     handleMenuClose();
     if (action === true && Project?.id) {
-      dispatch(removeProject(Project.id, projects));
-      if (success !== false) {
-        dispatch(openSnackbar({
-          open: true,
-          message: success,
-          anchorOrigin: { vertical: "top", horizontal: "right" },
-          variant: "alert",
-          alert: { color: "success" },
-          close: false,
-        }));
-      }
+      // Use the deleteProject command which handles success/error toasts internally
+      dispatch(deleteProject({
+        projectId: Project.id,
+        projectTitle: Project.title
+      }));
     }
-  }, [openAlert, handleMenuClose, Project?.id, dispatch, projects, success]);
+  }, [openAlert, handleMenuClose, Project?.id, Project?.title, dispatch]);
 
   // Loading state
   if (!Project) {

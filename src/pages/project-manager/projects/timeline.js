@@ -1,10 +1,10 @@
 "use client"
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Stack, 
-  Button, 
+import {
+  Box,
+  Typography,
+  Stack,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -26,12 +26,13 @@ import {
   Fade,
   Grid,
   Avatar,
-  AvatarGroup
+  AvatarGroup,
+  CircularProgress
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { 
+import {
   CalendarOutlined,
   FilterOutlined,
   PlusOutlined,
@@ -46,7 +47,8 @@ import {
   CompressOutlined,
   TableOutlined,
   UnorderedListOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  LockOutlined
 } from '@ant-design/icons';
 import { format, differenceInDays, addDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 
@@ -54,6 +56,7 @@ import { format, differenceInDays, addDays, startOfMonth, endOfMonth, startOfWee
 import Layout from 'layout';
 import Page from 'components/Page';
 import MainCard from 'components/MainCard';
+import useUser from 'hooks/useUser';
 import ReportCard from 'components/cards/statistics/ReportCard';
 import { mockProjects, mockInstructors } from 'data/mockData';
 import GanttChart from 'components/GanttChart/GanttChart';
@@ -63,7 +66,13 @@ import ProjectsMap from 'components/ProjectsMap';
 
 // ==============================|| PROJECTS TIMELINE ||============================== //
 
+const REQUIRED_PERMISSION = 'access-timeline';
+
 const ProjectsTimeline = ({ googleMapsApiKey }) => {
+  // Permission check
+  const { user, isLoading: userLoading } = useUser();
+  const hasPermission = user?.permissions?.includes(REQUIRED_PERMISSION);
+
   // State management
   const [projects, setProjects] = useState([]);
   const [instructors, setInstructors] = useState([]);
@@ -271,6 +280,41 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
     };
     return stats;
   }, [projects]);
+
+  // Show loading while checking permissions
+  if (userLoading) {
+    return (
+      <Page title="Projects Timeline">
+        <MainCard>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+            <CircularProgress />
+          </Box>
+        </MainCard>
+      </Page>
+    );
+  }
+
+  // Show access denied if user lacks permission
+  if (!hasPermission) {
+    return (
+      <Page title="Access Denied">
+        <MainCard>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <LockOutlined style={{ fontSize: '4rem', color: '#8c8c8c', marginBottom: 16 }} />
+            <Typography variant="h4" gutterBottom>
+              Access Denied
+            </Typography>
+            <Typography color="textSecondary">
+              You don&apos;t have permission to access the Projects Timeline.
+            </Typography>
+            <Typography color="textSecondary" sx={{ mt: 1 }}>
+              Please contact your administrator if you believe this is an error.
+            </Typography>
+          </Box>
+        </MainCard>
+      </Page>
+    );
+  }
 
   return (
     <Page title="Projects Timeline">

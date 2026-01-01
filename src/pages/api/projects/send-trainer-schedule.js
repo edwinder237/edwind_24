@@ -1,5 +1,4 @@
 import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { Resend } from 'resend';
 import prisma from '../../../lib/prisma';
 
@@ -504,7 +503,7 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
     '{{GROUP_NAME}}': 'All Groups', // Trainers see all groups
     '{{EVENT_TITLE}}': events.length > 0 ? events[0].title : 'Training Events',
     '{{COURSE_TITLE}}': events.length > 0 ? events[0].course?.title || '' : '',
-    '{{EVENT_DATE}}': events.length > 0 ? format(new Date(events[0].start), 'EEEE, MMMM d, yyyy', { locale: fr }) : '',
+    '{{EVENT_DATE}}': events.length > 0 ? format(new Date(events[0].start), 'EEEE, MMMM d, yyyy') : '',
     '{{EVENT_TIME}}': events.length > 0 ? format(new Date(events[0].start), 'HH:mm') : '',
     '{{EVENT_LOCATION}}': events.length > 0 ? events[0].location || '' : '',
     '{{EVENT_DESCRIPTION}}': events.length > 0 ? events[0].description || '' : '',
@@ -531,9 +530,9 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
     const scheduleDaysHtml = sortedDates.map(dateKey => {
       const dayEvents = eventsByDate[dateKey];
       const date = new Date(dateKey + 'T12:00:00');
-      const month = format(date, 'MMM', { locale: fr }).toUpperCase();
+      const month = format(date, 'MMM').toUpperCase();
       const day = format(date, 'dd');
-      const dayName = format(date, 'EEEE', { locale: fr }).toUpperCase();
+      const dayName = format(date, 'EEEE').toUpperCase();
       
       // Sort events by start time
       const sortedDayEvents = dayEvents.sort((a, b) => {
@@ -805,7 +804,7 @@ function generateDefaultTrainerTemplate({ projectTitle, events, dailyFocusData, 
     return `
       <div style="margin-bottom: 30px;">
         <h3 style="color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 8px;">
-          ${format(eventDate, 'EEEE, MMMM d, yyyy', { locale: fr })}
+          ${format(eventDate, 'EEEE, MMMM d, yyyy')}
         </h3>
         ${dailyFocus ? `
           <div style="background-color: #e3f2fd; padding: 12px; border-radius: 6px; margin-bottom: 15px;">

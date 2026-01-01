@@ -1,9 +1,13 @@
+import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
 import prisma from '../../../lib/prisma';
+import { errorHandler } from '../../../lib/errors/index.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  const { orgContext } = req;
 
   try {
     const {
@@ -35,18 +39,24 @@ export default async function handler(req, res) {
     const assessmentsArray = assessments || req.query['assessments[]'];
 
 
-    // Build where clause for events
+    // Build where clause for events with multi-tenant scoping
     const eventWhere = {
       eventType: 'course', // Only course events
-      courseId: { not: null } // Must have a courseId
+      courseId: { not: null }, // Must have a courseId
+      // Multi-tenant scoping: Only fetch events from projects in accessible sub-organizations
+      project: {
+        sub_organizationId: {
+          in: orgContext.subOrganizationIds
+        }
+      }
     };
-    
+
     // Handle project filtering - projects filter takes precedence over single projectId
     if (projectsArray) {
       // Handle both array and string cases (query params can be strings)
       const projectIds = Array.isArray(projectsArray) ? projectsArray : [projectsArray];
       const validProjectIds = projectIds.filter(id => id && id.toString().trim() !== '');
-      
+
       if (validProjectIds.length > 0) {
         eventWhere.projectId = {
           in: validProjectIds.map(id => parseInt(id))
@@ -191,7 +201,7 @@ export default async function handler(req, res) {
     for (const event of events) {
       for (const attendee of event.event_attendees) {
         const participant = attendee.enrollee.participant;
-        
+
         // Apply participant filter if provided
         if (participantsArray && (Array.isArray(participantsArray) ? participantsArray.length > 0 : participantsArray)) {
           const participantIds = Array.isArray(participantsArray) ? participantsArray : [participantsArray];
@@ -219,7 +229,7 @@ export default async function handler(req, res) {
         // Determine completion status based on attendance
         let completionStatus = 'Not Started';
         let isCompleted = false;
-        
+
         if (attendee.attendance_status === 'present' || attendee.attendance_status === 'late') {
           completionStatus = 'Completed';
           isCompleted = true;
@@ -310,7 +320,7 @@ export default async function handler(req, res) {
 
     // Get total count for pagination
     const totalCount = trainingRecords.length;
-    
+
     // Apply pagination to the transformed data
     const startIndex = (parseInt(page) - 1) * parseInt(limit);
     const endIndex = startIndex + parseInt(limit);
@@ -329,10 +339,8 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error fetching training records:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error',
-      error: error.message 
-    });
+    return errorHandler(error, req, res);
   }
 }
+
+export default withOrgScope(handler);

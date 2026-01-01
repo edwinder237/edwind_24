@@ -448,7 +448,7 @@ model curriculums {
   cuid                     String                                @default(cuid())
   title                    String
   description              String?
-  sub_organizationId       Int?
+  sub_organizationId       Int
   createdAt                DateTime                              @default(now())
   updatedAt                DateTime                              @default(now())
   assessment_configs       curriculum_assessment_config[]
@@ -458,7 +458,7 @@ model curriculums {
   project_curriculums      project_curriculums[]
   supportActivities        supportActivities[]
   training_plans           training_plans[]
-  sub_organization         sub_organizations?                    @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+  sub_organization         sub_organizations                     @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 
   @@index([sub_organizationId])
 }
