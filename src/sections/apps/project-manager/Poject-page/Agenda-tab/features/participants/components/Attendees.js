@@ -71,6 +71,9 @@ const AttendeesRTK = ({
     groups: agendaData.groups || []
   } : { participants: [], groups: [] };
 
+  // Get all project events for "Move to Event" functionality
+  const projectEvents = agendaData?.events || [];
+
   // Participant drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
@@ -403,6 +406,8 @@ const AttendeesRTK = ({
                   onMoveToGroup={attendanceManagement.handleMoveToGroup}
                   onMoveToEvent={handleMoveToEvent}
                   onParticipantClick={handleParticipantClick}
+                  availableEvents={projectEvents}
+                  currentEventId={selectedEvent?.id}
                 />
               </Stack>
             </Stack>
