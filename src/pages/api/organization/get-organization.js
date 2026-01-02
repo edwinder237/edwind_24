@@ -42,7 +42,7 @@ async function handler(req, res) {
     }
   }
 
-  // Fetch current organization with sub-organizations
+  // Fetch current organization with sub-organizations and subscription
   const organization = await prisma.organizations.findUnique({
     where: { id: orgContext.organizationId },
     include: {
@@ -51,6 +51,17 @@ async function handler(req, res) {
           id: true,
           title: true,
           organizationId: true
+        }
+      },
+      subscription: {
+        include: {
+          plan: {
+            select: {
+              planId: true,
+              name: true,
+              description: true
+            }
+          }
         }
       }
     }

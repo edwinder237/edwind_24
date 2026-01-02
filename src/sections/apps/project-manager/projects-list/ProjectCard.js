@@ -511,28 +511,27 @@ const ProjectCard = ({ Project, projectId }) => {
   return (
     <>
       <MainCard
+        content={false}
         sx={{
-          height: 1,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
           "&:hover": {
             transform: "scale3d(1.02, 1.02, 1)",
             transition: "all .4s ease-in-out",
           },
-          "& .MuiCardContent-root": {
-            height: 1,
-            display: "flex",
-            flexDirection: "column",
-          },
         }}
       >
-        <Grid bgcolor="" width="110%" container spacing={2.25}>
-          <Grid
-            item
-            xs={12}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Header Row */}
+          <Box
             sx={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              pr: 2,
+              px: 2.5,
+              py: 1.5,
             }}
           >
             <StatusDisplay project={Project} statusEditor={statusEditor} />
@@ -542,6 +541,7 @@ const ProjectCard = ({ Project, projectId }) => {
               aria-label="project menu"
               color="secondary"
               onClick={handleMenuClick}
+              size="small"
             >
               <MoreOutlined style={{ fontSize: "1.15rem" }} />
             </IconButton>
@@ -556,11 +556,10 @@ const ProjectCard = ({ Project, projectId }) => {
             >
               <MenuItem onClick={handleAlertClose}>Delete</MenuItem>
             </Menu>
-          </Grid>
-          <Grid item xs={12}>
-            <Divider />
-          </Grid>
-          <Box sx={{ width: 1, m: "auto" }}>
+          </Box>
+
+          {/* Image */}
+          <Box sx={{ width: '100%' }}>
             <CardMedia
               component="img"
               image={finalImageUrl}
@@ -575,7 +574,7 @@ const ProjectCard = ({ Project, projectId }) => {
             />
           </Box>
 
-          <CardContent sx={{ p: 2 }}>
+          <CardContent sx={{ p: 2, px: 2.5, flex: 1 }}>
             <Stack spacing={1.5}>
               {/* Project Title & Training Recipient */}
               <Stack spacing={0.75}>
@@ -646,7 +645,7 @@ const ProjectCard = ({ Project, projectId }) => {
               </Grid>
             </Stack>
           </CardContent>
-        </Grid>
+        </Box>
 
         <Divider />
         <Stack
@@ -655,7 +654,7 @@ const ProjectCard = ({ Project, projectId }) => {
           alignItems="center"
           spacing={1}
           justifyContent="space-between"
-          sx={{ mt: "auto", mb: 0, pt: 2.25 }}
+          sx={{ mt: "auto", mb: 0, pt: 2, px: 2.5, pb: 2 }}
         >
           <Stack spacing={0.5}>
             {Project?.sub_organization?.organization?.title && (

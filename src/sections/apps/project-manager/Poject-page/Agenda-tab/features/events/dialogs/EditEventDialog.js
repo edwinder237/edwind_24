@@ -38,6 +38,7 @@ import { useDispatch, useSelector } from 'store';
 import { useGetProjectAgendaQuery } from 'store/api/projectApi';
 import { eventCommands } from 'store/commands';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
+import { useDateTimeRangeInput, formatDateTimeLocal } from 'hooks/useTimeRangeInput';
 
 const EditEventDialog = ({ open, onClose, event, project }) => {
   const theme = useTheme();
@@ -46,6 +47,17 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
 
   // Track if dialog was ever opened to prevent premature data loading
   const [wasOpened, setWasOpened] = useState(false);
+
+  // DateTime range hook with auto-adjustment
+  const {
+    startDateTime,
+    endDateTime,
+    setStartDateTime,
+    setEndDateTime,
+    reset: resetDateTimes,
+    _setStartRaw,
+    _setEndRaw
+  } = useDateTimeRangeInput({ minDurationMinutes: 60 });
 
   useEffect(() => {
     if (open && event?.id) {
@@ -110,13 +122,11 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     return courses;
   }, [curriculums]);
   
-  // Form state
+  // Form state (start/end handled by useDateTimeRangeInput hook)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     eventType: 'other',
-    start: '',
-    end: '',
     allDay: false,
     location: '',
     instructor: null,
@@ -171,34 +181,23 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     return leadInstructor || availableInstructors[0] || null;
   }, [availableInstructors]);
 
-  // Helper function to format date for datetime-local input
-  const formatDateTimeLocal = (date) => {
-    const d = new Date(date);
-    // Get local date and time components
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
   // Initialize form data when event changes
   useEffect(() => {
     if (event && open) {
       // Extract courseId from event or course object
       const courseId = event.courseId || event.course?.id || null;
-      
+
       // Use event instructor or default to main lead instructor
       const instructorToUse = event.instructor || defaultInstructor;
-      
+
+      // Initialize datetime values using raw setters (no auto-adjustment on init)
+      _setStartRaw(formatDateTimeLocal(event.start));
+      _setEndRaw(formatDateTimeLocal(event.end));
+
       setFormData({
         title: event.title || '',
         description: event.description || '',
         eventType: event.eventType || 'other',
-        start: formatDateTimeLocal(event.start), // Use local time formatting
-        end: formatDateTimeLocal(event.end),
         allDay: event.allDay || false,
         location: event.location || '',
         instructor: instructorToUse,
@@ -209,7 +208,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         selectedGroups: event.event_groups?.map(eg => eg.groupId) || []
       });
     }
-  }, [event, open, theme.palette.primary.main, defaultInstructor]);
+  }, [event, open, theme.palette.primary.main, defaultInstructor, _setStartRaw, _setEndRaw]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -240,12 +239,11 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   };
 
   const handleClose = () => {
+    resetDateTimes('', '');
     setFormData({
       title: '',
       description: '',
       eventType: 'other',
-      start: '',
-      end: '',
       allDay: false,
       location: '',
       instructor: null,
@@ -269,8 +267,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         eventId: parseInt(event.id),
         updates: {
           ...formData,
-          start: new Date(formData.start).toISOString(),
-          end: new Date(formData.end).toISOString(),
+          start: new Date(startDateTime).toISOString(),
+          end: new Date(endDateTime).toISOString(),
           textColor: '#fff' // Default text color for contrast
         },
         projectId: project?.id
@@ -555,8 +553,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 fullWidth
                 label="Start Time"
                 type="datetime-local"
-                value={formData.start}
-                onChange={(e) => handleInputChange('start', e.target.value)}
+                value={startDateTime}
+                onChange={(e) => setStartDateTime(e.target.value)}
                 disabled={formData.allDay}
                 InputLabelProps={{
                   shrink: true,
@@ -575,8 +573,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 fullWidth
                 label="End Time"
                 type="datetime-local"
-                value={formData.end}
-                onChange={(e) => handleInputChange('end', e.target.value)}
+                value={endDateTime}
+                onChange={(e) => setEndDateTime(e.target.value)}
                 disabled={formData.allDay}
                 InputLabelProps={{
                   shrink: true,
@@ -595,9 +593,9 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 fullWidth
                 label="Duration"
                 value={(() => {
-                  if (!formData.start || !formData.end) return '';
-                  const start = new Date(formData.start);
-                  const end = new Date(formData.end);
+                  if (!startDateTime || !endDateTime) return '';
+                  const start = new Date(startDateTime);
+                  const end = new Date(endDateTime);
                   const diffMs = end - start;
                   const diffMins = Math.round(diffMs / 60000);
                   if (diffMins < 60) return `${diffMins} minutes`;

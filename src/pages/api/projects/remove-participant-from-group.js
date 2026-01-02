@@ -57,6 +57,39 @@ async function handler(req, res) {
       throw new NotFoundError('Participant not found in this group');
     }
 
+    // CASCADE: Remove participant from events where they were added via this group
+    const eventGroups = await prisma.event_groups.findMany({
+      where: { groupId: parseInt(groupId) },
+      select: { eventsId: true }
+    });
+
+    const affectedEventIds = [];
+    for (const eg of eventGroups) {
+      // Check if participant is in any OTHER group assigned to this event
+      const otherGroupMembership = await prisma.event_groups.findFirst({
+        where: {
+          eventsId: eg.eventsId,
+          groupId: { not: parseInt(groupId) },
+          groups: {
+            participants: {
+              some: { participantId: parseInt(participantId) }
+            }
+          }
+        }
+      });
+
+      // Only remove if not in any other group for this event
+      if (!otherGroupMembership) {
+        await prisma.event_attendees.deleteMany({
+          where: {
+            eventsId: eg.eventsId,
+            enrolleeId: parseInt(participantId)
+          }
+        });
+        affectedEventIds.push(eg.eventsId);
+      }
+    }
+
     // Fetch the updated group with all participants
     const updatedGroup = await prisma.groups.findUnique({
       where: { id: parseInt(groupId) },
@@ -85,7 +118,8 @@ async function handler(req, res) {
     res.status(200).json({
       success: true,
       message: 'Participant removed from group successfully',
-      group: updatedGroup
+      group: updatedGroup,
+      affectedEventIds
     });
   } catch (error) {
     console.error('Error removing participant from group:', error);

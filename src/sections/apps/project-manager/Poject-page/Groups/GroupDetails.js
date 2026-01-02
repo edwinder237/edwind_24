@@ -32,9 +32,9 @@ import {
   FormControlLabel,
   Radio,
   Alert,
-  Autocomplete,
   TextField,
   Checkbox,
+  Switch,
 } from "@mui/material";
 
 // third-party
@@ -67,6 +67,8 @@ const GroupDetails = ({ Group, onProgressLoad, projectId }) => {
   const [selectedParticipants, setSelectedParticipants] = useState([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignmentAction, setAssignmentAction] = useState('add'); // 'add' or 'move'
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAssignedParticipants, setShowAssignedParticipants] = useState(false); // Toggle to show/hide participants already in a group
 
   // Get participants from normalized entity store (CQRS pattern)
   const normalizedParticipants = useSelector(selectAllParticipants);
@@ -126,6 +128,7 @@ const GroupDetails = ({ Group, onProgressLoad, projectId }) => {
     setAddParticipantDialogOpen(false);
     setSelectedParticipants([]);
     setAssignmentAction('add');
+    setSearchTerm('');
   };
 
   // Get all project participants with their group information - memoized for performance
@@ -393,98 +396,174 @@ const GroupDetails = ({ Group, onProgressLoad, projectId }) => {
                   All project participants are already assigned to this group
                 </Typography>
               ) : (
-                <Stack spacing={3}>
-                  <Autocomplete
-                    multiple
-                    fullWidth
-                    options={availableParticipants}
-                    value={selectedParticipants}
-                    onChange={(event, newValue) => {
-                      // Ensure no duplicates in the selected values
-                      const uniqueValues = newValue.reduce((unique, participant) => {
-                        if (!unique.some(p => p.id === participant.id)) {
-                          unique.push(participant);
-                        }
-                        return unique;
-                      }, []);
-                      
-                      setSelectedParticipants(uniqueValues);
-                      setAssignmentAction('add'); // Reset to default when selection changes
-                    }}
-                    disableCloseOnSelect
-                    ListboxProps={{
-                      style: { maxHeight: '400px', overflow: 'auto' }
-                    }}
-                    getOptionLabel={(option) => 
-                      `${option.participant?.firstName} ${option.participant?.lastName}`.trim()
+                <Stack spacing={2}>
+                  {/* Search Field and Filter Toggle */}
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Search by name, role, or current group..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </Stack>
+
+                  {/* Toggle to show/hide participants already in a group */}
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={showAssignedParticipants}
+                          onChange={(e) => setShowAssignedParticipants(e.target.checked)}
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" color="text.secondary">
+                          Show participants already in a group
+                        </Typography>
+                      }
+                    />
+                  </Stack>
+
+                  {/* Selected Participants Summary */}
+                  {selectedParticipants.length > 0 && (
+                    <Box sx={{
+                      p: 1.5,
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: 'primary.main'
+                    }}>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                        <Typography variant="body2" color="primary.main" fontWeight={500}>
+                          {selectedParticipants.length} participant{selectedParticipants.length > 1 ? 's' : ''} selected
+                        </Typography>
+                        <Button
+                          size="small"
+                          onClick={() => setSelectedParticipants([])}
+                          sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                        >
+                          Clear All
+                        </Button>
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {/* Scrollable Participants List */}
+                  <Box sx={{
+                    maxHeight: '280px',
+                    overflowY: 'auto',
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    '&::-webkit-scrollbar': {
+                      width: '8px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      backgroundColor: 'rgba(0,0,0,0.05)',
+                      borderRadius: '4px',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      backgroundColor: 'rgba(0,0,0,0.2)',
+                      borderRadius: '4px',
+                      '&:hover': {
+                        backgroundColor: 'rgba(0,0,0,0.3)',
+                      }
                     }
-                    filterOptions={(options, { inputValue }) => {
-                      const normalizedInput = normalizeText(inputValue);
-                      return options.filter((option) => {
+                  }}>
+                    {(() => {
+                      const normalizedSearch = normalizeText(searchTerm);
+                      const filteredParticipants = availableParticipants.filter((option) => {
+                        // Filter by assigned status first
+                        if (!showAssignedParticipants && option.currentGroup) {
+                          return false;
+                        }
+
+                        // Then filter by search term
+                        if (!searchTerm.trim()) return true;
                         const fullName = `${option.participant?.firstName} ${option.participant?.lastName}`;
                         const roleName = option.participant?.role?.title || '';
                         const groupName = option.currentGroup?.groupName || '';
-                        
-                        return normalizeText(fullName).includes(normalizedInput) ||
-                               normalizeText(roleName).includes(normalizedInput) ||
-                               normalizeText(groupName).includes(normalizedInput);
+
+                        return normalizeText(fullName).includes(normalizedSearch) ||
+                               normalizeText(roleName).includes(normalizedSearch) ||
+                               normalizeText(groupName).includes(normalizedSearch);
                       });
-                    }}
-                    renderOption={(props, option, { selected }) => {
-                      const { key, ...otherProps } = props;
-                      return (
-                        <Box component="li" key={key} {...otherProps}>
-                          <Checkbox
-                            style={{ marginRight: 8 }}
-                            checked={selected}
-                          />
-                          <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
-                            <Typography>
-                              {option.participant?.firstName} {option.participant?.lastName}
-                            </Typography>
-                            <Chip 
-                              label={option.participant?.role?.title || 'No Role'} 
-                              size="small" 
-                              variant="outlined" 
-                            />
-                            {option.currentGroup && (
-                              <Chip 
-                                label={`In ${option.currentGroup.groupName}`}
-                                size="small" 
-                                variant="filled"
-                                style={{ 
-                                  backgroundColor: option.currentGroup.chipColor || '#1976d2',
-                                  color: '#fff'
-                                }}
-                              />
-                            )}
-                          </Stack>
-                        </Box>
-                      );
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Search and Select Participants"
-                        placeholder="Type to search by name, role, or current group..."
-                      />
-                    )}
-                    noOptionsText="No participants found"
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    renderTags={(tagValue, getTagProps) =>
-                      tagValue.map((option, index) => {
-                        const { key, ...tagProps } = getTagProps({ index });
+
+                      if (filteredParticipants.length === 0) {
                         return (
-                          <Chip
-                            key={key}
-                            label={`${option.participant?.firstName} ${option.participant?.lastName}`.trim()}
-                            size="small"
-                            {...tagProps}
-                          />
+                          <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>
+                            {searchTerm.trim() ? `No participants found matching "${searchTerm}"` : 'No available participants'}
+                          </Typography>
                         );
-                      })
-                    }
-                  />
+                      }
+
+                      return filteredParticipants.map((option) => {
+                        const isSelected = selectedParticipants.some(p => p.id === option.id);
+                        return (
+                          <Box
+                            key={option.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedParticipants(prev => prev.filter(p => p.id !== option.id));
+                              } else {
+                                setSelectedParticipants(prev => [...prev, option]);
+                              }
+                              setAssignmentAction('add');
+                            }}
+                            sx={{
+                              p: 1.5,
+                              cursor: 'pointer',
+                              borderBottom: 1,
+                              borderColor: 'divider',
+                              backgroundColor: isSelected ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
+                              '&:hover': {
+                                backgroundColor: isSelected ? alpha(theme.palette.primary.main, 0.12) : 'action.hover',
+                              },
+                              '&:last-child': {
+                                borderBottom: 'none'
+                              }
+                            }}
+                          >
+                            <Stack direction="row" spacing={1.5} alignItems="center">
+                              <Checkbox
+                                checked={isSelected}
+                                size="small"
+                                sx={{ p: 0 }}
+                              />
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                  <Typography variant="body2" fontWeight={500}>
+                                    {option.participant?.firstName} {option.participant?.lastName}
+                                  </Typography>
+                                  <Chip
+                                    label={option.participant?.role?.title || 'No Role'}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ height: '20px', fontSize: '0.7rem' }}
+                                  />
+                                  {option.currentGroup && (
+                                    <Chip
+                                      label={`In ${option.currentGroup.groupName}`}
+                                      size="small"
+                                      variant="filled"
+                                      sx={{
+                                        height: '20px',
+                                        fontSize: '0.7rem',
+                                        backgroundColor: option.currentGroup.chipColor || '#1976d2',
+                                        color: '#fff'
+                                      }}
+                                    />
+                                  )}
+                                </Stack>
+                              </Box>
+                            </Stack>
+                          </Box>
+                        );
+                      });
+                    })()}
+                  </Box>
 
                   {/* Show action selection if any participant is in another group */}
                   {selectedParticipants.some(p => p.currentGroup) && (

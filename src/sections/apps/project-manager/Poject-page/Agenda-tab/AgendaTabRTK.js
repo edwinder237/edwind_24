@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography, useMediaQuery } from '@mui/material';
+import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography, useMediaQuery, Chip } from '@mui/material';
 import { useSelector } from 'react-redux';
 import {
   selectAvailableRoles,
@@ -311,8 +311,19 @@ const AgendaTabRTK = React.memo(() => {
   // Header content with better performance
   const headerContent = useMemo(() => (
     <Stack direction="row" spacing={2} alignItems="center">
-      {/* Import/Export Buttons */}
-      <Stack direction="row" spacing={1}>
+      {/* Import/Export Buttons - Pro Features */}
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Chip
+          label="Pro"
+          size="small"
+          sx={{
+            height: 20,
+            fontSize: '0.65rem',
+            fontWeight: 700,
+            bgcolor: 'warning.main',
+            color: 'warning.contrastText',
+          }}
+        />
         <Button
           variant="outlined"
           size="small"

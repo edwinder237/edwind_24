@@ -224,9 +224,18 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData, p
     return movingParticipants.has(participantId);
   }, [movingParticipants]);
 
+  // Check if ANY action is in progress (to disable all controls)
+  const isAnyActionInProgress = movingParticipants.size > 0;
+
   // Handle group assignment using CQRS commands
   const handleAssignToGroup = useCallback(async (participantId, newGroupId) => {
     if (!participantId) return;
+
+    // Prevent double actions - check if any action is already in progress
+    if (movingParticipants.size > 0) {
+      console.log('[GroupEnrolledTable] Action blocked - another action is in progress');
+      return;
+    }
 
     // Find current group
     const currentParticipantGroup = getParticipantGroup(participantId);
@@ -267,7 +276,7 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData, p
         return newSet;
       });
     }
-  }, [dispatch, getParticipantGroup, projectId, groups]);
+  }, [dispatch, getParticipantGroup, projectId, groups, movingParticipants]);
 
   const participantsWithAttendance = enrolledData.filter(person => 
     person && person.participant && person.participant.participant
@@ -335,8 +344,30 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData, p
                 value={currentParticipantGroup?.id || ''}
                 onChange={(e) => handleAssignToGroup(participantId, e.target.value)}
                 displayEmpty
-                disabled={isAssigning}
+                disabled={isAnyActionInProgress}
                 size="small"
+                renderValue={(selected) => {
+                  // Find the selected group to display properly
+                  const selectedGroup = groups?.find(g => g.id === selected);
+                  if (selectedGroup) {
+                    return (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Box
+                          sx={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: '50%',
+                            backgroundColor: selectedGroup.chipColor || '#1976d2',
+                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                          }}
+                        />
+                        <span>{selectedGroup.groupName}</span>
+                      </Stack>
+                    );
+                  }
+                  // If no group selected, show placeholder
+                  return <span style={{ color: '#999' }}>No Group</span>;
+                }}
               >
                 {/* Show ALL groups, not just current one */}
                 {groups?.map((group) => (
@@ -369,7 +400,7 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData, p
         },
       },
     ],
-    [groups, isMoving, getParticipantGroup, handleAssignToGroup, currentGroup, progressData]
+    [groups, isMoving, isAnyActionInProgress, getParticipantGroup, handleAssignToGroup, currentGroup, progressData]
   );
 
   return <ReactTable columns={columns} data={participantsWithAttendance} />;

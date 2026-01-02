@@ -1,6 +1,7 @@
 import { WorkOS } from '@workos-inc/node';
 import prisma from '../../lib/prisma';
 import { getCurrentOrganization } from '../../lib/session/organizationSession';
+import { getOrgSubscription } from '../../lib/features/subscriptionService';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
@@ -137,6 +138,23 @@ export default async function handler(req, res) {
       // Fall back to database cached values
     }
 
+    // Get subscription info for current organization
+    let subscription = null;
+    if (currentOrgId) {
+      try {
+        const subData = await getOrgSubscription(currentOrgId);
+        if (subData) {
+          subscription = {
+            planId: subData.planId,
+            planName: subData.plan?.name || 'Free',
+            status: subData.status
+          };
+        }
+      } catch (subError) {
+        console.error('Error fetching subscription:', subError);
+      }
+    }
+
     // Construct full user object with WorkOS attributes
     const fullUser = {
       // Core identity
@@ -175,7 +193,10 @@ export default async function handler(req, res) {
       directoryAttributes: {
         // These fields are available when user is synced from directory
         // We'll add them in the next step when enhancing directory sync
-      }
+      },
+
+      // Subscription info for current organization
+      subscription: subscription || { planId: 'free', planName: 'Free', status: 'active' }
     };
 
     res.status(200).json(fullUser);

@@ -429,6 +429,19 @@ const Profile = () => {
                                 {user.subOrganizationName}
                               </Typography>
                             )}
+                            {user?.subscription?.planName && (
+                              <Chip
+                                label={user.subscription.planName}
+                                size="small"
+                                sx={{
+                                  height: 18,
+                                  fontSize: '0.65rem',
+                                  mt: 0.5,
+                                  bgcolor: user.subscription.planId === 'free' ? '#e0e0e0' : '#e3f2fd',
+                                  color: user.subscription.planId === 'free' ? '#666' : '#1565c0'
+                                }}
+                              />
+                            )}
                           </Stack>
                         </Stack>
                       </Grid>

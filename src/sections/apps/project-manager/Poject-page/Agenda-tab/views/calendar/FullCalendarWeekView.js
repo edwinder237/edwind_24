@@ -247,7 +247,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     }
   }, [onEventSelect]);
 
-  // Handle slot selection for adding new events
+  // Handle slot selection for adding new events (drag selection on desktop)
   const handleDateSelect = useCallback((selectInfo) => {
     // CRITICAL: Check ref FIRST - blocks if operation in progress
     if (operationInProgressRef.current) {
@@ -274,6 +274,35 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
 
     // Clear the selection
     selectInfo.view.calendar.unselect();
+  }, [dispatch]);
+
+  // Handle single tap/click on date (for touch devices and quick clicks)
+  const handleDateClick = useCallback((clickInfo) => {
+    // CRITICAL: Check ref FIRST - blocks if operation in progress
+    if (operationInProgressRef.current) {
+      console.log('[FullCalendarWeekView] Dialog open BLOCKED by ref');
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Please wait - an operation is currently in progress',
+        variant: 'alert',
+        alert: { color: 'warning' },
+        close: false,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+        autoHideDuration: 2000
+      }));
+      return;
+    }
+
+    // Create a 1-hour slot starting at the clicked time
+    const startDate = clickInfo.date;
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
+
+    setSelectedSlot({
+      start: startDate,
+      end: endDate,
+      allDay: clickInfo.allDay
+    });
+    setAddEventDialogOpen(true);
   }, [dispatch]);
 
   // Handle event drop (drag and drop)
@@ -1299,6 +1328,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
             selectLongPressDelay={150}
             longPressDelay={150}
             eventClick={handleEventClick}
+            dateClick={handleDateClick}
             select={handleDateSelect}
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}

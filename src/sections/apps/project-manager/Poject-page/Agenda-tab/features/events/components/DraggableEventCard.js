@@ -54,6 +54,7 @@ import { fetchProjectAgenda } from 'store/reducers/project/agenda';
 import { openSnackbar } from 'store/reducers/snackbar';
 import EventDetailsSection from './EventDetailsSection';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
+import { useTimeRangeInput } from 'hooks/useTimeRangeInput';
 
 // Drag types
 const ItemTypes = {
@@ -81,8 +82,15 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   const project_participants = participants;
   
   
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const {
+    startTime,
+    endTime,
+    setStartTime,
+    setEndTime,
+    reset: resetTimes,
+    _setStartTimeRaw,
+    _setEndTimeRaw
+  } = useTimeRangeInput({ minDurationMinutes: 60 });
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [allDay, setAllDay] = useState(false);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
@@ -430,10 +438,10 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
     if (event) {
       const start = new Date(event.start);
       const end = new Date(event.end);
-      setStartTime(start.toTimeString().slice(0, 5));
-      setEndTime(end.toTimeString().slice(0, 5));
+      _setStartTimeRaw(start.toTimeString().slice(0, 5));
+      _setEndTimeRaw(end.toTimeString().slice(0, 5));
     }
-  }, [event]);
+  }, [event, _setStartTimeRaw, _setEndTimeRaw]);
 
 
   // Group dropdown handlers
@@ -1154,144 +1162,63 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
           <Box sx={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 1,
-            p: 1
+            p: 1,
+            flexWrap: 'nowrap'
           }}>
-
-            {/* Start Time Input */}
-            <TextField
-              type="time"
-              size="small"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              disabled={allDay}
-              sx={{
-                width: 110,
-                '& .MuiOutlinedInput-root': {
-                  fontSize: '0.8rem',
-                  height: 28,
-                  pl: 1,
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    transform: 'translateY(-1px)',
-                    boxShadow: theme.shadows[2]
-                  },
-                  '&.Mui-focused': {
-                    transform: 'translateY(-1px)',
-                    boxShadow: theme.shadows[3]
+            {/* Time inputs */}
+            <Stack direction="row" alignItems="center" spacing={0.5}>
+              <TextField
+                type="time"
+                size="small"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                disabled={allDay}
+                sx={{
+                  width: 95,
+                  '& .MuiOutlinedInput-root': {
+                    fontSize: '0.75rem',
+                    height: 28,
+                    '& input': {
+                      px: 0.5
+                    }
                   }
-                },
-                '& .MuiOutlinedInput-input': {
-                  pl: 0.5
-                }
-              }}
-            />
-
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                fontWeight: 500,
-                opacity: allDay ? 0.5 : 1,
-                transition: 'opacity 0.2s ease',
-                mx: 0.5
-              }}
-            >
-              -
-            </Typography>
-
-            {/* End Time Input */}
-            <TextField
-              type="time"
-              size="small"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              disabled={allDay}
-              sx={{
-                width: 110,
-                '& .MuiOutlinedInput-root': {
-                  fontSize: '0.8rem',
-                  height: 28,
-                  pl: 1,
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    transform: 'translateY(-1px)',
-                    boxShadow: theme.shadows[2]
-                  },
-                  '&.Mui-focused': {
-                    transform: 'translateY(-1px)',
-                    boxShadow: theme.shadows[3]
-                  }
-                },
-                '& .MuiOutlinedInput-input': {
-                  pl: 0.5
-                }
-              }}
-            />
-
-            {/* All Day Checkbox */}
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              ml: 1.5,
-              mr: 2
-            }}>
-              <input
-                type="checkbox"
-                checked={allDay}
-                onChange={(e) => {
-                  setAllDay(e.target.checked);
-                  if (e.target.checked) {
-                    setStartTime('00:00');
-                    setEndTime('23:59');
-                  }
-                }}
-                style={{
-                  marginRight: 4,
-                  cursor: 'pointer',
-                  transform: 'scale(0.8)'
                 }}
               />
-              <Typography
-                variant="caption"
+              <Typography variant="body2" color="text.secondary" sx={{ px: 0.25 }}>-</Typography>
+              <TextField
+                type="time"
+                size="small"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                disabled={allDay}
                 sx={{
-                  cursor: 'pointer',
-                  fontWeight: allDay ? 600 : 400,
-                  color: allDay ? 'primary.main' : 'text.secondary',
-                  fontSize: '0.7rem'
-                }}
-                onClick={() => {
-                  const newAllDay = !allDay;
-                  setAllDay(newAllDay);
-                  if (newAllDay) {
-                    setStartTime('00:00');
-                    setEndTime('23:59');
+                  width: 95,
+                  '& .MuiOutlinedInput-root': {
+                    fontSize: '0.75rem',
+                    height: 28,
+                    '& input': {
+                      px: 0.5
+                    }
                   }
                 }}
-              >
-                All day
-              </Typography>
-            </Box>
+              />
+            </Stack>
 
-            {/* Action Buttons - Now on same row */}
-            <Box sx={{
-              display: 'flex',
-              gap: 0.5,
-              ml: 'auto'
-            }}>
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
               <Button
                 variant="text"
                 size="small"
                 onClick={() => {
                   setIsEditingTime(false);
-                  // Reset values on cancel
                   const start = new Date(event.start);
                   const end = new Date(event.end);
-                  setStartTime(start.toTimeString().slice(0, 5));
-                  setEndTime(end.toTimeString().slice(0, 5));
+                  resetTimes(start.toTimeString().slice(0, 5), end.toTimeString().slice(0, 5));
                   setAllDay(false);
                 }}
-
+                sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}
               >
                 Cancel
               </Button>
@@ -1300,7 +1227,6 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                 size="small"
                 disabled={!startTime || !endTime}
                 onClick={() => {
-                  // Save time changes
                   if (startTime && endTime) {
                     const eventDate = new Date(event.start);
                     const [startHour, startMin] = startTime.split(':');
@@ -1312,11 +1238,6 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                     const newEnd = new Date(eventDate);
                     newEnd.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
 
-                    // If end time is before start time, assume it's next day
-                    if (newEnd <= newStart) {
-                      newEnd.setDate(newEnd.getDate() + 1);
-                    }
-
                     onTimeEdit({
                       ...event,
                       start: newStart.toISOString(),
@@ -1325,11 +1246,11 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                   }
                   setIsEditingTime(false);
                 }}
-
+                sx={{ minWidth: 'auto', px: 1.5, fontSize: '0.75rem' }}
               >
                 Save
               </Button>
-            </Box>
+            </Stack>
           </Box>
         </Collapse>
 

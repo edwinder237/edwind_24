@@ -37,6 +37,7 @@ import { eventCommands } from 'store/commands';
 import { openSnackbar } from 'store/reducers/snackbar';
 import EventModalCards from '../components/EventModalCards';
 import { calculateCourseDurationFromModules } from 'utils/durationCalculations';
+import { useTimeRangeInput } from 'hooks/useTimeRangeInput';
 
 // Tab Panel Component
 function TabPanel(props) {
@@ -100,13 +101,42 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   }, [projectInstructors]);
   const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [editableTime, setEditableTime] = useState(selectedTime || '9:00 AM');
-  const [editableEndTime, setEditableEndTime] = useState('');
+
+  // Use the reusable time range hook with auto-adjustment
+  const {
+    startTime: timeInputValue,
+    endTime: endTimeInputValue,
+    setStartTime: setTimeInputValue,
+    setEndTime: setEndTimeInputValue,
+    reset: resetTimes,
+    _setStartTimeRaw,
+    _setEndTimeRaw
+  } = useTimeRangeInput({ minDurationMinutes: 60 });
+
   const [isTimeEditing, setIsTimeEditing] = useState(false);
   const [isEndTimeEditing, setIsEndTimeEditing] = useState(false);
-  const [timeInputValue, setTimeInputValue] = useState('');
-  const [endTimeInputValue, setEndTimeInputValue] = useState('');
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+
+  // Computed 12-hour display values from 24-hour hook values
+  const editableTime = useMemo(() => {
+    if (!timeInputValue) return '9:00 AM';
+    const [hours, minutes = '00'] = timeInputValue.split(':');
+    let hour = parseInt(hours);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    if (hour > 12) hour -= 12;
+    else if (hour === 0) hour = 12;
+    return `${hour}:${minutes.padStart(2, '0')} ${period}`;
+  }, [timeInputValue]);
+
+  const editableEndTime = useMemo(() => {
+    if (!endTimeInputValue) return '';
+    const [hours, minutes = '00'] = endTimeInputValue.split(':');
+    let hour = parseInt(hours);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    if (hour > 12) hour -= 12;
+    else if (hour === 0) hour = 12;
+    return `${hour}:${minutes.padStart(2, '0')} ${period}`;
+  }, [endTimeInputValue]);
 
   // IMPORTANT: Use the shared ref passed from parent (FullCalendarWeekViewCQRS)
   // This prevents rapid-fire event creation AND prevents opening dialog during operations
@@ -151,11 +181,10 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       // Update the next available time slot based on the event we just created
       // This ensures subsequent events don't overlap
       const endDate = new Date(eventData.end);
-      const nextTime = convertTo12HourFormat(
-        `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`
-      );
-      setEditableTime(nextTime);
-      setEditableEndTime(calculateDefaultEndTime(nextTime));
+      const nextTime24 = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+      const nextEndTime = convertTo12HourFormat(nextTime24);
+      const nextEndTime24 = convertTo24HourFormat(calculateDefaultEndTime(nextEndTime));
+      resetTimes(nextTime24, nextEndTime24);
 
       // CRITICAL: Wait for ACTUAL RTK Query cache invalidation + refetch to complete
       // The create command invalidates ProjectAgenda tag which triggers fetchProjectAgenda
@@ -307,7 +336,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     return convertTo12HourFormat(`${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`);
   };
 
-  // Update editableTime when selectedTime prop changes or dialog opens
+  // Update time values when selectedTime prop changes or dialog opens
   useEffect(() => {
     if (open && selectedDate) {
       // If selectedTime is explicitly provided (from Week/Month view clicks), use it directly
@@ -323,21 +352,26 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         timeToUse = findNextAvailableTime(baseTime, selectedDate, currentEvents);
       }
 
-      setEditableTime(timeToUse);
-      // Set default end time (1 hour after start)
-      setEditableEndTime(calculateDefaultEndTime(timeToUse));
+      // Convert 12-hour to 24-hour format for the hook
+      const time24 = convertTo24HourFormat(timeToUse);
+      const endTime24 = convertTo24HourFormat(calculateDefaultEndTime(timeToUse));
+
+      // Use raw setters to initialize without triggering auto-adjustment
+      _setStartTimeRaw(time24);
+      _setEndTimeRaw(endTime24);
     }
-  }, [open, selectedTime, selectedDate, agendaEvents, project?.events]);
+  }, [open, selectedTime, selectedDate, agendaEvents, project?.events, _setStartTimeRaw, _setEndTimeRaw]);
 
   // Reset editing state when dialog opens/closes
   useEffect(() => {
     if (!open) {
       setIsTimeEditing(false);
-      setTimeInputValue('');
+      setIsEndTimeEditing(false);
+      resetTimes('09:00', '10:00');
       setIsCreatingEvent(false);
       setPendingEventIds(new Set());
     }
-  }, [open]);
+  }, [open, resetTimes]);
 
   // CQRS: Project curriculums are automatically loaded via useGetProjectAgendaQuery
   // No manual dispatch needed - RTK Query handles it
@@ -400,51 +434,31 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
 
   const handleTimeEditStart = () => {
     setIsTimeEditing(true);
-    // Convert current time to 24-hour format for input field
-    const time24 = convertTo24HourFormat(editableTime);
-    setTimeInputValue(time24);
+    // timeInputValue is already in 24-hour format from the hook
   };
 
   const handleTimeEditCancel = () => {
     setIsTimeEditing(false);
-    setTimeInputValue('');
   };
 
   const handleTimeEditSave = () => {
-    if (timeInputValue) {
-      // Convert 24-hour format back to 12-hour format with AM/PM
-      const time12 = convertTo12HourFormat(timeInputValue);
-      setEditableTime(time12);
-      // Update end time to maintain duration if end time is set
-      if (editableEndTime) {
-        const newEndTime = calculateDefaultEndTime(time12);
-        setEditableEndTime(newEndTime);
-      }
-    }
+    // Hook already has the value, just close edit mode
+    // Auto-adjustment of end time is handled by the hook
     setIsTimeEditing(false);
-    setTimeInputValue('');
   };
 
   const handleEndTimeEditStart = () => {
     setIsEndTimeEditing(true);
-    // Convert current time to 24-hour format for input field
-    const time24 = convertTo24HourFormat(editableEndTime);
-    setEndTimeInputValue(time24);
+    // endTimeInputValue is already in 24-hour format from the hook
   };
 
   const handleEndTimeEditCancel = () => {
     setIsEndTimeEditing(false);
-    setEndTimeInputValue('');
   };
 
   const handleEndTimeEditSave = () => {
-    if (endTimeInputValue) {
-      // Convert 24-hour format back to 12-hour format with AM/PM
-      const time12 = convertTo12HourFormat(endTimeInputValue);
-      setEditableEndTime(time12);
-    }
+    // Hook already has the value with auto-adjustment, just close edit mode
     setIsEndTimeEditing(false);
-    setEndTimeInputValue('');
   };
 
 

@@ -74,6 +74,35 @@ async function handler(req, res) {
       },
     });
 
+    // CASCADE: Add participant to all events that have this group assigned
+    const eventGroups = await prisma.event_groups.findMany({
+      where: { groupId: parseInt(groupId) },
+      select: { eventsId: true }
+    });
+
+    const affectedEventIds = [];
+    for (const eg of eventGroups) {
+      // Use upsert to avoid duplicates (schema has @@unique([eventsId, enrolleeId]))
+      await prisma.event_attendees.upsert({
+        where: {
+          eventsId_enrolleeId: {
+            eventsId: eg.eventsId,
+            enrolleeId: parseInt(participantId)
+          }
+        },
+        update: {
+          attendance_status: 'scheduled'
+        },
+        create: {
+          eventsId: eg.eventsId,
+          enrolleeId: parseInt(participantId),
+          attendance_status: 'scheduled',
+          attendanceType: 'group'
+        }
+      });
+      affectedEventIds.push(eg.eventsId);
+    }
+
     // Fetch the updated group with all participants
     const updatedGroup = await prisma.groups.findUnique({
       where: { id: parseInt(groupId) },
@@ -102,7 +131,8 @@ async function handler(req, res) {
     res.status(200).json({
       success: true,
       message: 'Participant added to group successfully',
-      group: updatedGroup
+      group: updatedGroup,
+      affectedEventIds
     });
   } catch (error) {
     console.error('Error adding participant to group:', error);

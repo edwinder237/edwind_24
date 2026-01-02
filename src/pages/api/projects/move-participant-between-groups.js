@@ -56,6 +56,8 @@ async function handler(req, res) {
 
     const result = await prisma.$transaction(async (tx) => {
       const operations = [];
+      const eventsToRemoveFrom = [];
+      const eventsToAddTo = [];
 
       // Step 1: Remove from current group (if specified)
       if (fromGroupId) {
@@ -70,6 +72,51 @@ async function handler(req, res) {
           groupId: fromGroupId,
           count: removeResult.count
         });
+
+        // CASCADE: Remove participant from events assigned to fromGroup
+        const fromGroupEvents = await tx.event_groups.findMany({
+          where: { groupId: parseInt(fromGroupId) },
+          select: { eventsId: true }
+        });
+
+        for (const eg of fromGroupEvents) {
+          // Check if participant is in toGroupId (if moving to another group assigned to same event)
+          // or any OTHER group assigned to this event
+          const otherGroupMembership = await tx.event_groups.findFirst({
+            where: {
+              eventsId: eg.eventsId,
+              groupId: { not: parseInt(fromGroupId) },
+              groups: {
+                participants: {
+                  some: { participantId: parseInt(participantId) }
+                }
+              }
+            }
+          });
+
+          // Also check if moving TO a group that's assigned to this same event
+          let movingToGroupOnSameEvent = false;
+          if (toGroupId) {
+            const toGroupOnEvent = await tx.event_groups.findFirst({
+              where: {
+                eventsId: eg.eventsId,
+                groupId: parseInt(toGroupId)
+              }
+            });
+            movingToGroupOnSameEvent = !!toGroupOnEvent;
+          }
+
+          // Only remove if not in any other group for this event AND not moving to a group on this event
+          if (!otherGroupMembership && !movingToGroupOnSameEvent) {
+            await tx.event_attendees.deleteMany({
+              where: {
+                eventsId: eg.eventsId,
+                enrolleeId: parseInt(participantId)
+              }
+            });
+            eventsToRemoveFrom.push(eg.eventsId);
+          }
+        }
       }
 
       // Step 2: Add to target group (if specified)
@@ -94,6 +141,34 @@ async function handler(req, res) {
             groupId: toGroupId,
             result: addResult
           });
+
+          // CASCADE: Add participant to events assigned to toGroup
+          const toGroupEvents = await tx.event_groups.findMany({
+            where: { groupId: parseInt(toGroupId) },
+            select: { eventsId: true }
+          });
+
+          for (const eg of toGroupEvents) {
+            // Use upsert to avoid duplicates
+            await tx.event_attendees.upsert({
+              where: {
+                eventsId_enrolleeId: {
+                  eventsId: eg.eventsId,
+                  enrolleeId: parseInt(participantId)
+                }
+              },
+              update: {
+                attendance_status: 'scheduled'
+              },
+              create: {
+                eventsId: eg.eventsId,
+                enrolleeId: parseInt(participantId),
+                attendance_status: 'scheduled',
+                attendanceType: 'group'
+              }
+            });
+            eventsToAddTo.push(eg.eventsId);
+          }
         } else {
           operations.push({
             type: 'add',
@@ -107,7 +182,9 @@ async function handler(req, res) {
         operations,
         participantId: parseInt(participantId),
         fromGroupId: fromGroupId ? parseInt(fromGroupId) : null,
-        toGroupId: toGroupId ? parseInt(toGroupId) : null
+        toGroupId: toGroupId ? parseInt(toGroupId) : null,
+        eventsToRemoveFrom,
+        eventsToAddTo
       };
     });
 

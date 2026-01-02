@@ -135,6 +135,7 @@ const ProjectsList = () => {
   }, [isAdmin]);
 
   const matchDownSM = useMediaQuery((theme) => theme.breakpoints.down("sm"));
+  const matchDownMD = useMediaQuery((theme) => theme.breakpoints.down("md"));
 
   const [sortBy, setSortBy] = useState("Default");
   const [globalFilter, setGlobalFilter] = useState("");
@@ -142,9 +143,9 @@ const ProjectsList = () => {
   const [project, setProject] = useState(null);
   const [userCard, setUserCard] = useState([]);
   const [page, setPage] = useState(1);
-  
-  // Filter states - always shown by default
-  const [showFilters, setShowFilters] = useState(true);
+
+  // Filter states - collapsed by default on tablet/mobile, expanded on desktop
+  const [showFilters, setShowFilters] = useState(!matchDownMD);
   const [statusFilter, setStatusFilter] = useState([]);
   const [typeFilter, setTypeFilter] = useState([]);
   const [trainingRecipientFilter, setTrainingRecipientFilter] = useState([]);

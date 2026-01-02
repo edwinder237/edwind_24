@@ -2,14 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
-  Grid,
   Stack,
-  Card,
-  CardContent,
   Chip,
   Divider,
   Button,
-  IconButton,
   Tooltip,
   Paper,
   Table,
@@ -25,41 +21,50 @@ import {
   DialogContent,
   DialogActions,
   Checkbox,
-  FormGroup,
   FormControlLabel,
   CircularProgress,
   Alert,
   Tab,
   Tabs,
-  ButtonGroup,
-  TextField
+  Switch,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  TextField,
+  Collapse,
+  IconButton
 } from '@mui/material';
-import { 
-  CalendarToday, 
-  Download, 
-  Print, 
-  ViewList, 
-  ViewModule,
-  Group,
-  Schedule,
-  School,
+import {
+  Print,
+  ViewList,
   Email,
   Send,
   Settings,
   Code,
-  PersonAdd
+  CalendarMonth,
+  PictureAsPdf,
+  ExpandMore,
+  ExpandLess,
+  Download
 } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
 import { useSelector } from 'store';
 import { selectAllGroups } from 'store/entities/groupsSlice';
 import { EmailTemplateEditor } from '../../../shared/components';
+import useUser from 'hooks/useUser';
 
-const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" }) => {
-  // Get projectId from projectSettings store (proper CQRS pattern - same as ParticipantsTable)
+const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "Project Schedule" }) => {
+  // Get current user for pre-filling email
+  const { user } = useUser();
+  // Get projectId and projectInfo from projectSettings store (proper CQRS pattern - same as ParticipantsTable)
   const projectId = useSelector(state => state.projectSettings?.projectId);
+  const storeProjectTitle = useSelector(state => state.projectSettings?.projectInfo?.title);
+  // Use store title if available, otherwise fall back to prop
+  const projectTitle = storeProjectTitle || propProjectTitle;
   // Read groups from normalized entities store (CQRS Read Model)
   const groups = useSelector(selectAllGroups);
-  const [viewMode, setViewMode] = useState('timeline');
+  const [viewMode, setViewMode] = useState('preview');
   const [dailyFocusData, setDailyFocusData] = useState({});
   const focusCache = useRef(new Map());
   
@@ -75,11 +80,62 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
   const [templateType, setTemplateType] = useState('individual');
   
   // Trainer email states
-  const [showTrainerEmailDialog, setShowTrainerEmailDialog] = useState(false);
-  const [trainerEmails, setTrainerEmails] = useState('');
   const [sendingTrainerEmail, setSendingTrainerEmail] = useState(false);
   const [trainerEmailResult, setTrainerEmailResult] = useState(null);
-  const [includeEventSummaries, setIncludeEventSummaries] = useState(true);
+
+  // Email options states
+  const [showEmailOptions, setShowEmailOptions] = useState(false);
+  const [useCustomRecipients, setUseCustomRecipients] = useState(false);
+  const [additionalEmails, setAdditionalEmails] = useState('');
+  const [ccEmails, setCcEmails] = useState('');
+  const [bccEmails, setBccEmails] = useState('');
+  const [emailSubject, setEmailSubject] = useState(`Training Schedule - ${projectTitle}`);
+  const [includePdf, setIncludePdf] = useState(false);
+
+  // Update email subject when project title changes (e.g., when store loads)
+  useEffect(() => {
+    if (projectTitle && projectTitle !== 'Project Schedule') {
+      setEmailSubject(`Training Schedule - ${projectTitle}`);
+    }
+  }, [projectTitle]);
+
+  // Email validation states
+  const [emailErrors, setEmailErrors] = useState({ to: '', cc: '', bcc: '' });
+
+  // Preview states
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Preview customization options
+  const [showLogo, setShowLogo] = useState(true);
+  const [showFocusOfDay, setShowFocusOfDay] = useState(true);
+  const [selectedTimezone, setSelectedTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+  // PDF download state
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Common timezones for selection
+  const timezones = [
+    { value: 'America/Edmonton', label: 'Mountain Time (Edmonton)' },
+    { value: 'America/Vancouver', label: 'Pacific Time (Vancouver)' },
+    { value: 'America/Toronto', label: 'Eastern Time (Toronto)' },
+    { value: 'America/Winnipeg', label: 'Central Time (Winnipeg)' },
+    { value: 'America/Halifax', label: 'Atlantic Time (Halifax)' },
+    { value: 'America/St_Johns', label: 'Newfoundland Time (St. John\'s)' },
+    { value: 'America/New_York', label: 'Eastern Time (New York)' },
+    { value: 'America/Chicago', label: 'Central Time (Chicago)' },
+    { value: 'America/Denver', label: 'Mountain Time (Denver)' },
+    { value: 'America/Los_Angeles', label: 'Pacific Time (Los Angeles)' },
+    { value: 'America/Phoenix', label: 'Arizona Time (Phoenix)' },
+    { value: 'Europe/London', label: 'GMT (London)' },
+    { value: 'Europe/Paris', label: 'Central European Time (Paris)' },
+    { value: 'Europe/Berlin', label: 'Central European Time (Berlin)' },
+    { value: 'Asia/Dubai', label: 'Gulf Time (Dubai)' },
+    { value: 'Asia/Singapore', label: 'Singapore Time' },
+    { value: 'Asia/Tokyo', label: 'Japan Time (Tokyo)' },
+    { value: 'Australia/Sydney', label: 'Australian Eastern Time (Sydney)' },
+    { value: 'UTC', label: 'UTC (Coordinated Universal Time)' }
+  ];
 
   // Fetch daily focus data
   useEffect(() => {
@@ -87,6 +143,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
       fetchAllDailyFocus();
     }
   }, [projectId, projectEvents]);
+
+  // Load preview on initial mount when in preview mode
+  useEffect(() => {
+    if (viewMode === 'preview' && projectId && projectEvents.length > 0 && !previewHtml && !loadingPreview) {
+      handleOpenPreview();
+    }
+  }, [viewMode, projectId, projectEvents.length]);
 
   const fetchAllDailyFocus = async () => {
     if (!projectId) return;
@@ -140,7 +203,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
   const sortedDates = Object.keys(groupedEvents).sort();
 
   const handleViewModeChange = (event, newMode) => {
-    if (newMode) setViewMode(newMode);
+    if (newMode) {
+      setViewMode(newMode);
+      // Load preview when switching to preview mode
+      if (newMode === 'preview' && !previewHtml && !loadingPreview) {
+        handleOpenPreview();
+      }
+    }
   };
 
   const handlePrint = () => {
@@ -179,41 +248,257 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
     setInviteDialogTab(newValue);
   };
 
-  // Trainer email functions
-  const handleOpenTrainerEmailDialog = () => {
-    setTrainerEmails('');
-    setTrainerEmailResult(null);
-    setShowTrainerEmailDialog(true);
-  };
-
-  const handleCloseTrainerEmailDialog = () => {
-    setShowTrainerEmailDialog(false);
-    setTrainerEmails('');
-    setTrainerEmailResult(null);
-    setIncludeEventSummaries(true);
-  };
-
-  const handleSendTrainerEmail = async () => {
-    if (!trainerEmails.trim()) {
-      setTrainerEmailResult({ type: 'error', message: 'Please enter at least one email address.' });
+  // Preview functions
+  const handleOpenPreview = async (customShowLogo, customShowFocus, customTimezone) => {
+    if (!projectId) {
       return;
     }
 
-    // Validate project ID from Redux store
+    // Use passed values or current state
+    const logoVisible = customShowLogo !== undefined ? customShowLogo : showLogo;
+    const focusVisible = customShowFocus !== undefined ? customShowFocus : showFocusOfDay;
+    const timezone = customTimezone !== undefined ? customTimezone : selectedTimezone;
+
+    setLoadingPreview(true);
+    try {
+      const response = await fetch('/api/projects/preview-trainer-schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId,
+          projectTitle,
+          events: projectEvents,
+          dailyFocusData,
+          includeEventSummaries: true,
+          showLogo: logoVisible,
+          showFocusOfDay: focusVisible,
+          timezone
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setPreviewHtml(result.html);
+      } else {
+        console.error('Failed to generate preview:', result.message);
+      }
+    } catch (error) {
+      console.error('Error generating preview:', error);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  // PDF download function - uses browser print dialog
+  const handleDownloadPdf = async () => {
+    let htmlContent = previewHtml;
+
+    // Generate preview first if not available
+    if (!htmlContent) {
+      setDownloadingPdf(true);
+      try {
+        const response = await fetch('/api/projects/preview-trainer-schedule', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            projectTitle,
+            events: projectEvents,
+            dailyFocusData,
+            includeEventSummaries: true,
+            showLogo,
+            showFocusOfDay,
+            timezone: selectedTimezone
+          }),
+        });
+
+        const result = await response.json();
+        if (response.ok && result.success) {
+          htmlContent = result.html;
+          setPreviewHtml(result.html);
+        } else {
+          console.error('Failed to generate preview for PDF');
+          setDownloadingPdf(false);
+          return;
+        }
+      } catch (error) {
+        console.error('Error generating preview:', error);
+        setDownloadingPdf(false);
+        return;
+      }
+    }
+
+    setDownloadingPdf(true);
+
+    // Open HTML in a new window with fixed width to match email template
+    const printWindow = window.open('', '_blank', 'width=950,height=800');
+    if (printWindow) {
+      // Add print-specific styles to override responsive CSS that stacks columns
+      const printStyles = `
+        <style>
+          /* Force all table cells to align top */
+          td, th {
+            vertical-align: top !important;
+          }
+          /* Override the responsive stacking for print - must come after the original styles */
+          @media print {
+            body {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            @page {
+              size: A4 portrait;
+              margin: 10mm;
+            }
+            /* Prevent column stacking in print mode */
+            .stack .column {
+              width: auto !important;
+              display: table-cell !important;
+              vertical-align: top !important;
+            }
+            .row-content.stack {
+              display: table !important;
+              width: 100% !important;
+            }
+            /* Force ALL td elements to top align */
+            td, th {
+              vertical-align: top !important;
+            }
+          }
+          /* Also override for screen when print dialog renders */
+          @media (max-width: 920px) {
+            .stack .column {
+              width: auto !important;
+              display: table-cell !important;
+              vertical-align: top !important;
+            }
+            .row-content.stack {
+              display: table !important;
+              width: 100% !important;
+            }
+            td, th {
+              vertical-align: top !important;
+            }
+          }
+        </style>
+      `;
+
+      // Insert print styles before closing head tag
+      const htmlWithPrintStyles = htmlContent.replace('</head>', `${printStyles}</head>`);
+
+      printWindow.document.write(htmlWithPrintStyles);
+      printWindow.document.close();
+
+      // Set document title for the PDF filename
+      const sanitizedTitle = projectTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-');
+      printWindow.document.title = `${sanitizedTitle}-Schedule`;
+
+      // Wait for images to load then trigger print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          setDownloadingPdf(false);
+        }, 800);
+      };
+
+      // Fallback in case onload doesn't fire
+      setTimeout(() => {
+        setDownloadingPdf(false);
+      }, 4000);
+    } else {
+      console.error('Could not open print window. Please allow popups.');
+      setDownloadingPdf(false);
+    }
+  };
+
+  // Email validation regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Helper to validate a single email
+  const isValidEmail = (email) => emailRegex.test(email);
+
+  // Helper to parse comma-separated emails (returns only valid emails)
+  const parseEmails = (emailString) => {
+    if (!emailString || !emailString.trim()) return [];
+    return emailString.split(',')
+      .map(email => email.trim())
+      .filter(email => email && isValidEmail(email));
+  };
+
+  // Helper to get invalid emails from a string
+  const getInvalidEmails = (emailString) => {
+    if (!emailString || !emailString.trim()) return [];
+    return emailString.split(',')
+      .map(email => email.trim())
+      .filter(email => email && !isValidEmail(email));
+  };
+
+  // Validate email field and update error state
+  const validateEmailField = (value, field) => {
+    const invalidEmails = getInvalidEmails(value);
+    if (invalidEmails.length > 0) {
+      setEmailErrors(prev => ({
+        ...prev,
+        [field]: `Invalid email${invalidEmails.length > 1 ? 's' : ''}: ${invalidEmails.join(', ')}`
+      }));
+      return false;
+    } else {
+      setEmailErrors(prev => ({ ...prev, [field]: '' }));
+      return true;
+    }
+  };
+
+  // Direct send to specified recipients
+  const handleSendTrainerEmailDirect = async () => {
+    let toEmails = [];
+
+    // If using custom recipients, validate and parse the email fields
+    if (useCustomRecipients) {
+      // Validate all email fields first
+      const toValid = validateEmailField(additionalEmails, 'to');
+      const ccValid = validateEmailField(ccEmails, 'cc');
+      const bccValid = validateEmailField(bccEmails, 'bcc');
+
+      if (!toValid || !ccValid || !bccValid) {
+        setTrainerEmailResult({ type: 'error', message: 'Please fix invalid email addresses before sending.' });
+        return;
+      }
+
+      // Use recipient emails from input field
+      toEmails = parseEmails(additionalEmails);
+
+      if (toEmails.length === 0) {
+        setTrainerEmailResult({ type: 'error', message: 'Please enter at least one recipient email address.' });
+        return;
+      }
+    } else {
+      // Use current user's email as default
+      if (user?.email) {
+        toEmails.push(user.email);
+      }
+    }
+
+    if (toEmails.length === 0) {
+      setTrainerEmailResult({ type: 'error', message: 'No email recipients specified.' });
+      return;
+    }
+
     if (!projectId) {
       setTrainerEmailResult({ type: 'error', message: 'Project not loaded. Please try again.' });
       return;
     }
 
-    // Parse and validate emails
-    const emailList = trainerEmails.split(',').map(email => email.trim()).filter(Boolean);
-    if (emailList.length === 0) {
-      setTrainerEmailResult({ type: 'error', message: 'Please enter at least one valid email address.' });
-      return;
-    }
-
     setSendingTrainerEmail(true);
     setTrainerEmailResult(null);
+
+    // Parse CC and BCC emails (always available now)
+    const ccEmailList = parseEmails(ccEmails);
+    const bccEmailList = parseEmails(bccEmails);
 
     try {
       const response = await fetch('/api/projects/send-trainer-schedule', {
@@ -226,28 +511,38 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
           projectTitle,
           events: projectEvents,
           dailyFocusData,
-          trainerEmails: emailList,
-          customTemplate,
+          trainerEmails: toEmails,
+          ccEmails: ccEmailList,
+          bccEmails: bccEmailList,
+          customSubject: emailSubject.trim() || null,
+          customTemplate: null,
           templateType: 'summary',
-          includeEventSummaries
+          includeEventSummaries: true,
+          showLogo,
+          showFocusOfDay,
+          timezone: selectedTimezone,
+          includePdf
         }),
       });
 
       const result = await response.json();
 
       if (response.ok && result.success) {
+        const recipientSummary = toEmails.length === 1
+          ? toEmails[0]
+          : `${toEmails.length} recipients`;
         setTrainerEmailResult({
           type: 'success',
-          message: `Schedule sent successfully to ${result.recipientCount} trainer(s)!`
+          message: `Schedule sent to ${recipientSummary}`
         });
-        // Auto close after 3 seconds
+        // Clear success message after 3 seconds
         setTimeout(() => {
-          handleCloseTrainerEmailDialog();
+          setTrainerEmailResult(null);
         }, 3000);
       } else {
         setTrainerEmailResult({
           type: 'error',
-          message: `Failed to send schedule: ${result.message || 'Unknown error'}`
+          message: `Failed to send: ${result.message || 'Unknown error'}`
         });
       }
     } catch (error) {
@@ -327,199 +622,93 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
   const getEventDisplayTitle = (event) => {
     const baseTitle = event.title || 'Untitled Event';
     const groups = event.event_groups || [];
-    
+
     if (groups.length === 0) return baseTitle;
-    
+
     const groupNames = groups.map(eventGroup => eventGroup.groups?.groupName).filter(Boolean);
     if (groupNames.length === 0) return baseTitle;
-    
+
     return `${baseTitle} (${groupNames.join(', ')})`;
   };
 
-  const renderTimelineView = () => (
-    <Box sx={{ p: 2 }}>
-      {/* Project Groups Section */}
-      {groups && groups.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Group color="primary" />
-            Project Groups ({groups.length})
-          </Typography>
-          <Grid container spacing={2}>
-            {groups.map((group) => (
-              <Grid item xs={12} sm={6} md={4} key={group.id}>
-                <Card variant="outlined" sx={{ height: '100%' }}>
-                  <CardContent sx={{ p: 2 }}>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <Box
-                        sx={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: '50%',
-                          backgroundColor: group.chipColor || '#1976d2'
-                        }}
-                      />
-                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                        {group.groupName}
-                      </Typography>
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary">
-                      {group.participants?.length || 0} participant{(group.participants?.length || 0) !== 1 ? 's' : ''}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-          <Divider sx={{ my: 3 }} />
-        </Box>
-      )}
+  // CSV Export function
+  const handleExportCSV = () => {
+    // CSV header
+    const headers = ['Date', 'Time', 'Event', 'Course', 'Groups', 'Type'];
 
-      {/* Schedule Timeline */}
-      <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Schedule color="primary" />
-        Schedule Timeline ({projectEvents.length} events)
-      </Typography>
-      
-      {sortedDates.length > 0 ? (
-        <Stack spacing={3}>
-          {sortedDates.map((dateKey) => {
-            const dayEvents = groupedEvents[dateKey];
-            const eventDate = parseISO(dateKey + 'T12:00:00');
-            const dailyFocus = dailyFocusData[dateKey];
-            
-            return (
-              <Card key={dateKey} variant="outlined">
-                {/* Date Header */}
-                <Box sx={{ 
-                  backgroundColor: 'primary.main', 
-                  color: 'primary.contrastText', 
-                  p: 2,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                      {format(eventDate, 'EEEE, MMMM d, yyyy')}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                      {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}
-                    </Typography>
-                  </Box>
-                  <Chip 
-                    label={format(eventDate, 'd MMM')} 
-                    sx={{ 
-                      backgroundColor: 'rgba(255,255,255,0.2)', 
-                      color: 'inherit',
-                      fontWeight: 'bold'
-                    }} 
-                  />
-                </Box>
+    // Build rows from events
+    const rows = [];
+    sortedDates.forEach(dateKey => {
+      const dayEvents = groupedEvents[dateKey];
+      const eventDate = parseISO(dateKey + 'T12:00:00');
 
-                {/* Daily Focus */}
-                {dailyFocus && (
-                  <Box sx={{ backgroundColor: 'info.light', p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, color: 'info.dark' }}>
-                      📋 Focus of the day:
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'info.dark' }}>
-                      {dailyFocus}
-                    </Typography>
-                  </Box>
-                )}
+      dayEvents
+        .sort((a, b) => {
+          const startA = typeof a.start === 'string' ? parseISO(a.start) : new Date(a.start);
+          const startB = typeof b.start === 'string' ? parseISO(b.start) : new Date(b.start);
+          return startA - startB;
+        })
+        .forEach((event, index) => {
+          const startDate = typeof event.start === 'string' ? parseISO(event.start) : new Date(event.start);
+          const endDate = event.end ? (typeof event.end === 'string' ? parseISO(event.end) : new Date(event.end)) : null;
+          const startTime = format(startDate, 'HH:mm');
+          const endTime = endDate ? format(endDate, 'HH:mm') : '';
 
-                {/* Events */}
-                <CardContent>
-                  <Stack spacing={2}>
-                    {dayEvents
-                      .sort((a, b) => {
-                        const startA = typeof a.start === 'string' ? parseISO(a.start) : new Date(a.start);
-                        const startB = typeof b.start === 'string' ? parseISO(b.start) : new Date(b.start);
-                        return startA - startB;
-                      })
-                      .map((event) => {
-                      const startDate = typeof event.start === 'string' ? parseISO(event.start) : new Date(event.start);
-                      const endDate = event.end ? (typeof event.end === 'string' ? parseISO(event.end) : new Date(event.end)) : null;
-                      const startTime = format(startDate, 'HH:mm');
-                      const endTime = endDate ? format(endDate, 'HH:mm') : '';
-                      
-                      const groups = event.event_groups || [];
-                      const groupNames = groups.map(eventGroup => eventGroup.groups?.groupName).filter(Boolean);
-                      
-                      return (
-                        <Paper key={event.id} variant="outlined" sx={{ p: 2 }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-                            <Box sx={{ flex: 1 }}>
-                              <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-                                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                  {startTime}{endTime && ` - ${endTime}`}
-                                </Typography>
-                                <Typography variant="h6" color="primary.main">
-                                  {getEventDisplayTitle(event)}
-                                </Typography>
-                              </Stack>
-                              
-                              {event.course && (
-                                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                                  <School fontSize="small" color="success" />
-                                  <Typography variant="body2" color="success.main" sx={{ fontWeight: 500 }}>
-                                    {event.course.title}
-                                  </Typography>
-                                </Stack>
-                              )}
-                              
-                              {groupNames.length > 0 && (
-                                <Stack direction="row" flexWrap="wrap" gap={0.5}>
-                                  {groupNames.map((groupName, index) => {
-                                    const group = groups?.find(g => g.groupName === groupName);
-                                    return (
-                                      <Chip 
-                                        key={index} 
-                                        label={groupName} 
-                                        size="small" 
-                                        variant="outlined"
-                                        sx={{
-                                          borderColor: group?.chipColor || 'primary.main',
-                                          color: group?.chipColor || 'primary.main'
-                                        }}
-                                      />
-                                    );
-                                  })}
-                                </Stack>
-                              )}
-                            </Box>
-                            
-                            <Chip 
-                              label={event.course ? 'Course' : 'Event'} 
-                              color={event.course ? 'success' : 'warning'}
-                              size="small"
-                            />
-                          </Stack>
-                        </Paper>
-                      );
-                    })}
-                  </Stack>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Stack>
-      ) : (
-        <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
-          <Typography variant="h6" gutterBottom>
-            📭 No scheduled events found
-          </Typography>
-          <Typography variant="body2">
-            Events will appear here once they are added to the project schedule.
-          </Typography>
-        </Box>
-      )}
-    </Box>
-  );
+          const groups = event.event_groups || [];
+          const groupNames = groups.map(eventGroup => eventGroup.groups?.groupName).filter(Boolean);
+
+          rows.push([
+            format(eventDate, 'MMM d, yyyy'),
+            `${startTime}${endTime ? ` - ${endTime}` : ''}`,
+            getEventDisplayTitle(event),
+            event.course?.title || '-',
+            groupNames.length > 0 ? groupNames.join(', ') : '-',
+            event.course ? 'Course' : 'Event'
+          ]);
+        });
+    });
+
+    // Escape CSV values (handle commas, quotes, newlines)
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    // Build CSV content
+    const csvContent = [
+      headers.map(escapeCSV).join(','),
+      ...rows.map(row => row.map(escapeCSV).join(','))
+    ].join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${projectTitle.replace(/[^a-zA-Z0-9]/g, '_')}_Schedule.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const renderTableView = () => (
     <Box sx={{ p: 2 }}>
+      {/* Export CSV Button */}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<Download />}
+          onClick={handleExportCSV}
+        >
+          Export CSV
+        </Button>
+      </Box>
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -597,59 +786,308 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
       {/* Header */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h5" sx={{ fontWeight: 'bold', flex: 1 }}>
             {projectTitle}
           </Typography>
-          
-          <Stack direction="row" spacing={1} alignItems="center">
+
+          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
             <ToggleButtonGroup
               value={viewMode}
               exclusive
               onChange={handleViewModeChange}
               size="small"
             >
-              <ToggleButton value="timeline">
-                <ViewModule sx={{ mr: 0.5 }} />
-                Timeline
+              <ToggleButton value="preview">
+                {loadingPreview ? <CircularProgress size={16} sx={{ mr: 0.5 }} /> : <CalendarMonth sx={{ mr: 0.5 }} />}
+                Schedule
               </ToggleButton>
               <ToggleButton value="table">
                 <ViewList sx={{ mr: 0.5 }} />
                 Table
               </ToggleButton>
             </ToggleButtonGroup>
-            
+          </Box>
+
+          <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               variant="outlined"
               size="small"
               startIcon={<Email />}
               onClick={handleOpenGroupSelection}
-              sx={{ mr: 1 }}
             >
               Send Invites
             </Button>
-            
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<PersonAdd />}
-              onClick={handleOpenTrainerEmailDialog}
-              sx={{ mr: 1 }}
-            >
-              Email to Trainers
-            </Button>
-            
-            <Tooltip title="Print Schedule">
-              <IconButton onClick={handlePrint} size="small">
-                <Print />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+          </Box>
         </Stack>
       </Box>
 
       {/* Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {viewMode === 'timeline' ? renderTimelineView() : renderTableView()}
+        {viewMode === 'table' ? renderTableView() : (
+          <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Customization Options */}
+            <Box sx={{
+              mb: 2,
+              p: 1.5,
+              backgroundColor: 'background.paper',
+              borderRadius: 1,
+              border: 1,
+              borderColor: 'divider',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 3
+            }}>
+              <Typography variant="subtitle2" sx={{ color: 'text.secondary', mr: 1 }}>
+                Customize:
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showLogo}
+                    onChange={(e) => {
+                      setShowLogo(e.target.checked);
+                      if (previewHtml) {
+                        handleOpenPreview(e.target.checked, showFocusOfDay, selectedTimezone);
+                      }
+                    }}
+                    size="small"
+                  />
+                }
+                label={<Typography variant="body2">Show Logo</Typography>}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showFocusOfDay}
+                    onChange={(e) => {
+                      setShowFocusOfDay(e.target.checked);
+                      if (previewHtml) {
+                        handleOpenPreview(showLogo, e.target.checked, selectedTimezone);
+                      }
+                    }}
+                    size="small"
+                  />
+                }
+                label={<Typography variant="body2">Show Focus of the Day</Typography>}
+              />
+              <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+              <FormControl size="small" sx={{ minWidth: 220 }}>
+                <InputLabel id="timezone-select-label">Time Zone</InputLabel>
+                <Select
+                  labelId="timezone-select-label"
+                  value={selectedTimezone}
+                  label="Time Zone"
+                  onChange={(e) => {
+                    setSelectedTimezone(e.target.value);
+                    if (previewHtml) {
+                      handleOpenPreview(showLogo, showFocusOfDay, e.target.value);
+                    }
+                  }}
+                >
+                  {timezones.map((tz) => (
+                    <MenuItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Actions Section */}
+            <Box sx={{
+              mb: 2,
+              backgroundColor: 'background.paper',
+              borderRadius: 1,
+              border: 1,
+              borderColor: 'divider'
+            }}>
+              {/* Main Actions Row */}
+              <Box sx={{
+                p: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2
+              }}>
+                <Typography variant="subtitle2" sx={{ color: 'text.secondary', mr: 1 }}>
+                  Actions:
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={downloadingPdf ? <CircularProgress size={16} /> : <PictureAsPdf />}
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                >
+                  {downloadingPdf ? 'Generating...' : 'Download PDF'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Print />}
+                  onClick={handlePrint}
+                  disabled={!previewHtml}
+                >
+                  Print
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={sendingTrainerEmail ? <CircularProgress size={16} color="inherit" /> : <Send />}
+                  onClick={handleSendTrainerEmailDirect}
+                  disabled={sendingTrainerEmail}
+                >
+                  {sendingTrainerEmail ? 'Sending...' : 'Send Email'}
+                </Button>
+                <Button
+                  variant="text"
+                  size="small"
+                  endIcon={showEmailOptions ? <ExpandLess /> : <ExpandMore />}
+                  onClick={() => setShowEmailOptions(!showEmailOptions)}
+                  sx={{ ml: 'auto' }}
+                >
+                  {showEmailOptions ? 'Hide' : 'Email Options'}
+                </Button>
+              </Box>
+
+              {/* Email Result Alert - Shown below actions for visibility */}
+              {trainerEmailResult && (
+                <Box sx={{ px: 1.5, pb: 1.5 }}>
+                  <Alert
+                    severity={trainerEmailResult.type}
+                    sx={{ py: 0.5 }}
+                    onClose={() => setTrainerEmailResult(null)}
+                  >
+                    {trainerEmailResult.message}
+                  </Alert>
+                </Box>
+              )}
+
+              {/* Expandable Email Options */}
+              <Collapse in={showEmailOptions}>
+                <Divider />
+                <Box sx={{ p: 2, backgroundColor: 'grey.50' }}>
+                  <Stack spacing={2}>
+                    {/* Default recipient info with switch */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Send to: <strong>{user?.email}</strong>
+                      </Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={useCustomRecipients}
+                            onChange={(e) => setUseCustomRecipients(e.target.checked)}
+                            size="small"
+                          />
+                        }
+                        label={<Typography variant="body2">Change recipient</Typography>}
+                        labelPlacement="start"
+                        sx={{ mr: 0 }}
+                      />
+                    </Box>
+
+                    {/* Custom recipient field - only shown when switch is on */}
+                    <Collapse in={useCustomRecipients}>
+                      <TextField
+                        label="To"
+                        placeholder="email1@example.com, email2@example.com"
+                        size="small"
+                        fullWidth
+                        value={additionalEmails}
+                        onChange={(e) => {
+                          setAdditionalEmails(e.target.value);
+                          if (emailErrors.to) setEmailErrors(prev => ({ ...prev, to: '' }));
+                        }}
+                        onBlur={() => validateEmailField(additionalEmails, 'to')}
+                        error={!!emailErrors.to}
+                        helperText={emailErrors.to || "Separate multiple emails with commas"}
+                      />
+                    </Collapse>
+
+                    {/* CC and BCC - always visible */}
+                    <Stack direction="row" spacing={2}>
+                      <TextField
+                        label="CC"
+                        placeholder="cc@example.com"
+                        size="small"
+                        fullWidth
+                        value={ccEmails}
+                        onChange={(e) => {
+                          setCcEmails(e.target.value);
+                          if (emailErrors.cc) setEmailErrors(prev => ({ ...prev, cc: '' }));
+                        }}
+                        onBlur={() => validateEmailField(ccEmails, 'cc')}
+                        error={!!emailErrors.cc}
+                        helperText={emailErrors.cc || "Carbon copy recipients"}
+                      />
+                      <TextField
+                        label="BCC"
+                        placeholder="bcc@example.com"
+                        size="small"
+                        fullWidth
+                        value={bccEmails}
+                        onChange={(e) => {
+                          setBccEmails(e.target.value);
+                          if (emailErrors.bcc) setEmailErrors(prev => ({ ...prev, bcc: '' }));
+                        }}
+                        onBlur={() => validateEmailField(bccEmails, 'bcc')}
+                        error={!!emailErrors.bcc}
+                        helperText={emailErrors.bcc || "Blind carbon copy recipients"}
+                      />
+                    </Stack>
+
+                    {/* Custom subject */}
+                    <TextField
+                      label="Subject"
+                      size="small"
+                      fullWidth
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      helperText="Modify the email subject as needed"
+                    />
+
+                    {/* PDF attachment option */}
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={includePdf}
+                          onChange={(e) => setIncludePdf(e.target.checked)}
+                          size="small"
+                        />
+                      }
+                      label="Attach PDF to email"
+                    />
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Box>
+
+            {/* Preview Content */}
+            {loadingPreview ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, minHeight: 400 }}>
+                <CircularProgress />
+              </Box>
+            ) : previewHtml ? (
+              <Box sx={{ backgroundColor: '#f5f5f5', borderRadius: 1, flex: 1, minHeight: 600 }}>
+                <iframe
+                  srcDoc={previewHtml}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                    minHeight: '600px',
+                    borderRadius: '4px'
+                  }}
+                  title="Email Preview"
+                />
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, minHeight: 400, color: 'text.secondary' }}>
+                <Typography>Loading schedule...</Typography>
+              </Box>
+            )}
+          </Box>
+        )}
       </Box>
 
       {/* Group Selection Dialog */}
@@ -863,107 +1301,6 @@ const ScheduleExport = ({ projectEvents = [], projectTitle = "Project Schedule" 
         </DialogActions>
       </Dialog>
 
-      {/* Trainer Email Dialog */}
-      <Dialog 
-        open={showTrainerEmailDialog} 
-        onClose={handleCloseTrainerEmailDialog} 
-        maxWidth="sm" 
-        fullWidth
-      >
-        <DialogTitle sx={{ 
-          borderBottom: theme => `1px solid ${theme.palette.divider}`,
-          pb: 2
-        }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <PersonAdd color="primary" />
-            <Typography variant="h5" fontWeight={500}>Send Schedule to Trainers</Typography>
-          </Stack>
-        </DialogTitle>
-        
-        <DialogContent sx={{ pt: 3 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Send the complete project schedule as an email to trainers (not calendar invites).
-          </Typography>
-          
-          {trainerEmailResult && (
-            <Alert 
-              severity={trainerEmailResult.type} 
-              sx={{ mb: 2 }}
-              onClose={() => setTrainerEmailResult(null)}
-            >
-              {trainerEmailResult.message}
-            </Alert>
-          )}
-          
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Trainer Email Addresses"
-            placeholder="Enter email addresses separated by commas (e.g., trainer1@example.com, trainer2@example.com)"
-            value={trainerEmails}
-            onChange={(e) => setTrainerEmails(e.target.value)}
-            helperText="Separate multiple email addresses with commas"
-            variant="outlined"
-          />
-          
-          <Box sx={{ mt: 2, mb: 2 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={includeEventSummaries}
-                  onChange={(e) => setIncludeEventSummaries(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label={
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Include event descriptions and summaries
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Add detailed descriptions for each event when available
-                  </Typography>
-                </Box>
-              }
-            />
-          </Box>
-          
-          <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>📧 Email Contents:</Typography>
-            <Typography variant="body2" color="text.secondary">
-              • Complete project schedule with all events<br/>
-              • Daily focus information (if available)<br/>
-              • Professional HTML formatting<br/>
-              • Project groups and participants overview<br/>
-              {includeEventSummaries && '• Event descriptions and summaries<br/>'}
-              • Event times, courses, and group assignments
-            </Typography>
-          </Box>
-        </DialogContent>
-        
-        <DialogActions sx={{ 
-          p: 2, 
-          borderTop: theme => `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme => theme.palette.grey[50]
-        }}>
-          <Button 
-            onClick={handleCloseTrainerEmailDialog} 
-            disabled={sendingTrainerEmail}
-            color="inherit"
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSendTrainerEmail}
-            disabled={!trainerEmails.trim() || sendingTrainerEmail}
-            startIcon={sendingTrainerEmail ? <CircularProgress size={16} color="inherit" /> : <Send />}
-          >
-            {sendingTrainerEmail ? 'Sending...' : 'Send Schedule'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };
