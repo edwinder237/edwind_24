@@ -174,4 +174,106 @@ export const useDateTimeRangeInput = ({
   };
 };
 
+/**
+ * Add days to a Date object
+ * @param {Date} date - Date object
+ * @param {number} days - Days to add
+ * @returns {Date} New Date object
+ */
+const addDaysToDate = (date, days) => {
+  if (!date) return null;
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+};
+
+/**
+ * Check if two dates are on the same day
+ * @param {Date} date1 - First date
+ * @param {Date} date2 - Second date
+ * @returns {boolean} True if same day
+ */
+const isSameDay = (date1, date2) => {
+  if (!date1 || !date2) return false;
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+};
+
+/**
+ * Check if date1 is after date2 (comparing dates only, not time)
+ * @param {Date} date1 - First date
+ * @param {Date} date2 - Second date
+ * @returns {boolean} True if date1 > date2
+ */
+const isDateAfter = (date1, date2) => {
+  if (!date1 || !date2) return false;
+  const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
+  const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
+  return d1 > d2;
+};
+
+/**
+ * Custom hook for date range inputs with auto-adjustment
+ * Works with Date objects (for MUI DatePicker)
+ *
+ * Auto-adjusts:
+ * - If start date > end date: sets end date to start date + minDurationDays
+ * - If end date < start date: sets end date to start date + minDurationDays
+ *
+ * @param {Object} options
+ * @param {Date} options.initialStartDate - Initial start date
+ * @param {Date} options.initialEndDate - Initial end date
+ * @param {number} options.minDurationDays - Minimum duration in days (default: 1)
+ * @returns {Object} Date range state and handlers
+ */
+export const useDateRangeInput = ({
+  initialStartDate = null,
+  initialEndDate = null,
+  minDurationDays = 1
+} = {}) => {
+  const [startDate, setStartDateState] = useState(initialStartDate);
+  const [endDate, setEndDateState] = useState(initialEndDate);
+
+  const setStartDate = useCallback((newStart) => {
+    setStartDateState(newStart);
+    setEndDateState((currentEnd) => {
+      // If new start date is after current end date, adjust end date
+      if (currentEnd && newStart && isDateAfter(newStart, currentEnd)) {
+        return addDaysToDate(newStart, minDurationDays);
+      }
+      return currentEnd;
+    });
+  }, [minDurationDays]);
+
+  const setEndDate = useCallback((newEnd) => {
+    setStartDateState((currentStart) => {
+      // If new end date is before current start date, adjust end to be after start
+      if (currentStart && newEnd && isDateAfter(currentStart, newEnd)) {
+        setEndDateState(addDaysToDate(currentStart, minDurationDays));
+      } else {
+        setEndDateState(newEnd);
+      }
+      return currentStart; // Don't change start date
+    });
+  }, [minDurationDays]);
+
+  const reset = useCallback((start, end) => {
+    setStartDateState(start);
+    setEndDateState(end);
+  }, []);
+
+  return {
+    startDate,
+    endDate,
+    setStartDate,
+    setEndDate,
+    reset,
+    isValidRange: !startDate || !endDate || !isDateAfter(startDate, endDate),
+    isSameDay: startDate && endDate && isSameDay(startDate, endDate),
+    _setStartDateRaw: setStartDateState,
+    _setEndDateRaw: setEndDateState
+  };
+};
+
 export default useTimeRangeInput;

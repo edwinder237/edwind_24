@@ -12,19 +12,20 @@ import axios from "utils/axios";
 // material-ui
 import { useTheme } from "@mui/material/styles";
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
   Card,
   CardContent,
+  Collapse,
   Divider,
   FormControl,
   FormControlLabel,
   Grid,
   FormHelperText,
   InputLabel,
-  ListItemText,
   MenuItem,
-  OutlinedInput,
   Paper,
   Select,
   Stack,
@@ -37,8 +38,7 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Fade,
-  Zoom
+  Fade
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -50,6 +50,7 @@ import { createId } from "@paralleldrive/cuid2";
 
 // project imports
 import MainCard from "components/MainCard";
+import { UnsavedChangesDialog } from "components/Dialogs";
 import AlertProjectDelete from "./AlertProjectDelete";
 import Avatar from "components/@extended/Avatar";
 import IconButton from "components/@extended/IconButton";
@@ -63,7 +64,7 @@ import GoogleMapAutocomplete from "./google-map-autocomplete";
 import CurriculumPicker from "./CurriculumPicker";
 
 // assets
-import { 
+import {
   DeleteFilled,
   InfoCircleOutlined,
   BookOutlined,
@@ -72,7 +73,9 @@ import {
   ArrowRightOutlined,
   ArrowLeftOutlined,
   BankOutlined,
-  PlusOutlined
+  PlusOutlined,
+  DownOutlined,
+  UpOutlined
 } from "@ant-design/icons";
 
 // constant
@@ -98,7 +101,7 @@ const getInitialValues = (project) => {
   const newProject = {
     title: "",
     type: "",
-    deliveryMethod: "",
+    deliveryMethod: "In Person",
     language: "English",
     tags: "", // Topics
     description: "",
@@ -106,7 +109,7 @@ const getInitialValues = (project) => {
     trainingRecipient: "",
     instructor: "",
     curriculum: "",
-    shared: true,
+    shared: false,
   };
 
   return newProject;
@@ -178,32 +181,32 @@ const deliveryMethods = [
 // Step configurations
 const steps = [
   {
-    label: 'Project Type',
+    label: 'Project',
     description: 'Choose your project type',
     icon: <BookOutlined />
   },
   {
-    label: 'Training Recipient',
+    label: 'Recipient',
     description: 'Select or create training organization',
     icon: <InfoCircleOutlined />
   },
   {
-    label: 'Basic Information',
+    label: 'Info',
     description: 'Project details and curriculum',
     icon: <InfoCircleOutlined />
   },
   {
-    label: 'Content & Topics',
+    label: 'Details',
     description: 'Description, topics, and language',
     icon: <BookOutlined />
   },
   {
-    label: 'Schedule & Location',
+    label: 'Dates',
     description: 'Project dates and timeline',
     icon: <SettingOutlined />
   },
   {
-    label: 'Review & Submit',
+    label: 'Review',
     description: 'Final review and settings',
     icon: <CheckCircleOutlined />
   }
@@ -211,7 +214,7 @@ const steps = [
 
 // ==============================|| PROJECT ADD / EDIT / DELETE ||============================== //
 
-const AddProject = ({ project, onCancel,getStateChange }) => {
+const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmation, onCloseConfirmationHandled }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const router = useRouter();
@@ -235,6 +238,8 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   
   // Training recipient creation state
   const [showCreateRecipient, setShowCreateRecipient] = useState(false);
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
+  const [showMoreProjectTypes, setShowMoreProjectTypes] = useState(false);
   const [newRecipientData, setNewRecipientData] = useState({
     name: '',
     contactPerson: '',
@@ -352,6 +357,7 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   });
 
   const [openAlert, setOpenAlert] = useState(false);
+  const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
 
 
   const handleAlertClose = () => {
@@ -623,7 +629,53 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     getFieldProps,
     setFieldValue,
     setFieldTouched,
+    dirty,
   } = formik;
+
+  // Check if form has unsaved changes
+  const hasUnsavedChanges = () => {
+    return dirty ||
+      activeStep > 0 ||
+      selectedTrainingRecipient !== null ||
+      selectedCurriculum !== null ||
+      selectedInstructor !== null ||
+      projectTitle !== (project?.title || "Title") ||
+      projectDescription !== (project?.summary || project?.description || "Description");
+  };
+
+  // Track form changes and notify parent
+  useEffect(() => {
+    if (getStateChange) {
+      getStateChange(hasUnsavedChanges());
+    }
+  }, [dirty, activeStep, selectedTrainingRecipient, selectedCurriculum, selectedInstructor, projectTitle, projectDescription, getStateChange, project]);
+
+  // Handle close confirmation triggered by parent (backdrop click or escape key)
+  useEffect(() => {
+    if (triggerCloseConfirmation) {
+      // Show the confirmation dialog
+      setShowCancelConfirmation(true);
+      // Reset the trigger in parent
+      if (onCloseConfirmationHandled) {
+        onCloseConfirmationHandled();
+      }
+    }
+  }, [triggerCloseConfirmation, onCloseConfirmationHandled]);
+
+  // Handle cancel button click - show confirmation if there are changes
+  const handleCancelClick = () => {
+    if (hasUnsavedChanges()) {
+      setShowCancelConfirmation(true);
+    } else {
+      onCancel();
+    }
+  };
+
+  // Confirm cancel and close form
+  const handleConfirmCancel = () => {
+    setShowCancelConfirmation(false);
+    onCancel();
+  };
 
   function handleTopicsChange(topics) {
     // Ensure topics is always an array of strings
@@ -894,60 +946,78 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
     }
   };
 
-  const renderProjectTypeSelection = () => (
-    <Fade in={activeStep === 0}>
-      <Box>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Grid container spacing={2}>
-              {projectTypes.map((type) => (
-                <Grid item xs={12} sm={6} md={4} key={type.value}>
-                  <Card 
-                    sx={{ 
-                      cursor: 'pointer',
-                      height: '100%',
-                      border: formik.values.type === type.value ? 2 : 1,
-                      borderColor: formik.values.type === type.value ? type.color : 'divider',
-                      bgcolor: formik.values.type === type.value ? `${type.color}08` : 'background.paper',
-                      transition: 'all 0.2s ease-in-out',
-                      '&:hover': {
-                        borderColor: type.color,
-                        bgcolor: `${type.color}08`,
-                        transform: 'translateY(-2px)',
-                        boxShadow: 3
-                      }
-                    }}
-                    onClick={() => {
-                      setFieldValue("type", type.value);
-                      setProjectType(type.value);
-                      // Automatically move to next step after selecting project type
-                      setCompletedSteps(prev => new Set([...prev, 0]));
-                      setActiveStep(1);
-                    }}
+  const renderProjectTypeSelection = () => {
+    const visibleTypes = showMoreProjectTypes ? projectTypes : projectTypes.slice(0, 3);
+    const hasMoreTypes = projectTypes.length > 3;
+
+    return (
+      <Fade in={activeStep === 0}>
+        <Box>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Grid container spacing={2}>
+                {visibleTypes.map((type) => (
+                  <Grid item xs={12} sm={6} md={4} key={type.value}>
+                    <Card
+                      sx={{
+                        cursor: 'pointer',
+                        height: '100%',
+                        border: formik.values.type === type.value ? 2 : 1,
+                        borderColor: formik.values.type === type.value ? type.color : 'divider',
+                        bgcolor: formik.values.type === type.value ? `${type.color}08` : 'background.paper',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          borderColor: type.color,
+                          bgcolor: `${type.color}08`,
+                          transform: 'translateY(-2px)',
+                          boxShadow: 3
+                        }
+                      }}
+                      onClick={() => {
+                        setFieldValue("type", type.value);
+                        setProjectType(type.value);
+                        // Automatically move to next step after selecting project type
+                        setCompletedSteps(prev => new Set([...prev, 0]));
+                        setActiveStep(1);
+                      }}
+                    >
+                      <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                        <Typography variant="h2" sx={{ fontSize: '2rem', mb: 1 }}>
+                          {type.icon}
+                        </Typography>
+                        <Typography variant="h6" gutterBottom sx={{ color: type.color, fontWeight: 600 }}>
+                          {type.title}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {type.description}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+              {hasMoreTypes && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => setShowMoreProjectTypes(!showMoreProjectTypes)}
+                    endIcon={showMoreProjectTypes ? <UpOutlined /> : <DownOutlined />}
+                    sx={{ color: 'text.secondary' }}
                   >
-                    <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                      <Typography variant="h2" sx={{ fontSize: '2rem', mb: 1 }}>
-                        {type.icon}
-                      </Typography>
-                      <Typography variant="h6" gutterBottom sx={{ color: type.color, fontWeight: 600 }}>
-                        {type.title}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {type.description}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
+                    {showMoreProjectTypes ? 'Show less' : `Show ${projectTypes.length - 3} more types`}
+                  </Button>
+                </Box>
+              )}
+              {touched.type && errors.type && (
+                <FormHelperText error sx={{ mt: 2 }}>{errors.type}</FormHelperText>
+              )}
             </Grid>
-            {touched.type && errors.type && (
-              <FormHelperText error sx={{ mt: 2 }}>{errors.type}</FormHelperText>
-            )}
           </Grid>
-        </Grid>
-      </Box>
-    </Fade>
-  );
+        </Box>
+      </Fade>
+    );
+  };
 
   const renderTrainingRecipientSelection = () => (
     <Fade in={activeStep === 1}>
@@ -987,108 +1057,140 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           ) : (
             <>
               <Grid item xs={12}>
-                <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50' }}>
-                  <Grid container spacing={2}>
+                <Button
+                  variant="text"
+                  startIcon={<ArrowLeftOutlined />}
+                  onClick={() => {
+                    setShowCreateRecipient(false);
+                    setNewRecipientData({
+                      name: '',
+                      contactPerson: '',
+                      email: '',
+                      phone: '',
+                      industry: '',
+                      address: '',
+                      website: '',
+                      description: '',
+                      location: null,
+                      img: ''
+                    });
+                  }}
+                  sx={{ mb: 1 }}
+                >
+                  Back to selection
+                </Button>
+                <Paper elevation={1} sx={{ p: { xs: 1.5, sm: 2, md: 3 }, bgcolor: 'grey.50' }}>
+                  <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+                    {/* Required fields */}
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
-                        label="Organization Name *"
+                        label="Training Recipient Name *"
                         value={newRecipientData.name}
                         onChange={(e) => handleNewRecipientChange('name', e.target.value)}
-                        placeholder="Enter organization name"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Contact Person"
-                        value={newRecipientData.contactPerson}
-                        onChange={(e) => handleNewRecipientChange('contactPerson', e.target.value)}
-                        placeholder="Enter contact person name"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Industry"
-                        value={newRecipientData.industry}
-                        onChange={(e) => handleNewRecipientChange('industry', e.target.value)}
-                        placeholder="Enter industry type"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Email"
-                        type="email"
-                        value={newRecipientData.email}
-                        onChange={(e) => handleNewRecipientChange('email', e.target.value)}
-                        placeholder="Enter email address"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Phone"
-                        value={newRecipientData.phone}
-                        onChange={(e) => handleNewRecipientChange('phone', e.target.value)}
-                        placeholder="Enter phone number"
+                        placeholder="Enter training recipient name"
+                        helperText="The organization, group, or individual receiving the training"
+                        size="small"
                       />
                     </Grid>
                     <Grid item xs={12}>
-                      <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                      <Typography variant="subtitle2" gutterBottom sx={{ mt: 0.5 }}>
                         Address
                       </Typography>
                       <GoogleMapAutocomplete
                         handleLocationChange={handleNewRecipientLocationChange}
-                        placeholder="Search for organization address"
+                        placeholder="Search your company address"
                       />
+                      <FormHelperText>
+                        Search to auto-fill address details and retrieve business information including logo and images
+                      </FormHelperText>
                     </Grid>
+
+                    {/* Optional fields toggle */}
                     <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Website"
-                        value={newRecipientData.website}
-                        onChange={(e) => handleNewRecipientChange('website', e.target.value)}
-                        placeholder="Enter website URL"
-                      />
+                      <Button
+                        variant="text"
+                        size="small"
+                        onClick={() => setShowOptionalFields(!showOptionalFields)}
+                        endIcon={showOptionalFields ? <UpOutlined /> : <DownOutlined />}
+                        sx={{ color: 'text.secondary' }}
+                      >
+                        {showOptionalFields ? 'Hide' : 'Show'} optional fields
+                      </Button>
                     </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label="Description"
-                        value={newRecipientData.description}
-                        onChange={(e) => handleNewRecipientChange('description', e.target.value)}
-                        placeholder="Enter organization description"
-                      />
+
+                    {/* Optional fields - collapsible */}
+                    <Grid item xs={12} sx={{ pt: '0 !important' }}>
+                      <Collapse in={showOptionalFields}>
+                        <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ pt: 1.5 }}>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="Contact Person"
+                              value={newRecipientData.contactPerson}
+                              onChange={(e) => handleNewRecipientChange('contactPerson', e.target.value)}
+                              placeholder="Enter contact person name"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="Industry"
+                              value={newRecipientData.industry}
+                              onChange={(e) => handleNewRecipientChange('industry', e.target.value)}
+                              placeholder="Enter industry type"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="Email"
+                              type="email"
+                              value={newRecipientData.email}
+                              onChange={(e) => handleNewRecipientChange('email', e.target.value)}
+                              placeholder="Enter email address"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              fullWidth
+                              label="Phone"
+                              value={newRecipientData.phone}
+                              onChange={(e) => handleNewRecipientChange('phone', e.target.value)}
+                              placeholder="Enter phone number"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <TextField
+                              fullWidth
+                              label="Website"
+                              value={newRecipientData.website}
+                              onChange={(e) => handleNewRecipientChange('website', e.target.value)}
+                              placeholder="Enter website URL"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={2}
+                              label="Description"
+                              value={newRecipientData.description}
+                              onChange={(e) => handleNewRecipientChange('description', e.target.value)}
+                              placeholder="Enter organization description"
+                              size="small"
+                            />
+                          </Grid>
+                        </Grid>
+                      </Collapse>
                     </Grid>
                   </Grid>
                 </Paper>
-
-                <Box sx={{ mt: 2 }}>
-                  <Button
-                    variant="text"
-                    onClick={() => {
-                      setShowCreateRecipient(false);
-                      setNewRecipientData({
-                        name: '',
-                        contactPerson: '',
-                        email: '',
-                        phone: '',
-                        industry: '',
-                        address: '',
-                        website: '',
-                        description: '',
-                        location: null,
-                        img: ''
-                      });
-                    }}
-                  >
-                    Back to selection
-                  </Button>
-                </Box>
               </Grid>
             </>
           )}
@@ -1100,38 +1202,46 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
   const renderBasicInformation = () => (
     <Fade in={activeStep === 2}>
       <Box>
-        <Grid container spacing={3}>
+        <Grid container spacing={2.5}>
+          {/* Project Title */}
           <Grid item xs={12}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Project Title *
+            </Typography>
             <TextField
               fullWidth
-              label="Project Title *"
-              placeholder="Enter project name"
+              placeholder="e.g., Sales Training Q1 2024"
               {...getFieldProps("title")}
               error={Boolean(touched.title && errors.title)}
               helperText={touched.title && errors.title}
               onChange={(e) => {
-                // Convert to camel case: capitalize first letter of each word
                 const camelCaseValue = e.target.value
                   .toLowerCase()
                   .split(' ')
                   .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                   .join(' ');
-                
                 setFieldValue("title", camelCaseValue);
                 setProjectTitle(camelCaseValue);
-              }}
-              inputProps={{ 
-                style: { textTransform: 'none' } // Prevent any CSS text transform
               }}
             />
           </Grid>
 
-          <Grid item xs={12}>
+          {/* Delivery Method */}
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Delivery Method *
+            </Typography>
             <FormControl fullWidth>
-              <InputLabel>Delivery Method *</InputLabel>
               <Select
                 {...getFieldProps("deliveryMethod")}
                 error={Boolean(touched.deliveryMethod && errors.deliveryMethod)}
+                displayEmpty
+                renderValue={(selected) => {
+                  if (!selected) {
+                    return <Typography color="text.secondary">Select delivery method</Typography>;
+                  }
+                  return selected;
+                }}
               >
                 {deliveryMethods.map((method) => (
                   <MenuItem key={method} value={method}>
@@ -1145,21 +1255,10 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" gutterBottom>
-              Curriculum *
-            </Typography>
-            <CurriculumPicker
-              handleCurriculumChange={handleCurriculumChange}
-              initialValue={selectedCurriculum}
-              error={Boolean(touched.curriculum && errors.curriculum)}
-              helperText={touched.curriculum && errors.curriculum}
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" gutterBottom>
-              Instructor
+          {/* Instructor */}
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Instructor (optional)
             </Typography>
             <InstructorPicker
               handleInstructorChange={handleInstructorChange}
@@ -1169,6 +1268,33 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
             />
           </Grid>
 
+          {/* Curriculum */}
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Curriculum *
+              </Typography>
+              <Tooltip
+                title="A curriculum defines the courses and learning activities for this project. Select a pre-built curriculum to automatically set up the training structure."
+                placement="right"
+                arrow
+              >
+                <InfoCircleOutlined style={{ fontSize: 14, color: 'inherit', opacity: 0.6, cursor: 'help' }} />
+              </Tooltip>
+            </Box>
+            <CurriculumPicker
+              handleCurriculumChange={handleCurriculumChange}
+              initialValue={selectedCurriculum}
+              error={Boolean(touched.curriculum && errors.curriculum)}
+              helperText={touched.curriculum && errors.curriculum}
+            />
+            {selectedCurriculum?.isDefault && (
+              <Alert severity="info" sx={{ mt: 1.5 }}>
+                <AlertTitle>Custom Training Selected</AlertTitle>
+                You'll need to add courses to this curriculum to use the project calendar's full scheduling features.
+              </Alert>
+            )}
+          </Grid>
         </Grid>
       </Box>
     </Fade>
@@ -1373,24 +1499,27 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                       : 'rgba(0, 0, 0, 0.2) transparent',
                   }}>
                     {/* Horizontal Stepper */}
-                    <Stepper 
-                      activeStep={activeStep} 
-                      orientation="horizontal" 
-                      sx={{ 
+                    <Stepper
+                      activeStep={activeStep}
+                      orientation="horizontal"
+                      sx={{
                         mb: 2,
                         '& .MuiStep-root': {
                           flex: 1,
+                          px: 0,
                         },
                         '& .MuiStepLabel-root': {
                           flexDirection: 'column',
                           alignItems: 'center',
                           '& .MuiStepLabel-iconContainer': {
-                            mb: 1,
+                            mb: 0.5,
+                            paddingRight: 0,
                             '& .MuiSvgIcon-root': {
                               fontSize: '1.5rem'
                             }
                           },
                           '& .MuiStepLabel-labelContainer': {
+                            width: '100%',
                             textAlign: 'center',
                           }
                         },
@@ -1406,14 +1535,20 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                     >
                       {steps.map((step, index) => (
                         <Step key={step.label} completed={completedSteps.has(index)}>
-                          <StepLabel 
+                          <StepLabel
                             icon={index + 1}
                             onClick={() => handleStepClick(index)}
-                            sx={{ cursor: 'pointer' }}
+                            sx={{
+                              cursor: 'pointer',
+                              '& .MuiStepLabel-label': {
+                                mt: 0.5,
+                              }
+                            }}
                           >
-                            <Typography 
+                            <Typography
                               variant="caption"
-                              sx={{ 
+                              sx={{
+                                display: 'block',
                                 textAlign: 'center',
                                 fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                 lineHeight: 1.2,
@@ -1458,10 +1593,10 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
                       </Box>
 
                       <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Button 
+                        <Button
                           type="button"
-                          color="secondary" 
-                          onClick={onCancel}
+                          color="secondary"
+                          onClick={handleCancelClick}
                           variant="outlined"
                         >
                           Cancel
@@ -1512,6 +1647,13 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
           handleClose={handleAlertClose}
         />
       )}
+
+      {/* Confirmation dialog for unsaved changes */}
+      <UnsavedChangesDialog
+        open={showCancelConfirmation}
+        onClose={() => setShowCancelConfirmation(false)}
+        onDiscard={handleConfirmCancel}
+      />
     </>
   );
 };
@@ -1519,6 +1661,9 @@ const AddProject = ({ project, onCancel,getStateChange }) => {
 AddProject.propTypes = {
   project: PropTypes.object,
   onCancel: PropTypes.func,
+  getStateChange: PropTypes.func,
+  triggerCloseConfirmation: PropTypes.bool,
+  onCloseConfirmationHandled: PropTypes.func,
 };
 
 export default AddProject;

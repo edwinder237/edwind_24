@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import {
   Box,
+  Button,
   Chip,
   Grid,
   Typography,
@@ -414,7 +415,7 @@ const ProjectDashboard = ({ project, styles }) => {
                       </Typography>
                     )}
                     {currentProject.training_recipient && (
-                      <Chip 
+                      <Chip
                         label={`for ${currentProject.training_recipient.name}`}
                         size="medium"
                         variant="outlined"
@@ -423,7 +424,7 @@ const ProjectDashboard = ({ project, styles }) => {
                         target="_blank"
                         rel="noopener noreferrer"
                         clickable
-                        sx={{ 
+                        sx={{
                           color: theme.palette.text.primary,
                           fontWeight: 600,
                           borderColor: theme.palette.divider,

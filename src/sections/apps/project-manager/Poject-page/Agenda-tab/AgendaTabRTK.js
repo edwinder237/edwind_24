@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography, useMediaQuery, Chip } from '@mui/material';
+import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography, useMediaQuery, Chip, Tooltip } from '@mui/material';
 import { useSelector } from 'react-redux';
 import {
   selectAvailableRoles,
@@ -8,7 +8,7 @@ import {
   selectSettingsLoading
 } from 'store/reducers/project/settings';
 import { derivedSelectors } from 'store/selectors';
-import { ViewList, CalendarMonth, DateRange } from '@mui/icons-material';
+import { ViewList, CalendarMonth, DateRange, MenuBook, OpenInNew } from '@mui/icons-material';
 
 // Components
 import MainCard from 'components/MainCard';
@@ -79,6 +79,7 @@ const AgendaTabRTK = React.memo(() => {
     participants,
     groups,
     instructors,
+    curriculums,
     projectInfo,
     loading,
     refreshing,
@@ -308,9 +309,54 @@ const AgendaTabRTK = React.memo(() => {
     }
   }), [theme]);
 
+  // Check if curriculum has no courses (for "Add Courses" button)
+  // Note: curriculums is project_curriculums join table, curriculum data is nested
+  const hasCurriculumWithNoCourses = useMemo(() => {
+    if (!curriculums || curriculums.length === 0) return false;
+    // Check if any curriculum has no courses (check nested curriculum object)
+    return curriculums.some(pc => {
+      const curriculum = pc.curriculum || pc;
+      return !curriculum.curriculum_courses || curriculum.curriculum_courses.length === 0;
+    });
+  }, [curriculums]);
+
+  // Get the actual curriculum ID (not project_curriculum ID)
+  const firstCurriculumId = useMemo(() => {
+    if (!curriculums || curriculums.length === 0) return null;
+    // curriculums could be project_curriculums (with nested curriculum) or direct curriculums
+    const first = curriculums[0];
+    return first?.curriculum?.id || first?.curriculumId || first?.id;
+  }, [curriculums]);
+
   // Header content with better performance
   const headerContent = useMemo(() => (
     <Stack direction="row" spacing={2} alignItems="center">
+      {/* Add Courses Button - Show when curriculum has no courses */}
+      {hasCurriculumWithNoCourses && firstCurriculumId && (
+        <Tooltip title="Your curriculum has no courses. Add courses to enable full scheduling features.">
+          <Button
+            size="small"
+            variant="outlined"
+            color="warning"
+            startIcon={<MenuBook sx={{ fontSize: 16 }} />}
+            endIcon={<OpenInNew sx={{ fontSize: 14 }} />}
+            onClick={() => window.open(`/curriculums/edit/${firstCurriculumId}`, '_blank')}
+            sx={{
+              ...buttonStyles.common,
+              borderColor: theme.palette.warning.main,
+              color: theme.palette.warning.dark,
+              fontWeight: 600,
+              '&:hover': {
+                borderColor: theme.palette.warning.dark,
+                backgroundColor: alpha(theme.palette.warning.main, 0.08),
+              }
+            }}
+          >
+            Add Courses
+          </Button>
+        </Tooltip>
+      )}
+
       {/* Import/Export Buttons - Pro Features */}
       <Stack direction="row" spacing={1} alignItems="center">
         <Chip
@@ -366,7 +412,7 @@ const AgendaTabRTK = React.memo(() => {
         </ToggleButtonGroup>
       )}
     </Stack>
-  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM]);
+  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM, hasCurriculumWithNoCourses, firstCurriculumId, theme]);
 
   // Error Display Component
   const ErrorDisplay = useCallback(() => (
@@ -412,6 +458,7 @@ const AgendaTabRTK = React.memo(() => {
                 <MemoizedAgendaView
                   project={project}
                   events={eventData}
+                  curriculums={curriculums}
                   onEventSelect={handleEventSelect}
                   crudOperations={handleCRUD}
                 />

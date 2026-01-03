@@ -448,6 +448,7 @@ model curriculums {
   cuid                     String                                @default(cuid())
   title                    String
   description              String?
+  isDefault                Boolean                               @default(false)
   sub_organizationId       Int
   createdAt                DateTime                              @default(now())
   updatedAt                DateTime                              @default(now())

@@ -221,7 +221,7 @@ const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect
 
 // ==============================|| AGENDA VIEW ||============================== //
 
-const AgendaViewContent = ({ project, events, onEventSelect }) => {
+const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
@@ -1017,6 +1017,7 @@ const AgendaViewContent = ({ project, events, onEventSelect }) => {
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 3 }}>
               Start by adding events to your project schedule
             </Typography>
+
             <Button
               variant="contained"
               size="medium"
@@ -1108,10 +1109,10 @@ const AgendaViewContent = ({ project, events, onEventSelect }) => {
 };
 
 // Main component with DnD Provider
-const AgendaView = ({ project, events, onEventSelect }) => {
+const AgendaView = ({ project, events, curriculums, onEventSelect }) => {
   return (
     <DndProvider backend={HTML5Backend}>
-      <AgendaViewContent project={project} events={events} onEventSelect={onEventSelect} />
+      <AgendaViewContent project={project} events={events} curriculums={curriculums} onEventSelect={onEventSelect} />
     </DndProvider>
   );
 };

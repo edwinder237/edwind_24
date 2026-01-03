@@ -61,6 +61,7 @@ export const useNormalizedEvents = (projectId) => {
   // Get project info from agenda (still denormalized for now)
   const projectInfo = agendaData?.projectInfo || null;
   const instructors = agendaData?.instructors || [];
+  const curriculums = agendaData?.curriculums || [];
   
   // Filter events by current project
   const projectEvents = useMemo(() => {
@@ -128,6 +129,7 @@ export const useNormalizedEvents = (projectId) => {
     participants,
     groups,
     instructors,
+    curriculums,
     projectInfo,
     
     // Selected and filtered data

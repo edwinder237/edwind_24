@@ -140,6 +140,8 @@ const ProjectsList = () => {
   const [sortBy, setSortBy] = useState("Default");
   const [globalFilter, setGlobalFilter] = useState("");
   const [add, setAdd] = useState(false);
+  const [formHasChanges, setFormHasChanges] = useState(false);
+  const [triggerCloseConfirmation, setTriggerCloseConfirmation] = useState(false);
   const [project, setProject] = useState(null);
   const [userCard, setUserCard] = useState([]);
   const [page, setPage] = useState(1);
@@ -160,6 +162,31 @@ const ProjectsList = () => {
   const handleAdd = () => {
     setAdd(!add);
     if (project && !add) setProject(null);
+    // Reset form state when dialog closes
+    if (add) {
+      setFormHasChanges(false);
+    }
+  };
+
+  // Handle dialog close attempt (backdrop click or escape)
+  // This triggers AddProject's confirmation dialog if there are changes
+  const handleDialogClose = (event, reason) => {
+    // If form has changes, trigger the confirmation dialog in AddProject
+    if (formHasChanges) {
+      setTriggerCloseConfirmation(true);
+    } else {
+      handleAdd();
+    }
+  };
+
+  // Reset the trigger after AddProject handles it
+  const resetCloseConfirmationTrigger = () => {
+    setTriggerCloseConfirmation(false);
+  };
+
+  // Callback for AddProject to report form changes
+  const handleFormStateChange = (hasChanges) => {
+    setFormHasChanges(hasChanges);
   };
 
   // Filter helpers
@@ -878,10 +905,10 @@ const ProjectsList = () => {
         fullScreen={matchDownSM}
         TransitionComponent={matchDownSM ? Slide : PopupTransition}
         TransitionProps={matchDownSM ? { direction: "up" } : {}}
-        onClose={handleAdd}
+        onClose={handleDialogClose}
         open={add}
-        sx={{ 
-          "& .MuiDialog-paper": { 
+        sx={{
+          "& .MuiDialog-paper": {
             p: 0,
             ...(matchDownSM && {
               margin: 0,
@@ -892,8 +919,15 @@ const ProjectsList = () => {
           }
         }}
       >
-        <AddProject project={project} onCancel={handleAdd} />
+        <AddProject
+          project={project}
+          onCancel={handleAdd}
+          getStateChange={handleFormStateChange}
+          triggerCloseConfirmation={triggerCloseConfirmation}
+          onCloseConfirmationHandled={resetCloseConfirmationTrigger}
+        />
       </Dialog>
+
     </Fragment>
   );
 };

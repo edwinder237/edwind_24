@@ -315,15 +315,21 @@ function calculateDashboardMetrics(project) {
   // Curriculum and Content Overview
   const curriculumOverview = {
     totalCurriculums: project.project_curriculums?.length || 0,
-    totalCourses: project.project_curriculums?.reduce((sum, pc) => 
+    totalCourses: project.project_curriculums?.reduce((sum, pc) =>
       sum + (pc.curriculum?.curriculum_courses?.length || 0), 0) || 0,
-    totalModules: project.project_curriculums?.reduce((sum, pc) => 
-      sum + (pc.curriculum?.curriculum_courses?.reduce((courseSum, cc) => 
+    totalModules: project.project_curriculums?.reduce((sum, pc) =>
+      sum + (pc.curriculum?.curriculum_courses?.reduce((courseSum, cc) =>
         courseSum + (cc.course?.modules?.length || 0), 0) || 0), 0) || 0,
-    totalActivities: project.project_curriculums?.reduce((sum, pc) => 
-      sum + (pc.curriculum?.curriculum_courses?.reduce((courseSum, cc) => 
-        courseSum + (cc.course?.modules?.reduce((moduleSum, module) => 
-          moduleSum + (module.activities?.length || 0), 0) || 0), 0) || 0), 0) || 0
+    totalActivities: project.project_curriculums?.reduce((sum, pc) =>
+      sum + (pc.curriculum?.curriculum_courses?.reduce((courseSum, cc) =>
+        courseSum + (cc.course?.modules?.reduce((moduleSum, module) =>
+          moduleSum + (module.activities?.length || 0), 0) || 0), 0) || 0), 0) || 0,
+    // Include curriculum details for "Add Courses" button
+    curriculums: project.project_curriculums?.map(pc => ({
+      id: pc.curriculum?.id,
+      title: pc.curriculum?.title,
+      courseCount: pc.curriculum?.curriculum_courses?.length || 0
+    })) || []
   };
 
   return {

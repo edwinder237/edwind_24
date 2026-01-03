@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 // material-ui
 import { Grid, InputLabel, Stack, TextField } from "@mui/material";
@@ -6,25 +6,49 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
+// Custom hook for date range auto-adjustment
+import { useDateRangeInput } from "hooks/useTimeRangeInput";
+
 // ==============================|| PLUGIN - MASK INPUT ||============================== //
 
 const Date_Picker = ({handleStartDateChange, handleEndDateChange, startDate, endDate}) => {
-  const [date1, setDate1] = useState(startDate || new Date());
-  const [date2, setDate2] = useState(endDate || new Date());
+  // Use the date range hook for auto-adjustment logic
+  // minDurationDays: 0 allows same-day start and end dates (single-day projects)
+  const {
+    startDate: date1,
+    endDate: date2,
+    setStartDate: setDate1,
+    setEndDate: setDate2,
+    _setStartDateRaw,
+    _setEndDateRaw
+  } = useDateRangeInput({
+    initialStartDate: startDate || new Date(),
+    initialEndDate: endDate || new Date(),
+    minDurationDays: 0
+  });
 
-  // Update local state when props change
+  // Update local state when props change (using raw setters to avoid auto-adjust on init)
   useEffect(() => {
     if (startDate) {
-      setDate1(startDate);
+      _setStartDateRaw(startDate);
     }
     if (endDate) {
-      setDate2(endDate);
+      _setEndDateRaw(endDate);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, _setStartDateRaw, _setEndDateRaw]);
 
+  // Notify parent when dates change (including auto-adjusted values)
+  useEffect(() => {
+    if (date1 && handleStartDateChange) {
+      handleStartDateChange(date1);
+    }
+  }, [date1, handleStartDateChange]);
 
-
-
+  useEffect(() => {
+    if (date2 && handleEndDateChange) {
+      handleEndDateChange(date2);
+    }
+  }, [date2, handleEndDateChange]);
 
   if (date1 && date2)
     return (
@@ -38,12 +62,7 @@ const Date_Picker = ({handleStartDateChange, handleEndDateChange, startDate, end
                     <InputLabel>Start Date</InputLabel>
                     <DatePicker
                       value={date1}
-                      onChange={(newValue) => {
-                        setDate1(newValue)
-                        if (handleStartDateChange) {
-                          handleStartDateChange(newValue)
-                        }
-                      }}
+                      onChange={(newValue) => setDate1(newValue)}
                       renderInput={(params) => (
                         <TextField fullWidth {...params} />
                       )}
@@ -55,12 +74,8 @@ const Date_Picker = ({handleStartDateChange, handleEndDateChange, startDate, end
                     <InputLabel>End Date</InputLabel>
                     <DatePicker
                       value={date2}
-                      onChange={(newValue) => {
-                        setDate2(newValue)
-                        if (handleEndDateChange) {
-                          handleEndDateChange(newValue)
-                        }
-                      }}
+                      onChange={(newValue) => setDate2(newValue)}
+                      minDate={date1}
                       renderInput={(params) => (
                         <TextField fullWidth {...params} />
                       )}

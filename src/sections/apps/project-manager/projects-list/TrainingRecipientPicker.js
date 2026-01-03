@@ -19,8 +19,8 @@ import EnhancedAutocomplete from 'components/EnhancedAutocomplete';
 
 // ==============================|| AUTOCOMPLETE - TRAINING RECIPIENTS ||============================== //
 
-export default function TrainingRecipientPicker({ 
-  handleTrainingRecipientChange, 
+export default function TrainingRecipientPicker({
+  handleTrainingRecipientChange,
   initialValue = null,
   error = false,
   helperText = ''
@@ -88,10 +88,10 @@ export default function TrainingRecipientPicker({
 
         const { inputValue } = params;
         // Suggest the creation of a new value
-        const isExisting = options.some((option) => 
+        const isExisting = options.some((option) =>
           inputValue.toLowerCase() === option.name.toLowerCase()
         );
-        
+
         if (inputValue !== '' && !isExisting) {
           // Convert to camel case for display in the create option
           const camelCaseName = inputValue.trim()
@@ -99,7 +99,7 @@ export default function TrainingRecipientPicker({
             .split(' ')
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
-            
+
           filtered.unshift({
             id: 'create-new',
             name: camelCaseName,
@@ -113,9 +113,35 @@ export default function TrainingRecipientPicker({
       clearOnBlur
       handleHomeEndKeys
       freeSolo
-      renderOption={(props, option) => (
+      renderOption={(props, option, { index }) => {
+        const isSelected = selectedRecipient?.id === option.id;
+        return (
         <ListItem
           {...props}
+          sx={{
+            bgcolor: isSelected
+              ? 'primary.main !important'
+              : index % 2 === 0
+                ? 'transparent'
+                : 'action.hover',
+            color: isSelected ? 'primary.contrastText !important' : 'inherit',
+            '&:hover': {
+              bgcolor: isSelected ? 'primary.dark !important' : 'action.selected'
+            },
+            '&.Mui-focused': {
+              bgcolor: isSelected ? 'primary.dark !important' : 'action.focus'
+            },
+            '&.MuiAutocomplete-option': {
+              bgcolor: isSelected ? 'primary.main !important' : undefined
+            },
+            '&.MuiAutocomplete-option[aria-selected="true"]': {
+              bgcolor: 'primary.main !important',
+              color: 'primary.contrastText !important'
+            },
+            '&.MuiAutocomplete-option.Mui-focused': {
+              bgcolor: isSelected ? 'primary.dark !important' : 'action.focus'
+            }
+          }}
           secondaryAction={
             option._count && (
               <Stack direction="row" spacing={1}>
@@ -151,7 +177,8 @@ export default function TrainingRecipientPicker({
             }}
           />
         </ListItem>
-      )}
+      );
+      }}
       renderTags={(value, getTagProps) => {
         // Since this is single select, we don't need this
         return null;
@@ -180,10 +207,10 @@ export default function TrainingRecipientPicker({
                 .split(' ')
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                 .join(' ');
-              
+
               // Update the input value
               e.target.value = camelCaseValue;
-              
+
               // Call the original onChange if it exists
               if (params.inputProps.onChange) {
                 params.inputProps.onChange(e);

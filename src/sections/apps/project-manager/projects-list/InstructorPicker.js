@@ -168,6 +168,27 @@ export default function InstructorPicker({
       clearOnBlur={false}
       handleHomeEndKeys
       freeSolo
+      forcePopupIcon
+      ListboxProps={{
+        sx: {
+          maxHeight: 250,
+          overflow: 'auto',
+          '&::-webkit-scrollbar': {
+            width: 8
+          },
+          '&::-webkit-scrollbar-track': {
+            bgcolor: 'action.hover',
+            borderRadius: 1
+          },
+          '&::-webkit-scrollbar-thumb': {
+            bgcolor: 'divider',
+            borderRadius: 1,
+            '&:hover': {
+              bgcolor: 'action.disabled'
+            }
+          }
+        }
+      }}
       renderOption={(props, option) => {
         if (option.isNew) {
           return (
@@ -247,10 +268,10 @@ export default function InstructorPicker({
                 .split(' ')
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                 .join(' ');
-              
+
               // Update the input value
               e.target.value = camelCaseValue;
-              
+
               // Call the original onChange if it exists
               if (params.inputProps.onChange) {
                 params.inputProps.onChange(e);
@@ -259,22 +280,6 @@ export default function InstructorPicker({
           }}
         />
       )}
-      sx={{
-        '& .MuiOutlinedInput-root': {
-          p: 1
-        },
-        '& .MuiAutocomplete-tag': {
-          bgcolor: 'primary.lighter',
-          border: '1px solid',
-          borderColor: 'primary.light',
-          '& .MuiSvgIcon-root': {
-            color: 'primary.main',
-            '&:hover': {
-              color: 'primary.dark'
-            }
-          }
-        }
-      }}
     />
   );
 }

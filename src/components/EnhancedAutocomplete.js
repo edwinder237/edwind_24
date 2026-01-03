@@ -89,6 +89,27 @@ export default function EnhancedAutocomplete({
       {...autocompleteProps}
       renderOption={enhancedRenderOption}
       filterOptions={enhancedFilterOptions}
+      ListboxProps={{
+        sx: {
+          maxHeight: 250,
+          overflow: 'auto',
+          '&::-webkit-scrollbar': {
+            width: 8
+          },
+          '&::-webkit-scrollbar-track': {
+            bgcolor: 'action.hover',
+            borderRadius: 1
+          },
+          '&::-webkit-scrollbar-thumb': {
+            bgcolor: 'divider',
+            borderRadius: 1,
+            '&:hover': {
+              bgcolor: 'action.disabled'
+            }
+          }
+        },
+        ...autocompleteProps.ListboxProps
+      }}
     />
   );
 }

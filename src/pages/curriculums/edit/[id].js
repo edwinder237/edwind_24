@@ -2181,7 +2181,7 @@ const CurriculumEditPage = () => {
           fullWidth
           sx={{
             '& .MuiDialog-paper': {
-              maxWidth: '500px',
+              maxWidth: '550px',
               width: '100%'
             }
           }}
@@ -2196,51 +2196,147 @@ const CurriculumEditPage = () => {
             content={false}
           >
             <Box sx={{ p: 3 }}>
-              <FormControl fullWidth>
-                <InputLabel>Select Courses</InputLabel>
-                <Select
-                  multiple
-                  value={selectedCourses}
-                  onChange={(e) => setSelectedCourses(e.target.value)}
-                  input={<OutlinedInput label="Select Courses" />}
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((value) => {
-                        const course = courses.find(c => c.id === value);
-                        return (
-                          <Chip 
-                            key={value} 
-                            label={course?.title || `Course ${value}`} 
-                            size="small" 
-                          />
+              {/* Available courses filtered */}
+              {(() => {
+                const availableCourses = courses.filter(course =>
+                  !curriculum.curriculum_courses?.some(cc => cc.courseId === course.id)
+                );
+
+                if (availableCourses.length === 0) {
+                  return (
+                    <Alert severity="info">
+                      All available courses are already assigned to this curriculum.
+                    </Alert>
+                  );
+                }
+
+                return (
+                  <>
+                    <Autocomplete
+                      multiple
+                      id="course-autocomplete"
+                      options={availableCourses}
+                      value={availableCourses.filter(c => selectedCourses.includes(c.id))}
+                      onChange={(event, newValue) => {
+                        setSelectedCourses(newValue.map(c => c.id));
+                      }}
+                      getOptionLabel={(option) => option.title || ''}
+                      filterOptions={(options, { inputValue }) => {
+                        const searchLower = inputValue.toLowerCase();
+                        return options.filter(option =>
+                          option.title?.toLowerCase().includes(searchLower) ||
+                          option.level?.toLowerCase().includes(searchLower) ||
+                          option.courseCategory?.toLowerCase().includes(searchLower)
                         );
-                      })}
-                    </Box>
-                  )}
-                >
-                  {courses
-                    .filter(course => 
-                      !curriculum.curriculum_courses?.some(cc => cc.courseId === course.id)
-                    )
-                    .map((course) => (
-                      <MenuItem key={course.id} value={course.id}>
-                        <Checkbox checked={selectedCourses.indexOf(course.id) > -1} />
-                        <ListItemText 
-                          primary={course.title}
-                          secondary={`${course.level} • ${course.courseCategory} • ${course.modules?.length || 0} modules`}
+                      }}
+                      disableCloseOnSelect
+                      renderOption={(props, option, { selected }) => {
+                        const { key, ...otherProps } = props;
+                        return (
+                          <li
+                            key={key}
+                            {...otherProps}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              padding: '10px 16px',
+                              borderBottom: `1px solid ${theme.palette.divider}`,
+                              backgroundColor: selected ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
+                            }}
+                          >
+                            <Checkbox
+                              checked={selected}
+                              sx={{ p: 0 }}
+                            />
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography variant="body2" fontWeight={600} noWrap>
+                                {option.title}
+                              </Typography>
+                              <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
+                                <Chip
+                                  label={option.level || 'N/A'}
+                                  size="small"
+                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                                <Chip
+                                  label={option.courseCategory || 'General'}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                                <Chip
+                                  label={`${option.modules?.length || 0} modules`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                              </Stack>
+                            </Box>
+                          </li>
+                        );
+                      }}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                          const { key, ...tagProps } = getTagProps({ index });
+                          return (
+                            <Chip
+                              key={key}
+                              label={option.title}
+                              size="small"
+                              {...tagProps}
+                              sx={{
+                                maxWidth: '200px',
+                                '& .MuiChip-label': {
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis'
+                                }
+                              }}
+                            />
+                          );
+                        })
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder={selectedCourses.length === 0 ? "Search courses by name, level, or category..." : ""}
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <>
+                                <SearchIcon sx={{ color: 'text.secondary', ml: 1, mr: 0.5 }} />
+                                {params.InputProps.startAdornment}
+                              </>
+                            )
+                          }}
                         />
-                      </MenuItem>
-                    ))}
-                </Select>
-              </FormControl>
-              
-              {courses.filter(course => 
-                !curriculum.curriculum_courses?.some(cc => cc.courseId === course.id)
-              ).length === 0 && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  All available courses are already assigned to this curriculum.
-                </Alert>
-              )}
+                      )}
+                      ListboxProps={{
+                        sx: {
+                          maxHeight: 350,
+                          '& .MuiAutocomplete-option': {
+                            padding: 0
+                          }
+                        }
+                      }}
+                      noOptionsText={
+                        <Box sx={{ p: 2, textAlign: 'center' }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No courses found matching your search
+                          </Typography>
+                        </Box>
+                      }
+                    />
+
+                    {selectedCourses.length > 0 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                        {selectedCourses.length} course{selectedCourses.length !== 1 ? 's' : ''} selected
+                      </Typography>
+                    )}
+                  </>
+                );
+              })()}
 
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
                 <Button variant="outlined" onClick={() => setAddCourseDialogOpen(false)}>
@@ -2252,7 +2348,7 @@ const CurriculumEditPage = () => {
                   startIcon={actionLoading ? <CircularProgress size={20} /> : <AddIcon />}
                   disabled={actionLoading || selectedCourses.length === 0}
                 >
-                  Add Selected Courses
+                  Add {selectedCourses.length > 0 ? `${selectedCourses.length} ` : ''}Course{selectedCourses.length !== 1 ? 's' : ''}
                 </Button>
               </Box>
             </Box>

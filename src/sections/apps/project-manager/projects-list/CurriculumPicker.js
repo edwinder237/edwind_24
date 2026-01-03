@@ -28,11 +28,34 @@ export default function CurriculumPicker({
 
   // Fetch curriculums on component mount
   useEffect(() => {
-    const fetchCurriculums = async () => {
+    const fetchCurriculumsData = async () => {
       setLoading(true);
       try {
+        // Fetch all curriculums first
         const response = await axios.get('/api/curriculums/fetchCurriculums');
-        setCurriculums(response.data);
+        let curriculumsList = response.data;
+
+        // Check if there's already a default curriculum
+        const hasDefault = curriculumsList.some(c => c.isDefault);
+
+        // Only create a default if none exists
+        if (!hasDefault) {
+          await axios.post('/api/curriculums/ensureDefault');
+          // Re-fetch to get the updated list with the new default
+          const updatedResponse = await axios.get('/api/curriculums/fetchCurriculums');
+          curriculumsList = updatedResponse.data;
+        }
+
+        setCurriculums(curriculumsList);
+
+        // Auto-select the default curriculum if no initial value was provided
+        if (!initialValue && curriculumsList.length > 0) {
+          const defaultCurriculum = curriculumsList.find(c => c.isDefault);
+          if (defaultCurriculum) {
+            setSelectedCurriculum(defaultCurriculum);
+            handleCurriculumChange(defaultCurriculum);
+          }
+        }
       } catch (error) {
         console.error('Error fetching curriculums:', error);
       } finally {
@@ -40,7 +63,7 @@ export default function CurriculumPicker({
       }
     };
 
-    fetchCurriculums();
+    fetchCurriculumsData();
   }, []);
 
   const handleChange = (event, value) => {
@@ -72,29 +95,60 @@ export default function CurriculumPicker({
         );
         return filtered;
       }}
+      ListboxProps={{
+        sx: {
+          maxHeight: 250,
+          overflow: 'auto',
+          '&::-webkit-scrollbar': {
+            width: 8
+          },
+          '&::-webkit-scrollbar-track': {
+            bgcolor: 'action.hover',
+            borderRadius: 1
+          },
+          '&::-webkit-scrollbar-thumb': {
+            bgcolor: 'divider',
+            borderRadius: 1,
+            '&:hover': {
+              bgcolor: 'action.disabled'
+            }
+          }
+        }
+      }}
       renderOption={(props, option) => {
         const { key, ...otherProps } = props;
         return (
           <li key={key} {...otherProps}>
             <Box sx={{ width: '100%' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="body2">
-                  {option.title}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2">
+                    {option.title}
+                  </Typography>
+                  {option.isDefault && (
+                    <Chip
+                      label="Default"
+                      size="small"
+                      color="info"
+                      variant="filled"
+                      sx={{ height: 20, fontSize: '0.7rem' }}
+                    />
+                  )}
+                </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   {option.courseCount > 0 && (
-                    <Chip 
-                      label={`${option.courseCount} courses`} 
-                      size="small" 
-                      color="primary" 
+                    <Chip
+                      label={`${option.courseCount} courses`}
+                      size="small"
+                      color="primary"
                       variant="outlined"
                     />
                   )}
                   {option.supportActivitiesCount > 0 && (
-                    <Chip 
-                      label={`${option.supportActivitiesCount} activities`} 
-                      size="small" 
-                      color="secondary" 
+                    <Chip
+                      label={`${option.supportActivitiesCount} activities`}
+                      size="small"
+                      color="secondary"
                       variant="outlined"
                     />
                   )}
@@ -126,22 +180,6 @@ export default function CurriculumPicker({
           }}
         />
       )}
-      sx={{
-        '& .MuiOutlinedInput-root': {
-          p: 1
-        },
-        '& .MuiAutocomplete-tag': {
-          bgcolor: 'primary.lighter',
-          border: '1px solid',
-          borderColor: 'primary.light',
-          '& .MuiSvgIcon-root': {
-            color: 'primary.main',
-            '&:hover': {
-              color: 'primary.dark'
-            }
-          }
-        }
-      }}
     />
   );
 }

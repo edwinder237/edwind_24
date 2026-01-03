@@ -80,9 +80,10 @@ async function handler(req, res) {
           }
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        { isDefault: 'desc' },
+        { createdAt: 'desc' }
+      ]
     });
 
     const formattedCurriculums = curriculums.map(curriculum => ({
