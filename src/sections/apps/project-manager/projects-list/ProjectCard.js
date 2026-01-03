@@ -3,10 +3,11 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import getConfig from "next/config";
 import NextLink from "next/link";
 import { format } from "date-fns";
+import axios from "utils/axios";
 
 // Redux
-import { useDispatch, useSelector } from "store";
-import { updateProject } from "store/reducers/project";
+import { useDispatch } from "store";
+import { updateProject, getProjects } from "store/reducers/project";
 import { openSnackbar } from "store/reducers/snackbar";
 import { deleteProject } from "store/commands";
 
@@ -27,8 +28,17 @@ import {
   Select,
   FormControl,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Autocomplete,
+  TextField,
+  Avatar,
+  ListItemIcon,
+  ListItemText,
 } from "@mui/material";
-import { EditOutlined, CheckOutlined, CloseOutlined } from "@mui/icons-material";
+import { EditOutlined, CheckOutlined, CloseOutlined, DeleteOutline, SwapHoriz } from "@mui/icons-material";
 import { MoreOutlined } from "@ant-design/icons";
 
 // Project Components
@@ -439,6 +449,12 @@ const ProjectCard = ({ Project, projectId }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [projectTopics, setProjectTopics] = useState([]);
 
+  // Reassign dialog state
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [orgUsers, setOrgUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isReassigning, setIsReassigning] = useState(false);
+
   // Custom hooks
   const statusEditor = useStatusEditor(Project, dispatch);
   
@@ -503,6 +519,72 @@ const ProjectCard = ({ Project, projectId }) => {
     }
   }, [openAlert, handleMenuClose, Project?.id, Project?.title, dispatch]);
 
+  // Reassign handlers
+  const handleOpenReassignDialog = useCallback(async () => {
+    handleMenuClose();
+    setReassignDialogOpen(true);
+
+    // Fetch organization users
+    try {
+      const response = await axios.get('/api/organization/users');
+      if (response.data?.success && response.data?.users) {
+        // Filter out current owner (CreatedBy is the foreign key, user.id is the actual user ID)
+        const currentOwnerId = Project?.user?.id || Project?.CreatedBy;
+        const filteredUsers = response.data.users.filter(u => u.id !== currentOwnerId);
+        setOrgUsers(filteredUsers);
+      }
+    } catch (err) {
+      console.error('Error fetching organization users:', err);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to load users',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  }, [handleMenuClose, Project?.user?.id, Project?.CreatedBy, dispatch]);
+
+  const handleCloseReassignDialog = useCallback(() => {
+    setReassignDialogOpen(false);
+    setSelectedUser(null);
+  }, []);
+
+  const handleReassignProject = useCallback(async () => {
+    if (!selectedUser || !Project?.id) return;
+
+    setIsReassigning(true);
+    try {
+      const response = await axios.post('/api/projects/reassign', {
+        projectId: Project.id,
+        newUserId: selectedUser.id
+      });
+
+      if (response.data?.success) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Project reassigned to ${selectedUser.name}`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+        handleCloseReassignDialog();
+        // Force refresh projects list to get updated user data
+        dispatch(getProjects(true));
+      } else {
+        throw new Error(response.data?.message || 'Failed to reassign project');
+      }
+    } catch (err) {
+      console.error('Error reassigning project:', err);
+      dispatch(openSnackbar({
+        open: true,
+        message: err.response?.data?.message || 'Failed to reassign project',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setIsReassigning(false);
+    }
+  }, [selectedUser, Project?.id, dispatch, handleCloseReassignDialog]);
+
   // Loading state
   if (!Project) {
     return <Loader />;
@@ -554,7 +636,18 @@ const ProjectCard = ({ Project, projectId }) => {
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
             >
-              <MenuItem onClick={handleAlertClose}>Delete</MenuItem>
+              <MenuItem onClick={handleOpenReassignDialog}>
+                <ListItemIcon>
+                  <SwapHoriz fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Reassign</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={handleAlertClose}>
+                <ListItemIcon>
+                  <DeleteOutline fontSize="small" color="error" />
+                </ListItemIcon>
+                <ListItemText>Delete</ListItemText>
+              </MenuItem>
             </Menu>
           </Box>
 
@@ -736,6 +829,81 @@ const ProjectCard = ({ Project, projectId }) => {
         open={openAlert}
         handleClose={handleAlertClose}
       />
+
+      {/* Reassign Project Dialog */}
+      <Dialog
+        open={reassignDialogOpen}
+        onClose={handleCloseReassignDialog}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <SwapHoriz color="primary" />
+            <Typography variant="h6">Reassign Project</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Transfer ownership of <strong>{Project.title}</strong> to another user in your organization.
+            </Typography>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                Current Owner
+              </Typography>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
+                  {Project?.user?.name?.charAt(0) || '?'}
+                </Avatar>
+                <Typography variant="body2">{Project?.user?.name || 'Unknown'}</Typography>
+              </Stack>
+            </Box>
+            <Autocomplete
+              options={orgUsers}
+              getOptionLabel={(option) => option.name || option.email || ''}
+              value={selectedUser}
+              onChange={(_, newValue) => setSelectedUser(newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="New Owner"
+                  placeholder="Select a user"
+                  size="small"
+                />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props}>
+                  <Stack direction="row" alignItems="center" spacing={1.5}>
+                    <Avatar sx={{ width: 28, height: 28, fontSize: '0.8rem' }}>
+                      {option.name?.charAt(0) || '?'}
+                    </Avatar>
+                    <Box>
+                      <Typography variant="body2">{option.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.email}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Box>
+              )}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCloseReassignDialog} disabled={isReassigning}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleReassignProject}
+            disabled={!selectedUser || isReassigning}
+            startIcon={<SwapHoriz />}
+          >
+            {isReassigning ? 'Reassigning...' : 'Reassign'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

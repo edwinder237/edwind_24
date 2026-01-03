@@ -135,7 +135,7 @@ const ProjectsList = () => {
   }, [isAdmin]);
 
   const matchDownSM = useMediaQuery((theme) => theme.breakpoints.down("sm"));
-  const matchDownMD = useMediaQuery((theme) => theme.breakpoints.down("md"));
+  const matchDownLG = useMediaQuery((theme) => theme.breakpoints.down("lg"));
 
   const [sortBy, setSortBy] = useState("Default");
   const [globalFilter, setGlobalFilter] = useState("");
@@ -146,8 +146,8 @@ const ProjectsList = () => {
   const [userCard, setUserCard] = useState([]);
   const [page, setPage] = useState(1);
 
-  // Filter states - collapsed by default on tablet/mobile, expanded on desktop
-  const [showFilters, setShowFilters] = useState(!matchDownMD);
+  // Filter states - collapsed by default on tablet/iPad (< 1200px), expanded on large desktop
+  const [showFilters, setShowFilters] = useState(!matchDownLG);
   const [statusFilter, setStatusFilter] = useState([]);
   const [typeFilter, setTypeFilter] = useState([]);
   const [trainingRecipientFilter, setTrainingRecipientFilter] = useState([]);

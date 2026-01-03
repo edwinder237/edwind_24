@@ -672,10 +672,11 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
           })
         }}
       >
-        {/* Delete button */}
+        {/* Delete button - visible on touch devices, hover-reveal on desktop */}
         <Box
           onClick={(e) => {
             e.stopPropagation();
+            e.preventDefault();
 
             // CRITICAL: Check ref FIRST - it's synchronous and prevents race conditions
             if (operationInProgressRef.current) {
@@ -692,20 +693,41 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
 
             handleEventDelete(event.id, e);
           }}
+          onTouchEnd={(e) => {
+            // Handle touch events explicitly for iPad/mobile
+            e.stopPropagation();
+            e.preventDefault();
+
+            // CRITICAL: Check ref FIRST - it's synchronous and prevents race conditions
+            if (operationInProgressRef.current) {
+              console.log('[FullCalendarWeekViewCQRS] Delete button touch BLOCKED by ref - operation in progress');
+              return;
+            }
+
+            // Also block if already deleting or refetching (backup check)
+            const isBlocked = isDeleting || deleteDialogOpen || isRefetching;
+            if (isBlocked) {
+              console.log('[FullCalendarWeekViewCQRS] Delete button touch BLOCKED by state - operation in progress');
+              return;
+            }
+
+            handleEventDelete(event.id, e);
+          }}
           sx={{
             position: 'absolute',
             top: 2,
             right: 2,
-            width: 16,
-            height: 16,
+            width: 20,
+            height: 20,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '50%',
-            backgroundColor: (isDeleting || deleteDialogOpen || isRefetching) ? 'rgba(150, 150, 150, 0.5)' : 'rgba(255, 255, 255, 0.8)',
+            backgroundColor: (isDeleting || deleteDialogOpen || isRefetching) ? 'rgba(150, 150, 150, 0.5)' : 'rgba(255, 255, 255, 0.9)',
             cursor: (isDeleting || deleteDialogOpen || isRefetching) ? 'not-allowed' : 'pointer',
-            opacity: 0,
-            transition: 'opacity 0.2s ease',
+            // Always visible on touch devices, hover-reveal on desktop
+            opacity: { xs: 1, sm: 1, md: 0 },
+            transition: 'opacity 0.2s ease, transform 0.15s ease, background-color 0.15s ease',
             '.fc-event:hover &': {
               opacity: 1
             },
@@ -713,15 +735,33 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
               backgroundColor: (isDeleting || deleteDialogOpen || isRefetching) ? 'rgba(150, 150, 150, 0.5)' : 'rgba(255, 255, 255, 0.95)',
               transform: (isDeleting || deleteDialogOpen || isRefetching) ? 'none' : 'scale(1.1)'
             },
+            '&:active': {
+              transform: 'scale(0.95)',
+              backgroundColor: 'rgba(255, 200, 200, 0.95)'
+            },
             zIndex: 10,
-            pointerEvents: (isDeleting || deleteDialogOpen || isRefetching) ? 'none' : 'auto'
+            pointerEvents: (isDeleting || deleteDialogOpen || isRefetching) ? 'none' : 'auto',
+            // Ensure touch target is large enough (minimum 44x44 for accessibility)
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: -12,
+              right: -12,
+              bottom: -12,
+              left: -12,
+              borderRadius: '50%'
+            },
+            // Add touch feedback
+            WebkitTapHighlightColor: 'transparent',
+            touchAction: 'manipulation'
           }}
         >
           <Typography sx={{
-            fontSize: '10px',
+            fontSize: '12px',
             lineHeight: 1,
             color: (isDeleting || deleteDialogOpen || isRefetching) ? '#999' : 'red',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            userSelect: 'none'
           }}>
             ×
           </Typography>
@@ -1296,6 +1336,38 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
             },
             '& .fc-daygrid-day': {
               backgroundColor: 'transparent'
+            },
+            // Touch-friendly resize handles for mobile/iPad
+            '& .fc-event-resizer': {
+              // Make resize handles larger for touch devices
+              width: '100%',
+              height: '12px',
+              bottom: '-2px',
+              backgroundColor: 'transparent',
+              cursor: 'ns-resize',
+              touchAction: 'none',
+              // Visual indicator on touch devices
+              '@media (hover: none) and (pointer: coarse)': {
+                height: '16px',
+                bottom: '-4px',
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  left: '50%',
+                  bottom: '2px',
+                  transform: 'translateX(-50%)',
+                  width: '30px',
+                  height: '4px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  borderRadius: '2px'
+                }
+              }
+            },
+            '& .fc-event-resizer-end': {
+              bottom: '-2px',
+              '@media (hover: none) and (pointer: coarse)': {
+                bottom: '-4px'
+              }
             }
           }}
         >
@@ -1372,6 +1444,10 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
             }}
             allDaySlot={true}
             eventDisplay="block"
+            // Touch device support for drag and resize on mobile/iPad
+            longPressDelay={150}
+            eventLongPressDelay={150}
+            selectLongPressDelay={150}
             eventMouseEnter={(info) => {
               info.el.style.zIndex = 1000;
             }}
@@ -1423,17 +1499,32 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
       </Box>
 
       <Typography
-        variant="caption" 
-        color="text.secondary" 
-        sx={{ 
+        variant="caption"
+        color="text.secondary"
+        sx={{
           fontSize: '0.75rem',
           fontStyle: 'italic',
           textAlign: 'left',
           mt: 2,
-          opacity: 0.8
+          opacity: 0.8,
+          display: { xs: 'none', md: 'block' }
         }}
       >
         Drag to reschedule • Click to edit • Resize to change duration
+      </Typography>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{
+          fontSize: '0.75rem',
+          fontStyle: 'italic',
+          textAlign: 'left',
+          mt: 2,
+          opacity: 0.8,
+          display: { xs: 'block', md: 'none' }
+        }}
+      >
+        Long press to drag • Tap to edit • Long press bottom edge to resize
       </Typography>
 
       {/* Edit Event Dialog */}

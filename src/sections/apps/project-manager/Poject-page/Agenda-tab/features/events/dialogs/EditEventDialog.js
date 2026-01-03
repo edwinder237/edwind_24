@@ -12,7 +12,6 @@ import {
   Select,
   MenuItem,
   Autocomplete,
-  Chip,
   Switch,
   FormControlLabel,
   Divider,
@@ -24,17 +23,12 @@ import {
 import {
   Close,
   Save,
-  AccessTime,
-  LocationOn,
-  Person,
-  Palette,
   School,
   Support,
-  Event as EventIcon,
-  Description
+  Event as EventIcon
 } from '@mui/icons-material';
 import MainCard from 'components/MainCard';
-import { useDispatch, useSelector } from 'store';
+import { useDispatch } from 'store';
 import { useGetProjectAgendaQuery } from 'store/api/projectApi';
 import { eventCommands } from 'store/commands';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
@@ -70,8 +64,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   // The data should already be cached from parent components (AgendaTimeline, etc.)
   // This prevents triggering Redux updates that would cause parent re-renders
   const {
-    data: agendaData,
-    isLoading: isLoadingAgenda
+    data: agendaData
   } = useGetProjectAgendaQuery(
     project?.id,
     {
@@ -81,8 +74,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
       refetchOnReconnect: false,
       // Use selectFromResult to prevent re-renders when data doesn't change
       selectFromResult: (result) => ({
-        data: result.data,
-        isLoading: result.isLoading
+        data: result.data
       })
     }
   );
@@ -91,9 +83,6 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   const curriculums = agendaData?.curriculums || [];
   const projectInstructors = agendaData?.instructors || [];
 
-  // Get groups from project data
-  const groups = project?.groups || [];
-  
   // Extract all courses from curriculums with proper nesting
   const availableCourses = useMemo(() => {
     if (!curriculums || curriculums.length === 0) {
@@ -319,8 +308,11 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
       PaperProps={{
         sx: {
           borderRadius: 2,
-          maxHeight: '85vh',
-          height: 'auto'
+          maxHeight: '90vh',
+          height: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
         }
       }}
     >
@@ -398,10 +390,13 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
           '& .MuiCardContent-root': {
             p: 0,
             flex: 1,
-            overflow: 'auto'
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
           }
         }}
       >
@@ -422,19 +417,13 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
                 required
-                InputProps={{
-                  startAdornment: selectedEventType?.icon && (
-                    <Box sx={{ mr: 1, color: formData.color }}>
-                      {selectedEventType.icon}
-                    </Box>
-                  )
-                }}
+                size="small"
               />
             </Grid>
 
             {/* Event Type */}
             <Grid item xs={12} sm={4}>
-              <FormControl fullWidth>
+              <FormControl fullWidth size="small">
                 <InputLabel>Event Type</InputLabel>
                 <Select
                   value={formData.eventType}
@@ -443,12 +432,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 >
                   {eventTypeOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <Box sx={{ color: option.color }}>
-                          {option.icon}
-                        </Box>
-                        <Typography>{option.label}</Typography>
-                      </Stack>
+                      {option.label}
                     </MenuItem>
                   ))}
                 </Select>
@@ -460,48 +444,16 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
               <Grid item xs={12}>
                 <Autocomplete
                   fullWidth
+                  size="small"
                   options={availableCourses}
                   getOptionLabel={(option) => option.displayName || option.title || ''}
                   value={availableCourses.find(c => c.id === formData.courseId) || null}
                   onChange={(_, newValue) => handleInputChange('courseId', newValue?.id || null)}
-                  renderOption={(props, option) => (
-                    <Box component="li" {...props}>
-                      <Stack>
-                        <Typography variant="body2">
-                          {option.title}
-                          {option.version && (
-                            <Typography 
-                              component="span" 
-                              variant="body2" 
-                              color="primary.main"
-                              sx={{ ml: 1, fontWeight: 600 }}
-                            >
-                              v{option.version}
-                            </Typography>
-                          )}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.curriculumTitle}
-                          {option.duration && ` • ${option.duration} min`}
-                          {option.level && ` • ${option.level}`}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                  )}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       label="Select Course"
-                      placeholder="Choose a course from the curriculum"
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: (
-                          <>
-                            <School sx={{ mr: 1, color: 'text.secondary' }} />
-                            {params.InputProps.startAdornment}
-                          </>
-                        )
-                      }}
+                      placeholder="Choose a course"
                     />
                   )}
                 />
@@ -514,161 +466,88 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 fullWidth
                 label="Description"
                 multiline
-                rows={3}
+                rows={2}
+                size="small"
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <Description sx={{ mr: 1, color: 'text.secondary', alignSelf: 'flex-start', mt: 1 }} />
-                  )
-                }}
               />
             </Grid>
-
 
             {/* Timing Section */}
             <Grid item xs={12}>
               <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Timing & Location
-              </Typography>
-            </Grid>
-
-            {/* All Day Toggle */}
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.allDay}
-                    onChange={(e) => handleInputChange('allDay', e.target.checked)}
-                  />
-                }
-                label="All Day Event"
-              />
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle1" fontWeight={600}>
+                  Timing & Location
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.allDay}
+                      onChange={(e) => handleInputChange('allDay', e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="body2">All Day</Typography>}
+                  sx={{ mr: 0 }}
+                />
+              </Stack>
             </Grid>
 
             {/* Start Time */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="Start Time"
+                label="Start"
                 type="datetime-local"
+                size="small"
                 value={startDateTime}
                 onChange={(e) => setStartDateTime(e.target.value)}
                 disabled={formData.allDay}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <AccessTime sx={{ mr: 1, color: 'text.secondary' }} />
-                  )
-                }}
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
 
             {/* End Time */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="End Time"
+                label="End"
                 type="datetime-local"
+                size="small"
                 value={endDateTime}
                 onChange={(e) => setEndDateTime(e.target.value)}
                 disabled={formData.allDay}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <AccessTime sx={{ mr: 1, color: 'text.secondary' }} />
-                  )
-                }}
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
 
-            {/* Duration Display */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Duration"
-                value={(() => {
-                  if (!startDateTime || !endDateTime) return '';
-                  const start = new Date(startDateTime);
-                  const end = new Date(endDateTime);
-                  const diffMs = end - start;
-                  const diffMins = Math.round(diffMs / 60000);
-                  if (diffMins < 60) return `${diffMins} minutes`;
-                  const hours = Math.floor(diffMins / 60);
-                  const mins = diffMins % 60;
-                  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-                })()}
-                disabled
-                helperText="Duration is automatically calculated from start and end times"
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    WebkitTextFillColor: theme.palette.text.secondary,
-                  }
-                }}
-              />
-            </Grid>
-
-            {/* Location */}
-            <Grid item xs={12}>
+            {/* Location & Instructor on same row */}
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Location"
+                size="small"
                 value={formData.location}
                 onChange={(e) => handleInputChange('location', e.target.value)}
-                placeholder="Enter event location"
-                InputProps={{
-                  startAdornment: (
-                    <LocationOn sx={{ mr: 1, color: 'text.secondary' }} />
-                  )
-                }}
+                placeholder="Optional"
               />
             </Grid>
 
-            {/* Instructor */}
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <Autocomplete
                 fullWidth
+                size="small"
                 options={availableInstructors}
                 getOptionLabel={(option) => option.name}
                 value={availableInstructors.find(inst => inst.id === formData.instructor?.id) || null}
-                onChange={(event, newValue) => handleInputChange('instructor', newValue)}
+                onChange={(_, newValue) => handleInputChange('instructor', newValue)}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Instructor"
-                    placeholder="Select an instructor"
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: (
-                        <>
-                          <Person sx={{ mr: 1, color: 'text.secondary' }} />
-                          {params.InputProps.startAdornment}
-                        </>
-                      )
-                    }}
+                    placeholder="Select"
                   />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Stack direction="row" alignItems="center" spacing={2} sx={{ py: 0.5 }}>
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.primary.main }}>
-                        {option.name.charAt(0)}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body2" fontWeight={500}>
-                          {option.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.email}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Box>
                 )}
               />
             </Grid>
@@ -677,19 +556,25 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
 
         </Box>
         
-        {/* Actions - Fixed at bottom */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          gap: 2, 
-          p: 2, 
-          borderTop: `1px solid ${theme.palette.divider}`,
-          backgroundColor: 'background.paper'
-        }}>
+        {/* Actions - Fixed at bottom, always visible */}
+        <Stack
+          direction="row"
+          spacing={2}
+          justifyContent="flex-end"
+          alignItems="center"
+          sx={{
+            p: 2,
+            px: 3,
+            borderTop: `1px solid ${theme.palette.divider}`,
+            backgroundColor: 'background.paper',
+            flexShrink: 0
+          }}
+        >
           <Button
             variant="outlined"
             onClick={handleClose}
             disabled={loading}
+            sx={{ minWidth: 100 }}
           >
             Cancel
           </Button>
@@ -698,10 +583,11 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
             onClick={handleSubmit}
             disabled={loading || !formData.title.trim()}
             startIcon={<Save />}
+            sx={{ minWidth: 140 }}
           >
             {loading ? 'Saving...' : 'Save Changes'}
           </Button>
-        </Box>
+        </Stack>
       </MainCard>
     </Dialog>
   );
