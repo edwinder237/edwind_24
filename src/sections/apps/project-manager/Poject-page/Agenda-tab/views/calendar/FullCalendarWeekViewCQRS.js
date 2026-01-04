@@ -926,7 +926,7 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
                       }
                     }}
                     renderValue={() => {
-                      const assignedGroupIds = event.extendedProps.event_groups?.map(eg => eg.groupId) || [];
+                      const assignedGroupIds = event.extendedProps.event_groups?.map(eg => eg.groupId || eg.groups?.id).filter(Boolean) || [];
                       const hasAssignedGroups = assignedGroupIds.length > 0;
                       
                       return (
@@ -948,8 +948,8 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
                   >
                     {(() => {
                       // Get currently assigned group IDs for this event
-                      const assignedGroupIds = event.extendedProps.event_groups?.map(eg => eg.groupId) || [];
-                      
+                      const assignedGroupIds = event.extendedProps.event_groups?.map(eg => eg.groupId || eg.groups?.id).filter(Boolean) || [];
+
                       // Separate groups into assigned and unassigned
                       const assignedGroups = groups.filter(group => assignedGroupIds.includes(group.id));
                       const unassignedGroups = groups.filter(group => !assignedGroupIds.includes(group.id));

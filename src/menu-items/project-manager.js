@@ -13,12 +13,12 @@ import {
   UserOutlined,
   ScheduleOutlined
 } from '@ant-design/icons';
-import { LocalParking } from '@mui/icons-material';
+import { LocalParking, ViewTimeline } from '@mui/icons-material';
 
 // icons
-const icons = { 
-  DashboardOutlined, 
-  ProjectOutlined, 
+const icons = {
+  DashboardOutlined,
+  ProjectOutlined,
   TeamOutlined,
   BarChartOutlined,
   CalendarOutlined,
@@ -26,7 +26,8 @@ const icons = {
   FileTextOutlined,
   UserOutlined,
   ScheduleOutlined,
-  LocalParking
+  LocalParking,
+  ViewTimeline
 };
 
 // ==============================|| MENU ITEMS - PROJECT MANAGER ||============================== //
@@ -50,9 +51,10 @@ const ProjectManager = {
       title: <FormattedMessage id="Timeline" />,
       type: 'item',
       url: '/project-manager/projects/timeline',
-      icon: icons.ScheduleOutlined,
+      icon: icons.ViewTimeline,
       breadcrumbs: true,
-      permission: 'access-timeline'
+      permission: 'access-timeline',
+      featureBadge: 'pro'
     },
     {
       id: 'pm-projects-list',

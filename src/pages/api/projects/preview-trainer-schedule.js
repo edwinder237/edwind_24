@@ -122,7 +122,7 @@ function getDefaultProfessionalTemplate() {
                                                 <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top; padding-top: 0px; padding-bottom: 0px; border-top: 0px; border-right: 0px; border-bottom: 0px; border-left: 0px;">
                                                     <table class="image_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
                                                         <tr>
-                                                            <td class="pad" style="width:100%;padding-right:0px;padding-left:0px;">
+                                                            <td class="pad" style="width:100%;padding-right:20px;padding-left:20px;padding-top:15px;padding-bottom:10px;">
                                                                 <div class="alignment" align="left" style="line-height:10px"><img src="https://d15k2d11r6t6rl.cloudfront.net/public/users/Integrators/BeeProAgency/818300_802231/sm-page-compagnie-FR-bg-copie-e1512664242473.png" style="display: block; height: auto; border: 0; width: 225px; max-width: 100%;" width="225"></div>
                                                             </td>
                                                         </tr>
@@ -252,17 +252,9 @@ export default async function handler(req, res) {
 async function generateTrainerEmailFromTemplate({ template, projectTitle, projectId, events, trainerEmail, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton' }) {
   let processedTemplate = template;
 
-  // Remove logo section if showLogo is false
-  if (!showLogo) {
-    // Remove the logo row (row-2) which contains the CM360 logo
-    processedTemplate = processedTemplate.replace(
-      /<table class="row row-2"[^>]*>[\s\S]*?<\/table>\s*(?=<table class="row row-3")/gi,
-      ''
-    );
-  }
-
-  // Fetch project groups and participants
+  // Fetch project groups, participants, and organization logo
   let projectGroups = [];
+  let organizationLogoUrl = null;
   try {
     const project = await prisma.projects.findUnique({
       where: { id: projectId },
@@ -279,12 +271,39 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
               }
             }
           }
+        },
+        // Include sub_organization -> organization to get the logo
+        sub_organization: {
+          select: {
+            organization: {
+              select: {
+                logo_url: true
+              }
+            }
+          }
         }
       }
     });
     projectGroups = project?.groups || [];
+    organizationLogoUrl = project?.sub_organization?.organization?.logo_url || null;
   } catch (error) {
     console.error('Error fetching project groups:', error);
+  }
+
+  // Remove logo section if showLogo is false
+  if (!showLogo) {
+    // Remove the logo row (row-2) which contains the organization logo
+    processedTemplate = processedTemplate.replace(
+      /<table class="row row-2"[^>]*>[\s\S]*?<\/table>\s*(?=<table class="row row-3")/gi,
+      ''
+    );
+  } else if (organizationLogoUrl) {
+    // Replace the hardcoded logo with the organization's logo
+    // The container is 225px wide, so the image should fit within that while maintaining aspect ratio
+    processedTemplate = processedTemplate.replace(
+      /<img src="https:\/\/d15k2d11r6t6rl\.cloudfront\.net\/public\/users\/Integrators\/BeeProAgency\/818300_802231\/sm-page-compagnie-FR-bg-copie-e1512664242473\.png"[^>]*>/gi,
+      `<img src="${organizationLogoUrl}" style="display: block; height: auto; border: 0; max-width: 225px; max-height: 100px; width: auto; object-fit: contain;" alt="Organization Logo">`
+    );
   }
 
   // Template variables

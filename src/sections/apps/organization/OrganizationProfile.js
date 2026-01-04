@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
-import { Box, Chip, Divider, Grid, Stack, Typography } from '@mui/material';
+import { Box, Chip, CircularProgress, Divider, Grid, Skeleton, Stack, Typography } from '@mui/material';
 
 // project import
 import useUser from 'hooks/useUser';
@@ -22,10 +22,18 @@ const OrganizationProfile = ({ focusInput }) => {
   const [logoUrl, setLogoUrl] = useState(null);
   const [statistics, setStatistics] = useState({ projects: 0, instructors: 0, participants: 0 });
   const [subscription, setSubscription] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchOrganization();
-    fetchSubscription();
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([fetchOrganization(), fetchSubscription()]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   const fetchOrganization = async () => {
@@ -58,6 +66,44 @@ const OrganizationProfile = ({ focusInput }) => {
       console.log('Subscription not available (may require admin access)');
     }
   };
+
+  // Loading skeleton UI
+  if (isLoading) {
+    return (
+      <MainCard>
+        <Grid container spacing={3} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <Stack direction="row" spacing={3} alignItems="center">
+              <Skeleton variant="rounded" width={100} height={100} />
+              <Stack spacing={0.5} sx={{ flex: 1 }}>
+                <Skeleton variant="text" width={200} height={32} />
+                <Skeleton variant="text" width={150} height={24} />
+                <Skeleton variant="text" width={300} height={20} />
+              </Stack>
+            </Stack>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Stack direction="row" justifyContent="space-around" alignItems="center">
+              <Stack spacing={0.5} alignItems="center">
+                <Skeleton variant="text" width={40} height={32} />
+                <Skeleton variant="text" width={60} height={20} />
+              </Stack>
+              <Divider orientation="vertical" flexItem />
+              <Stack spacing={0.5} alignItems="center">
+                <Skeleton variant="text" width={40} height={32} />
+                <Skeleton variant="text" width={70} height={20} />
+              </Stack>
+              <Divider orientation="vertical" flexItem />
+              <Stack spacing={0.5} alignItems="center">
+                <Skeleton variant="text" width={40} height={32} />
+                <Skeleton variant="text" width={80} height={20} />
+              </Stack>
+            </Stack>
+          </Grid>
+        </Grid>
+      </MainCard>
+    );
+  }
 
   const getPlanIcon = (planId) => {
     switch (planId) {

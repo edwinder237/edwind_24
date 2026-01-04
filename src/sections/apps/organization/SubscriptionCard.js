@@ -45,8 +45,15 @@ const SubscriptionCard = () => {
       setSubscription(response.data.subscription);
       setError(null);
     } catch (err) {
-      console.error('Error fetching subscription:', err);
-      setError(err.response?.data?.message || 'Failed to load subscription');
+      // 403 means admin access required or org context issue - don't show as error
+      if (err.response?.status === 403 || err.response?.status === 401) {
+        console.log('Subscription not available (may require admin access or org context)');
+        setSubscription(null);
+        setError(null);
+      } else {
+        console.error('Error fetching subscription:', err);
+        setError(err.response?.data?.message || 'Failed to load subscription');
+      }
     } finally {
       setLoading(false);
     }

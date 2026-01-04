@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography, useMediaQuery, Chip, Tooltip } from '@mui/material';
+import { Box, Grid, ToggleButton, ToggleButtonGroup, Stack, useTheme, alpha, Button, Dialog, Typography, useMediaQuery, Tooltip } from '@mui/material';
 import { useSelector } from 'react-redux';
 import {
   selectAvailableRoles,
@@ -12,6 +12,7 @@ import { ViewList, CalendarMonth, DateRange, MenuBook, OpenInNew } from '@mui/ic
 
 // Components
 import MainCard from 'components/MainCard';
+import FeatureBadge from 'components/@extended/FeatureBadge';
 import AgendaView from './AgendaView';
 import { EventDetailsSection } from './features/events/components';
 import { FullCalendarMonthView, FullCalendarWeekView } from './views/calendar';
@@ -359,17 +360,7 @@ const AgendaTabRTK = React.memo(() => {
 
       {/* Import/Export Buttons - Pro Features */}
       <Stack direction="row" spacing={1} alignItems="center">
-        <Chip
-          label="Pro"
-          size="small"
-          sx={{
-            height: 20,
-            fontSize: '0.65rem',
-            fontWeight: 700,
-            bgcolor: 'warning.main',
-            color: 'warning.contrastText',
-          }}
-        />
+        <FeatureBadge tier="pro" />
         <Button
           variant="outlined"
           size="small"

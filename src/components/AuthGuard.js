@@ -13,11 +13,42 @@ const AuthGuard = ({ children }) => {
   const [redirecting, setRedirecting] = useState(false);
   const [sessionInitialized, setSessionInitialized] = useState(false);
   const [initializingSession, setInitializingSession] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
+
+  // Check if user needs onboarding
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (!isAuthenticated || !user || checkingOnboarding) {
+        return;
+      }
+
+      // Check if user has completed onboarding (has sub_organizationId or onboardingComplete flag)
+      const userInfo = user.info || {};
+      const needsOnboarding = !userInfo.onboardingComplete && !user.sub_organizationId;
+
+      if (needsOnboarding && router.pathname !== '/onboarding') {
+        console.log('🔀 User needs onboarding, redirecting...');
+        setCheckingOnboarding(true);
+        router.push('/onboarding');
+        return;
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [isAuthenticated, user, router, checkingOnboarding]);
 
   // Initialize organization session when user is authenticated
   useEffect(() => {
     const initializeOrgSession = async () => {
       if (!isAuthenticated || initializingSession || sessionInitialized) {
+        return;
+      }
+
+      // Skip session init if user needs onboarding
+      const userInfo = user?.info || {};
+      const needsOnboarding = !userInfo.onboardingComplete && !user?.sub_organizationId;
+      if (needsOnboarding) {
+        setSessionInitialized(true); // Skip for now
         return;
       }
 
@@ -45,7 +76,7 @@ const AuthGuard = ({ children }) => {
     };
 
     initializeOrgSession();
-  }, [isAuthenticated, initializingSession, sessionInitialized]);
+  }, [isAuthenticated, user, initializingSession, sessionInitialized]);
 
   useEffect(() => {
     // Only redirect if loading is complete and user is not authenticated
@@ -67,8 +98,8 @@ const AuthGuard = ({ children }) => {
     }
   }, [isLoading, isAuthenticated, router, redirecting]);
 
-  // Still loading, initializing session, or redirecting to sign-in
-  if (isLoading || !isAuthenticated || (isAuthenticated && !sessionInitialized)) {
+  // Still loading, initializing session, checking onboarding, or redirecting to sign-in
+  if (isLoading || !isAuthenticated || checkingOnboarding || (isAuthenticated && !sessionInitialized)) {
     return (
       <Box
         sx={{

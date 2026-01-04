@@ -11,6 +11,7 @@ import { Avatar, Chip, ListItemButton, ListItemIcon, ListItemText, Typography, u
 
 // project import
 import Dot from 'components/@extended/Dot';
+import FeatureBadge from 'components/@extended/FeatureBadge';
 import useConfig from 'hooks/useConfig';
 import useUser from 'hooks/useUser';
 import { dispatch, useSelector } from 'store';
@@ -31,11 +32,18 @@ const NavItem = ({ item, level }) => {
 
   const { menuOrientation } = useConfig();
 
-  // Check if item requires a specific permission
+  // Check if item requires a specific permission or role
   if (item.permission) {
     const userPermissions = user?.permissions || [];
-    if (!userPermissions.includes(item.permission)) {
-      return null; // Hide menu item if user doesn't have required permission
+    const userRole = user?.role?.toLowerCase() || '';
+
+    // Check if the required permission is a role (like 'admin')
+    // or if it exists in the user's permissions array
+    const isRoleMatch = item.permission.toLowerCase() === userRole;
+    const hasPermission = userPermissions.includes(item.permission);
+
+    if (!isRoleMatch && !hasPermission) {
+      return null; // Hide menu item if user doesn't have required permission/role
     }
   }
 
@@ -167,6 +175,9 @@ const NavItem = ({ item, level }) => {
               avatar={item.chip.avatar && <Avatar>{item.chip.avatar}</Avatar>}
             />
           )}
+          {(drawerOpen || (!drawerOpen && level !== 1)) && item.featureBadge && (
+            <FeatureBadge tier={item.featureBadge} size="small" />
+          )}
         </ListItemButton>
       ) : (
         <ListItemButton
@@ -267,6 +278,9 @@ const NavItem = ({ item, level }) => {
               label={item.chip.label}
               avatar={item.chip.avatar && <Avatar>{item.chip.avatar}</Avatar>}
             />
+          )}
+          {(drawerOpen || (!drawerOpen && level !== 1)) && item.featureBadge && (
+            <FeatureBadge tier={item.featureBadge} size="small" />
           )}
         </ListItemButton>
       )}

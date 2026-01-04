@@ -20,6 +20,7 @@ model User {
   midName                 String?
   lastName                String
   status                  String                      @default("active")
+  isActive                Boolean                     @default(true)
   info                    Json
   createdAt               DateTime                    @default(now())
   updatedAt               DateTime?                   @updatedAt
@@ -30,6 +31,7 @@ model User {
 
   @@index([sub_organizationId])
   @@index([workos_user_id])
+  @@index([isActive])
   @@map("users")
 }
 

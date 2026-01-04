@@ -79,6 +79,8 @@ const ProjectsList = () => {
   }));
   const dispatch = useDispatch();
   const [localError, setLocalError] = useState(null);
+  // Track if initial load has completed (to avoid showing empty state before data loads)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // Get current user for role-based filtering
   const { user } = useUser();
@@ -101,13 +103,16 @@ const ProjectsList = () => {
   // Load projects on component mount
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadProjects = async () => {
       if (isMounted) {
         await fetchProjects();
+        if (isMounted) {
+          setInitialLoadComplete(true);
+        }
       }
     };
-    
+
     loadProjects();
 
     return () => {
@@ -853,7 +858,7 @@ const ProjectsList = () => {
         <Grid container spacing={3}>
           <ErrorDisplay />
         </Grid>
-      ) : loading ? (
+      ) : (loading || !initialLoadComplete) ? (
         <LoadingDisplay />
       ) : userCard.length > 0 ? (
         <Grid container spacing={matchDownSM ? 2 : 3}>
@@ -865,7 +870,7 @@ const ProjectsList = () => {
                   initial={{ opacity: 0, scale: 0.8, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.8, y: -20 }}
-                  transition={{ 
+                  transition={{
                     duration: 0.3,
                     layout: { duration: 0.4, ease: "easeInOut" }
                   }}
@@ -881,9 +886,44 @@ const ProjectsList = () => {
           </AnimatePresence>
         </Grid>
       ) : (
-        <EmptyUserCard title={"You have not created any projects yet."} />
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '400px',
+            textAlign: 'center',
+            p: 4
+          }}
+        >
+          <Typography variant="h4" color="text.primary" gutterBottom>
+            Create Your First Project
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: 400 }}>
+            Get started by creating a new training project. You can add curriculums, participants, and schedule events.
+          </Typography>
+          <AddButton
+            variant="contained"
+            startIcon={<PlusOutlined />}
+            onClick={handleAdd}
+            size="large"
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 4,
+              py: 1.5,
+              background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
+              }
+            }}
+          >
+            Create Project
+          </AddButton>
+        </Box>
       )}
-      {!hasError && !loading && userCard.length > 0 && (
+      {!hasError && !loading && initialLoadComplete && userCard.length > 0 && (
         <Stack spacing={2} sx={{ p: 2.5 }} alignItems="flex-end">
           <Pagination
             count={count}

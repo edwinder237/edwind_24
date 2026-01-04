@@ -110,42 +110,30 @@ export async function getServerSideProps(context) {
     }
 
     // Sync user with database
+    let isNewUser = false;
+    let needsOnboarding = false;
+
     try {
+      // First try to find by workos_user_id
       let existingUser = await prisma.user.findUnique({
         where: { workos_user_id: user.id }
       });
 
+      // If not found by workos_user_id, try to find by email (for invited users)
       if (!existingUser) {
-        // For new users, we might need a default sub_organization (temporarily)
-        // This will be overridden by proper organization assignment later
-        let defaultSubOrg = await prisma.sub_organizations.findFirst();
+        existingUser = await prisma.user.findUnique({
+          where: { email: user.email }
+        });
 
-        if (!defaultSubOrg) {
-          // Create default organization and sub_organization if none exist
-          const defaultOrg = await prisma.organizations.create({
-            data: {
-              title: 'Default Organization',
-              description: 'Default organization for WorkOS users',
-              createdBy: user.id,
-              updatedby: user.id,
-              published: true,
-              status: 'active',
-              type: 'default'
-            }
-          });
-
-          defaultSubOrg = await prisma.sub_organizations.create({
-            data: {
-              title: 'Default Sub Organization',
-              description: 'Default sub organization for WorkOS users',
-              createdBy: user.id,
-              updatedby: user.id,
-              organizationId: defaultOrg.id
-            }
-          });
+        if (existingUser) {
+          console.log(`🔗 Found invited user by email: ${user.email}, linking WorkOS ID`);
         }
+      }
 
-        // Create new user with workos_user_id
+      if (!existingUser) {
+        isNewUser = true;
+
+        // Create new user with workos_user_id (no sub_organization yet - will be set during onboarding)
         await prisma.user.create({
           data: {
             id: user.id,
@@ -160,27 +148,48 @@ export async function getServerSideProps(context) {
             info: {
               bio: '',
               phone: '',
-              workos_user: true
+              workos_user: true,
+              onboardingComplete: false
             },
-            sub_organizationId: defaultSubOrg.id // Can be null later
+            sub_organizationId: null // Will be set during onboarding
           }
         });
         console.log(`✅ Created new user: ${user.email}`);
+        needsOnboarding = true;
       } else {
+        // Check if this is an invited user being linked (had no workos_user_id before)
+        const wasInvitedUser = !existingUser.workos_user_id;
+
+        // Check if existing user needs onboarding
+        const userInfo = existingUser.info || {};
+        // Invited users with a sub_organizationId don't need onboarding
+        if (!userInfo.onboardingComplete && !existingUser.sub_organizationId) {
+          // User exists but hasn't completed onboarding
+          needsOnboarding = true;
+          console.log(`⚠️ Existing user needs onboarding: ${user.email}`);
+        }
+
         // Update existing user's profile from WorkOS on every login
-        const updatedName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'WorkOS User';
+        const updatedName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || existingUser.name || 'WorkOS User';
 
         await prisma.user.update({
           where: { id: existingUser.id },
           data: {
-            workos_user_id: user.id, // Ensure workos_user_id is set
+            workos_user_id: user.id, // Link WorkOS user ID (important for invited users!)
             email: user.email, // Sync email in case it changed
             name: updatedName, // Sync full name from WorkOS
             firstName: user.firstName || existingUser.firstName,
-            lastName: user.lastName || existingUser.lastName
+            lastName: user.lastName || existingUser.lastName,
+            status: 'active', // Activate user if they were pending
+            isActive: true // Activate user
           }
         });
-        console.log(`✅ Synced user profile from WorkOS: ${user.email}`);
+
+        if (wasInvitedUser) {
+          console.log(`✅ Linked invited user to WorkOS: ${user.email} -> ${user.id}`);
+        } else {
+          console.log(`✅ Synced user profile from WorkOS: ${user.email}`);
+        }
         console.log(`   Updated name to: ${updatedName}`);
       }
     } catch (dbError) {
@@ -206,12 +215,15 @@ export async function getServerSideProps(context) {
       // Continue with authentication even if claims building fails
     }
 
-    // Build organization cookie if user selected an organization during login
+    // Build organization cookie
+    // Priority: 1) WorkOS selection from auth, 2) User's sub-organization, 3) First membership
     let orgCookie = null;
-    if (workosOrgId) {
-      try {
-        // Find the DB organization by WorkOS org ID
-        const selectedOrg = await prisma.organizations.findFirst({
+    let selectedOrg = null;
+
+    try {
+      // 1. Try to get org from WorkOS auth result
+      if (workosOrgId) {
+        selectedOrg = await prisma.organizations.findFirst({
           where: { workos_org_id: workosOrgId },
           select: {
             id: true,
@@ -219,33 +231,80 @@ export async function getServerSideProps(context) {
             title: true
           }
         });
-
         if (selectedOrg) {
-          console.log(`🏢 Setting organization from WorkOS selection: ${selectedOrg.title} (${selectedOrg.id})`);
-
-          // Encrypt organization data for the cookie
-          const encryptedData = encrypt({
-            organizationId: selectedOrg.id,
-            workosOrgId: selectedOrg.workos_org_id,
-            title: selectedOrg.title,
-            setAt: new Date().toISOString()
-          });
-
-          // Create organization cookie
-          orgCookie = serialize('edwind_current_org', encryptedData, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 30 * 24 * 60 * 60, // 30 days
-            path: '/'
-          });
-        } else {
-          console.warn(`⚠️  WorkOS org ${workosOrgId} not found in database`);
+          console.log(`🏢 Setting organization from WorkOS selection: ${selectedOrg.title}`);
         }
-      } catch (orgError) {
-        console.error('Error setting organization cookie:', orgError);
-        // Continue without setting org cookie
       }
+
+      // 2. If no org from WorkOS, try to get from user's sub_organization
+      if (!selectedOrg) {
+        const dbUser = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { workos_user_id: user.id },
+              { email: user.email }
+            ]
+          },
+          select: {
+            sub_organization: {
+              select: {
+                organization: {
+                  select: {
+                    id: true,
+                    workos_org_id: true,
+                    title: true
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (dbUser?.sub_organization?.organization) {
+          selectedOrg = dbUser.sub_organization.organization;
+          console.log(`🏢 Setting organization from user's sub-organization: ${selectedOrg.title}`);
+        }
+      }
+
+      // 3. If still no org, try first membership
+      if (!selectedOrg && memberships.length > 0) {
+        const firstMembershipOrgId = memberships[0].organizationId;
+        selectedOrg = await prisma.organizations.findFirst({
+          where: { workos_org_id: firstMembershipOrgId },
+          select: {
+            id: true,
+            workos_org_id: true,
+            title: true
+          }
+        });
+        if (selectedOrg) {
+          console.log(`🏢 Setting organization from first membership: ${selectedOrg.title}`);
+        }
+      }
+
+      // Create the cookie if we found an organization
+      if (selectedOrg) {
+        const encryptedData = encrypt({
+          organizationId: selectedOrg.id,
+          workosOrgId: selectedOrg.workos_org_id,
+          title: selectedOrg.title,
+          setAt: new Date().toISOString()
+        });
+
+        orgCookie = serialize('edwind_current_org', encryptedData, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 30 * 24 * 60 * 60, // 30 days
+          path: '/'
+        });
+        console.log(`✅ Organization cookie set for: ${selectedOrg.title}`);
+      } else {
+        console.warn(`⚠️  Could not determine organization for user ${user.email}`);
+      }
+    } catch (orgError) {
+      console.error('Error setting organization cookie:', orgError);
+      // Continue without setting org cookie
     }
 
     // Set session cookies including session ID for logout
@@ -262,11 +321,15 @@ export async function getServerSideProps(context) {
 
     context.res.setHeader('Set-Cookie', cookies);
 
-    
-    // Redirect to the main app after successful authentication
+
+    // Redirect based on onboarding status
+    const redirectDestination = needsOnboarding ? '/onboarding' : '/projects';
+
+    console.log(`🔀 Redirecting to: ${redirectDestination} (isNewUser: ${isNewUser}, needsOnboarding: ${needsOnboarding})`);
+
     return {
       redirect: {
-        destination: '/projects',
+        destination: redirectDestination,
         permanent: false,
       },
     };

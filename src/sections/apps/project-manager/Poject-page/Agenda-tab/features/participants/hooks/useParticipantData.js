@@ -106,10 +106,11 @@ export const useParticipantData = (eventParticipants, participantStatuses, cours
   }, []);
 
   // Filter available groups for adding to event
+  // Check both eg.groupId and eg.groups?.id to handle different data structures
   const getAvailableGroups = useMemo(() => {
     return (projectGroups, eventGroups) => {
       return projectGroups.filter(group =>
-        !eventGroups.some(eg => eg.groupId === group.id)
+        !eventGroups.some(eg => eg.groupId === group.id || eg.groups?.id === group.id)
       );
     };
   }, []);

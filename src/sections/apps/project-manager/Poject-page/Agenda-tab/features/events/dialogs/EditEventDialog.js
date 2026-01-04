@@ -194,7 +194,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         backgroundColor: event.backgroundColor || event.color || theme.palette.primary.main,
         courseId: courseId,
         supportActivityId: event.supportActivityId || null,
-        selectedGroups: event.event_groups?.map(eg => eg.groupId) || []
+        selectedGroups: event.event_groups?.map(eg => eg.groupId || eg.groups?.id).filter(Boolean) || []
       });
     }
   }, [event, open, theme.palette.primary.main, defaultInstructor, _setStartRaw, _setEndRaw]);

@@ -186,7 +186,8 @@ async function handler(req, res) {
             event_groups: {
               select: {
                 id: true,
-                
+                groupId: true,
+
                 groups: {
                   select: {
                     id: true,

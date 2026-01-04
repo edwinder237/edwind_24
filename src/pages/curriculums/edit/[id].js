@@ -2205,7 +2205,10 @@ const CurriculumEditPage = () => {
                 if (availableCourses.length === 0) {
                   return (
                     <Alert severity="info">
-                      All available courses are already assigned to this curriculum.
+                      All available courses are already assigned to this curriculum.{' '}
+                      <Link href="/courses" underline="hover" sx={{ fontWeight: 500 }}>
+                        Create a new course
+                      </Link>
                     </Alert>
                   );
                 }

@@ -6,14 +6,14 @@ import {
   Box,
   Button,
   CardHeader,
+  CircularProgress,
   Divider,
   FormHelperText,
   Grid,
   InputLabel,
   Stack,
   TextField,
-  Typography,
-  FormLabel
+  Typography
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
@@ -36,6 +36,7 @@ const OrganizationFormTab = ({ inputRef }) => {
   const [logoUrl, setLogoUrl] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [organization, setOrganization] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef(null);
 
   // Fetch organization data on mount
@@ -44,6 +45,7 @@ const OrganizationFormTab = ({ inputRef }) => {
   }, []);
 
   const fetchOrganization = async () => {
+    setIsLoading(true);
     try {
       const response = await fetch('/api/organization/get-organization');
       if (response.ok) {
@@ -55,6 +57,8 @@ const OrganizationFormTab = ({ inputRef }) => {
       }
     } catch (error) {
       console.error('Error fetching organization:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -147,6 +151,20 @@ const OrganizationFormTab = ({ inputRef }) => {
     }
   };
 
+
+  // Show loading state while fetching organization data
+  if (isLoading) {
+    return (
+      <MainCard content={false} title="Organization Settings" sx={{ '& .MuiInputLabel-root': { fontSize: '0.875rem' } }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400, p: 3 }}>
+          <Stack spacing={2} alignItems="center">
+            <CircularProgress />
+            <Typography color="text.secondary">Loading organization settings...</Typography>
+          </Stack>
+        </Box>
+      </MainCard>
+    );
+  }
 
   return (
     <MainCard content={false} title="Organization Settings" sx={{ '& .MuiInputLabel-root': { fontSize: '0.875rem' } }}>

@@ -28,6 +28,7 @@ import NavCollapse from './NavCollapse';
 import Transitions from 'components/@extended/Transitions';
 
 import useConfig from 'hooks/useConfig';
+import useUser from 'hooks/useUser';
 import { dispatch, useSelector } from 'store';
 import { activeID } from 'store/reducers/menu';
 import { LAYOUT_CONST } from 'config';
@@ -60,6 +61,7 @@ const PopperStyled = styled(Popper)(({ theme }) => ({
 const NavGroup = ({ item, lastItem, remItems, lastItemId, setSelectedItems, selectedItems, setSelectedLevel, selectedLevel }) => {
   const theme = useTheme();
   const { asPath } = useRouter();
+  const { user } = useUser();
 
   const { menuOrientation } = useConfig();
   const menu = useSelector((state) => state.menu);
@@ -71,6 +73,21 @@ const NavGroup = ({ item, lastItem, remItems, lastItemId, setSelectedItems, sele
   const [currentItem, setCurrentItem] = useState(item);
 
   const openMini = Boolean(anchorEl);
+
+  // Check if group requires a specific permission or role
+  if (item.permission) {
+    const userPermissions = user?.permissions || [];
+    const userRole = user?.role?.toLowerCase() || '';
+
+    // Check if the required permission is a role (like 'admin')
+    // or if it exists in the user's permissions array
+    const isRoleMatch = item.permission.toLowerCase() === userRole;
+    const hasPermission = userPermissions.includes(item.permission);
+
+    if (!isRoleMatch && !hasPermission) {
+      return null; // Hide entire group if user doesn't have required permission/role
+    }
+  }
 
   useEffect(() => {
     if (lastItem) {

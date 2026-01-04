@@ -2,7 +2,6 @@
 import { useTheme } from '@mui/material/styles';
 import {
   useMediaQuery,
-  Chip,
   Divider,
   Grid,
   Link,
@@ -18,6 +17,7 @@ import {
 // project import
 import MainCard from 'components/MainCard';
 import Avatar from 'components/@extended/Avatar';
+import FeatureBadge from 'components/@extended/FeatureBadge';
 import LinearWithLabel from 'components/@extended/progress/LinearWithLabel';
 
 // assets
@@ -49,7 +49,7 @@ const TabProfile = () => {
               <Grid container spacing={3}>
                 <Grid item xs={12}>
                   <Stack direction="row" justifyContent="flex-end">
-                    <Chip label="Pro" size="small" color="primary" />
+                    <FeatureBadge tier="pro" />
                   </Stack>
                   <Stack spacing={2.5} alignItems="center">
                     <Avatar 
