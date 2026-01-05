@@ -215,57 +215,9 @@ const ModernOverviewTab = () => {
       {/* Main Content Grid */}
       <Grid container spacing={3}>
 
-        {/* First Row - Daily Notes (3/4) and Alerts & Recommendations (1/4) */}
-        <Grid item xs={12} md={9}>
+        {/* First Row - Daily Notes (Full Width) */}
+        <Grid item xs={12}>
           <DailyNotes project={project} />
-        </Grid>
-
-        <Grid item xs={12} md={3}>
-          <Paper sx={{ p: 3, bgcolor: 'background.paper', height: '100%' }}>
-            <Typography variant="h6" fontWeight="bold" mb={3}>
-              Alerts & Recommendations
-            </Typography>
-            <Stack spacing={2}>
-              {dashboardOverview?.alerts?.map((alert, index) => (
-                <Alert
-                  key={`alert-${index}`}
-                  severity={alert.type}
-                  variant="outlined"
-                  sx={{ py: 0.5 }}
-                >
-                  <Typography variant="caption" fontWeight={600} display="block">
-                    {alert.title}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {alert.message}
-                  </Typography>
-                </Alert>
-              ))}
-
-              {projectHealth?.recommendations?.map((rec, index) => (
-                <Alert
-                  key={`rec-${index}`}
-                  severity="info"
-                  variant="outlined"
-                  sx={{ py: 0.5 }}
-                >
-                  <Typography variant="caption">{rec}</Typography>
-                </Alert>
-              ))}
-
-              {(!dashboardOverview?.alerts?.length && !projectHealth?.recommendations?.length) && (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <CheckCircle sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    All systems running smoothly
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    No alerts at this time
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
-          </Paper>
         </Grid>
 
         {/* Second Row - Learning Objectives (Full Width) */}

@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
   CircularProgress,
+  Divider,
+  Dialog,
+  Button,
+  Stack,
   alpha
 } from '@mui/material';
 import { Dropdown, DropdownMenuItem, DropdownNestedMenuItem } from 'components/Dropdown';
 import { Remove, ArrowRight, Event as EventIcon } from '@mui/icons-material';
 import { ATTENDANCE_STATUS_CHOICES } from 'constants';
+import MainCard from 'components/MainCard';
 
 /**
  * ParticipantList - Displays the list of participants with attendance controls
@@ -24,6 +29,67 @@ const ParticipantList = ({
   availableEvents = [],
   currentEventId = null
 }) => {
+  // State for move confirmation dialog
+  const [moveConfirmOpen, setMoveConfirmOpen] = useState(false);
+  const [pendingMove, setPendingMove] = useState(null);
+
+  // State for remove confirmation dialog
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState(null);
+
+  // Handle move to event click - opens confirmation dialog
+  const handleMoveToEventClick = (participantId, eventParticipant, targetEvent) => {
+    const participant = eventParticipant.participant;
+    setPendingMove({
+      participantId,
+      eventParticipant,
+      targetEvent,
+      participantName: `${participant?.firstName || ''} ${participant?.lastName || ''}`.trim() || 'this participant'
+    });
+    setMoveConfirmOpen(true);
+  };
+
+  // Confirm the move
+  const handleConfirmMove = () => {
+    if (pendingMove) {
+      onMoveToEvent(pendingMove.participantId, pendingMove.eventParticipant, pendingMove.targetEvent);
+    }
+    setMoveConfirmOpen(false);
+    setPendingMove(null);
+  };
+
+  // Cancel the move
+  const handleCancelMove = () => {
+    setMoveConfirmOpen(false);
+    setPendingMove(null);
+  };
+
+  // Handle remove from event click - opens confirmation dialog
+  const handleRemoveFromEventClick = (participantId, eventParticipant) => {
+    const participant = eventParticipant.participant;
+    setPendingRemove({
+      participantId,
+      eventParticipant,
+      participantName: `${participant?.firstName || ''} ${participant?.lastName || ''}`.trim() || 'this participant'
+    });
+    setRemoveConfirmOpen(true);
+  };
+
+  // Confirm the remove
+  const handleConfirmRemove = () => {
+    if (pendingRemove) {
+      onRemoveFromEvent(pendingRemove.participantId, pendingRemove.eventParticipant);
+    }
+    setRemoveConfirmOpen(false);
+    setPendingRemove(null);
+  };
+
+  // Cancel the remove
+  const handleCancelRemove = () => {
+    setRemoveConfirmOpen(false);
+    setPendingRemove(null);
+  };
+
   if (participants.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', color: 'text.secondary', py: 4 }}>
@@ -163,10 +229,14 @@ const ParticipantList = ({
                     </Box>
                   </DropdownMenuItem>
                 )),
-                
+
+                // Divider to separate status options from actions
+                <Divider key="divider" sx={{ my: 0.5 }} />,
+
                 // Move to event submenu
                 <DropdownNestedMenuItem
                   key="move-to-event"
+                  rightAnchored
                   label={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <EventIcon style={{ fontSize: 14, color: 'inherit' }} />
@@ -181,7 +251,7 @@ const ParticipantList = ({
                         .map((event) => (
                           <DropdownMenuItem
                             key={`move-to-event-${event.id}`}
-                            onClick={() => onMoveToEvent(participantId, eventParticipant, event)}
+                            onClick={() => handleMoveToEventClick(participantId, eventParticipant, event)}
                           >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <EventIcon style={{ fontSize: 16, color: '#2e7d32' }} />
@@ -212,11 +282,14 @@ const ParticipantList = ({
                     }
                   }}
                 />,
-                
+
+                // Divider before remove action
+                <Divider key="divider-remove" sx={{ my: 0.5 }} />,
+
                 // Remove from event option
                 <DropdownMenuItem
                   key="remove"
-                  onClick={() => onRemoveFromEvent(participantId, eventParticipant)}
+                  onClick={() => handleRemoveFromEventClick(participantId, eventParticipant)}
                   sx={{
                     fontSize: '0.75rem',
                     color: 'error.main',
@@ -236,6 +309,62 @@ const ParticipantList = ({
           </Box>
         );
       })}
+
+      {/* Move to Event Confirmation Dialog */}
+      <Dialog
+        open={moveConfirmOpen}
+        onClose={handleCancelMove}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { bgcolor: 'transparent', boxShadow: 'none' } }}
+      >
+        <MainCard title="Confirm Move">
+          <Stack spacing={2}>
+            <Typography>
+              Move <strong>{pendingMove?.participantName}</strong> to{' '}
+              <strong>{pendingMove?.targetEvent?.title || 'the selected event'}</strong>?
+            </Typography>
+            {pendingMove?.targetEvent && (
+              <Typography variant="body2" color="text.secondary">
+                {new Date(pendingMove.targetEvent.start).toLocaleDateString()}{' '}
+                {new Date(pendingMove.targetEvent.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+            )}
+            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2 }}>
+              <Button onClick={handleCancelMove}>Cancel</Button>
+              <Button onClick={handleConfirmMove} variant="contained" color="primary">
+                Move
+              </Button>
+            </Stack>
+          </Stack>
+        </MainCard>
+      </Dialog>
+
+      {/* Remove from Event Confirmation Dialog */}
+      <Dialog
+        open={removeConfirmOpen}
+        onClose={handleCancelRemove}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { bgcolor: 'transparent', boxShadow: 'none' } }}
+      >
+        <MainCard title="Confirm Remove">
+          <Stack spacing={2}>
+            <Typography>
+              Remove <strong>{pendingRemove?.participantName}</strong> from this event?
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              The participant will no longer be assigned to this event.
+            </Typography>
+            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2 }}>
+              <Button onClick={handleCancelRemove}>Cancel</Button>
+              <Button onClick={handleConfirmRemove} variant="contained" color="error">
+                Remove
+              </Button>
+            </Stack>
+          </Stack>
+        </MainCard>
+      </Dialog>
     </Box>
   );
 };

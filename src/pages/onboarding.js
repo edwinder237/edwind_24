@@ -66,7 +66,7 @@ const OnboardingPage = () => {
   // Redirect if not authenticated
   useEffect(() => {
     if (!userLoading && !isAuthenticated) {
-      router.push('/landing');
+      router.push('/');
     }
   }, [userLoading, isAuthenticated, router]);
 

@@ -1,14 +1,17 @@
-// project import
-import Layout from 'layout';
-import Landing from 'sections/landing';
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 
-// ==============================|| LANDING PAGE ||============================== //
+// ==============================|| LANDING PAGE - REDIRECT TO ROOT ||============================== //
 
-const LandingPage = () => <Landing />;
+const LandingPage = () => {
+  const router = useRouter();
 
-LandingPage.getLayout = function getLayout(page) {
-  console.log('Landing page layout rendering with variant: landing');
-  return <Layout variant="landing">{page}</Layout>;
+  useEffect(() => {
+    // Redirect /landing to root for backwards compatibility
+    router.replace('/');
+  }, [router]);
+
+  return null;
 };
 
 export default LandingPage;

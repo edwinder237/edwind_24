@@ -23,8 +23,8 @@ const CookieConsentBanner = () => {
     openPreferences
   } = useCookieConsent();
 
-  // Only show banner on landing page
-  const isLandingPage = router.pathname === '/landing';
+  // Only show banner on landing page (root or /landing for backwards compat)
+  const isLandingPage = router.pathname === '/' || router.pathname === '/landing';
 
   if (!showBanner || !isLandingPage) {
     return null;
