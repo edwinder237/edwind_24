@@ -73,6 +73,54 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const operationInProgressRef = useRef(false);
   const isFetchingAgendaRef = useRef(isFetchingAgenda);
 
+  // Get business hours from project settings
+  const getBusinessHours = useCallback(() => {
+    const projectSettings = project?.project_settings;
+    if (!projectSettings?.startOfDayTime || !projectSettings?.endOfDayTime) {
+      return {
+        startTime: '08:00',
+        endTime: '18:00'
+      };
+    }
+
+    return {
+      startTime: projectSettings.startOfDayTime,
+      endTime: projectSettings.endOfDayTime
+    };
+  }, [project?.project_settings]);
+
+  // Get working days from project settings to determine hidden days
+  const getHiddenDays = useCallback(() => {
+    const projectSettings = project?.project_settings;
+    const workingDays = projectSettings?.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+
+    // Map day names to day numbers (0 = Sunday, 6 = Saturday)
+    const dayNameToNumber = {
+      'sunday': 0,
+      'monday': 1,
+      'tuesday': 2,
+      'wednesday': 3,
+      'thursday': 4,
+      'friday': 5,
+      'saturday': 6
+    };
+
+    // Find days that are NOT in workingDays
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    const workingDayNumbers = workingDays.map(day => dayNameToNumber[day.toLowerCase()]);
+    const hiddenDays = allDays.filter(day => !workingDayNumbers.includes(day));
+
+    return hiddenDays;
+  }, [project?.project_settings]);
+
+
+  // Check if project runs on weekends
+  const projectRunsOnWeekends = useCallback(() => {
+    const projectSettings = project?.project_settings;
+    const workingDays = projectSettings?.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    return workingDays.some(day => ['saturday', 'sunday'].includes(day.toLowerCase()));
+  }, [project?.project_settings]);
+
   // Update ref whenever isFetchingAgenda changes
   useEffect(() => {
     isFetchingAgendaRef.current = isFetchingAgenda;
@@ -998,27 +1046,26 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     );
   };
 
-  // Custom toolbar component
-  const CustomToolbar = () => {
+  // Render custom toolbar (using render function pattern instead of nested component)
+  const renderCustomToolbar = () => {
     const calendarApi = getCalendarApi();
-    const currentWeek = calendarApi ? calendarApi.getDate() : new Date();
-    
+
     // Get week range and week number
     const getWeekInfo = () => {
       if (!calendarApi || !calendarApi.view) return { range: 'Loading...', weekNum: '' };
-      
+
       const view = calendarApi.view;
       const start = view.currentStart;
       const end = view.currentEnd;
-      
+
       // Calculate week number
       const startOfYear = new Date(start.getFullYear(), 0, 1);
       const weekNum = Math.ceil((((start - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
-      
+
       // Adjust end date (FullCalendar includes next day at 00:00)
       const adjustedEnd = new Date(end);
       adjustedEnd.setDate(adjustedEnd.getDate() - 1);
-      
+
       let range = '';
       if (start.getMonth() === adjustedEnd.getMonth()) {
         range = `${start.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${adjustedEnd.toLocaleDateString('en-US', { day: 'numeric', year: 'numeric' })}`;
@@ -1027,7 +1074,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
       } else {
         range = `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${adjustedEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
       }
-      
+
       return { range, weekNum };
     };
 
@@ -1039,11 +1086,11 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     };
 
     return (
-      <Stack 
-        direction="row" 
-        justifyContent="space-between" 
-        alignItems="center" 
-        sx={{ 
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{
           px: 3,
           py: 2,
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.15)}`
@@ -1056,7 +1103,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           <IconButton onClick={() => handleNavigate('NEXT')} size="small">
             <NavigateNext />
           </IconButton>
-          <Button 
+          <Button
             onClick={() => handleNavigate('TODAY')}
             size="small"
             variant={isCurrentWeek() ? "contained" : "outlined"}
@@ -1091,15 +1138,15 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           </Typography>
         </Stack>
 
-        <Stack direction="row" spacing={1}>
-          <Chip 
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Chip
             label={`${events.length} events`}
             size="small"
             color="primary"
             variant="outlined"
           />
           {conflictingEvents.length > 0 && (
-            <Chip 
+            <Chip
               label={`${conflictingEvents.length} conflicts`}
               size="small"
               color="error"
@@ -1114,22 +1161,6 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         </Stack>
       </Stack>
     );
-  };
-
-  // Get business hours from project settings
-  const getBusinessHours = () => {
-    const projectSettings = project?.project_settings;
-    if (!projectSettings?.startOfDayTime || !projectSettings?.endOfDayTime) {
-      return {
-        startTime: '08:00',
-        endTime: '18:00'
-      };
-    }
-    
-    return {
-      startTime: projectSettings.startOfDayTime,
-      endTime: projectSettings.endOfDayTime
-    };
   };
 
   const businessHours = getBusinessHours();
@@ -1173,7 +1204,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
           borderRadius: 0
         }}
       >
-        <CustomToolbar />
+        {renderCustomToolbar()}
         
         <Box 
           sx={{ 
@@ -1335,6 +1366,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
             eventContent={renderEventContent}
             slotMinTime={businessHours.startTime}
             slotMaxTime={businessHours.endTime}
+            hiddenDays={getHiddenDays()}
             expandRows={true}
             nowIndicator={true}
             dayHeaderContent={(arg) => {

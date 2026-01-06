@@ -176,35 +176,57 @@ const GroupCurriculumWidget = ({ groupId, projectId, onManageCurriculums, refres
                   backgroundColor: 'background.paper',
                   '&:hover': {
                     backgroundColor: 'action.hover'
-                  }
+                  },
+                  pr: 6, // Add padding for delete button
+                  overflow: 'hidden'
                 }}
               >
                 <ListItemText
+                  sx={{ overflow: 'hidden' }}
                   primary={
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" alignItems="flex-start" spacing={0.5}>
                       <IconButton
                         size="small"
                         onClick={() => handleToggleCurriculumExpansion(curriculum.id)}
+                        sx={{ flexShrink: 0, mt: -0.5 }}
                       >
                         {isExpanded ? <DownOutlined /> : <RightOutlined />}
                       </IconButton>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {curriculum.title}
-                      </Typography>
-                      <Chip 
-                        size="small" 
-                        label={`${curriculum.courseCount} courses`}
-                        color="primary"
-                        variant="outlined"
-                      />
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography
+                          variant="subtitle2"
+                          fontWeight="bold"
+                          sx={{
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                            hyphens: 'auto'
+                          }}
+                        >
+                          {curriculum.title}
+                        </Typography>
+                        <Chip
+                          size="small"
+                          label={`${curriculum.courseCount} courses`}
+                          color="primary"
+                          variant="outlined"
+                          sx={{ mt: 0.5 }}
+                        />
+                      </Box>
                     </Stack>
                   }
                   secondary={
                     curriculum.description && (
-                      <Typography 
-                        variant="caption" 
+                      <Typography
+                        variant="caption"
                         color="text.secondary"
-                        sx={{ ml: 4, display: 'block', mt: 0.5 }}
+                        sx={{
+                          ml: 4,
+                          display: { xs: 'none', md: 'block' },
+                          mt: 0.5,
+                          wordBreak: 'break-word',
+                          overflowWrap: 'break-word',
+                          hyphens: 'auto'
+                        }}
                       >
                         {curriculum.description}
                       </Typography>

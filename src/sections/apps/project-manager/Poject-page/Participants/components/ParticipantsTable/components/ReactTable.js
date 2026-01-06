@@ -273,18 +273,21 @@ const ReactTable = ({
       ),
     },
     {
-      Header: "Company",
-      Footer: "Company",
-      accessor: "participant.parentGroup",
+      Header: "Location",
+      Footer: "Location",
+      accessor: "participant.location",
       dataType: "text",
       disableFilters: true,
       disableGroupBy: true,
-      Cell: ({ value }) => {
-        if (typeof value === 'object' && value !== null) {
-          return value.name || value.title || value.groupName || value.company || 'Unknown Company';
-        }
-        return value || 'N/A';
-      },
+      Cell: ({ value, row, column }) => (
+        <EditableCell
+          value={value || ''}
+          row={row}
+          column={column}
+          updateMyData={updateField}
+          editableRowIndex={editableRowIndex}
+        />
+      ),
     },
     {
       Header: "Training Recipient",

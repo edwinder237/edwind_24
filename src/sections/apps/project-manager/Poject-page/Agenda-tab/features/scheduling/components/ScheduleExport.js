@@ -102,7 +102,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
 
   // Preview customization options
   const [showLogo, setShowLogo] = useState(true);
-  const [showFocusOfDay, setShowFocusOfDay] = useState(true);
+  const [showFocusOfDay, setShowFocusOfDay] = useState(false);
   const [selectedTimezone, setSelectedTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   // PDF download state
@@ -246,12 +246,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
 
     setLoadingPreview(true);
     try {
-      const response = await fetch('/api/projects/preview-trainer-schedule', {
+      const response = await fetch('/api/projects/trainer-schedule', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'preview',
           projectId,
           projectTitle,
           events: projectEvents,
@@ -285,12 +286,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
     if (!htmlContent) {
       setDownloadingPdf(true);
       try {
-        const response = await fetch('/api/projects/preview-trainer-schedule', {
+        const response = await fetch('/api/projects/trainer-schedule', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            action: 'preview',
             projectId,
             projectTitle,
             events: projectEvents,
@@ -536,12 +538,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
     const bccEmailList = parseEmails(bccEmails);
 
     try {
-      const response = await fetch('/api/projects/send-trainer-schedule', {
+      const response = await fetch('/api/projects/trainer-schedule', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'send',
           projectId,
           projectTitle,
           events: projectEvents,

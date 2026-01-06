@@ -103,6 +103,7 @@ export const selectProjectCourses = createSelector(
 /**
  * Calculate which participants are assigned to which courses (via events)
  * and their attendance status for each course
+ * Now includes session details (event date/time) for each attendance
  */
 export const selectParticipantCourseAssignments = createSelector(
   [selectProjectCourses, selectAllParticipants],
@@ -128,13 +129,24 @@ export const selectParticipantCourseAssignments = createSelector(
                   eventsAttended: 0,
                   eventsAbsent: 0,
                   attendanceRate: 0,
-                  statuses: []
+                  statuses: [],
+                  sessions: [] // Track individual session details
                 });
               }
 
               const stats = participantStats.get(participantId);
               stats.totalEvents++;
               stats.statuses.push(attendee.attendance_status);
+
+              // Add session details
+              stats.sessions.push({
+                eventId: event.id,
+                eventTitle: event.title,
+                start: event.start,
+                end: event.end,
+                status: attendee.attendance_status,
+                isCompleted: isAttendanceValid(attendee.attendance_status)
+              });
 
               if (isAttendanceValid(attendee.attendance_status)) {
                 stats.eventsAttended++;
@@ -146,12 +158,14 @@ export const selectParticipantCourseAssignments = createSelector(
         }
       });
 
-      // Calculate final attendance rate for each participant
+      // Calculate final attendance rate for each participant and sort sessions by date
       participantStats.forEach(stats => {
         stats.attendanceRate = stats.totalEvents > 0
           ? Math.round((stats.eventsAttended / stats.totalEvents) * 100)
           : 0;
         stats.isCompleted = stats.eventsAttended === stats.totalEvents && stats.totalEvents > 0;
+        // Sort sessions by start date
+        stats.sessions.sort((a, b) => new Date(a.start) - new Date(b.start));
       });
 
       assignments.push({

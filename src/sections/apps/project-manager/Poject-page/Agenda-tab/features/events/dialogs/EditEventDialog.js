@@ -25,9 +25,11 @@ import {
   Save,
   School,
   Support,
-  Event as EventIcon
+  Event as EventIcon,
+  Delete
 } from '@mui/icons-material';
 import MainCard from 'components/MainCard';
+import DeleteCard from 'components/cards/DeleteCard';
 import { useDispatch } from 'store';
 import { useGetProjectAgendaQuery } from 'store/api/projectApi';
 import { eventCommands } from 'store/commands';
@@ -38,6 +40,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Track if dialog was ever opened to prevent premature data loading
   const [wasOpened, setWasOpened] = useState(false);
@@ -269,6 +273,31 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
       // Error notification is handled by the semantic command
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!event?.id) return;
+
+    setDeleting(true);
+    try {
+      // CQRS: Use semantic command for deleting event
+      await dispatch(eventCommands.deleteEvent({
+        eventId: parseInt(event.id),
+        projectId: project?.id
+      }));
+
+      setDeleteDialogOpen(false);
+      handleClose();
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      // Error notification is handled by the semantic command
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -560,7 +589,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         <Stack
           direction="row"
           spacing={2}
-          justifyContent="flex-end"
+          justifyContent="space-between"
           alignItems="center"
           sx={{
             p: 2,
@@ -572,23 +601,45 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         >
           <Button
             variant="outlined"
-            onClick={handleClose}
-            disabled={loading}
-            sx={{ minWidth: 100 }}
+            color="error"
+            onClick={handleDeleteClick}
+            disabled={loading || deleting}
+            startIcon={<Delete />}
           >
-            Cancel
+            Delete
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={loading || !formData.title.trim()}
-            startIcon={<Save />}
-            sx={{ minWidth: 140 }}
-          >
-            {loading ? 'Saving...' : 'Save Changes'}
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="outlined"
+              onClick={handleClose}
+              disabled={loading || deleting}
+              sx={{ minWidth: 100 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={loading || deleting || !formData.title.trim()}
+              startIcon={<Save />}
+              sx={{ minWidth: 140 }}
+            >
+              {loading ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </Stack>
         </Stack>
       </MainCard>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteCard
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onDelete={handleDeleteConfirm}
+        title="Delete Event"
+        itemName={event?.title}
+        message={`Are you sure you want to delete "${event?.title}"? This action cannot be undone.`}
+        loading={deleting}
+      />
     </Dialog>
   );
 };

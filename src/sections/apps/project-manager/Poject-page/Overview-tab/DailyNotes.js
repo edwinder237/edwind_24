@@ -408,6 +408,26 @@ const DailyNotes = ({ project }) => {
   const [editHighlightValue, setEditHighlightValue] = useState('');
   const [editChallengeValue, setEditChallengeValue] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Initialize to today's note on first load
+  useEffect(() => {
+    if (notes.length > 0 && !hasInitialized) {
+      const today = new Date().toISOString().split('T')[0];
+      const todayIndex = notes.findIndex(note => note.date === today);
+
+      if (todayIndex !== -1) {
+        setCurrentNoteIndex(todayIndex);
+      } else {
+        // If no note for today, find the closest date (most recent that's not in the future)
+        const closestIndex = notes.findIndex(note => note.date <= today);
+        if (closestIndex !== -1) {
+          setCurrentNoteIndex(closestIndex);
+        }
+      }
+      setHasInitialized(true);
+    }
+  }, [notes, hasInitialized]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -496,12 +516,28 @@ const DailyNotes = ({ project }) => {
 
   const goToSpecificNote = (index) => {
     if (isTransitioning || index === currentNoteIndex) return;
-    
+
     setIsTransitioning(true);
     setTimeout(() => {
       setCurrentNoteIndex(index);
       setIsTransitioning(false);
     }, 150);
+  };
+
+  // Go to today's note
+  const goToToday = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayIndex = notes.findIndex(note => note.date === today);
+
+    if (todayIndex !== -1) {
+      goToSpecificNote(todayIndex);
+    } else {
+      // If no note for today, find the closest date
+      const closestIndex = notes.findIndex(note => note.date <= today);
+      if (closestIndex !== -1) {
+        goToSpecificNote(closestIndex);
+      }
+    }
   };
 
   // Format note for email
@@ -591,6 +627,13 @@ const DailyNotes = ({ project }) => {
 
   const currentNote = notes[currentNoteIndex];
 
+  // Check if current note is today
+  const isCurrentNoteToday = useMemo(() => {
+    if (!currentNote) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return currentNote.date === today;
+  }, [currentNote]);
+
   // Get the actual database note for the current date to ensure we have latest data
   const currentDbNote = useMemo(() => {
     if (!currentNote || !dailyNotesFromDb) return null;
@@ -670,6 +713,25 @@ const DailyNotes = ({ project }) => {
             </IconButton>
             
             <Stack direction="row" alignItems="center" spacing={1}>
+              <Tooltip title="Go to today's note">
+                <Button
+                  size="small"
+                  variant={isCurrentNoteToday ? 'contained' : 'outlined'}
+                  onClick={goToToday}
+                  disabled={isTransitioning}
+                  sx={{
+                    minWidth: 'auto',
+                    px: 1.5,
+                    py: 0.5,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    borderRadius: 1,
+                    textTransform: 'none'
+                  }}
+                >
+                  Today
+                </Button>
+              </Tooltip>
               <Tooltip title="Use ← → arrow keys to navigate" placement="top">
                 <Typography variant="body2" color="text.secondary" sx={{ cursor: 'help' }}>
                   {currentNoteIndex + 1} of {notes.length}

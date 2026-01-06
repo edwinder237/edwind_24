@@ -74,6 +74,14 @@ const AttendeesRTK = ({
   // Get all project events for "Move to Event" functionality
   const projectEvents = agendaData?.events || [];
 
+  // Get events with the same courseId as the selected event (for showing participant assignments)
+  const courseEvents = React.useMemo(() => {
+    if (!selectedEvent?.course?.id || !projectEvents.length) return [];
+    return projectEvents.filter(event =>
+      event.course?.id === selectedEvent.course.id && event.id !== selectedEvent.id
+    );
+  }, [selectedEvent?.course?.id, selectedEvent?.id, projectEvents]);
+
   // Participant drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
@@ -452,6 +460,7 @@ const AttendeesRTK = ({
         availableParticipants={availableParticipants}
         suggestedParticipants={[]} // TODO: Implement suggested participants logic
         courseRoleIds={[]} // TODO: Extract from selectedEvent.course
+        courseEvents={courseEvents}
       />
     </>
   );

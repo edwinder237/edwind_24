@@ -84,17 +84,33 @@ const extractParticipantData = (p) => {
     attendanceRate: p.attendanceRate || 0,
     eventsAttended: p.eventsAttended || 0,
     totalEvents: p.totalEvents || 0,
-    isCompleted: p.isCompleted || false
+    isCompleted: p.isCompleted || false,
+    sessions: p.sessions || []
   };
+};
+
+/**
+ * Format date and time for display
+ */
+const formatSessionDateTime = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
 };
 
 // ==============================|| SUB-COMPONENTS ||============================== //
 
 /**
- * Participant Card Component
+ * Participant Card Component - Shows unique participant with sessions inline
  */
 const ParticipantCard = ({ participantData, categoryColor }) => {
-  const { firstName, lastName, role, attendanceRate, eventsAttended, totalEvents, isCompleted } = participantData;
+  const { firstName, lastName, role, attendanceRate, eventsAttended, totalEvents, isCompleted, sessions } = participantData;
   const initials = `${firstName?.[0] || 'U'}${lastName?.[0] || 'U'}`;
   const fullName = `${firstName || 'Unknown'} ${lastName || 'User'}`;
 
@@ -110,10 +126,12 @@ const ParticipantCard = ({ participantData, categoryColor }) => {
         bgcolor: 'background.paper',
         '&:hover': {
           bgcolor: 'action.hover'
-        }
+        },
+        flexDirection: 'column',
+        alignItems: 'flex-start'
       }}
     >
-      <ListItemIcon sx={{ minWidth: 48 }}>
+      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ width: '100%' }}>
         <Avatar
           sx={{
             width: 32,
@@ -124,9 +142,7 @@ const ParticipantCard = ({ participantData, categoryColor }) => {
         >
           {initials}
         </Avatar>
-      </ListItemIcon>
-      <ListItemText
-        primary={
+        <Box sx={{ flex: 1 }}>
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="body2" fontWeight={500}>
               {fullName}
@@ -143,15 +159,8 @@ const ParticipantCard = ({ participantData, categoryColor }) => {
                 }}
               />
             )}
-          </Stack>
-        }
-        secondary={
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              Attendance:
-            </Typography>
             <Chip
-              label={`${eventsAttended}/${totalEvents} events (${attendanceRate}%)`}
+              label={`${eventsAttended}/${totalEvents} sessions (${attendanceRate}%)`}
               size="small"
               color={isCompleted ? 'success' : attendanceRate >= 70 ? 'primary' : 'warning'}
               variant="outlined"
@@ -161,8 +170,39 @@ const ParticipantCard = ({ participantData, categoryColor }) => {
               }}
             />
           </Stack>
-        }
-      />
+        </Box>
+      </Stack>
+
+      {/* Sessions inline */}
+      {sessions && sessions.length > 0 && (
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            mt: 1,
+            ml: 5.5,
+            flexWrap: 'wrap',
+            gap: 0.5
+          }}
+        >
+          {sessions.map((session, idx) => (
+            <Chip
+              key={session.eventId || idx}
+              label={formatSessionDateTime(session.start)}
+              size="small"
+              color={session.isCompleted ? 'success' : 'default'}
+              variant={session.isCompleted ? 'filled' : 'outlined'}
+              sx={{
+                height: 22,
+                fontSize: '0.7rem',
+                '& .MuiChip-label': {
+                  px: 1
+                }
+              }}
+            />
+          ))}
+        </Stack>
+      )}
     </ListItem>
   );
 };
