@@ -17,10 +17,11 @@ import {
   Radio,
   RadioGroup,
   FormControl,
-  FormControlLabel
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import { Add, Person, Search } from '@mui/icons-material';
-import { TeamOutlined, BulbOutlined } from '@ant-design/icons';
+import { TeamOutlined } from '@ant-design/icons';
 import MainCard from 'components/MainCard';
 
 /**
@@ -47,12 +48,23 @@ const AddParticipantsDialog = ({
   isLoading,
   availableGroups,
   availableParticipants,
-  suggestedParticipants,
   courseRoleIds,
   courseEvents = []
 }) => {
   // State for session action (add to additional session or move)
   const [sessionAction, setSessionAction] = useState('add'); // 'add' or 'move'
+  // State for hiding already scheduled participants
+  const [hideScheduled, setHideScheduled] = useState(true);
+  // State for role filter
+  const [selectedRole, setSelectedRole] = useState(null);
+  // State for required filter
+  const [showRequiredOnly, setShowRequiredOnly] = useState(false);
+
+  // Helper function to check if participant's role is required for this course
+  const isParticipantRequired = (participant) => {
+    const roleId = participant.participant?.role?.id;
+    return roleId && courseRoleIds?.includes(roleId);
+  };
 
   // Helper function to get events a participant is assigned to (for this course)
   const getParticipantCourseEvents = (participantId) => {
@@ -66,6 +78,48 @@ const AddParticipantsDialog = ({
   const selectedParticipantsWithSessions = useMemo(() => {
     return selectedParticipants.filter(p => getParticipantCourseEvents(p.id).length > 0);
   }, [selectedParticipants, courseEvents]);
+
+  // Filter available participants based on hideScheduled toggle, role filter, and required filter
+  const filteredParticipants = useMemo(() => {
+    let filtered = availableParticipants;
+    if (hideScheduled) {
+      filtered = filtered.filter(p => getParticipantCourseEvents(p.id).length === 0);
+    }
+    if (selectedRole) {
+      filtered = filtered.filter(p => p.participant?.role?.title === selectedRole);
+    }
+    if (showRequiredOnly) {
+      filtered = filtered.filter(p => isParticipantRequired(p));
+    }
+    return filtered;
+  }, [availableParticipants, hideScheduled, courseEvents, selectedRole, showRequiredOnly, courseRoleIds]);
+
+  // Count of scheduled participants (for display)
+  const scheduledParticipantsCount = useMemo(() => {
+    return availableParticipants.filter(p => getParticipantCourseEvents(p.id).length > 0).length;
+  }, [availableParticipants, courseEvents]);
+
+  // Count of required participants (for display)
+  const requiredParticipantsCount = useMemo(() => {
+    return availableParticipants.filter(p => isParticipantRequired(p)).length;
+  }, [availableParticipants, courseRoleIds]);
+
+  // Get unique roles from available participants
+  const uniqueRoles = useMemo(() => {
+    const roles = new Map();
+    availableParticipants.forEach(p => {
+      const roleTitle = p.participant?.role?.title;
+      if (roleTitle && !roles.has(roleTitle)) {
+        roles.set(roleTitle, {
+          title: roleTitle,
+          count: availableParticipants.filter(
+            participant => participant.participant?.role?.title === roleTitle
+          ).length
+        });
+      }
+    });
+    return Array.from(roles.values()).sort((a, b) => b.count - a.count);
+  }, [availableParticipants]);
 
   // Handle apply with session action
   const handleApplyWithAction = () => {
@@ -239,18 +293,86 @@ const AddParticipantsDialog = ({
         }}
       />
 
-      {availableParticipants.length === 0 ? (
+      {/* Hide Scheduled Switch */}
+      {scheduledParticipantsCount > 0 && (
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Typography variant="body2" color="text.secondary">
+            Hide already scheduled ({scheduledParticipantsCount})
+          </Typography>
+          <Switch
+            checked={hideScheduled}
+            onChange={(e) => setHideScheduled(e.target.checked)}
+            size="small"
+            color="primary"
+          />
+        </Stack>
+      )}
+
+      {/* Role Quick Filters */}
+      {(uniqueRoles.length > 1 || requiredParticipantsCount > 0) && (
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+          <Chip
+            label="All"
+            size="small"
+            variant={selectedRole === null && !showRequiredOnly ? 'filled' : 'outlined'}
+            color={selectedRole === null && !showRequiredOnly ? 'primary' : 'default'}
+            onClick={() => {
+              setSelectedRole(null);
+              setShowRequiredOnly(false);
+            }}
+            sx={{ cursor: 'pointer' }}
+          />
+          {requiredParticipantsCount > 0 && (
+            <Chip
+              label={`Required (${requiredParticipantsCount})`}
+              size="small"
+              variant={showRequiredOnly ? 'filled' : 'outlined'}
+              color={showRequiredOnly ? 'warning' : 'default'}
+              onClick={() => {
+                setShowRequiredOnly(!showRequiredOnly);
+                if (!showRequiredOnly) setSelectedRole(null);
+              }}
+              sx={{ cursor: 'pointer' }}
+            />
+          )}
+          {uniqueRoles.map((role) => (
+            <Chip
+              key={role.title}
+              label={role.title}
+              size="small"
+              variant={selectedRole === role.title ? 'filled' : 'outlined'}
+              color={selectedRole === role.title ? 'primary' : 'default'}
+              onClick={() => {
+                setSelectedRole(selectedRole === role.title ? null : role.title);
+                if (selectedRole !== role.title) setShowRequiredOnly(false);
+              }}
+              sx={{ cursor: 'pointer' }}
+            />
+          ))}
+        </Stack>
+      )}
+
+      {filteredParticipants.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4 }}>
           <Search sx={{ fontSize: '2rem', color: 'text.disabled', mb: 1 }} />
           <Typography variant="body2" color="text.secondary">
             {searchTerm.trim()
               ? `No participants found matching "${searchTerm}"`
-              : 'No available participants to add'
+              : selectedRole
+                ? `No ${selectedRole} participants available`
+                : hideScheduled && scheduledParticipantsCount > 0
+                  ? 'All participants are already scheduled for this course'
+                  : 'No available participants to add'
             }
           </Typography>
           {searchTerm.trim() && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               Try adjusting your search terms
+            </Typography>
+          )}
+          {(selectedRole || (hideScheduled && scheduledParticipantsCount > 0)) && !searchTerm.trim() && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Try adjusting the filters above
             </Typography>
           )}
         </Box>
@@ -283,20 +405,20 @@ const AddParticipantsDialog = ({
           <Box>
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
               <Typography variant="subtitle1" sx={{ color: 'secondary.main', fontWeight: 600 }}>
-                Available Participants ({availableParticipants.length})
+                Available Participants ({filteredParticipants.length})
               </Typography>
-              {availableParticipants.length > 1 && (
+              {filteredParticipants.length > 1 && (
                 <Button
                   size="small"
                   variant="text"
                   onClick={() => {
-                    const allSelected = availableParticipants.every(participant =>
+                    const allSelected = filteredParticipants.every(participant =>
                       selectedParticipants.some(sp => sp.id === participant.id)
                     );
                     if (allSelected) {
                       onDeselectAllParticipants();
                     } else {
-                      onSelectAllParticipants(availableParticipants);
+                      onSelectAllParticipants(filteredParticipants);
                     }
                   }}
                   sx={{
@@ -308,15 +430,16 @@ const AddParticipantsDialog = ({
                     }
                   }}
                 >
-                  {availableParticipants.every(participant => selectedParticipants.some(sp => sp.id === participant.id))
+                  {filteredParticipants.every(participant => selectedParticipants.some(sp => sp.id === participant.id))
                     ? 'Deselect All' : 'Select All'}
                 </Button>
               )}
             </Stack>
             <Stack spacing={1}>
-              {availableParticipants.map((participant) => {
+              {filteredParticipants.map((participant) => {
                 const isSelected = selectedParticipants.some(sp => sp.id === participant.id);
                 const assignedEvents = getParticipantCourseEvents(participant.id);
+                const isRequired = isParticipantRequired(participant);
                 return (
                   <Box
                     key={participant.id}
@@ -342,15 +465,30 @@ const AddParticipantsDialog = ({
                         sx={{ mt: -0.5 }}
                       />
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" fontWeight={500}>
-                          {participant.participant ?
-                            `${participant.participant.firstName || ''} ${participant.participant.lastName || ''}`.trim() :
-                            'Unknown Participant'
-                          }
-                          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                            • {participant.participant?.role?.title || 'Participant'}
+                        <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                          <Typography variant="body2" fontWeight={500}>
+                            {participant.participant ?
+                              `${participant.participant.firstName || ''} ${participant.participant.lastName || ''}`.trim() :
+                              'Unknown Participant'
+                            }
+                            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                              • {participant.participant?.role?.title || 'Participant'}
+                            </Typography>
                           </Typography>
-                        </Typography>
+                          {isRequired && (
+                            <Chip
+                              label="Required"
+                              size="small"
+                              color="warning"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                fontWeight: 600,
+                                '& .MuiChip-label': { px: 0.75 }
+                              }}
+                            />
+                          )}
+                        </Stack>
                         {assignedEvents.length > 0 && (
                           <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
                             {assignedEvents.map(event => {
@@ -425,21 +563,15 @@ const AddParticipantsDialog = ({
             aria-label="add participant tabs"
             sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}
           >
-            <Tab 
-              label="Groups" 
-              icon={<TeamOutlined />} 
+            <Tab
+              label="Groups"
+              icon={<TeamOutlined />}
               iconPosition="start"
               sx={{ textTransform: 'none' }}
             />
-            <Tab 
-              label="Participants" 
-              icon={<Person />} 
-              iconPosition="start"
-              sx={{ textTransform: 'none' }}
-            />
-            <Tab 
-              label="Suggested" 
-              icon={<BulbOutlined />} 
+            <Tab
+              label="Participants"
+              icon={<Person />}
               iconPosition="start"
               sx={{ textTransform: 'none' }}
             />
@@ -454,11 +586,6 @@ const AddParticipantsDialog = ({
           }}>
             {activeTab === 0 && groupsTabContent}
             {activeTab === 1 && participantsTabContent}
-            {activeTab === 2 && (
-              <Typography variant="body2" color="text.secondary">
-                Suggested participants tab - TODO: Implement based on course requirements
-              </Typography>
-            )}
           </Box>
 
           {/* Session Conflict Warning */}

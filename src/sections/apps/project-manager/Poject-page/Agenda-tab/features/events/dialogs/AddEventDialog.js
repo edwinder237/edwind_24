@@ -634,13 +634,85 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     );
   }, [availableCourses, searchQuery]);
 
-  // CQRS: Get scheduled course IDs from agendaEvents
-  const scheduledCourseIds = useMemo(() => {
-    if (!agendaEvents || !project?.id) return [];
-    return agendaEvents
+  // CQRS: Get scheduled session counts per course from agendaEvents
+  const scheduledCourseCounts = useMemo(() => {
+    if (!agendaEvents || !project?.id) return {};
+    const counts = {};
+    agendaEvents
       .filter(event => event.courseId && event.projectId === project.id && event.eventType === 'course')
-      .map(event => event.courseId);
+      .forEach(event => {
+        const courseId = event.courseId || event.course?.id;
+        if (courseId) {
+          counts[courseId] = (counts[courseId] || 0) + 1;
+        }
+      });
+    return counts;
   }, [agendaEvents, project?.id]);
+
+  // Get project participants from agendaData
+  const projectParticipants = agendaData?.participants || [];
+
+  // Calculate scheduling stats for each course
+  // Returns object with courseId as key and {completed, total} as value
+  // "completed" = participants who attended an event for this course with "present" status
+  const courseSchedulingStats = useMemo(() => {
+    const stats = {};
+
+    if (!availableCourses.length || !projectParticipants.length || !agendaEvents) {
+      return stats;
+    }
+
+    availableCourses.forEach(course => {
+      // Get required role IDs for this course
+      const requiredRoleIds = course.course_participant_roles
+        ?.filter(cpr => cpr.isRequired !== false)
+        ?.map(cpr => cpr.role?.id)
+        ?.filter(Boolean) || [];
+
+      // Find participants whose role requires this course
+      const requiredParticipants = projectParticipants.filter(pp => {
+        const participantRoleId = pp.participant?.role?.id;
+        return participantRoleId && requiredRoleIds.includes(participantRoleId);
+      });
+
+      const totalRequired = requiredParticipants.length;
+
+      // If no required roles defined, use all participants
+      const participantsToCheck = totalRequired > 0
+        ? requiredParticipants
+        : projectParticipants;
+      const total = participantsToCheck.length;
+
+      // Get all events for this course
+      // Use courseId directly if available, fallback to course.id from relation
+      const courseEvents = agendaEvents.filter(
+        event => (event.courseId === course.id || event.course?.id === course.id) && event.eventType === 'course'
+      );
+
+      // Get enrollee IDs who completed this course (attended with "present" status)
+      const completedEnrolleeIds = new Set();
+      courseEvents.forEach(event => {
+        event.event_attendees?.forEach(attendee => {
+          if (attendee.enrolleeId && attendee.attendance_status === 'present') {
+            completedEnrolleeIds.add(attendee.enrolleeId);
+          }
+        });
+      });
+
+      // Count how many of the required/all participants have completed
+      const completedCount = participantsToCheck.filter(pp =>
+        completedEnrolleeIds.has(pp.id)
+      ).length;
+
+      stats[course.id] = {
+        scheduled: completedCount,
+        total: total,
+        hasRequiredRoles: totalRequired > 0
+      };
+    });
+
+    return stats;
+  }, [availableCourses, projectParticipants, agendaEvents]);
 
   // Filter support activities based on search query
   const filteredSupportActivities = useMemo(() => {
@@ -655,12 +727,19 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     );
   }, [availableSupportActivities, searchQuery]);
 
-  // CQRS: Get scheduled support activity IDs from agendaEvents
-  const scheduledSupportActivityIds = useMemo(() => {
-    if (!agendaEvents || !project?.id) return [];
-    return agendaEvents
+  /// CQRS: Get scheduled session counts per support activity from agendaEvents
+  const scheduledSupportActivityCounts = useMemo(() => {
+    if (!agendaEvents || !project?.id) return {};
+    const counts = {};
+    agendaEvents
       .filter(event => event.supportActivityId && event.projectId === project.id && event.eventType === 'supportActivity')
-      .map(event => event.supportActivityId);
+      .forEach(event => {
+        const activityId = event.supportActivityId;
+        if (activityId) {
+          counts[activityId] = (counts[activityId] || 0) + 1;
+        }
+      });
+    return counts;
   }, [agendaEvents, project?.id]);
 
   // Convert pendingEventIds Set to Array for passing to components
@@ -1271,9 +1350,10 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                     items={searchQuery ? filteredCourses : availableCourses}
                     onItemSelect={handleCourseSelect}
                     type="course"
-                    scheduledItemIds={scheduledCourseIds}
+                    scheduledItemCounts={scheduledCourseCounts}
                     pendingItemIds={pendingEventIdsArray}
                     disabled={isCreatingEvent}
+                    schedulingStats={courseSchedulingStats}
                   />
                 </Box>
                 
@@ -1321,7 +1401,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                     items={searchQuery ? filteredSupportActivities : availableSupportActivities}
                     onItemSelect={handleSupportActivitySelect}
                     type="supportActivity"
-                    scheduledItemIds={scheduledSupportActivityIds}
+                    scheduledItemCounts={scheduledSupportActivityCounts}
                     pendingItemIds={pendingEventIdsArray}
                     disabled={isCreatingEvent}
                   />
@@ -1375,7 +1455,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                   items={commonEventSuggestions}
                   onItemSelect={handleOtherEventSelect}
                   type="other"
-                  scheduledItemIds={[]} // Other events don't have scheduled state tracking yet
+                  scheduledItemCounts={{}} // Other events don't have scheduled state tracking yet
                   pendingItemIds={pendingEventIdsArray}
                   disabled={isCreatingEvent}
                 />

@@ -16,6 +16,7 @@ import {
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import momentTimezonePlugin from '@fullcalendar/moment-timezone';
 import { EditEventDialog, AddEventDialog } from '../../features/events/dialogs';
 import { useDispatch } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -475,9 +476,10 @@ const FullCalendarMonthView = ({ project, events, onEventSelect }) => {
         >
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, interactionPlugin, momentTimezonePlugin]}
             initialView="dayGridMonth"
             events={calendarEvents}
+            timeZone="local"
             height="auto"
             headerToolbar={false}
             dayHeaderContent={(arg) => {

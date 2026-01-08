@@ -67,8 +67,18 @@ import { useGetDailyTrainingNotesQuery } from 'store/api/projectApi';
 import { useDateUtils } from 'hooks/useDateUtils';
 
 // Function to extract session notes from events and group by date
-const transformEventsToMockDailyNotes = (events) => {
+const transformEventsToMockDailyNotes = (events, project) => {
   if (!events || !Array.isArray(events)) return generateMockDailyNotes();
+
+  // Get lead instructor from project
+  const projectInstructor = project?.project_instructors?.find(
+    pi => pi.instructorType === 'lead' || pi.instructorType === 'main' || pi.role === 'lead' || pi.role === 'main'
+  ) || project?.project_instructors?.[0];
+
+  const projectAuthor = projectInstructor?.instructor
+    ? `${projectInstructor.instructor.firstName || ''} ${projectInstructor.instructor.lastName || ''}`.trim()
+    : 'No Instructor';
+  const projectAuthorRole = projectInstructor?.instructorType || projectInstructor?.role || 'Instructor';
 
   // Group events by date
   const eventsByDate = {};
@@ -93,11 +103,9 @@ const transformEventsToMockDailyNotes = (events) => {
         return sum + (e.event_attendees?.length || 0);
       }, 0);
 
-      // Get instructor from first event
-      const firstEvent = dayEvents[0];
-      const instructor = firstEvent?.event_instructors?.[0]?.instructor;
-      const author = instructor ? `${instructor.firstName} ${instructor.lastName}` : 'Sarah Martinez';
-      const authorRole = instructor?.instructorType || 'Lead Instructor';
+      // Use project instructor as the author
+      const author = projectAuthor;
+      const authorRole = projectAuthorRole;
 
       // Collect session notes from all events of the day with time and title
       const sessionNotesArray = dayEvents
@@ -345,7 +353,7 @@ const DailyNotes = ({ project }) => {
   // Merge database notes with event-derived session notes
   const notes = useMemo(() => {
     // First, get all event-based notes (which contain session notes from events)
-    const eventNotes = transformEventsToMockDailyNotes(events);
+    const eventNotes = transformEventsToMockDailyNotes(events, project);
 
     // Create maps for efficient lookup
     const eventNotesMap = new Map(eventNotes.map(note => [note.date, note]));
@@ -392,7 +400,7 @@ const DailyNotes = ({ project }) => {
 
     // Sort by date descending (most recent first)
     return mergedNotes.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [dailyNotesFromDb, events, dateUtils]);
+  }, [dailyNotesFromDb, events, dateUtils, project]);
 
   const [selectedNote, setSelectedNote] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -613,10 +621,64 @@ const DailyNotes = ({ project }) => {
 
     setIsSummarizing(true);
     try {
+      // Build attendance data from events for the current note's date
+      const noteDate = currentNote.date;
+      const dayStart = new Date(noteDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+
+      // Get events for this day
+      const dayEvents = events.filter(event => {
+        const eventDate = new Date(event.start);
+        return eventDate >= dayStart && eventDate < dayEnd;
+      });
+
+      // Calculate attendance stats from events
+      let present = 0;
+      let late = 0;
+      let absent = 0;
+      let total = 0;
+      const absentNames = [];
+
+      dayEvents.forEach(event => {
+        if (event.event_attendees?.length > 0) {
+          event.event_attendees.forEach(attendee => {
+            total++;
+            const status = attendee.attendance_status || 'scheduled';
+            if (status === 'present') {
+              present++;
+            } else if (status === 'late') {
+              late++;
+            } else if (status === 'absent') {
+              absent++;
+              // Get absent participant name
+              const participant = attendee.enrollee?.participant;
+              if (participant) {
+                const name = `${participant.firstName || ''} ${participant.lastName || ''}`.trim();
+                if (name && !absentNames.includes(name)) {
+                  absentNames.push(name);
+                }
+              }
+            }
+          });
+        }
+      });
+
+      // Build attendance data object (only if we have attendees)
+      const attendanceData = total > 0 ? {
+        present,
+        late,
+        absent,
+        total,
+        absentNames
+      } : null;
+
       await dispatch(summarizeWithAI({
         projectId: project.id,
         date: currentNote.date,
-        sessionNotes: currentNote.sessionNotes
+        sessionNotes: currentNote.sessionNotes,
+        attendanceData
       })).unwrap();
     } catch (error) {
       console.error('Failed to summarize with AI:', error);
@@ -626,6 +688,50 @@ const DailyNotes = ({ project }) => {
   };
 
   const currentNote = notes[currentNoteIndex];
+
+  // Calculate real attendance data from events for the current note
+  const currentNoteAttendance = useMemo(() => {
+    if (!currentNote || !events) return { present: 0, total: 0 };
+
+    const noteDate = currentNote.date;
+    const dayStart = new Date(noteDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    // Get events for this day
+    const dayEvents = events.filter(event => {
+      const eventDate = new Date(event.start);
+      return eventDate >= dayStart && eventDate < dayEnd;
+    });
+
+    // Calculate attendance from events
+    let present = 0;
+    let late = 0;
+    let total = 0;
+
+    dayEvents.forEach(event => {
+      if (event.event_attendees?.length > 0) {
+        event.event_attendees.forEach(attendee => {
+          total++;
+          const status = attendee.attendance_status || 'scheduled';
+          if (status === 'present') {
+            present++;
+          } else if (status === 'late') {
+            late++;
+          }
+        });
+      }
+    });
+
+    // Count present + late as "attended"
+    return {
+      attended: present + late,
+      total,
+      present,
+      late
+    };
+  }, [currentNote, events]);
 
   // Check if current note is today
   const isCurrentNoteToday = useMemo(() => {
@@ -810,9 +916,9 @@ const DailyNotes = ({ project }) => {
                           icon={<CalendarToday />}
                         />
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          by {currentNote.author} • {currentNote.authorRole} • 
-                          <Groups sx={{ fontSize: 14, ml: 0.5 }} /> 
-                          Attendance: {currentNote.attendance}/{currentNote.totalParticipants}
+                          by {currentNote.author} • {currentNote.authorRole} •
+                          <Groups sx={{ fontSize: 14, ml: 0.5 }} />
+                          Attendance: {currentNoteAttendance.attended}/{currentNoteAttendance.total}
                         </Typography>
                       </Stack>
                       <Typography variant="h6" fontWeight="bold" gutterBottom>

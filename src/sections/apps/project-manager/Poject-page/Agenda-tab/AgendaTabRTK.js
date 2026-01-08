@@ -501,7 +501,7 @@ const AgendaTabRTK = React.memo(() => {
   }, [
     events, loading, refreshing, error, viewMode, matchDownSM, project,
     selectedDate, selectedEventId, availableRoles, handleEventSelect,
-    handleCRUD, styles, LoadingDisplay, ErrorDisplay
+    handleCRUD, styles, LoadingDisplay, ErrorDisplay, curriculums
   ]);
 
   return (

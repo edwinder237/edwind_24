@@ -44,6 +44,9 @@ async function handler(req, res) {
             title: true,
             description: true,
             eventType: true,
+            projectId: true,
+            courseId: true,
+            supportActivityId: true,
             start: true,
             end: true,
             allDay: true,
@@ -416,7 +419,7 @@ async function handler(req, res) {
                 curriculum_courses: {
                   select: {
                     id: true,
-                    
+
                     course: {
                       select: {
                         id: true,
@@ -426,7 +429,21 @@ async function handler(req, res) {
                         duration: true,
                         level: true,
                         backgroundImg: true,
-                        version: true
+                        version: true,
+
+                        // Course participant roles for scheduling stats
+                        course_participant_roles: {
+                          select: {
+                            id: true,
+                            isRequired: true,
+                            role: {
+                              select: {
+                                id: true,
+                                title: true
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }

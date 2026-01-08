@@ -35,6 +35,9 @@ importers:
       '@fullcalendar/list':
         specifier: ^6.1.18
         version: 6.1.18(@fullcalendar/core@6.1.18)
+      '@fullcalendar/moment-timezone':
+        specifier: ^6.1.20
+        version: 6.1.20(@fullcalendar/core@6.1.18)(moment-timezone@0.6.0)
       '@fullcalendar/react':
         specifier: ^6.1.18
         version: 6.1.18(@fullcalendar/core@6.1.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -137,6 +140,9 @@ importers:
       match-sorter:
         specifier: ^6.3.1
         version: 6.3.1
+      moment-timezone:
+        specifier: ^0.6.0
+        version: 0.6.0
       mysql2:
         specifier: ^3.6.0
         version: 3.6.0
@@ -1225,6 +1231,12 @@ packages:
     resolution: {integrity: sha512-XPZI50mq3HXyDQ5sT3jmqQUuwG8zQb5H14dQIUAmOHAIFRA3WpkxlzrXO0U1SrosvGySMPyyNNxvMKI1Q/jL7A==}
     peerDependencies:
       '@fullcalendar/core': ~6.1.18
+
+  '@fullcalendar/moment-timezone@6.1.20':
+    resolution: {integrity: sha512-fGk3bQU4hf0rgw3Zd/PH6Ok0Db+s9/nsuALj3IG8GYFqInwLsHZI0Qc+ljN8jv9LrLS5sOBBOZHWDg2ncx1inw==}
+    peerDependencies:
+      '@fullcalendar/core': ~6.1.20
+      moment-timezone: ^0.5.40
 
   '@fullcalendar/react@6.1.18':
     resolution: {integrity: sha512-Jwvb+T+/1yGZKe+UYXn0id022HJm0Fq2X/PGFvVh/QRYAI/6xPMRvJrwercBkToxf6LjqYXrDO+/NhRN6IDlmg==}
@@ -4772,6 +4784,9 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  moment-timezone@0.6.0:
+    resolution: {integrity: sha512-ldA5lRNm3iJCWZcBCab4pnNL3HSZYXVb/3TYr75/1WCTWYuTqYUb5f/S384pncYjJ88lbO8Z4uPDvmoluHJc8Q==}
+
   moment@2.30.1:
     resolution: {integrity: sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==}
 
@@ -6590,7 +6605,7 @@ snapshots:
       '@babel/traverse': 7.28.0
       '@babel/types': 7.28.1
       convert-source-map: 2.0.0
-      debug: 4.4.1
+      debug: 4.4.3
       gensync: 1.0.0-beta.2
       json5: 2.2.3
       semver: 6.3.1
@@ -6642,7 +6657,7 @@ snapshots:
       '@babel/core': 7.28.0
       '@babel/helper-compilation-targets': 7.27.2
       '@babel/helper-plugin-utils': 7.27.1
-      debug: 4.4.1
+      debug: 4.4.3
       lodash.debounce: 4.0.8
       resolve: 1.22.10
     transitivePeerDependencies:
@@ -6653,7 +6668,7 @@ snapshots:
       '@babel/core': 7.28.0
       '@babel/helper-compilation-targets': 7.27.2
       '@babel/helper-plugin-utils': 7.27.1
-      debug: 4.4.1
+      debug: 4.4.3
       lodash.debounce: 4.0.8
       resolve: 1.22.10
     transitivePeerDependencies:
@@ -6664,7 +6679,7 @@ snapshots:
       '@babel/core': 7.28.0
       '@babel/helper-compilation-targets': 7.27.2
       '@babel/helper-plugin-utils': 7.27.1
-      debug: 4.4.1
+      debug: 4.4.3
       lodash.debounce: 4.0.8
       resolve: 1.22.10
     transitivePeerDependencies:
@@ -7475,7 +7490,7 @@ snapshots:
       '@babel/parser': 7.28.0
       '@babel/template': 7.27.2
       '@babel/types': 7.28.1
-      debug: 4.4.1
+      debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
 
@@ -7724,6 +7739,11 @@ snapshots:
   '@fullcalendar/list@6.1.18(@fullcalendar/core@6.1.18)':
     dependencies:
       '@fullcalendar/core': 6.1.18
+
+  '@fullcalendar/moment-timezone@6.1.20(@fullcalendar/core@6.1.18)(moment-timezone@0.6.0)':
+    dependencies:
+      '@fullcalendar/core': 6.1.18
+      moment-timezone: 0.6.0
 
   '@fullcalendar/react@6.1.18(@fullcalendar/core@6.1.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -8419,7 +8439,7 @@ snapshots:
       node-stream-zip: 1.15.0
       ora: 5.4.1
       prompts: 2.4.2
-      semver: 7.7.2
+      semver: 7.7.3
       strip-ansi: 5.2.0
       sudo-prompt: 9.2.1
       wcwidth: 1.0.1
@@ -8504,7 +8524,7 @@ snapshots:
       node-fetch: 2.7.0
       open: 6.4.0
       ora: 5.4.1
-      semver: 7.7.2
+      semver: 7.7.3
       shell-quote: 1.8.3
     transitivePeerDependencies:
       - encoding
@@ -8531,7 +8551,7 @@ snapshots:
       fs-extra: 8.1.0
       graceful-fs: 4.2.11
       prompts: 2.4.2
-      semver: 7.7.2
+      semver: 7.7.3
     transitivePeerDependencies:
       - '@babel/core'
       - bufferutil
@@ -12029,8 +12049,11 @@ snapshots:
 
   mkdirp@1.0.4: {}
 
-  moment@2.30.1:
-    optional: true
+  moment-timezone@0.6.0:
+    dependencies:
+      moment: 2.30.1
+
+  moment@2.30.1: {}
 
   mrmime@1.0.1: {}
 

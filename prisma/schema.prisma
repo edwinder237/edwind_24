@@ -290,6 +290,7 @@ model project_participants {
   participantId                       String
   trainingRecipientId                 Int?
   status                              String                                        @default("active")
+  note                                String?                                       @db.VarChar(2000)
   assessment_scores                   participant_assessment_scores[]
   courses_enrollee_progress           courses_enrollee_progress[]
   event_attendees                     event_attendees[]

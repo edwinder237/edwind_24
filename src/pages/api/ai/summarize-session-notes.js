@@ -31,8 +31,8 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    // Extract session notes from request body
-    const { sessionNotes } = req.body;
+    // Extract session notes and attendance data from request body
+    const { sessionNotes, attendanceData } = req.body;
 
     // Validate input
     if (!sessionNotes || typeof sessionNotes !== 'string') {
@@ -49,9 +49,12 @@ export default async function handler(req, res) {
     }
 
     console.log('[AI Summarization] Processing session notes, length:', sessionNotes.length);
+    if (attendanceData) {
+      console.log('[AI Summarization] Including attendance data:', attendanceData);
+    }
 
-    // Call Gemini AI to summarize
-    const summary = await summarizeSessionNotes(sessionNotes);
+    // Call Gemini AI to summarize with optional attendance data
+    const summary = await summarizeSessionNotes(sessionNotes, attendanceData);
 
     console.log('[AI Summarization] Generated:', {
       highlights: summary.keyHighlights.length,

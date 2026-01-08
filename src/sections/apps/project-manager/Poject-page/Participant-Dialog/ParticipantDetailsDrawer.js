@@ -9,7 +9,8 @@ import {
 import {
   Close, Email, Phone, School, CheckCircle, RadioButtonUnchecked,
   AccessTime, CalendarMonth, Grade, EmojiEvents, Quiz, Event, SwapHoriz,
-  Schedule, Group as GroupIcon, PlaylistAddCheck, Edit, Delete, Person
+  Schedule, Group as GroupIcon, PlaylistAddCheck, Edit, Delete, Person,
+  Notes as NotesIcon
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useDispatch } from 'store';
@@ -19,9 +20,11 @@ import {
   useGetProjectAgendaQuery,
   useGetParticipantAssessmentsQuery,
   useRecordAssessmentScoreMutation,
-  useToggleAssessmentForProjectMutation
+  useToggleAssessmentForProjectMutation,
+  projectApi
 } from 'store/api/projectApi';
 import { recordAssessmentScore } from 'store/commands/assessmentCommands';
+import { participantUpdated } from 'store/entities/participantsSlice';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceSummary from './AttendanceSummary';
 // getProjectChecklist removed - RTK Query handles cache updates via invalidation
@@ -36,6 +39,10 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
   // Learning activities state
   const [learningActivities, setLearningActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
+
+  // Note state
+  const [note, setNote] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
 
   // Assessment score recording state
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
@@ -359,8 +366,32 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
       setLearningActivities([]);
       setActivitiesLoading(false);
       setActiveTab(0);
+      setNote('');
     }
   }, [open]);
+
+  // Fetch note directly from API when drawer opens (bypasses stale cache)
+  useEffect(() => {
+    const fetchNote = async () => {
+      if (!open || !participant?.projectParticipantId) return;
+
+      try {
+        const response = await fetch(`/api/participants/get-note?projectParticipantId=${participant.projectParticipantId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setNote(data.note || '');
+        } else {
+          // Fallback to prop if API fails
+          setNote(participant.note || '');
+        }
+      } catch (error) {
+        console.error('Error fetching note:', error);
+        setNote(participant.note || '');
+      }
+    };
+
+    fetchNote();
+  }, [open, participant?.projectParticipantId]);
 
   const participantEvents = useMemo(() => {
     if (!singleProject?.events || !participant) return [];
@@ -463,6 +494,66 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
       case 'absent': return 'error';
       case 'scheduled': return 'info';
       default: return 'info';
+    }
+  };
+
+  // Save participant note
+  const handleSaveNote = async () => {
+    if (!participant?.projectParticipantId) return;
+
+    setNoteSaving(true);
+    try {
+      const response = await fetch('/api/participants/update-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectParticipantId: participant.projectParticipantId,
+          note: note
+        })
+      });
+
+      if (response.ok) {
+        // Update RTK Query cache directly AND invalidate to force refetch
+        // This ensures both immediate update and fresh data on next load
+        dispatch(
+          projectApi.util.updateQueryData('getProjectParticipants', parseInt(projectId), (draft) => {
+            const participantToUpdate = draft.find(p => p.id === participant.projectParticipantId);
+            if (participantToUpdate) {
+              participantToUpdate.note = note;
+            }
+          })
+        );
+
+        // Also update the normalized entities store directly
+        dispatch(participantUpdated({
+          id: participant.projectParticipantId,
+          changes: { note: note }
+        }));
+
+        // Force cache invalidation to ensure fresh data includes note on next fetch
+        dispatch(projectApi.util.invalidateTags([
+          { type: 'ProjectParticipants', id: parseInt(projectId) }
+        ]));
+
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Note saved successfully',
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+      } else {
+        throw new Error('Failed to save note');
+      }
+    } catch (error) {
+      console.error('Error saving note:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to save note',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setNoteSaving(false);
     }
   };
 
@@ -597,6 +688,7 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
           <Tab label="Assessments" icon={<Quiz />} iconPosition="start" />
           <Tab label="Attendance" icon={<CalendarMonth />} iconPosition="start" />
           <Tab label="Course Checklists" icon={<PlaylistAddCheck />} iconPosition="start" />
+          <Tab label="Note" icon={<NotesIcon />} iconPosition="start" />
         </Tabs>
       </Box>
       <Box sx={{
@@ -1030,15 +1122,15 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                           <Typography variant="subtitle1" fontWeight={600}>
                             {checklist.courseTitle}
                           </Typography>
-                          <Chip 
+                          <Chip
                             label={`${checklist.items.filter(item => item.completed).length}/${checklist.items.length} items`}
-                            size="small" 
+                            size="small"
                             color="primary"
                             sx={{ height: 20, fontSize: '0.7rem' }}
                           />
                         </Stack>
                       </Stack>
-                      
+
                       <Stack spacing={1}>
                         {checklist.items.map((item) => (
                           <Box
@@ -1077,12 +1169,12 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                                   <RadioButtonUnchecked sx={{ fontSize: 18 }} />
                                 )}
                               </IconButton>
-                              
+
                               <Box flex={1}>
                                 <Stack direction="row" spacing={1} alignItems="center">
-                                  <Typography 
-                                    variant="body2" 
-                                    sx={{ 
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
                                       fontWeight: item.completed ? 400 : 500,
                                       textDecoration: item.completed ? 'line-through' : 'none',
                                       color: item.completed ? 'text.secondary' : 'text.primary'
@@ -1105,11 +1197,11 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                                       }}
                                     >
                                       <Person sx={{ fontSize: 12, color: 'info.main' }} />
-                                      <Typography 
-                                        variant="caption" 
-                                        sx={{ 
-                                          fontSize: '0.6rem', 
-                                          color: 'info.main', 
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          fontSize: '0.6rem',
+                                          color: 'info.main',
                                           fontWeight: 600,
                                           textTransform: 'uppercase',
                                           letterSpacing: 0.5
@@ -1158,6 +1250,36 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
               </Stack>
             )}
           </Stack>
+        )}
+
+        {activeTab === 4 && (
+          <Box>
+            <TextField
+              fullWidth
+              multiline
+              rows={10}
+              placeholder="Add notes about this participant..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              inputProps={{ maxLength: 2000 }}
+              helperText={`${note.length}/2000 characters`}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: '#1e1e1e'
+                }
+              }}
+            />
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                onClick={handleSaveNote}
+                disabled={noteSaving}
+                startIcon={noteSaving ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {noteSaving ? 'Saving...' : 'Save Note'}
+              </Button>
+            </Box>
+          </Box>
         )}
 
       </Box>

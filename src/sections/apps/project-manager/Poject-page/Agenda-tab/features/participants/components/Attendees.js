@@ -416,6 +416,7 @@ const AttendeesRTK = ({
                   onParticipantClick={handleParticipantClick}
                   availableEvents={projectEvents}
                   currentEventId={selectedEvent?.id}
+                  currentCourseId={selectedEvent?.course?.id}
                 />
               </Stack>
             </Stack>
@@ -458,8 +459,7 @@ const AttendeesRTK = ({
         isLoading={addParticipantsDialog.isLoading}
         availableGroups={availableGroups}
         availableParticipants={availableParticipants}
-        suggestedParticipants={[]} // TODO: Implement suggested participants logic
-        courseRoleIds={[]} // TODO: Extract from selectedEvent.course
+        courseRoleIds={selectedEvent?.course?.course_participant_roles?.map(cpr => cpr.role?.id).filter(Boolean) || []}
         courseEvents={courseEvents}
       />
     </>

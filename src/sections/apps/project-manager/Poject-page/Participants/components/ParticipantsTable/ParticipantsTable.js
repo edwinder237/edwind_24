@@ -159,7 +159,8 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
       lastName: participantData.participant?.lastName,
       email: participantData.participant?.email,
       phone: participantData.participant?.phone,
-      role: participantData.participant?.role
+      role: participantData.participant?.role,
+      note: participantData.note // Note from project_participants table
     };
 
     setSelectedParticipant(participant);

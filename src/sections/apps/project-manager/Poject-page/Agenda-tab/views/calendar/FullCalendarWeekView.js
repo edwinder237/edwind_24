@@ -24,6 +24,7 @@ import {
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import momentTimezonePlugin from '@fullcalendar/moment-timezone';
 import { EditEventDialog, AddEventDialog } from '../../features/events/dialogs';
 import DeleteCard from 'components/cards/DeleteCard';
 import { useDispatch, useSelector } from 'store';
@@ -201,18 +202,18 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   // Transform events for FullCalendar
   const calendarEvents = events.map(event => {
     const isConflicting = conflictingEvents.includes(event.id);
-    
+
     return {
       id: event.id,
       title: event.title,
       start: event.start,
       end: event.end,
       allDay: event.allDay,
-      backgroundColor: isConflicting 
-        ? theme.palette.error.main 
+      backgroundColor: isConflicting
+        ? theme.palette.error.main
         : event.color || event.backgroundColor || theme.palette.primary.main,
-      borderColor: isConflicting 
-        ? theme.palette.error.dark 
+      borderColor: isConflicting
+        ? theme.palette.error.dark
         : event.color || event.borderColor || theme.palette.primary.main,
       textColor: '#fff',
       extendedProps: {
@@ -1347,9 +1348,10 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         >
           <FullCalendar
             ref={calendarRef}
-            plugins={[timeGridPlugin, interactionPlugin]}
+            plugins={[timeGridPlugin, interactionPlugin, momentTimezonePlugin]}
             initialView="timeGridWeek"
             events={calendarEvents}
+            timeZone="local"
             height="auto"
             headerToolbar={false}
             editable={true}

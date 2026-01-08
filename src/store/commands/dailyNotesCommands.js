@@ -520,15 +520,26 @@ export const fetchDailyNotes = createAsyncThunk(
 /**
  * Summarize session notes with AI to generate key highlights and challenges
  * Business Intent: User wants to automatically extract insights from session notes
+ * @param {object} params
+ * @param {number} params.projectId - Project ID
+ * @param {string} params.date - Date string (YYYY-MM-DD)
+ * @param {string} params.sessionNotes - Session notes text
+ * @param {object} params.attendanceData - Optional attendance data
+ * @param {number} params.attendanceData.present - Number of participants present
+ * @param {number} params.attendanceData.late - Number of participants late
+ * @param {number} params.attendanceData.absent - Number of participants absent
+ * @param {number} params.attendanceData.total - Total number of participants
+ * @param {string[]} params.attendanceData.absentNames - Names of absent participants
  */
 export const summarizeWithAI = createAsyncThunk(
   'dailyNotes/summarizeWithAI',
-  async ({ projectId, date, sessionNotes }, { dispatch, getState, rejectWithValue }) => {
+  async ({ projectId, date, sessionNotes, attendanceData = null }, { dispatch, getState, rejectWithValue }) => {
     try {
       const command = {
         type: 'SUMMARIZE_WITH_AI',
         projectId,
         date,
+        hasAttendanceData: !!attendanceData,
         timestamp: new Date().toISOString()
       };
 
@@ -536,9 +547,10 @@ export const summarizeWithAI = createAsyncThunk(
 
       dispatch(loadingStarted());
 
-      // Call AI summarization API
+      // Call AI summarization API with optional attendance data
       const response = await axios.post('/api/ai/summarize-session-notes', {
-        sessionNotes
+        sessionNotes,
+        attendanceData
       });
 
       if (!response.data.success) {

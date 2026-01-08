@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -7,7 +7,8 @@ import {
   Dialog,
   Button,
   Stack,
-  alpha
+  alpha,
+  Switch
 } from '@mui/material';
 import { Dropdown, DropdownMenuItem, DropdownNestedMenuItem } from 'components/Dropdown';
 import { Remove, ArrowRight, Event as EventIcon } from '@mui/icons-material';
@@ -27,7 +28,8 @@ const ParticipantList = ({
   onMoveToEvent,
   onParticipantClick,
   availableEvents = [],
-  currentEventId = null
+  currentEventId = null,
+  currentCourseId = null
 }) => {
   // State for move confirmation dialog
   const [moveConfirmOpen, setMoveConfirmOpen] = useState(false);
@@ -36,6 +38,20 @@ const ParticipantList = ({
   // State for remove confirmation dialog
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [pendingRemove, setPendingRemove] = useState(null);
+
+  // State for showing all sessions vs same course only (default: same course)
+  const [showAllSessions, setShowAllSessions] = useState(false);
+
+  // Filter events based on showAllSessions toggle
+  const filteredEvents = useMemo(() => {
+    if (!availableEvents?.length) return [];
+    const eventsExcludingCurrent = availableEvents.filter(event => event.id !== currentEventId);
+    if (showAllSessions || !currentCourseId) {
+      return eventsExcludingCurrent;
+    }
+    return eventsExcludingCurrent.filter(event => event.course?.id === currentCourseId);
+  }, [availableEvents, currentEventId, currentCourseId, showAllSessions]);
+
 
   // Handle move to event click - opens confirmation dialog
   const handleMoveToEventClick = (participantId, eventParticipant, targetEvent) => {
@@ -244,11 +260,39 @@ const ParticipantList = ({
                     </Box>
                   }
                   rightIcon={<ArrowRight style={{ fontSize: 16 }} />}
-                  menu={
-                    availableEvents?.length > 0 ? 
-                      availableEvents
-                        .filter(event => event.id !== currentEventId) // Don't show current event
-                        .map((event) => (
+                  menu={[
+                    // Show All Sessions toggle (only if there's a current course)
+                    currentCourseId && (
+                      <DropdownMenuItem
+                        key="show-all-toggle"
+                        keepOpen
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          minWidth: 200,
+                          py: 0.5
+                        }}
+                      >
+                        <Typography variant="caption" color="text.secondary">
+                          Show all sessions
+                        </Typography>
+                        <Switch
+                          size="small"
+                          checked={showAllSessions}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setShowAllSessions(e.target.checked);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </DropdownMenuItem>
+                    ),
+                    // Event list
+                    ...(filteredEvents.length > 0
+                      ? filteredEvents.map((event) => (
                           <DropdownMenuItem
                             key={`move-to-event-${event.id}`}
                             onClick={() => handleMoveToEventClick(participantId, eventParticipant, event)}
@@ -259,21 +303,24 @@ const ParticipantList = ({
                                 <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
                                   {event.title || `Event ${event.id}`}
                                 </Typography>
-                                <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-                                  {new Date(event.start).toLocaleDateString()} {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                <Typography variant="body2" sx={{ fontSize: '0.7rem', color: 'text.primary', fontWeight: 500 }}>
+                                  {new Date(event.start).toLocaleDateString()} <span style={{ color: '#1976d2' }}>{new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </Typography>
                               </Box>
                             </Box>
                           </DropdownMenuItem>
-                        )) : [
+                        ))
+                      : [
                           <DropdownMenuItem key="no-events" disabled>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <EventIcon style={{ fontSize: 16, color: 'rgba(0,0,0,0.26)' }} />
-                              No other events available
+                              {currentCourseId && !showAllSessions
+                                ? 'No other sessions for this course'
+                                : 'No other events available'}
                             </Box>
                           </DropdownMenuItem>
-                        ]
-                  }
+                        ])
+                  ].filter(Boolean)}
                   sx={{ 
                     fontSize: '0.75rem',
                     color: 'success.main',

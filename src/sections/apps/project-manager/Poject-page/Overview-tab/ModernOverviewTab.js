@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Grid,
   Typography,
@@ -23,9 +23,19 @@ import {
   DialogActions,
   TextField,
   MenuItem,
-  AvatarGroup
+  AvatarGroup,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  FormControl,
+  Select,
+  InputLabel
 } from '@mui/material';
 import { selectAllParticipants } from 'store/entities/participantsSlice';
+import { selectAllEvents } from 'store/entities/eventsSlice';
 import {
   Groups,
   EventNote,
@@ -34,7 +44,11 @@ import {
   Edit,
   Visibility,
   Analytics,
-  Close
+  Close,
+  Today,
+  AccessTime,
+  ChevronLeft,
+  ChevronRight
 } from '@mui/icons-material';
 import { useSelector } from 'store';
 import MainCard from 'components/MainCard';
@@ -43,6 +57,34 @@ import DailyNotes from './DailyNotes';
 import LearningObjectives from './LearningObjectives';
 import { derivedSelectors } from 'store/selectors';
 
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'present':
+      return 'success';
+    case 'late':
+      return 'warning';
+    case 'absent':
+      return 'error';
+    case 'scheduled':
+    default:
+      return 'info';
+  }
+};
+
+const getStatusLabel = (status) => {
+  switch (status) {
+    case 'present':
+      return 'Present';
+    case 'late':
+      return 'Late';
+    case 'absent':
+      return 'Absent';
+    case 'scheduled':
+    default:
+      return 'Scheduled';
+  }
+};
+
 
 
 
@@ -50,6 +92,9 @@ const ModernOverviewTab = () => {
   // Use normalized participants store instead of old Redux
   const participants = useSelector(selectAllParticipants);
   const hasParticipants = participants && participants.length > 0;
+
+  // Get all events from normalized store
+  const allEvents = useSelector(selectAllEvents);
 
   // Get project info from derived selector (CQRS architecture)
   const project = useSelector(derivedSelectors.dashboard.selectProjectInfo);
@@ -67,6 +112,116 @@ const ModernOverviewTab = () => {
 
   // Get resource utilization data
   const resourceUtilization = useSelector(derivedSelectors.dashboard.selectResourceUtilization);
+
+  // State for attendance report course filter
+  const [selectedCourse, setSelectedCourse] = useState('all');
+
+  // State for selected date (for day navigation)
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
+
+  // Navigation handlers
+  const handlePreviousDay = () => {
+    setSelectedDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() - 1);
+      return newDate;
+    });
+  };
+
+  const handleNextDay = () => {
+    setSelectedDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + 1);
+      return newDate;
+    });
+  };
+
+  const handleGoToToday = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    setSelectedDate(today);
+  };
+
+  // Check if selected date is today
+  const isToday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selectedDate.getTime() === today.getTime();
+  }, [selectedDate]);
+
+  // Get selected day's events and flatten attendance data
+  const todaysAttendanceData = useMemo(() => {
+    const dayStart = new Date(selectedDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    // Filter events for selected day
+    const dayEvents = allEvents.filter(event => {
+      const eventDate = new Date(event.start);
+      return eventDate >= dayStart && eventDate < dayEnd;
+    });
+
+    // Flatten event attendees into attendance records
+    const attendanceRecords = [];
+    dayEvents.forEach(event => {
+      const eventStart = new Date(event.start);
+      const eventEnd = event.end ? new Date(event.end) : null;
+      const timeStr = eventStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+        (eventEnd ? ' - ' + eventEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+
+      // Get instructor name from event_instructors
+      const instructorName = event.event_instructors?.[0]?.instructor
+        ? `${event.event_instructors[0].instructor.firstName || ''} ${event.event_instructors[0].instructor.lastName || ''}`.trim()
+        : 'No Instructor';
+
+      if (event.event_attendees?.length > 0) {
+        event.event_attendees.forEach(attendee => {
+          const participant = attendee.enrollee?.participant;
+          if (participant) {
+            attendanceRecords.push({
+              id: `${event.id}-${attendee.id}`,
+              employeeName: `${participant.firstName || ''} ${participant.lastName || ''}`.trim() || 'Unknown',
+              sessionTitle: event.title || event.course?.title || 'Untitled Session',
+              sessionTime: timeStr,
+              status: attendee.attendance_status || 'scheduled',
+              instructor: instructorName,
+              eventId: event.id
+            });
+          }
+        });
+      }
+    });
+
+    return attendanceRecords;
+  }, [allEvents, selectedDate]);
+
+  // Get unique courses from today's attendance data for filter dropdown
+  const uniqueCourses = useMemo(() => {
+    const courses = [...new Set(todaysAttendanceData.map(item => item.sessionTitle))];
+    return courses.sort();
+  }, [todaysAttendanceData]);
+
+  // Filter attendance data based on selected course
+  const filteredAttendance = useMemo(() => {
+    if (selectedCourse === 'all') return todaysAttendanceData;
+    return todaysAttendanceData.filter(item => item.sessionTitle === selectedCourse);
+  }, [selectedCourse, todaysAttendanceData]);
+
+  // Calculate attendance rate
+  const attendanceRate = useMemo(() => {
+    if (filteredAttendance.length === 0) return null;
+    const presentCount = filteredAttendance.filter(a => a.status === 'present').length;
+    const lateCount = filteredAttendance.filter(a => a.status === 'late').length;
+    // Count present + late as "attended"
+    const attendedCount = presentCount + lateCount;
+    const rate = Math.round((attendedCount / filteredAttendance.length) * 100);
+    return rate;
+  }, [filteredAttendance]);
 
   const handleOpenParticipantDrawer = () => {
     // Trigger the participant drawer opening
@@ -210,6 +365,170 @@ const ModernOverviewTab = () => {
             </Paper>
           </Grid>
         </Grid>
+      )}
+
+      {/* Today's Attendance Report */}
+      {hasParticipants && (
+        <Paper sx={{ p: 3, bgcolor: 'background.paper', mb: 3 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={2}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Avatar sx={{ bgcolor: 'success.main', width: 40, height: 40 }}>
+                <Today />
+              </Avatar>
+              <Box>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Typography variant="h6" fontWeight="bold">
+                    {isToday ? "Today's Attendance Report" : 'Attendance Report'}
+                  </Typography>
+                  {attendanceRate !== null && (
+                    <Chip
+                      label={`${attendanceRate}% Attendance`}
+                      size="small"
+                      color={attendanceRate >= 80 ? 'success' : attendanceRate >= 50 ? 'warning' : 'error'}
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )}
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                  {selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Stack direction="row" alignItems="center" spacing={2}>
+              {/* Day Navigation */}
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <IconButton size="small" onClick={handlePreviousDay} sx={{ bgcolor: 'action.hover' }}>
+                  <ChevronLeft />
+                </IconButton>
+                {!isToday && (
+                  <Button size="small" variant="outlined" onClick={handleGoToToday} sx={{ minWidth: 'auto', px: 1.5 }}>
+                    Today
+                  </Button>
+                )}
+                <IconButton size="small" onClick={handleNextDay} sx={{ bgcolor: 'action.hover' }}>
+                  <ChevronRight />
+                </IconButton>
+              </Stack>
+
+              {/* Course Filter - only show if there are sessions */}
+              {todaysAttendanceData.length > 0 && (
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel id="course-filter-label">Filter by Course</InputLabel>
+                  <Select
+                    labelId="course-filter-label"
+                    value={selectedCourse}
+                    label="Filter by Course"
+                    onChange={(e) => setSelectedCourse(e.target.value)}
+                  >
+                    <MenuItem value="all">All Courses</MenuItem>
+                    {uniqueCourses.map((course) => (
+                      <MenuItem key={course} value={course}>{course}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </Stack>
+          </Stack>
+
+          {todaysAttendanceData.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <Today sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No Sessions {isToday ? 'Today' : 'on This Day'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                There are no scheduled sessions for {isToday ? 'today' : 'this day'}. Check the agenda for upcoming sessions.
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              <TableContainer sx={{ maxHeight: 400 }}>
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, bgcolor: 'background.paper' }}>Employee</TableCell>
+                      <TableCell sx={{ fontWeight: 600, bgcolor: 'background.paper' }}>Session</TableCell>
+                      <TableCell sx={{ fontWeight: 600, bgcolor: 'background.paper' }}>Time</TableCell>
+                      <TableCell sx={{ fontWeight: 600, bgcolor: 'background.paper' }}>Instructor</TableCell>
+                      <TableCell sx={{ fontWeight: 600, bgcolor: 'background.paper' }} align="center">Attendance</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredAttendance.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        sx={{
+                          '&:hover': { bgcolor: 'action.hover' },
+                          '&:last-child td, &:last-child th': { border: 0 }
+                        }}
+                      >
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={500}>
+                            {row.employeeName}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{row.sessionTitle}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <AccessTime sx={{ fontSize: 14, color: 'text.secondary' }} />
+                            <Typography variant="body2" color="text.secondary">
+                              {row.sessionTime}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {row.instructor}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={getStatusLabel(row.status)}
+                            color={getStatusColor(row.status)}
+                            size="small"
+                            sx={{ minWidth: 80, fontWeight: 500 }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {/* Summary row */}
+              <Divider sx={{ my: 2 }} />
+              <Stack direction="row" spacing={3} justifyContent="flex-end">
+                <Typography variant="body2">
+                  <Box component="span" sx={{ color: 'success.main', fontWeight: 600 }}>
+                    {filteredAttendance.filter(a => a.status === 'present').length}
+                  </Box>
+                  {' '}Present
+                </Typography>
+                <Typography variant="body2">
+                  <Box component="span" sx={{ color: 'warning.main', fontWeight: 600 }}>
+                    {filteredAttendance.filter(a => a.status === 'late').length}
+                  </Box>
+                  {' '}Late
+                </Typography>
+                <Typography variant="body2">
+                  <Box component="span" sx={{ color: 'error.main', fontWeight: 600 }}>
+                    {filteredAttendance.filter(a => a.status === 'absent').length}
+                  </Box>
+                  {' '}Absent
+                </Typography>
+                <Typography variant="body2">
+                  <Box component="span" sx={{ color: 'info.main', fontWeight: 600 }}>
+                    {filteredAttendance.filter(a => a.status === 'scheduled').length}
+                  </Box>
+                  {' '}Scheduled
+                </Typography>
+              </Stack>
+            </>
+          )}
+        </Paper>
       )}
 
       {/* Main Content Grid */}

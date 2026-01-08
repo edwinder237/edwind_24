@@ -15,10 +15,11 @@ import {
   Support,
   AccessTime,
   Person,
-  Event
+  Event,
+  People
 } from '@mui/icons-material';
 
-const EventModalCards = ({ items, onItemSelect, type = 'course', scheduledItemIds = [], pendingItemIds = [], disabled = false }) => {
+const EventModalCards = ({ items, onItemSelect, type = 'course', scheduledItemCounts = {}, pendingItemIds = [], disabled = false, schedulingStats = {} }) => {
   const theme = useTheme();
 
   // Get appropriate icon based on type and item
@@ -58,15 +59,16 @@ const EventModalCards = ({ items, onItemSelect, type = 'course', scheduledItemId
   return (
     <Stack spacing={1.5}>
       {items.map((item) => {
-        const isScheduled = scheduledItemIds.includes(item.id);
+        const sessionCount = scheduledItemCounts[item.id] || 0;
+        const isScheduled = sessionCount > 0;
         const isPending = pendingItemIds.includes(item.id);
         const isDisabled = disabled || isPending; // Disable if globally disabled or currently being added
-        
+
         return (
-          <Card 
+          <Card
             key={item.id}
             elevation={0}
-            sx={{ 
+            sx={{
               cursor: isDisabled ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s ease',
               border: `1px solid ${theme.palette.divider}`,
@@ -87,8 +89,8 @@ const EventModalCards = ({ items, onItemSelect, type = 'course', scheduledItemId
         >
           <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
             {isScheduled && !isPending && (
-              <Chip 
-                label="Already Scheduled"
+              <Chip
+                label={`${sessionCount} session${sessionCount !== 1 ? 's' : ''}`}
                 size="small"
                 color="warning"
                 sx={{
@@ -199,7 +201,7 @@ const EventModalCards = ({ items, onItemSelect, type = 'course', scheduledItemId
                   
                   {/* Modules count for courses */}
                   {type === 'course' && item.modules?.length > 0 && (
-                    <Chip 
+                    <Chip
                       label={`${item.modules.length} modules`}
                       size="small"
                       sx={{
@@ -209,6 +211,44 @@ const EventModalCards = ({ items, onItemSelect, type = 'course', scheduledItemId
                         fontWeight: 500,
                         fontSize: '0.7rem',
                         height: 22
+                      }}
+                    />
+                  )}
+
+                  {/* Scheduling stats for courses */}
+                  {type === 'course' && schedulingStats[item.id] && schedulingStats[item.id].total > 0 && (
+                    <Chip
+                      icon={<People sx={{ fontSize: 14 }} />}
+                      label={`${schedulingStats[item.id].scheduled}/${schedulingStats[item.id].total} completed`}
+                      size="small"
+                      sx={{
+                        bgcolor: schedulingStats[item.id].scheduled === schedulingStats[item.id].total
+                          ? alpha(theme.palette.success.main, 0.1)
+                          : schedulingStats[item.id].scheduled === 0
+                            ? alpha(theme.palette.error.main, 0.1)
+                            : alpha(theme.palette.warning.main, 0.1),
+                        color: schedulingStats[item.id].scheduled === schedulingStats[item.id].total
+                          ? theme.palette.success.main
+                          : schedulingStats[item.id].scheduled === 0
+                            ? theme.palette.error.main
+                            : theme.palette.warning.main,
+                        border: `1px solid ${
+                          schedulingStats[item.id].scheduled === schedulingStats[item.id].total
+                            ? alpha(theme.palette.success.main, 0.2)
+                            : schedulingStats[item.id].scheduled === 0
+                              ? alpha(theme.palette.error.main, 0.2)
+                              : alpha(theme.palette.warning.main, 0.2)
+                        }`,
+                        fontWeight: 500,
+                        fontSize: '0.7rem',
+                        height: 22,
+                        '& .MuiChip-icon': {
+                          color: schedulingStats[item.id].scheduled === schedulingStats[item.id].total
+                            ? theme.palette.success.main
+                            : schedulingStats[item.id].scheduled === 0
+                              ? theme.palette.error.main
+                              : theme.palette.warning.main
+                        }
                       }}
                     />
                   )}

@@ -25,18 +25,40 @@ const initGemini = () => {
  * Summarize session notes into key highlights and challenges
  *
  * @param {string} sessionNotes - Raw session notes from training events
+ * @param {object} attendanceData - Optional attendance data for the day
+ * @param {number} attendanceData.present - Number of participants present
+ * @param {number} attendanceData.late - Number of participants late
+ * @param {number} attendanceData.absent - Number of participants absent
+ * @param {number} attendanceData.total - Total number of participants
+ * @param {string[]} attendanceData.absentNames - Names of absent participants
  * @returns {Promise<{keyHighlights: string[], challenges: string[]}>}
  */
-export const summarizeSessionNotes = async (sessionNotes) => {
+export const summarizeSessionNotes = async (sessionNotes, attendanceData = null) => {
   try {
     const genAI = initGemini();
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
-    const prompt = `You are an expert training analyst. Analyze the following training session notes and extract:
+    // Build attendance context if available
+    let attendanceContext = '';
+    if (attendanceData && attendanceData.total > 0) {
+      const attendanceRate = Math.round(((attendanceData.present + attendanceData.late) / attendanceData.total) * 100);
+      attendanceContext = `
+Attendance Data:
+- Total Participants: ${attendanceData.total}
+- Present: ${attendanceData.present}
+- Late: ${attendanceData.late}
+- Absent: ${attendanceData.absent}
+- Attendance Rate: ${attendanceRate}%
+${attendanceData.absentNames && attendanceData.absentNames.length > 0 ? `- Absent Participants: ${attendanceData.absentNames.join(', ')}` : ''}
+`;
+    }
+
+    const prompt = `You are an expert training analyst. Analyze the following training session notes${attendanceData ? ' and attendance data' : ''} and extract:
 
 1. Key Highlights: 3-5 positive outcomes, achievements, or important observations from the training
 2. Challenges: 2-4 obstacles, issues, or areas that need improvement
-
+${attendanceData ? '\nIMPORTANT: Include attendance-related insights in your analysis. If attendance was good, mention it as a highlight. If there were absences or late arrivals, mention them as challenges with the names of absent participants if provided.' : ''}
+${attendanceContext}
 Session Notes:
 ${sessionNotes}
 
@@ -51,7 +73,8 @@ Guidelines:
 - Focus on actionable insights
 - Use complete sentences
 - Prioritize the most important items
-- Ensure highlights are positive and challenges are constructive`;
+- Ensure highlights are positive and challenges are constructive
+${attendanceData ? '- Include attendance insights when relevant (e.g., "Excellent attendance with all participants present" or "3 participants were absent: John, Jane, Bob - follow-up required")' : ''}`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
