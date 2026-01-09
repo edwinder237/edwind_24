@@ -599,6 +599,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   return (
     <>
     <Card
+      id={`event-card-${event.id}`}
       ref={drag}
       onClick={() => onSelect(event.id)}
       sx={{

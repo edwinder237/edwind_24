@@ -156,7 +156,8 @@ async function handler(req, res) {
                         participantStatus: true,
                         participantType: true,
                         profileImg: true,
-                        
+                        tag: true,
+
                         role: {
                           select: {
                             id: true,
@@ -164,7 +165,7 @@ async function handler(req, res) {
                             description: true
                           }
                         },
-                        
+
                         training_recipient: {
                           select: {
                             id: true,
@@ -184,7 +185,7 @@ async function handler(req, res) {
                 }
               }
             },
-            
+
             // Event groups with participant details
             event_groups: {
               select: {
@@ -216,7 +217,8 @@ async function handler(req, res) {
                                 participantStatus: true,
                                 participantType: true,
                                 profileImg: true,
-                                
+                                tag: true,
+
                                 role: {
                                   select: {
                                     id: true,
@@ -224,7 +226,7 @@ async function handler(req, res) {
                                     description: true
                                   }
                                 },
-                                
+
                                 training_recipient: {
                                   select: {
                                     id: true,
@@ -248,7 +250,7 @@ async function handler(req, res) {
                 }
               }
             },
-            
+
             // Event instructors
             event_instructors: {
               select: {
@@ -303,6 +305,7 @@ async function handler(req, res) {
                         participantStatus: true,
                         participantType: true,
                         profileImg: true,
+                        tag: true,
 
                         role: {
                           select: {
@@ -380,7 +383,8 @@ async function handler(req, res) {
                 participantStatus: true,
                 participantType: true,
                 profileImg: true,
-                
+                tag: true,
+
                 role: {
                   select: {
                     id: true,
@@ -388,7 +392,7 @@ async function handler(req, res) {
                     description: true
                   }
                 },
-                
+
                 training_recipient: {
                   select: {
                     id: true,
@@ -404,7 +408,7 @@ async function handler(req, res) {
             }
           }
         },
-        
+
         // Project curriculums for context
         project_curriculums: {
           select: {

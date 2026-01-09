@@ -274,18 +274,29 @@ const ModernOverviewTab = () => {
 
       {/* Attendance & Course Completion Stats - Horizontal Cards */}
       {hasParticipants && (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          {/* Attendance Stats Card */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
-              <Stack direction="row" alignItems="center" spacing={1} mb={3}>
-                <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-                  <CheckCircle />
-                </Avatar>
-                <Typography variant="h6" fontWeight="bold">
-                  Attendance Overview
-                </Typography>
-              </Stack>
+        <>
+          {/* Section Header */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              Project Metrics
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Overall attendance and course progress across all sessions
+            </Typography>
+          </Box>
+
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Attendance Stats Card */}
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
+                <Stack direction="row" alignItems="center" spacing={1} mb={3}>
+                  <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                    <CheckCircle />
+                  </Avatar>
+                  <Typography variant="h6" fontWeight="bold">
+                    Attendance Overview
+                  </Typography>
+                </Stack>
 
               <Grid container spacing={2}>
                 <Grid item xs={3}>
@@ -365,21 +376,33 @@ const ModernOverviewTab = () => {
             </Paper>
           </Grid>
         </Grid>
+        </>
       )}
 
       {/* Today's Attendance Report */}
       {hasParticipants && (
-        <Paper sx={{ p: 3, bgcolor: 'background.paper', mb: 3 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={2}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Avatar sx={{ bgcolor: 'success.main', width: 40, height: 40 }}>
-                <Today />
-              </Avatar>
-              <Box>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography variant="h6" fontWeight="bold">
-                    {isToday ? "Today's Attendance Report" : 'Attendance Report'}
-                  </Typography>
+        <>
+          {/* Section Header */}
+          <Box sx={{ mb: 2, mt: 1 }}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              Daily Attendance
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Track participant attendance for each training session by day
+            </Typography>
+          </Box>
+
+          <Paper sx={{ p: 3, bgcolor: 'background.paper', mb: 3 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={2}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Avatar sx={{ bgcolor: 'success.main', width: 40, height: 40 }}>
+                  <Today />
+                </Avatar>
+                <Box>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="h6" fontWeight="bold">
+                      {isToday ? "Today's Attendance Report" : 'Attendance Report'}
+                    </Typography>
                   {attendanceRate !== null && (
                     <Chip
                       label={`${attendanceRate}% Attendance`}
@@ -529,19 +552,48 @@ const ModernOverviewTab = () => {
             </>
           )}
         </Paper>
+        </>
       )}
 
       {/* Main Content Grid */}
       <Grid container spacing={3}>
 
-        {/* First Row - Daily Notes (Full Width) */}
+        {/* Daily Training Notes Section */}
         <Grid item xs={12}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              Training Journal
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Daily session notes, highlights, and challenges captured by instructors
+            </Typography>
+          </Box>
           <DailyNotes project={project} />
         </Grid>
 
-        {/* Second Row - Learning Objectives (Full Width) */}
+        {/* Course Completion Section */}
         <Grid item xs={12}>
+          <Box sx={{ mb: 2, mt: 1 }}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              Course Completion
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Track participant progress through required curriculum courses
+            </Typography>
+          </Box>
           <LearningObjectives project={project} />
+        </Grid>
+
+        {/* Resources & Analytics Section Header */}
+        <Grid item xs={12}>
+          <Box sx={{ mb: 1, mt: 1 }}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              Resources & Analytics
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Instructor workload, venue usage, and participant group distribution
+            </Typography>
+          </Box>
         </Grid>
 
         {/* Fourth Row - Resource Utilization and Group Size Distribution */}

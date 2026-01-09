@@ -45,7 +45,7 @@ async function handler(req, res) {
     if (updates.lastName !== undefined) validFields.lastName = updates.lastName;
     if (updates.email !== undefined) validFields.email = updates.email;
     if (updates.derpartement !== undefined) validFields.derpartement = updates.derpartement;
-    if (updates.location !== undefined) validFields.location = updates.location;
+    if (updates.tag !== undefined) validFields.tag = updates.tag;
     if (updates.notes !== undefined) validFields.notes = updates.notes;
     if (updates.participantStatus !== undefined) validFields.participantStatus = updates.participantStatus;
     if (updates.participantType !== undefined) validFields.participantType = updates.participantType;

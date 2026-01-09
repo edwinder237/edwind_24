@@ -65,7 +65,7 @@ import RoleDropdownCell from './RoleDropdownCell';
 import GroupDropdownCell from './GroupDropdownCell';
 
 // Editable Cell Component - simple and self-contained
-const EditableCell = ({ value, row, column, updateMyData, editableRowIndex }) => {
+const EditableCell = ({ value, row, column, updateMyData, editableRowIndex, onSave }) => {
   const isEditing = editableRowIndex === row.index;
   const [localValue, setLocalValue] = React.useState(value || '');
 
@@ -73,6 +73,13 @@ const EditableCell = ({ value, row, column, updateMyData, editableRowIndex }) =>
   React.useEffect(() => {
     setLocalValue(value || '');
   }, [value, editableRowIndex]);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && onSave) {
+      e.preventDefault();
+      onSave();
+    }
+  };
 
   if (!isEditing) {
     return <span>{value || ''}</span>;
@@ -85,6 +92,7 @@ const EditableCell = ({ value, row, column, updateMyData, editableRowIndex }) =>
         setLocalValue(e.target.value);
         updateMyData(column.id, e.target.value);
       }}
+      onKeyDown={handleKeyDown}
       size="small"
       fullWidth
       variant="standard"
@@ -223,6 +231,7 @@ const ReactTable = ({
           column={column}
           updateMyData={updateField}
           editableRowIndex={editableRowIndex}
+          onSave={handleSubmit}
         />
       ),
     },
@@ -240,6 +249,7 @@ const ReactTable = ({
           column={column}
           updateMyData={updateField}
           editableRowIndex={editableRowIndex}
+          onSave={handleSubmit}
         />
       ),
     },
@@ -269,25 +279,44 @@ const ReactTable = ({
           column={column}
           updateMyData={updateField}
           editableRowIndex={editableRowIndex}
+          onSave={handleSubmit}
         />
       ),
     },
     {
-      Header: "Location",
-      Footer: "Location",
-      accessor: "participant.location",
+      Header: "Tag",
+      Footer: "Tag",
+      accessor: "participant.tag",
       dataType: "text",
       disableFilters: true,
       disableGroupBy: true,
-      Cell: ({ value, row, column }) => (
-        <EditableCell
-          value={value || ''}
-          row={row}
-          column={column}
-          updateMyData={updateField}
-          editableRowIndex={editableRowIndex}
-        />
-      ),
+      Cell: ({ value, row, column }) => {
+        const isEditing = row.index === editableRowIndex;
+        if (isEditing) {
+          return (
+            <EditableCell
+              value={value || ''}
+              row={row}
+              column={column}
+              updateMyData={updateField}
+              editableRowIndex={editableRowIndex}
+              onSave={handleSubmit}
+            />
+          );
+        }
+        return value ? (
+          <Chip
+            label={value}
+            size="small"
+            sx={{
+              bgcolor: 'primary.lighter',
+              color: 'primary.dark',
+              fontWeight: 500,
+              fontSize: '0.75rem'
+            }}
+          />
+        ) : null;
+      },
     },
     {
       Header: "Training Recipient",
@@ -339,6 +368,7 @@ const ReactTable = ({
             column={column}
             updateMyData={updateField}
             editableRowIndex={editableRowIndex}
+            onSave={handleSubmit}
           />
         );
       },

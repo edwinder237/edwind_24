@@ -228,8 +228,10 @@ const ParticipantList = ({
                 </Box>
               }
               menu={[
-                // Attendance status options
-                ...ATTENDANCE_STATUS_CHOICES.map((status) => (
+                // Attendance status options (excluding current status)
+                ...ATTENDANCE_STATUS_CHOICES
+                  .filter((status) => status.value !== (participantStatuses[participantId] || 'scheduled'))
+                  .map((status) => (
                   <DropdownMenuItem
                     key={status.value}
                     onClick={() => {

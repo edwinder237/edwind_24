@@ -251,7 +251,7 @@ model participants {
   sub_organization    Int
   trainingRecipientId Int?
   derpartement        String?
-  location            String?                            @default("")
+  tag                 String?                            @default("")
   roleId              Int?
   notes               String?
   profilePrefs        Json

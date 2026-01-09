@@ -8,7 +8,7 @@ import {
   selectSettingsLoading
 } from 'store/reducers/project/settings';
 import { derivedSelectors } from 'store/selectors';
-import { ViewList, CalendarMonth, DateRange, MenuBook, OpenInNew } from '@mui/icons-material';
+import { ViewList, CalendarMonth, DateRange, MenuBook, OpenInNew, Today, People } from '@mui/icons-material';
 
 // Components
 import MainCard from 'components/MainCard';
@@ -19,6 +19,7 @@ import { FullCalendarMonthView, FullCalendarWeekView } from './views/calendar';
 import ScheduleExport from './features/scheduling/components/ScheduleExport';
 import ImportOptionsDialog from './features/scheduling/components/ImportOptionsDialog';
 import { AddEventDialog } from './features/events/dialogs';
+import ParticipantsAttendanceDrawer from './components/ParticipantsAttendanceDrawer';
 
 // Modernized hooks using CQRS architecture
 import { useNormalizedEvents } from './features/events/hooks';
@@ -116,12 +117,14 @@ const AgendaTabRTK = React.memo(() => {
     handleEventSelect,
     handleViewModeChange,
     openViewSchedule,
-    closeViewSchedule
+    closeViewSchedule,
+    goToToday
   } = useAgendaState();
 
   // Local state for dialogs
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
   const [addEventDialogOpen, setAddEventDialogOpen] = React.useState(false);
+  const [participantsDrawerOpen, setParticipantsDrawerOpen] = React.useState(false);
 
   // Domain events subscription for real-time updates
   useEffect(() => {
@@ -190,6 +193,15 @@ const AgendaTabRTK = React.memo(() => {
 
   const handleCloseAddEventDialog = useCallback(() => {
     setAddEventDialogOpen(false);
+  }, []);
+
+  // Participants drawer handlers
+  const handleOpenParticipantsDrawer = useCallback(() => {
+    setParticipantsDrawerOpen(true);
+  }, []);
+
+  const handleCloseParticipantsDrawer = useCallback(() => {
+    setParticipantsDrawerOpen(false);
   }, []);
 
   // Handle import completion
@@ -310,6 +322,35 @@ const AgendaTabRTK = React.memo(() => {
     }
   }), [theme]);
 
+  // Compute eventsByDay for goToToday function
+  const eventsByDay = useMemo(() => {
+    if (!events || events.length === 0) return [];
+
+    // Group events by day
+    const grouped = {};
+    const sortedEvents = [...events].sort((a, b) => new Date(a.start) - new Date(b.start));
+
+    sortedEvents.forEach(event => {
+      const date = new Date(event.start);
+      const dayKey = date.toDateString();
+      if (!grouped[dayKey]) {
+        grouped[dayKey] = {
+          date: new Date(date.setHours(0, 0, 0, 0)),
+          events: [],
+          dayNumber: Object.keys(grouped).length + 1
+        };
+      }
+      grouped[dayKey].events.push(event);
+    });
+
+    return Object.values(grouped);
+  }, [events]);
+
+  // Handler for Today button
+  const handleGoToToday = useCallback(() => {
+    goToToday(events || [], eventsByDay);
+  }, [goToToday, events, eventsByDay]);
+
   // Check if curriculum has no courses (for "Add Courses" button)
   // Note: curriculums is project_curriculums join table, curriculum data is nested
   const hasCurriculumWithNoCourses = useMemo(() => {
@@ -332,6 +373,21 @@ const AgendaTabRTK = React.memo(() => {
   // Header content with better performance
   const headerContent = useMemo(() => (
     <Stack direction="row" spacing={2} alignItems="center">
+      {/* Show Participants Button */}
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<People sx={{ fontSize: 16 }} />}
+        onClick={handleOpenParticipantsDrawer}
+        sx={{
+          ...buttonStyles.common,
+          ...buttonStyles.outlined,
+          fontWeight: 600
+        }}
+      >
+        Show Participants
+      </Button>
+
       {/* Add Courses Button - Show when curriculum has no courses */}
       {hasCurriculumWithNoCourses && firstCurriculumId && (
         <Tooltip title="Your curriculum has no courses. Add courses to enable full scheduling features.">
@@ -357,6 +413,23 @@ const AgendaTabRTK = React.memo(() => {
           </Button>
         </Tooltip>
       )}
+
+      {/* Today Button - Navigate to current day and event */}
+      <Tooltip title="Go to today's schedule and current event">
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<Today sx={{ fontSize: 16 }} />}
+          onClick={handleGoToToday}
+          sx={{
+            ...buttonStyles.common,
+            ...buttonStyles.outlined,
+            fontWeight: 600
+          }}
+        >
+          Today
+        </Button>
+      </Tooltip>
 
       {/* Import/Export Buttons - Pro Features */}
       <Stack direction="row" spacing={1} alignItems="center">
@@ -403,7 +476,7 @@ const AgendaTabRTK = React.memo(() => {
         </ToggleButtonGroup>
       )}
     </Stack>
-  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM, hasCurriculumWithNoCourses, firstCurriculumId, theme]);
+  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM, hasCurriculumWithNoCourses, firstCurriculumId, theme, handleGoToToday, handleOpenParticipantsDrawer]);
 
   // Error Display Component
   const ErrorDisplay = useCallback(() => (
@@ -581,6 +654,12 @@ const AgendaTabRTK = React.memo(() => {
           />
         </MainCard>
       </Dialog>
+
+      {/* Participants Attendance Drawer */}
+      <ParticipantsAttendanceDrawer
+        open={participantsDrawerOpen}
+        onClose={handleCloseParticipantsDrawer}
+      />
     </Box>
   );
 });

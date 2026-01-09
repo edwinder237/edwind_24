@@ -86,6 +86,7 @@ export const selectProjectCourses = createSelector(
             code: event.course.code,
             version: event.course.version,
             modules: event.course.modules || [],
+            course_participant_roles: event.course.course_participant_roles || [],
             events: []
           });
         }
@@ -215,6 +216,34 @@ export const selectCourseCompletionData = createSelector(
 
           const participantData = participantAssignments.find(pa => pa.courseId === courseId);
 
+          // Get required role IDs for this course
+          const requiredRoleIds = course.course_participant_roles
+            ?.filter(cpr => cpr.isRequired)
+            .map(cpr => cpr.role?.id)
+            .filter(Boolean) || [];
+
+          // Find scheduled participant IDs
+          const scheduledParticipantIds = new Set(
+            (participantData?.participants || []).map(p => p.participantId)
+          );
+
+          // Find unscheduled participants with required roles
+          const unscheduledParticipants = requiredRoleIds.length > 0
+            ? allParticipants
+                .filter(p => {
+                  const roleId = p.participant?.role?.id;
+                  return roleId &&
+                         requiredRoleIds.includes(roleId) &&
+                         !scheduledParticipantIds.has(p.participant?.id);
+                })
+                .map(p => ({
+                  participantId: p.participant?.id,
+                  enrolleeId: p.id,  // project_participants.id needed for addEventParticipant API
+                  participant: p.participant,
+                  isScheduled: false
+                }))
+            : [];
+
           return {
             id: course.id,
             title: course.title,
@@ -231,7 +260,10 @@ export const selectCourseCompletionData = createSelector(
                   participantData.participants.reduce((sum, p) => sum + p.attendanceRate, 0) /
                   participantData.participants.length
                 )
-              : 0
+              : 0,
+            events: course.events || [],  // Available events for scheduling
+            unscheduledParticipants,
+            requiredRoleIds
           };
         })
         .filter(course => course !== null); // Remove null entries

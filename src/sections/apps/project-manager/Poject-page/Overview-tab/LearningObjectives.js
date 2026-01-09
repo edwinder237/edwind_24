@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Paper,
   Typography,
@@ -7,12 +7,13 @@ import {
   Chip,
   List,
   ListItem,
-  ListItemIcon,
-  ListItemText,
   IconButton,
   Collapse,
-  Avatar,
-  Alert
+  Alert,
+  Menu,
+  MenuItem,
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import {
   School,
@@ -22,11 +23,12 @@ import {
   Assignment,
   Psychology,
   Group,
-  InfoCircleOutlined
+  Add
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useSelector } from 'store';
 import { selectCourseCompletionData, selectCourseParticipantRoleDistribution } from 'store/selectors';
+import { useAddEventParticipantMutation } from 'store/api/projectApi';
 
 // ==============================|| COURSE CATEGORY ICONS ||============================== //
 
@@ -107,101 +109,183 @@ const formatSessionDateTime = (dateString) => {
 // ==============================|| SUB-COMPONENTS ||============================== //
 
 /**
- * Participant Card Component - Shows unique participant with sessions inline
+ * Participant Card Component - Compact view showing participant with sessions inline
  */
-const ParticipantCard = ({ participantData, categoryColor }) => {
+const ParticipantCard = ({ participantData, isEven, isLast }) => {
   const { firstName, lastName, role, attendanceRate, eventsAttended, totalEvents, isCompleted, sessions } = participantData;
-  const initials = `${firstName?.[0] || 'U'}${lastName?.[0] || 'U'}`;
   const fullName = `${firstName || 'Unknown'} ${lastName || 'User'}`;
 
   return (
     <ListItem
       sx={{
-        px: 2,
-        py: 1.5,
-        mb: 1,
-        borderRadius: 1,
-        border: '1px solid',
+        px: 1.5,
+        py: 0.75,
+        bgcolor: isEven ? 'action.hover' : 'transparent',
+        borderBottom: isLast ? 'none' : '1px solid',
         borderColor: 'divider',
-        bgcolor: 'background.paper',
         '&:hover': {
-          bgcolor: 'action.hover'
+          bgcolor: 'action.selected'
         },
-        flexDirection: 'column',
-        alignItems: 'flex-start'
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 0.5
       }}
     >
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ width: '100%' }}>
-        <Avatar
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: isCompleted ? '#4caf50' : categoryColor,
-            fontSize: '0.875rem'
-          }}
-        >
-          {initials}
-        </Avatar>
-        <Box sx={{ flex: 1 }}>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" fontWeight={500}>
-              {fullName}
-            </Typography>
-            {role && (
-              <Chip
-                label={role}
-                size="small"
-                color="primary"
-                sx={{
-                  height: 20,
-                  fontSize: '0.7rem',
-                  fontWeight: 600
-                }}
-              />
-            )}
-            <Chip
-              label={`${eventsAttended}/${totalEvents} sessions (${attendanceRate}%)`}
-              size="small"
-              color={isCompleted ? 'success' : attendanceRate >= 70 ? 'primary' : 'warning'}
-              variant="outlined"
-              sx={{
-                height: 18,
-                fontSize: '0.65rem'
-              }}
-            />
-          </Stack>
-        </Box>
-      </Stack>
+      {/* Name and role */}
+      <Typography variant="body2" fontWeight={500} sx={{ minWidth: 120 }}>
+        {fullName}
+      </Typography>
+      {role && (
+        <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+          ({role})
+        </Typography>
+      )}
 
-      {/* Sessions inline */}
+      {/* Attendance stats */}
+      <Typography
+        variant="caption"
+        sx={{
+          color: isCompleted ? 'success.main' : 'text.secondary',
+          fontWeight: isCompleted ? 600 : 400,
+          mr: 1
+        }}
+      >
+        {eventsAttended}/{totalEvents} ({attendanceRate}%)
+      </Typography>
+
+      {/* Sessions inline - compact text format */}
       {sessions && sessions.length > 0 && (
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            mt: 1,
-            ml: 5.5,
-            flexWrap: 'wrap',
-            gap: 0.5
-          }}
-        >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, flex: 1 }}>
           {sessions.map((session, idx) => (
-            <Chip
+            <Typography
               key={session.eventId || idx}
-              label={formatSessionDateTime(session.start)}
-              size="small"
-              color={session.isCompleted ? 'success' : 'default'}
-              variant={session.isCompleted ? 'filled' : 'outlined'}
+              variant="caption"
               sx={{
-                height: 22,
-                fontSize: '0.7rem',
-                '& .MuiChip-label': {
-                  px: 1
-                }
+                px: 0.75,
+                py: 0.25,
+                borderRadius: 0.5,
+                bgcolor: session.isCompleted ? 'action.selected' : 'transparent',
+                border: '1px solid',
+                borderColor: 'divider',
+                fontSize: '0.65rem',
+                color: 'text.secondary',
+                whiteSpace: 'nowrap'
               }}
-            />
+            >
+              {formatSessionDateTime(session.start)}
+            </Typography>
           ))}
-        </Stack>
+        </Box>
+      )}
+    </ListItem>
+  );
+};
+
+/**
+ * Unscheduled Participant Row - Compact view for participants who should take the course but aren't scheduled
+ */
+const UnscheduledParticipantRow = ({ participant, enrolleeId, courseEvents, isEven, isLast, onSchedule, isScheduling }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const fullName = `${participant?.firstName || 'Unknown'} ${participant?.lastName || 'User'}`;
+  const role = participant?.role?.title || 'No Role';
+
+  const handleScheduleClick = (event) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleEventSelect = async (eventId) => {
+    setAnchorEl(null);
+    if (onSchedule) {
+      await onSchedule(enrolleeId, eventId);
+    }
+  };
+
+  const formatEventOption = (event) => {
+    const date = new Date(event.start);
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `${dateStr} ${timeStr}`;
+  };
+
+  return (
+    <ListItem
+      sx={{
+        px: 1.5,
+        py: 0.75,
+        bgcolor: isEven ? 'warning.lighter' : alpha('#ff9800', 0.04),
+        borderBottom: isLast ? 'none' : '1px solid',
+        borderColor: 'divider',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 0.5
+      }}
+    >
+      <Typography variant="body2" fontWeight={500} sx={{ minWidth: 120 }}>
+        {fullName}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+        ({role})
+      </Typography>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'warning.dark',
+          fontWeight: 500,
+          flex: 1
+        }}
+      >
+        Not scheduled
+      </Typography>
+
+      {/* Schedule button */}
+      {courseEvents?.length > 0 && (
+        <>
+          <Tooltip title="Schedule to event">
+            <IconButton
+              size="small"
+              onClick={handleScheduleClick}
+              disabled={isScheduling}
+              sx={{
+                bgcolor: 'warning.lighter',
+                '&:hover': { bgcolor: 'warning.light' },
+                width: 24,
+                height: 24
+              }}
+            >
+              {isScheduling ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : (
+                <Add sx={{ fontSize: 16, color: 'warning.dark' }} />
+              )}
+            </IconButton>
+          </Tooltip>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem disabled sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+              Select event to schedule:
+            </MenuItem>
+            {courseEvents.map(event => (
+              <MenuItem
+                key={event.id}
+                onClick={() => handleEventSelect(event.id)}
+                sx={{ fontSize: '0.8rem' }}
+              >
+                {formatEventOption(event)}
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
       )}
     </ListItem>
   );
@@ -212,6 +296,10 @@ const ParticipantCard = ({ participantData, categoryColor }) => {
 const CourseCompletionTracker = ({ project }) => {
   const theme = useTheme();
   const [expandedCourses, setExpandedCourses] = useState([]);
+  const [schedulingParticipant, setSchedulingParticipant] = useState(null);
+
+  // RTK Query mutation for adding participant to event
+  const [addEventParticipant] = useAddEventParticipantMutation();
 
   // Get course completion data from normalized Redux store
   const completionData = useSelector(selectCourseCompletionData);
@@ -228,6 +316,24 @@ const CourseCompletionTracker = ({ project }) => {
         : [...prev, courseId]
     );
   };
+
+  // Handle scheduling an unscheduled participant to an event
+  const handleScheduleParticipant = useCallback(async (enrolleeId, eventId) => {
+    setSchedulingParticipant(enrolleeId);
+    try {
+      await addEventParticipant({
+        eventId,
+        participantId: enrolleeId,
+        attendance_status: 'scheduled',
+        projectId: project?.id
+      }).unwrap();
+      // RTK Query auto-invalidates and refetches
+    } catch (error) {
+      console.error('Failed to schedule participant:', error);
+    } finally {
+      setSchedulingParticipant(null);
+    }
+  }, [addEventParticipant, project?.id]);
 
   // Empty state
   if (curriculums.length === 0) {
@@ -428,43 +534,13 @@ const CourseCompletionTracker = ({ project }) => {
                           </Stack>
                           <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
                             <Typography variant="caption" color="text.secondary">
-                              {course.totalEvents} event{course.totalEvents !== 1 ? 's' : ''}
+                              {course.totalEvents} event{course.totalEvents !== 1 ? 's' : ''} · {course.completedParticipants}/{courseParticipants.length} completed
                             </Typography>
-                            <Chip
-                              label={`${courseParticipants.length} participants`}
-                              size="small"
-                              sx={{
-                                bgcolor: 'action.selected',
-                                color: 'text.secondary',
-                                fontSize: '0.65rem',
-                                height: 20,
-                                fontWeight: 500
-                              }}
-                            />
-                            <Chip
-                              label={`${course.completedParticipants}/${courseParticipants.length} completed`}
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                fontSize: '0.65rem',
-                                height: 20,
-                                fontWeight: 500,
-                                borderColor: 'divider',
-                                color: 'text.secondary'
-                              }}
-                            />
-                            <Chip
-                              label={`${course.averageAttendanceRate}% avg attendance`}
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                fontSize: '0.65rem',
-                                height: 20,
-                                fontWeight: 500,
-                                borderColor: 'divider',
-                                color: 'text.secondary'
-                              }}
-                            />
+                            {course.unscheduledParticipants?.length > 0 && (
+                              <Typography variant="caption" sx={{ color: 'warning.dark', fontWeight: 500 }}>
+                                · {course.unscheduledParticipants.length} not scheduled
+                              </Typography>
+                            )}
                           </Stack>
                         </Box>
                       </Stack>
@@ -479,21 +555,58 @@ const CourseCompletionTracker = ({ project }) => {
                   {/* Participants List (Collapsible) */}
                   <Collapse in={isExpanded}>
                     <Box sx={{ mt: 1, ml: 2, mr: 1 }}>
-                      <List sx={{ py: 1 }}>
+                      <List sx={{
+                        py: 0,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)'
+                      }}>
+                        {/* Scheduled Participants */}
                         {courseParticipants.length > 0 ? (
-                          courseParticipants.map((p) => (
+                          courseParticipants.map((p, idx) => (
                             <ParticipantCard
                               key={p.participantId || p.participant?.id}
                               participantData={extractParticipantData(p)}
-                              categoryColor={courseColor}
+                              isEven={idx % 2 === 0}
+                              isLast={idx === courseParticipants.length - 1 && (!course.unscheduledParticipants || course.unscheduledParticipants.length === 0)}
                             />
                           ))
-                        ) : (
+                        ) : !course.unscheduledParticipants?.length ? (
                           <Box sx={{ textAlign: 'center', py: 2 }}>
                             <Typography variant="caption" color="text.secondary">
                               No participants assigned to this course
                             </Typography>
                           </Box>
+                        ) : null}
+
+                        {/* Unscheduled Required Participants */}
+                        {course.unscheduledParticipants?.length > 0 && (
+                          <>
+                            <Box sx={{
+                              px: 1.5,
+                              py: 0.5,
+                              bgcolor: 'warning.lighter',
+                              borderTop: courseParticipants.length > 0 ? '1px solid' : 'none',
+                              borderBottom: '1px solid',
+                              borderColor: 'divider'
+                            }}>
+                              <Typography variant="caption" color="warning.dark" fontWeight={600}>
+                                Not Scheduled ({course.unscheduledParticipants.length})
+                              </Typography>
+                            </Box>
+                            {course.unscheduledParticipants.map((p, idx) => (
+                              <UnscheduledParticipantRow
+                                key={p.participantId}
+                                participant={p.participant}
+                                enrolleeId={p.enrolleeId}
+                                courseEvents={course.events}
+                                isEven={idx % 2 === 0}
+                                isLast={idx === course.unscheduledParticipants.length - 1}
+                                onSchedule={handleScheduleParticipant}
+                                isScheduling={schedulingParticipant === p.enrolleeId}
+                              />
+                            ))}
+                          </>
                         )}
                       </List>
                     </Box>

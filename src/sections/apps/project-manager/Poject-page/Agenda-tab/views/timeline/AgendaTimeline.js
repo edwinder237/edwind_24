@@ -468,15 +468,15 @@ const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect })
       const todayDay = eventsByDay.find(d => d.isToday);
       if (todayDay) {
         setExpandedDays([todayDay.dayNumber]);
-        
+
         // Scroll to today's section after a brief delay to ensure DOM is ready
         setTimeout(() => {
           const todayElement = document.getElementById(`day-section-${todayDay.dayNumber}`);
           if (todayElement) {
-            todayElement.scrollIntoView({ 
-              behavior: 'smooth', 
+            todayElement.scrollIntoView({
+              behavior: 'smooth',
               block: 'start',
-              inline: 'nearest' 
+              inline: 'nearest'
             });
           }
         }, 100);
@@ -487,6 +487,33 @@ const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect })
       setHasInitialized(true);
     }
   }, [eventsByDay, hasInitialized]);
+
+  // Listen for custom event to expand a specific day (from Today button)
+  React.useEffect(() => {
+    const handleExpandDay = (e) => {
+      const { dayNumber, eventId } = e.detail;
+      if (dayNumber) {
+        // Expand the day if not already expanded
+        setExpandedDays(prev => {
+          if (prev.includes(dayNumber)) return prev;
+          return [...prev, dayNumber];
+        });
+
+        // If an event ID is provided, select it
+        if (eventId) {
+          setSelectedTimeSlot(eventId);
+          if (onEventSelect) {
+            onEventSelect(eventId);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('agenda:expandDay', handleExpandDay);
+    return () => {
+      window.removeEventListener('agenda:expandDay', handleExpandDay);
+    };
+  }, [onEventSelect]);
 
   // Date range calculation removed - not used in UI
 

@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { useSelector } from "store";
 import { derivedSelectors } from 'store/selectors';
 
@@ -8,13 +9,17 @@ import ProjectDashboard from "./Project-Dashboard/ProjectDashboard";
 import ProjectTabs from "./ProjectTabs";
 
 // material-ui
-import { Grid, Box } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { Box, Stack, Typography, Switch, Collapse } from "@mui/material";
+import { useTheme, alpha } from "@mui/material/styles";
+import { Dashboard } from "@mui/icons-material";
 
 // ==============================|| PROJECT PAGE ||============================== //
 
 const ProjectPage = ({ projectId }) => {
   const theme = useTheme();
+
+  // State for dashboard visibility (hidden by default)
+  const [showDashboard, setShowDashboard] = useState(false);
 
   // Get project data from derived selectors (no API call needed)
   const dashboardData = useSelector(derivedSelectors.dashboard.selectCompleteDashboard);
@@ -101,12 +106,41 @@ const ProjectPage = ({ projectId }) => {
             />
           </Box>
           
-          {/* Project Dashboard */}
+          {/* Dashboard Toggle & Project Dashboard */}
           <Box sx={{ mb: 2 }}>
-            <ProjectDashboard 
-              project={Project}
-              styles={styles}
-            />
+            {/* Toggle Switch */}
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={1}
+              sx={{
+                mb: showDashboard ? 2 : 0,
+                py: 1,
+                px: 1.5,
+                bgcolor: alpha(theme.palette.primary.main, 0.04),
+                borderRadius: 1,
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+              }}
+            >
+              <Dashboard sx={{ fontSize: 20, color: theme.palette.primary.main }} />
+              <Typography variant="body2" fontWeight={500} color="text.secondary">
+                Show Dashboard
+              </Typography>
+              <Switch
+                checked={showDashboard}
+                onChange={(e) => setShowDashboard(e.target.checked)}
+                size="small"
+                color="primary"
+              />
+            </Stack>
+
+            {/* Collapsible Dashboard */}
+            <Collapse in={showDashboard} timeout={300}>
+              <ProjectDashboard
+                project={Project}
+                styles={styles}
+              />
+            </Collapse>
           </Box>
 
           {/* Project Tabs */}

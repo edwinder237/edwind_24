@@ -421,7 +421,9 @@ const DailyNotes = ({ project }) => {
   // Initialize to today's note on first load
   useEffect(() => {
     if (notes.length > 0 && !hasInitialized) {
-      const today = new Date().toISOString().split('T')[0];
+      // Use local date to avoid timezone issues (toISOString uses UTC which can shift the date)
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const todayIndex = notes.findIndex(note => note.date === today);
 
       if (todayIndex !== -1) {
@@ -437,15 +439,15 @@ const DailyNotes = ({ project }) => {
     }
   }, [notes, hasInitialized]);
 
-  // Keyboard navigation
+  // Keyboard navigation (matches visual direction: left=older, right=newer)
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        goToPreviousNote();
+        goToNextNote(); // Left goes to older (higher index)
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
-        goToNextNote();
+        goToPreviousNote(); // Right goes to newer (lower index)
       }
     };
 
@@ -534,7 +536,9 @@ const DailyNotes = ({ project }) => {
 
   // Go to today's note
   const goToToday = () => {
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date to avoid timezone issues (toISOString uses UTC which can shift the date)
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const todayIndex = notes.findIndex(note => note.date === today);
 
     if (todayIndex !== -1) {
@@ -736,7 +740,9 @@ const DailyNotes = ({ project }) => {
   // Check if current note is today
   const isCurrentNoteToday = useMemo(() => {
     if (!currentNote) return false;
-    const today = new Date().toISOString().split('T')[0];
+    // Use local date to avoid timezone issues (toISOString uses UTC which can shift the date)
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     return currentNote.date === today;
   }, [currentNote]);
 
@@ -796,10 +802,11 @@ const DailyNotes = ({ project }) => {
         <Box sx={{ position: 'relative' }}>
           {/* Navigation Controls */}
           <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-            <IconButton 
-              onClick={goToPreviousNote}
+            {/* Left arrow goes to older notes (higher index since sorted newest first) */}
+            <IconButton
+              onClick={goToNextNote}
               disabled={notes.length <= 1 || isTransitioning}
-              sx={{ 
+              sx={{
                 bgcolor: 'background.default',
                 border: '1px solid',
                 borderColor: 'divider',
@@ -867,10 +874,11 @@ const DailyNotes = ({ project }) => {
               </Stack>
             </Stack>
 
-            <IconButton 
-              onClick={goToNextNote}
+            {/* Right arrow goes to newer notes (lower index since sorted newest first) */}
+            <IconButton
+              onClick={goToPreviousNote}
               disabled={notes.length <= 1 || isTransitioning}
-              sx={{ 
+              sx={{
                 bgcolor: 'background.default',
                 border: '1px solid',
                 borderColor: 'divider',
