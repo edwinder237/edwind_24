@@ -170,10 +170,34 @@ model projects {
   sub_organization                   sub_organizations                             @relation(fields: [sub_organizationId], references: [id])
   training_recipient                 training_recipients?                          @relation(fields: [trainingRecipientId], references: [id])
   training_plans                     training_plans[]
+  parking_lot_items                  parking_lot_items[]
 
   @@index([CreatedBy])
   @@index([sub_organizationId])
   @@index([trainingRecipientId])
+}
+
+model parking_lot_items {
+  id                 Int               @id @default(autoincrement())
+  projectId          Int
+  type               String            @default("issue") // 'issue' or 'question'
+  title              String
+  description        String?
+  priority           String            @default("medium") // 'low', 'medium', 'high'
+  status             String            @default("open") // 'open', 'in_progress', 'resolved'
+  reportedDate       DateTime          @default(now())
+  solvedDate         DateTime?
+  reportedBy         String?
+  notes              String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  createdBy          String?
+  updatedBy          String?
+
+  project            projects          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
 }
 
 model instructors {

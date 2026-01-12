@@ -12,7 +12,7 @@ import {
   selectEventCapacityAnalysis,
   selectParticipantEngagementAnalysis
 } from './attendanceSelectors';
-import { selectCourseCompletionData } from './courseCompletionSelectors';
+import { selectCourseCompletionData, selectProjectCurriculums } from './courseCompletionSelectors';
 import { projectApi } from '../api/projectApi';
 
 // ==============================|| DASHBOARD OVERVIEW ||============================== //
@@ -84,11 +84,12 @@ export const selectProjectProgress = createSelector(
   [
     entitySelectors.events.selectAllEvents,
     entitySelectors.participants.selectAllParticipants,
-    entitySelectors.groups.selectAllGroups
+    entitySelectors.groups.selectAllGroups,
+    selectProjectCurriculums
   ],
-  (events, participants, groups) => {
+  (events, participants, groups, curriculums) => {
     const now = new Date();
-    
+
     // Categorize events by time
     const pastEvents = events.filter(e => new Date(e.end || e.start) < now);
     const currentEvents = events.filter(e => {
@@ -97,12 +98,54 @@ export const selectProjectProgress = createSelector(
       return start <= now && now <= end;
     });
     const futureEvents = events.filter(e => new Date(e.start) > now);
-    
-    // Calculate completion rates
-    const totalPlannedEvents = events.length;
-    const completedEvents = pastEvents.length;
-    const progressPercentage = totalPlannedEvents > 0 
-      ? Math.round((completedEvents / totalPlannedEvents) * 100) 
+
+    // Get unique course IDs from all curriculums (already deduplicated by selectProjectCurriculums)
+    const curriculumCourseIds = new Set();
+    curriculums.forEach(curriculum => {
+      if (curriculum.curriculumCourseIds && Array.isArray(curriculum.curriculumCourseIds)) {
+        curriculum.curriculumCourseIds.forEach(courseId => {
+          if (courseId) {
+            curriculumCourseIds.add(courseId);
+          }
+        });
+      }
+    });
+
+    // Count unique courses from events (courses that have scheduled sessions)
+    const scheduledCourseIds = new Set();
+    events.forEach(event => {
+      if (event.course?.id) {
+        scheduledCourseIds.add(event.course.id);
+      }
+    });
+
+    // A course is "completed" if ALL its sessions are in the past
+    const completedCourseIds = new Set();
+    const courseEventsMap = new Map();
+
+    // Group events by course
+    events.forEach(event => {
+      if (event.course?.id) {
+        if (!courseEventsMap.has(event.course.id)) {
+          courseEventsMap.set(event.course.id, []);
+        }
+        courseEventsMap.get(event.course.id).push(event);
+      }
+    });
+
+    // Check if all events for each course are in the past
+    courseEventsMap.forEach((courseEvents, courseId) => {
+      const allEventsCompleted = courseEvents.every(e => new Date(e.end || e.start) < now);
+      if (allEventsCompleted) {
+        completedCourseIds.add(courseId);
+      }
+    });
+
+    // Use scheduled courses (courses that have actual sessions created)
+    const totalCourses = scheduledCourseIds.size;
+    const completedCourses = completedCourseIds.size;
+    const progressPercentage = totalCourses > 0
+      ? Math.round((completedCourses / totalCourses) * 100)
       : 0;
     
     // Participant completion tracking
@@ -151,8 +194,8 @@ export const selectProjectProgress = createSelector(
     
     return {
       overview: {
-        totalEvents: totalPlannedEvents,
-        completedEvents,
+        totalEvents: totalCourses,
+        completedEvents: completedCourses,
         currentEvents: currentEvents.length,
         futureEvents: futureEvents.length,
         overallProgress: progressPercentage

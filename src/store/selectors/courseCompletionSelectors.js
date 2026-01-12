@@ -34,9 +34,18 @@ export const selectProjectCurriculums = createSelector(
           if (gc.curriculum && gc.isActive) {
             const curriculumId = gc.curriculum.id;
             if (!curriculumMap.has(curriculumId)) {
-              // Extract course IDs from curriculum_courses
+              // Extract course IDs and basic course info from curriculum_courses
               const curriculumCourseIds = gc.curriculum.curriculum_courses
                 ? gc.curriculum.curriculum_courses.map(cc => cc.courseId)
+                : [];
+
+              // Store course details for unscheduled courses display
+              const curriculumCoursesData = gc.curriculum.curriculum_courses
+                ? gc.curriculum.curriculum_courses.map(cc => ({
+                    courseId: cc.courseId,
+                    title: cc.course?.title || `Course ${cc.courseId}`,
+                    id: cc.course?.id || cc.courseId
+                  }))
                 : [];
 
               curriculumMap.set(curriculumId, {
@@ -44,6 +53,7 @@ export const selectProjectCurriculums = createSelector(
                 title: gc.curriculum.title,
                 description: gc.curriculum.description,
                 curriculumCourseIds, // Store the course IDs that belong to this curriculum
+                curriculumCoursesData, // Store basic course info for unscheduled courses
                 assignedGroups: []
               });
             }
@@ -206,13 +216,33 @@ export const selectCourseCompletionData = createSelector(
       // This tells us exactly which courses belong to this curriculum
       const curriculumCourseIdsArray = curriculum.curriculumCourseIds || [];
 
-      // Build course list with participant data
+      // Build course list with participant data (including unscheduled courses)
       const coursesWithParticipants = curriculumCourseIdsArray
         .map(courseId => {
           const course = courses.find(c => c.id === courseId);
 
-          // Skip if course not found in events (course exists in curriculum but has no events in this project)
-          if (!course) return null;
+          // If course not found in events, create a placeholder for unscheduled course
+          if (!course) {
+            // Get course info from curriculum data
+            const curriculumCourseInfo = curriculum.curriculumCoursesData?.find(cc => cc.courseId === courseId);
+            return {
+              id: courseId,
+              title: curriculumCourseInfo?.title || `Course ${courseId}`,
+              summary: null,
+              courseCategory: null,
+              code: null,
+              version: null,
+              totalEvents: 0,
+              participants: [],
+              participantCount: 0,
+              completedParticipants: 0,
+              averageAttendanceRate: 0,
+              events: [],
+              unscheduledParticipants: [],
+              requiredRoleIds: [],
+              isUnscheduled: true // Flag to indicate no sessions scheduled
+            };
+          }
 
           const participantData = participantAssignments.find(pa => pa.courseId === courseId);
 
@@ -222,19 +252,56 @@ export const selectCourseCompletionData = createSelector(
             .map(cpr => cpr.role?.id)
             .filter(Boolean) || [];
 
-          // Find scheduled participant IDs
+          // Find scheduled participant IDs (those with non-'not_needed' status)
           const scheduledParticipantIds = new Set(
-            (participantData?.participants || []).map(p => p.participantId)
+            (participantData?.participants || [])
+              .filter(p => {
+                // Check if all statuses are 'not_needed' - if so, exclude from scheduled
+                const allNotNeeded = p.statuses && p.statuses.length > 0 &&
+                  p.statuses.every(status => status === 'not_needed');
+                return !allNotNeeded;
+              })
+              .map(p => p.participantId)
           );
 
+          // Find participants marked as "not needed" for this course
+          // These are participants whose ALL event_attendees records have status 'not_needed'
+          const notNeededParticipantIds = new Set(
+            (participantData?.participants || [])
+              .filter(p => {
+                // Check if all statuses are 'not_needed'
+                return p.statuses && p.statuses.length > 0 &&
+                  p.statuses.every(status => status === 'not_needed');
+              })
+              .map(p => p.participantId)
+          );
+
+          // Find not needed participants with details
+          const notNeededParticipants = requiredRoleIds.length > 0
+            ? allParticipants
+                .filter(p => {
+                  const participantId = p.participant?.id;
+                  return participantId && notNeededParticipantIds.has(participantId);
+                })
+                .map(p => ({
+                  participantId: p.participant?.id,
+                  enrolleeId: p.id,  // project_participants.id needed for API calls
+                  participant: p.participant,
+                  isNotNeeded: true
+                }))
+            : [];
+
           // Find unscheduled participants with required roles
+          // Excludes both scheduled participants AND not_needed participants
           const unscheduledParticipants = requiredRoleIds.length > 0
             ? allParticipants
                 .filter(p => {
                   const roleId = p.participant?.role?.id;
+                  const participantId = p.participant?.id;
                   return roleId &&
                          requiredRoleIds.includes(roleId) &&
-                         !scheduledParticipantIds.has(p.participant?.id);
+                         !scheduledParticipantIds.has(participantId) &&
+                         !notNeededParticipantIds.has(participantId);
                 })
                 .map(p => ({
                   participantId: p.participant?.id,
@@ -244,6 +311,13 @@ export const selectCourseCompletionData = createSelector(
                 }))
             : [];
 
+          // Filter out "not_needed" participants from the main participants list
+          const scheduledParticipants = (participantData?.participants || []).filter(p => {
+            const allNotNeeded = p.statuses && p.statuses.length > 0 &&
+              p.statuses.every(status => status === 'not_needed');
+            return !allNotNeeded;
+          });
+
           return {
             id: course.id,
             title: course.title,
@@ -252,30 +326,36 @@ export const selectCourseCompletionData = createSelector(
             code: course.code,
             version: course.version,
             totalEvents: participantData?.totalEvents || 0,
-            participants: participantData?.participants || [],
-            participantCount: participantData?.participants?.length || 0,
-            completedParticipants: participantData?.participants?.filter(p => p.isCompleted).length || 0,
-            averageAttendanceRate: participantData?.participants?.length > 0
+            participants: scheduledParticipants,
+            participantCount: scheduledParticipants.length,
+            completedParticipants: scheduledParticipants.filter(p => p.isCompleted).length || 0,
+            averageAttendanceRate: scheduledParticipants.length > 0
               ? Math.round(
-                  participantData.participants.reduce((sum, p) => sum + p.attendanceRate, 0) /
-                  participantData.participants.length
+                  scheduledParticipants.reduce((sum, p) => sum + p.attendanceRate, 0) /
+                  scheduledParticipants.length
                 )
               : 0,
             events: course.events || [],  // Available events for scheduling
             unscheduledParticipants,
-            requiredRoleIds
+            notNeededParticipants,  // New: participants marked as not needed for this course
+            requiredRoleIds,
+            isUnscheduled: false
           };
-        })
-        .filter(course => course !== null); // Remove null entries
+        });
+
+      const scheduledCourses = coursesWithParticipants.filter(c => !c.isUnscheduled);
+      const unscheduledCourses = coursesWithParticipants.filter(c => c.isUnscheduled);
 
       return {
         id: curriculum.id,
         title: curriculum.title,
         description: curriculum.description,
         courseCount: coursesWithParticipants.length,
+        scheduledCourseCount: scheduledCourses.length,
+        unscheduledCourseCount: unscheduledCourses.length,
         courses: coursesWithParticipants,
         assignedGroups: curriculum.assignedGroups,
-        totalParticipants: coursesWithParticipants.reduce((sum, c) =>
+        totalParticipants: scheduledCourses.reduce((sum, c) =>
           Math.max(sum, c.participantCount), 0
         )
       };

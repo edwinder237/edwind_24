@@ -160,6 +160,7 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
       email: participantData.participant?.email,
       phone: participantData.participant?.phone,
       role: participantData.participant?.role,
+      participantStatus: participantData.participant?.participantStatus, // Global participant status (e.g., LOA)
       note: participantData.note // Note from project_participants table
     };
 

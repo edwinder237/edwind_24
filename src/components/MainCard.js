@@ -11,6 +11,15 @@ const headerSX = {
   '& .MuiCardHeader-action': { m: '0px auto', alignSelf: 'center' }
 };
 
+// sticky header style
+const stickyHeaderSX = {
+  ...headerSX,
+  position: 'sticky',
+  top: 0,
+  zIndex: 10,
+  bgcolor: 'background.paper'
+};
+
 // ==============================|| CUSTOM - MAIN CARD ||============================== //
 
 const MainCard = forwardRef(
@@ -32,6 +41,7 @@ const MainCard = forwardRef(
       title,
       codeHighlight = false,
       modal = false,
+      stickyHeader = false,
       ...others
     },
     ref
@@ -80,14 +90,14 @@ const MainCard = forwardRef(
         {/* card header and action */}
         {!darkTitle && title && (
           <CardHeader
-            sx={headerSX}
+            sx={stickyHeader ? { ...stickyHeaderSX, bgcolor: theme.palette.background.paper } : headerSX}
             titleTypographyProps={{ variant: 'subtitle1' }}
             title={title}
             action={secondary}
             subheader={subheader}
           />
         )}
-        {darkTitle && title && <CardHeader sx={headerSX} title={<Typography variant="h4">{title}</Typography>} action={secondary} />}
+        {darkTitle && title && <CardHeader sx={stickyHeader ? { ...stickyHeaderSX, bgcolor: theme.palette.background.paper } : headerSX} title={<Typography variant="h4">{title}</Typography>} action={secondary} />}
 
         {/* content & header divider */}
         {title && divider && <Divider />}
@@ -116,7 +126,8 @@ MainCard.propTypes = {
   sx: PropTypes.object,
   title: PropTypes.oneOfType([PropTypes.node, PropTypes.string, PropTypes.object]),
   modal: PropTypes.bool,
-  codeHighlight: PropTypes.bool
+  codeHighlight: PropTypes.bool,
+  stickyHeader: PropTypes.bool
 };
 
 export default MainCard;

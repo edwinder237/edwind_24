@@ -29,6 +29,7 @@ import {
   CheckSquareOutlined,
   SettingOutlined,
   FileTextOutlined,
+  InboxOutlined,
 } from "@ant-design/icons";
 import Loader from "components/Loader";
 // Import from index.js which controls which version to use (Legacy or RTK)
@@ -39,6 +40,7 @@ import AgendaTab from "./Agenda-tab";
 import getTabIcons from "utils/getTabIcons";
 import GroupTable from "./Groups";
 import ParticipantsDrawer from "./Participants";
+import ParkingLot from "./ParkingLot";
 
 // Dynamic imports
 
@@ -125,8 +127,8 @@ const ProjectTabs = ({
   const handleChange = async (_, newValue) => {
     setTabValue(newValue);
 
-    // If switching to Settings tab (index 5), ensure settings data is loaded
-    if (newValue === 5 && projectId && !hasLoadedSettingsData) {
+    // If switching to Settings tab (index 6), ensure settings data is loaded
+    if (newValue === 6 && projectId && !hasLoadedSettingsData) {
       dispatch(fetchProjectSettings(projectId));
       setHasLoadedSettingsData(true);
     }
@@ -173,27 +175,22 @@ const ProjectTabs = ({
   );
 
   return (
-    <MainCard
-      content={false}
-      border={false}
-      boxShadow
-      sx={{
-        borderRadius: 0,
-        width: '100%'
-      }}
-    >
-      <Box sx={{ width: '100%' }}>
-        <Stack 
-          direction="row" 
-          justifyContent="space-between" 
-          alignItems="center"
-          sx={{ 
-            borderBottom: 1, 
-            borderColor: 'divider',
-            minHeight: '48px',
-            width: '100%'
-          }}
-        >
+    <Box sx={{ width: '100%' }}>
+      {/* Sticky tabs bar - positioned outside MainCard for proper sticky behavior */}
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          minHeight: '48px',
+          position: 'sticky',
+          top: { xs: 56, sm: 60 }, // Position below the app header (header height)
+          zIndex: 1100,
+          bgcolor: theme.palette.background.paper
+        }}
+      >
           <Tabs
             value={tabValue}
             onChange={handleChange}
@@ -255,11 +252,20 @@ const ProjectTabs = ({
           <Tab
             label={
               <Box sx={styles.tabLabel}>
+                <InboxOutlined />
+                <span>Parking Lot</span>
+              </Box>
+            }
+            {...a11yProps(5)}
+          />
+          <Tab
+            label={
+              <Box sx={styles.tabLabel}>
                 <SettingOutlined />
                 <span>Settings</span>
               </Box>
             }
-            {...a11yProps(5)}
+            {...a11yProps(6)}
           />
         </Tabs>
 
@@ -316,6 +322,16 @@ const ProjectTabs = ({
 
       </Stack>
 
+      {/* Tab content wrapped in MainCard */}
+      <MainCard
+        content={false}
+        border={false}
+        boxShadow
+        sx={{
+          borderRadius: 0,
+          width: '100%'
+        }}
+      >
         <TabPanel value={tabValue} index={0} isMobile={matchDownSM}>
           <AgendaTab />
         </TabPanel>
@@ -339,9 +355,12 @@ const ProjectTabs = ({
           </DndProvider>
         </TabPanel>
         <TabPanel value={tabValue} index={5} isMobile={matchDownSM}>
+          <ParkingLot />
+        </TabPanel>
+        <TabPanel value={tabValue} index={6} isMobile={matchDownSM}>
           <TabSettings project={project} />
         </TabPanel>
-      </Box>
+      </MainCard>
 
       {/* Bottom Drawer for Participants Management */}
       <ParticipantsDrawer
@@ -349,7 +368,7 @@ const ProjectTabs = ({
         onClose={handleCloseDrawer}
         {...(drawerAction && { initialAction: drawerAction })}
       />
-    </MainCard>
+    </Box>
   );
 };
 

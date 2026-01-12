@@ -45,6 +45,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { useSelector } from 'store';
 import { selectAllGroups } from 'store/entities/groupsSlice';
+import { selectProjectInstructors } from 'store/reducers/project/settings';
 import useUser from 'hooks/useUser';
 
 const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "Project Schedule" }) => {
@@ -57,6 +58,8 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   const projectTitle = storeProjectTitle || propProjectTitle;
   // Read groups from normalized entities store (CQRS Read Model)
   const groups = useSelector(selectAllGroups);
+  // Get project instructors for "send to all instructors" option
+  const projectInstructors = useSelector(selectProjectInstructors);
   const [viewMode, setViewMode] = useState('preview');
   const [dailyFocusData, setDailyFocusData] = useState({});
   const focusCache = useRef(new Map());
@@ -69,6 +72,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   const [onlyAssignedEvents, setOnlyAssignedEvents] = useState(true);
   const [includeMeetingLink, setIncludeMeetingLink] = useState(true);
   const [customMeetingLink, setCustomMeetingLink] = useState('');
+  const [sendToInstructors, setSendToInstructors] = useState(false);
   
   // Trainer email states
   const [sendingTrainerEmail, setSendingTrainerEmail] = useState(false);
@@ -223,6 +227,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
     setInviteResult(null);
     setCustomMeetingLink('');
     setMeetingLinkError('');
+    setSendToInstructors(false);
   };
 
   const handleGroupToggle = (groupId) => {
@@ -595,8 +600,9 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   };
 
   const handleSendCalendarInvites = async () => {
-    if (selectedGroups.length === 0) {
-      setInviteResult({ type: 'error', message: 'Please select at least one group to send invites to.' });
+    // Require at least one group OR instructors to be selected
+    if (selectedGroups.length === 0 && !sendToInstructors) {
+      setInviteResult({ type: 'error', message: 'Please select at least one group or enable "Send to all instructors".' });
       return;
     }
 
@@ -612,11 +618,18 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
     try {
       // Filter events based on the onlyAssignedEvents option
       // Check both eg.groupId and eg.groups?.id to handle different data structures
-      const eventsToSend = onlyAssignedEvents
+      const eventsToSend = onlyAssignedEvents && selectedGroups.length > 0
         ? projectEvents.filter(event =>
             event.event_groups?.some(eg => selectedGroups.includes(eg.groupId) || selectedGroups.includes(eg.groups?.id))
           )
         : projectEvents;
+
+      // Get instructor emails if sendToInstructors is enabled
+      const instructorEmails = sendToInstructors
+        ? projectInstructors
+            .map(pi => pi.instructor?.email || pi.email)
+            .filter(Boolean)
+        : [];
 
       const response = await fetch('/api/projects/send-calendar-invites', {
         method: 'POST',
@@ -631,16 +644,21 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
           dailyFocusData,
           onlyAssignedEvents,
           includeMeetingLink,
-          customMeetingLink: customMeetingLink.trim() || null
+          customMeetingLink: customMeetingLink.trim() || null,
+          instructorEmails: instructorEmails.length > 0 ? instructorEmails : undefined
         }),
       });
 
       const result = await response.json();
 
       if (response.ok && result.success) {
+        const recipientCount = result.summary?.successCount || 0;
+        const instructorNote = sendToInstructors && instructorEmails.length > 0
+          ? ` (including ${instructorEmails.length} instructor${instructorEmails.length !== 1 ? 's' : ''})`
+          : '';
         setInviteResult({
           type: 'success',
-          message: `Calendar invites sent successfully! ${result.summary?.successCount || 0} recipients received invites.`
+          message: `Calendar invites sent successfully! ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''} received invites${instructorNote}.`
         });
         // Auto close after 3 seconds
         setTimeout(() => {
@@ -1197,6 +1215,38 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
               label={<Typography variant="body2">Include meeting link</Typography>}
               sx={{ m: 0 }}
             />
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={sendToInstructors}
+                  onChange={(e) => setSendToInstructors(e.target.checked)}
+                  color="primary"
+                  size="small"
+                />
+              }
+              label={
+                <Box>
+                  <Typography variant="body2">
+                    Send to all project instructors
+                    {projectInstructors.length > 0 && (
+                      <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                        ({projectInstructors.length} instructor{projectInstructors.length !== 1 ? 's' : ''})
+                      </Typography>
+                    )}
+                  </Typography>
+                  {projectInstructors.length > 0 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                      {projectInstructors
+                        .map(pi => pi.instructor?.email || pi.email)
+                        .filter(Boolean)
+                        .join(', ')}
+                    </Typography>
+                  )}
+                </Box>
+              }
+              sx={{ m: 0, alignItems: 'flex-start' }}
+            />
           </Box>
 
           {includeMeetingLink && (
@@ -1323,18 +1373,27 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
           <Button
             variant="contained"
             onClick={handleSendCalendarInvites}
-            disabled={selectedGroups.length === 0 || sendingInvites}
+            disabled={(selectedGroups.length === 0 && !sendToInstructors) || sendingInvites}
             startIcon={sendingInvites ? <CircularProgress size={16} color="inherit" /> : <Send />}
           >
             {sendingInvites ? 'Sending...' : (() => {
-              const eventsToSend = onlyAssignedEvents
+              const eventsToSend = (onlyAssignedEvents && selectedGroups.length > 0)
                 ? projectEvents.filter(event =>
                     event.event_groups?.some(eg => selectedGroups.includes(eg.groupId) || selectedGroups.includes(eg.groups?.id))
                   ).length
                 : projectEvents.length;
-              const groupText = selectedGroups.length === 1 ? 'Group' : 'Groups';
+
+              const parts = [];
+              if (selectedGroups.length > 0) {
+                const groupText = selectedGroups.length === 1 ? 'Group' : 'Groups';
+                parts.push(`${selectedGroups.length} ${groupText}`);
+              }
+              if (sendToInstructors && projectInstructors.length > 0) {
+                parts.push(`${projectInstructors.length} Instructor${projectInstructors.length !== 1 ? 's' : ''}`);
+              }
               const eventText = eventsToSend === 1 ? 'Event' : 'Events';
-              return `Send Invites (${selectedGroups.length} ${groupText}, ${eventsToSend} ${eventText})`;
+              const recipientText = parts.length > 0 ? parts.join(', ') : '0 Recipients';
+              return `Send Invites (${recipientText}, ${eventsToSend} ${eventText})`;
             })()}
           </Button>
         </DialogActions>

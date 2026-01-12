@@ -182,7 +182,8 @@ const AttendeesRTK = ({
       lastName: participantInfo?.lastName || participant.lastName,
       email: participantInfo?.email || participant.email,
       phone: participantInfo?.phone || participant.phone,
-      role: participantInfo?.role || participant.role
+      role: participantInfo?.role || participant.role,
+      participantStatus: participantInfo?.participantStatus || participant.participantStatus // Global participant status (e.g., LOA)
     };
 
     setSelectedParticipant(transformedParticipant);
@@ -461,6 +462,7 @@ const AttendeesRTK = ({
         availableParticipants={availableParticipants}
         courseRoleIds={selectedEvent?.course?.course_participant_roles?.map(cpr => cpr.role?.id).filter(Boolean) || []}
         courseEvents={courseEvents}
+        allGroups={singleProject?.groups || []}
       />
     </>
   );

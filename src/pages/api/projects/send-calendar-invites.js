@@ -15,10 +15,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId, groupIds, events, projectTitle, dailyFocusData, includeMeetingLink = true, customMeetingLink = null, customTemplate, templateType } = req.body;
+    const { projectId, groupIds = [], events, projectTitle, dailyFocusData, includeMeetingLink = true, customMeetingLink = null, customTemplate, templateType, instructorEmails = [] } = req.body;
 
-    if (!projectId || !groupIds || !Array.isArray(groupIds) || groupIds.length === 0) {
-      return res.status(400).json({ message: 'Missing required fields: projectId and groupIds' });
+    // Require either groups or instructors to send to
+    if ((!groupIds || !Array.isArray(groupIds) || groupIds.length === 0) && (!instructorEmails || !Array.isArray(instructorEmails) || instructorEmails.length === 0)) {
+      return res.status(400).json({ message: 'Missing required fields: at least one of groupIds or instructorEmails must be provided' });
     }
 
     if (!events || !Array.isArray(events) || events.length === 0) {
@@ -34,7 +35,7 @@ export default async function handler(req, res) {
             title: true
           }
         },
-        groups: {
+        groups: groupIds.length > 0 ? {
           where: {
             id: { in: groupIds.map(id => parseInt(id)) }
           },
@@ -49,7 +50,13 @@ export default async function handler(req, res) {
               }
             }
           }
-        }
+        } : false,
+        // Also fetch project instructors for instructor emails
+        project_instructors: instructorEmails.length > 0 ? {
+          include: {
+            instructor: true
+          }
+        } : false
       }
     });
 
@@ -59,32 +66,56 @@ export default async function handler(req, res) {
 
     // Get all participants from selected groups
     const allParticipants = [];
-    project.groups.forEach(group => {
-      group.participants.forEach(groupParticipant => {
-        let participant = null;
-        
-        if (groupParticipant.participant?.participant) {
-          participant = groupParticipant.participant.participant;
-        } else if (groupParticipant.participant) {
-          participant = groupParticipant.participant;
-        }
-        
-        if (participant && participant.email && participant.firstName && participant.lastName) {
-          // Avoid duplicates
-          if (!allParticipants.find(p => p.email === participant.email)) {
+
+    // Add participants from groups
+    if (project.groups && Array.isArray(project.groups)) {
+      project.groups.forEach(group => {
+        group.participants.forEach(groupParticipant => {
+          let participant = null;
+
+          if (groupParticipant.participant?.participant) {
+            participant = groupParticipant.participant.participant;
+          } else if (groupParticipant.participant) {
+            participant = groupParticipant.participant;
+          }
+
+          if (participant && participant.email && participant.firstName && participant.lastName) {
+            // Avoid duplicates
+            if (!allParticipants.find(p => p.email === participant.email)) {
+              allParticipants.push({
+                email: participant.email,
+                firstName: participant.firstName,
+                lastName: participant.lastName,
+                groupName: group.groupName,
+                isInstructor: false
+              });
+            }
+          }
+        });
+      });
+    }
+
+    // Add instructors if instructorEmails were provided
+    if (instructorEmails.length > 0 && project.project_instructors) {
+      project.project_instructors.forEach(pi => {
+        const instructor = pi.instructor;
+        if (instructor && instructor.email && instructorEmails.includes(instructor.email)) {
+          // Avoid duplicates (instructor might also be a participant)
+          if (!allParticipants.find(p => p.email === instructor.email)) {
             allParticipants.push({
-              email: participant.email,
-              firstName: participant.firstName,
-              lastName: participant.lastName,
-              groupName: group.groupName
+              email: instructor.email,
+              firstName: instructor.firstName || 'Instructor',
+              lastName: instructor.lastName || '',
+              groupName: null,
+              isInstructor: true
             });
           }
         }
       });
-    });
+    }
 
     if (allParticipants.length === 0) {
-      return res.status(400).json({ message: 'No participants with valid email addresses found in selected groups' });
+      return res.status(400).json({ message: 'No recipients with valid email addresses found' });
     }
 
     // Create calendar events data

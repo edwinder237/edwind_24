@@ -39,12 +39,28 @@ export const PROJECT_STATUS_CONFIG = [
 
 // Participant Status Options
 export const PARTICIPANT_STATUS = {
+  NONE: null,
   ACTIVE: 'active',
-  LOA: 'LOA', // Leave of Absence
-  TERMINATED: 'Terminated',
+  INACTIVE: 'inactive',
   PENDING: 'pending',
-  COMPLETED: 'completed'
+  SUSPENDED: 'suspended',
+  LOA: 'loa', // Leave of Absence
+  TERMINATED: 'terminated',
+  PTO: 'pto' // Paid Time Off
 };
+
+// Participant Status Configuration - Single source of truth for UI
+// Contains value (for DB/logic), label (for display), and color (for UI)
+export const PARTICIPANT_STATUS_CONFIG = [
+  { value: null, label: 'None', color: 'default' },
+  { value: 'active', label: 'Active', color: 'success' },
+  { value: 'inactive', label: 'Inactive', color: 'default' },
+  { value: 'pending', label: 'Pending', color: 'warning' },
+  { value: 'suspended', label: 'Suspended', color: 'error' },
+  { value: 'loa', label: 'LOA', color: 'warning' },
+  { value: 'terminated', label: 'Terminated', color: 'error' },
+  { value: 'pto', label: 'PTO', color: 'info' }
+];
 
 // Course Status Options
 export const COURSE_STATUS = {
@@ -172,13 +188,15 @@ export const STATUS_COLORS = {
   active: 'success',
   completed: 'default',
   pending: 'warning',
-  inactive: 'error',
+  inactive: 'default',
   draft: 'info',
   published: 'success',
   archived: 'default',
   ongoing: 'primary',
   terminated: 'error',
-  LOA: 'warning'
+  loa: 'warning',
+  suspended: 'error',
+  pto: 'info'
 };
 
 // Import Options
@@ -312,10 +330,12 @@ export const PROJECT_STATUS_CHOICES = Object.entries(PROJECT_STATUS).map(([key, 
   value: value
 }));
 
-export const PARTICIPANT_STATUS_CHOICES = Object.entries(PARTICIPANT_STATUS).map(([key, value]) => ({
-  text: value.charAt(0).toUpperCase() + value.slice(1),
-  value: value
-}));
+export const PARTICIPANT_STATUS_CHOICES = Object.entries(PARTICIPANT_STATUS)
+  .filter(([key, value]) => value !== null) // Filter out null values
+  .map(([key, value]) => ({
+    text: value.charAt(0).toUpperCase() + value.slice(1),
+    value: value
+  }));
 
 export const USER_ROLE_CHOICES = Object.entries(USER_ROLES).map(([key, value]) => ({
   text: value,
@@ -347,6 +367,7 @@ export default {
   PROJECT_STATUS,
   PROJECT_STATUS_CONFIG,
   PARTICIPANT_STATUS,
+  PARTICIPANT_STATUS_CONFIG,
   COURSE_STATUS,
   MODULE_STATUS,
   ACTIVITY_STATUS,

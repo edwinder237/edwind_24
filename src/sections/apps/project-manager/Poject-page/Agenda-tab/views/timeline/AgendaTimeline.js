@@ -45,7 +45,9 @@ import {
   Edit,
   KeyboardArrowDown,
   ViewList,
-  ViewModule
+  ViewModule,
+  Search,
+  Close
 } from '@mui/icons-material';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -240,11 +242,34 @@ const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect })
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState(null);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+
   // Callback to open edit dialog from child components
   const handleOpenEditDialog = useCallback((event) => {
     setEventToEdit(event);
     setEditDialogOpen(true);
   }, []);
+
+  // Search functionality - filter events based on query
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const filtered = localEvents.filter(event => {
+        const title = (event.title || '').toLowerCase();
+        const description = (event.description || '').toLowerCase();
+        const courseName = (event.course?.name || event.courseName || '').toLowerCase();
+        const moduleName = (event.module?.name || event.moduleName || '').toLowerCase();
+        return title.includes(query) || description.includes(query) ||
+               courseName.includes(query) || moduleName.includes(query);
+      });
+      setSearchResults(filtered.slice(0, 8)); // Limit to 8 results
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery, localEvents]);
 
   // Function to detect overlapping/conflicting events
   const detectConflicts = useCallback((events) => {
@@ -460,6 +485,47 @@ const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect })
     
     return result;
   }, [localEvents, project?.startDate, project?.endDate, project?.duration, project?.project_settings]);
+
+  // Navigate to a specific event from search
+  const handleNavigateToEvent = useCallback((event) => {
+    // Find which day this event belongs to
+    const eventDate = new Date(event.start);
+    const eventDayKey = eventDate.toDateString();
+
+    // Find the day number for this event
+    const dayIndex = eventsByDay.findIndex(day => day.date.toDateString() === eventDayKey);
+
+    if (dayIndex !== -1) {
+      const dayNumber = eventsByDay[dayIndex].dayNumber;
+
+      // Expand that day if not already expanded
+      setExpandedDays(prev => {
+        if (prev.includes(dayNumber)) return prev;
+        return [...prev, dayNumber];
+      });
+
+      // Select the event
+      setSelectedTimeSlot(event.id);
+      if (onEventSelect) {
+        onEventSelect(event.id);
+      }
+
+      // Scroll to the day section after a brief delay
+      setTimeout(() => {
+        const dayElement = document.getElementById(`day-section-${dayNumber}`);
+        if (dayElement) {
+          dayElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      }, 100);
+    }
+
+    // Close search
+    setSearchQuery('');
+    setSearchOpen(false);
+  }, [eventsByDay, onEventSelect]);
 
   // Set only today's events as expanded by default on first load and scroll to today
   React.useEffect(() => {
@@ -954,10 +1020,213 @@ const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect })
 
   return (
     <Box sx={{ width: '100%' }}>
-      <MainCard
-        title="Agenda"
-        secondary={
+      {/* Sticky Header - Outside MainCard for proper viewport-relative sticky */}
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          bgcolor: theme.palette.background.paper,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          borderTopLeftRadius: 4,
+          borderTopRightRadius: 4,
+          px: 2.5,
+          py: 2,
+          boxShadow: theme.shadows[1]
+        }}
+      >
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Typography variant="subtitle1">Agenda</Typography>
           <Stack direction="row" spacing={1} alignItems="center">
+            {/* Search */}
+            <Box sx={{ position: 'relative' }}>
+              {searchOpen ? (
+                <TextField
+                  size="small"
+                  autoFocus
+                  placeholder="Search events..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onBlur={() => {
+                    // Delay closing to allow click on results
+                    setTimeout(() => {
+                      if (!searchQuery) {
+                        setSearchOpen(false);
+                      }
+                    }, 200);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setSearchQuery('');
+                      setSearchOpen(false);
+                    }
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ fontSize: 18, color: 'text.secondary' }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setSearchOpen(false);
+                          }}
+                        >
+                          <Close sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                  sx={{
+                    width: { xs: 160, sm: 220 },
+                    '& .MuiOutlinedInput-root': {
+                      height: 32
+                    }
+                  }}
+                />
+              ) : (
+                <Tooltip title="Search events">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchOpen(true)}
+                  >
+                    <Search sx={{ fontSize: 20 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {/* Search Results Dropdown */}
+              {searchOpen && searchResults.length > 0 && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    mt: 0.5,
+                    width: { xs: 280, sm: 320 },
+                    maxHeight: 400,
+                    overflowY: 'auto',
+                    bgcolor: 'background.paper',
+                    borderRadius: 1,
+                    boxShadow: theme.shadows[8],
+                    border: `1px solid ${theme.palette.divider}`,
+                    zIndex: 1200
+                  }}
+                >
+                  {searchResults.map((event) => {
+                    const eventDate = new Date(event.start);
+                    const timeStr = eventDate.toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    });
+                    const dateStr = eventDate.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric'
+                    });
+
+                    // Find day number for this event
+                    const eventDayKey = eventDate.toDateString();
+                    const dayInfo = eventsByDay.find(day => day.date.toDateString() === eventDayKey);
+                    const dayNumber = dayInfo?.dayNumber;
+
+                    return (
+                      <Box
+                        key={event.id}
+                        onClick={() => handleNavigateToEvent(event)}
+                        sx={{
+                          p: 1.5,
+                          cursor: 'pointer',
+                          borderBottom: `1px solid ${theme.palette.divider}`,
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.08)
+                          },
+                          '&:last-child': {
+                            borderBottom: 'none'
+                          }
+                        }}
+                      >
+                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                          <Typography variant="body2" fontWeight={500} noWrap sx={{ flex: 1 }}>
+                            {event.title}
+                          </Typography>
+                          {dayNumber && (
+                            <Chip
+                              label={`Day ${dayNumber}`}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                                bgcolor: alpha(theme.palette.primary.main, 0.15),
+                                color: theme.palette.primary.main,
+                                ml: 1
+                              }}
+                            />
+                          )}
+                        </Stack>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {dateStr}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            •
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {timeStr}
+                          </Typography>
+                          {event.eventType && (
+                            <Chip
+                              label={event.eventType}
+                              size="small"
+                              sx={{
+                                height: 18,
+                                fontSize: '0.65rem',
+                                bgcolor: event.eventType === 'course'
+                                  ? alpha(theme.palette.primary.main, 0.1)
+                                  : alpha(theme.palette.info.main, 0.1),
+                                color: event.eventType === 'course'
+                                  ? theme.palette.primary.main
+                                  : theme.palette.info.main
+                              }}
+                            />
+                          )}
+                        </Stack>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+
+              {/* No Results Message */}
+              {searchOpen && searchQuery && searchResults.length === 0 && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    mt: 0.5,
+                    width: { xs: 200, sm: 220 },
+                    p: 2,
+                    bgcolor: 'background.paper',
+                    borderRadius: 1,
+                    boxShadow: theme.shadows[8],
+                    border: `1px solid ${theme.palette.divider}`,
+                    zIndex: 1200
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary" align="center">
+                    No events found
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+
             {/* Time Range Toggle - Only show in detailed view, positioned left of view buttons */}
             {!matchDownSM && viewMode === 'detailed' && (
               <>
@@ -1022,9 +1291,16 @@ const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect })
               {expandedDays.length === eventsByDay.length ? 'Collapse All' : 'Expand All'}
             </Button>
           </Stack>
-        }
-        sx={{ 
+        </Stack>
+      </Box>
+
+      <MainCard
+        content={true}
+        sx={{
           height: 'fit-content',
+          borderTopLeftRadius: 0,
+          borderTopRightRadius: 0,
+          borderTop: 'none',
           ...(matchDownSM && {
             '& .MuiCardContent-root': {
               px: 0

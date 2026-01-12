@@ -4,13 +4,14 @@ import {
   Card, CardContent, List, ListItem, ListItemIcon, ListItemText,
   Paper, Grid, Tab, Tabs, Alert, Button, CircularProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  TextField, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel, Tooltip
+  TextField, DialogTitle, DialogContent, DialogActions, Switch, FormControlLabel, Tooltip,
+  Menu, MenuItem
 } from '@mui/material';
 import {
   Close, Email, Phone, School, CheckCircle, RadioButtonUnchecked,
   AccessTime, CalendarMonth, Grade, EmojiEvents, Quiz, Event, SwapHoriz,
   Schedule, Group as GroupIcon, PlaylistAddCheck, Edit, Delete, Person,
-  Notes as NotesIcon
+  Notes as NotesIcon, Send, ExpandMore
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useDispatch } from 'store';
@@ -27,6 +28,7 @@ import { recordAssessmentScore } from 'store/commands/assessmentCommands';
 import { participantUpdated } from 'store/entities/participantsSlice';
 import AttendanceHistory from './AttendanceHistory';
 import AttendanceSummary from './AttendanceSummary';
+import { PARTICIPANT_STATUS_CONFIG } from 'constants/index';
 // getProjectChecklist removed - RTK Query handles cache updates via invalidation
 
 const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
@@ -44,6 +46,9 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
   const [note, setNote] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
 
+  // Send invite state - tracks which event is currently sending
+  const [sendingInviteEventId, setSendingInviteEventId] = useState(null);
+
   // Assessment score recording state
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
@@ -52,6 +57,11 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
     feedback: '',
     assessmentDate: new Date().toISOString().split('T')[0]
   });
+
+  // Participant status state
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState(null);
+  const [currentStatus, setCurrentStatus] = useState(participant?.participantStatus || null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -367,8 +377,33 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
       setActivitiesLoading(false);
       setActiveTab(0);
       setNote('');
+      setStatusMenuAnchor(null);
     }
   }, [open]);
+
+  // Fetch participant status from API when drawer opens (bypasses stale cache)
+  useEffect(() => {
+    const fetchStatus = async () => {
+      if (!open || !participant?.id) return;
+
+      try {
+        // Fetch fresh participant data to get current status
+        const response = await fetch(`/api/participants/get-status?participantId=${participant.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentStatus(data.participantStatus || null);
+        } else {
+          // Fallback to prop if API fails
+          setCurrentStatus(participant.participantStatus || null);
+        }
+      } catch (error) {
+        console.error('Error fetching participant status:', error);
+        setCurrentStatus(participant.participantStatus || null);
+      }
+    };
+
+    fetchStatus();
+  }, [open, participant?.id]);
 
   // Fetch note directly from API when drawer opens (bypasses stale cache)
   useEffect(() => {
@@ -437,9 +472,44 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
     );
   }, [singleProject?.events, participantEvents]);
 
-  const completedActivities = learningActivities.filter(a => a.completed).length;
-  const totalActivities = learningActivities.length;
-  const progressPercentage = totalActivities > 0 ? (completedActivities / totalActivities) * 100 : 0;
+  // Calculate progress based on module-level completion (more granular than course completion)
+  const { completedModulesTotal, totalModulesTotal, completedCourses, totalCourses } = useMemo(() => {
+    let completedModules = 0;
+    let totalModules = 0;
+    let completed = 0;
+
+    learningActivities.forEach(activity => {
+      if (activity.totalModules && activity.totalModules > 0) {
+        // Use module-level progress if available
+        completedModules += activity.completedModules || 0;
+        totalModules += activity.totalModules;
+      } else if (activity.totalModules === 0) {
+        // Course has no modules with activities - counts as 1 complete unit if marked complete
+        totalModules += 1;
+        if (activity.completed) {
+          completedModules += 1;
+        }
+      } else {
+        // Fallback: count course as 1 module
+        totalModules += 1;
+        if (activity.completed) {
+          completedModules += 1;
+        }
+      }
+      if (activity.completed) {
+        completed += 1;
+      }
+    });
+
+    return {
+      completedModulesTotal: completedModules,
+      totalModulesTotal: totalModules,
+      completedCourses: completed,
+      totalCourses: learningActivities.length
+    };
+  }, [learningActivities]);
+
+  const progressPercentage = totalModulesTotal > 0 ? (completedModulesTotal / totalModulesTotal) * 100 : 0;
 
   const averageScore = learningActivities
     .filter(a => a.score !== null)
@@ -494,6 +564,65 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
       case 'absent': return 'error';
       case 'scheduled': return 'info';
       default: return 'info';
+    }
+  };
+
+  // Send individual calendar invite for a specific event
+  const handleSendEventInvite = async (event) => {
+    if (!participant?.email || !participant?.firstName || !participant?.lastName) {
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Participant email or name is missing',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+      return;
+    }
+
+    setSendingInviteEventId(event.id);
+
+    try {
+      const response = await fetch('/api/projects/send-single-calendar-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          eventId: event.id,
+          participantEmail: participant.email,
+          participantFirstName: participant.firstName,
+          participantLastName: participant.lastName,
+          projectTitle: singleProject?.title || 'Training Project',
+          includeMeetingLink: true
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        dispatch(openSnackbar({
+          open: true,
+          message: `Calendar invite sent to ${participant.email}`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+      } else {
+        dispatch(openSnackbar({
+          open: true,
+          message: result.message || 'Failed to send invite',
+          variant: 'alert',
+          alert: { color: 'error' }
+        }));
+      }
+    } catch (error) {
+      console.error('Error sending event invite:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to send calendar invite',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setSendingInviteEventId(null);
     }
   };
 
@@ -554,6 +683,74 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
       }));
     } finally {
       setNoteSaving(false);
+    }
+  };
+
+  // Handle participant status change (updates participants table, not project_participants)
+  const handleStatusChange = async (newStatus) => {
+    if (!participant?.id) return;
+
+    setStatusUpdating(true);
+    setStatusMenuAnchor(null);
+
+    try {
+      const response = await fetch('/api/participants/updateParticipant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participantId: participant.id, // UUID from participants table
+          updates: {
+            participantStatus: newStatus
+          }
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setCurrentStatus(newStatus);
+
+        // Update RTK Query cache to reflect the new status
+        dispatch(
+          projectApi.util.updateQueryData('getProjectParticipants', parseInt(projectId), (draft) => {
+            const participantToUpdate = draft.find(p => p.participant?.id === participant.id);
+            if (participantToUpdate && participantToUpdate.participant) {
+              participantToUpdate.participant.participantStatus = newStatus;
+            }
+          })
+        );
+
+        // Also update the normalized entities store
+        dispatch(participantUpdated({
+          id: participant.projectParticipantId,
+          changes: {
+            participant: {
+              ...participant,
+              participantStatus: newStatus
+            }
+          }
+        }));
+
+        const statusLabel = PARTICIPANT_STATUS_CONFIG.find(s => s.value === newStatus)?.label || newStatus;
+        dispatch(openSnackbar({
+          open: true,
+          message: `Participant status updated to ${statusLabel}`,
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+      } else {
+        throw new Error(result.message || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating participant status:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: error.message || 'Failed to update participant status',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
@@ -677,6 +874,67 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                   }}
                 />
               )}
+              {/* Participant Status Chip with dropdown */}
+              {(() => {
+                const statusConfig = PARTICIPANT_STATUS_CONFIG.find(s => s.value === currentStatus);
+                const statusColor = statusConfig?.color || 'default';
+                const chipBgColor = statusColor === 'success' ? '#4caf50' :
+                                    statusColor === 'warning' ? '#ff9800' :
+                                    statusColor === 'error' ? '#f44336' :
+                                    statusColor === 'info' ? '#2196f3' : '#9e9e9e';
+                return (
+                  <Chip
+                    label={statusUpdating ? 'Updating...' : (statusConfig?.label || 'None')}
+                    deleteIcon={<ExpandMore sx={{ color: 'white !important' }} />}
+                    onDelete={(e) => setStatusMenuAnchor(e.currentTarget)}
+                    onClick={(e) => setStatusMenuAnchor(e.currentTarget)}
+                    disabled={statusUpdating}
+                    sx={{
+                      bgcolor: alpha(chipBgColor, 0.3),
+                      color: 'white',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: alpha(chipBgColor, 0.4)
+                      }
+                    }}
+                  />
+                );
+              })()}
+              <Menu
+                anchorEl={statusMenuAnchor}
+                open={Boolean(statusMenuAnchor)}
+                onClose={() => setStatusMenuAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              >
+                {PARTICIPANT_STATUS_CONFIG.map((option) => (
+                  <MenuItem
+                    key={option.value ?? 'none'}
+                    onClick={() => handleStatusChange(option.value)}
+                    selected={currentStatus === option.value}
+                    sx={{
+                      '&.Mui-selected': {
+                        bgcolor: alpha(theme.palette.primary.main, 0.1)
+                      }
+                    }}
+                  >
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          bgcolor: option.color === 'success' ? 'success.main' :
+                                   option.color === 'warning' ? 'warning.main' :
+                                   option.color === 'error' ? 'error.main' :
+                                   option.color === 'info' ? 'info.main' : 'grey.500'
+                        }}
+                      />
+                      <Typography variant="body2">{option.label}</Typography>
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Menu>
             </Stack>
           </Box>
         </Stack>
@@ -716,7 +974,7 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
                 <Typography variant="h6">Learning Progress & Schedule</Typography>
                 <Stack direction="row" spacing={1}>
-                  <Chip label={`${completedActivities}/${totalActivities} completed`} size="small" color="primary" />
+                  <Chip label={`${completedCourses}/${totalCourses} completed`} size="small" color="primary" />
                   <Chip label={`${participantEvents.length} events`} size="small" variant="outlined" />
                 </Stack>
               </Stack>
@@ -791,9 +1049,9 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                           </Box>
                           
                           <Box sx={{ flex: 1 }}>
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
+                            <Typography
+                              variant="body2"
+                              sx={{
                                 fontWeight: activity.completed ? 400 : 500,
                                 color: activity.completed ? 'text.secondary' : 'text.primary',
                                 mb: 0.5
@@ -801,7 +1059,7 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                             >
                               {activity.title}
                             </Typography>
-                            
+
                             <Stack direction="row" spacing={1.5} alignItems="center">
                               <Stack direction="row" spacing={0.5} alignItems="center">
                                 <AccessTime sx={{ fontSize: 12, color: 'text.secondary' }} />
@@ -809,7 +1067,20 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                                   {activity.duration}
                                 </Typography>
                               </Stack>
-                              
+
+                              {/* Show module progress for incomplete courses */}
+                              {!activity.completed && activity.totalModules > 0 && (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: activity.completedModules > 0 ? 'warning.main' : 'text.secondary',
+                                    fontWeight: activity.completedModules > 0 ? 600 : 400
+                                  }}
+                                >
+                                  {activity.completedModules || 0}/{activity.totalModules} modules
+                                </Typography>
+                              )}
+
                               {activity.completed && activity.score !== null && (
                                 <Stack direction="row" spacing={0.5} alignItems="center">
                                   <Grade sx={{ fontSize: 12, color: 'warning.main' }} />
@@ -818,7 +1089,7 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                                   </Typography>
                                 </Stack>
                               )}
-                              
+
                               {activity.date && (
                                 <Typography variant="caption" color="text.secondary">
                                   {activity.date}
@@ -897,6 +1168,20 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                               </Stack>
                             </Box>
                             
+                            <Tooltip title="Send calendar invite">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleSendEventInvite(event)}
+                                disabled={sendingInviteEventId === event.id || !participant?.email}
+                                sx={{ ml: 1 }}
+                              >
+                                {sendingInviteEventId === event.id ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  <Send sx={{ fontSize: 16 }} />
+                                )}
+                              </IconButton>
+                            </Tooltip>
                             <Tooltip title="Move to another event">
                               <IconButton
                                 size="small"
@@ -904,7 +1189,6 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                                   console.log('Available events to move to:', availableEvents);
                                 }}
                                 disabled={availableEvents.length === 0}
-                                sx={{ ml: 1 }}
                               >
                                 <SwapHoriz sx={{ fontSize: 18 }} />
                               </IconButton>

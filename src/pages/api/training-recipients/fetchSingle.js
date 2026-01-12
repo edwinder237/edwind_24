@@ -128,7 +128,7 @@ async function handler(req, res) {
   // Calculate statistics
   const stats = {
     totalProjects: projects?.length || 0,
-    activeProjects: projects?.filter(p => p.projectStatus === 'active' || p.projectStatus === 'ongoing')?.length || 0,
+    activeProjects: projects?.filter(p => p.projectStatus === 'active' || p.projectStatus === 'ongoing' || p.projectStatus === 'started')?.length || 0,
     totalParticipants: allParticipants.length,
     totalEvents: projects?.reduce((sum, project) => sum + (project.events?.length || 0), 0) || 0
   };

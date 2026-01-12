@@ -23,7 +23,15 @@ import {
   Tabs,
   CircularProgress,
   TextField,
-  ClickAwayListener
+  ClickAwayListener,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   BankOutlined,
@@ -77,6 +85,17 @@ const TrainingRecipientDetail = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [participantToDelete, setParticipantToDelete] = useState(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingParticipant, setEditingParticipant] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    participantStatus: '',
+    participantType: '',
+    notes: ''
+  });
+  const [isSavingParticipant, setIsSavingParticipant] = useState(false);
   const fileInputRef = useRef(null);
 
   // Redux state
@@ -245,6 +264,82 @@ const TrainingRecipientDetail = () => {
   const handleCancelDelete = () => {
     setDeleteDialogOpen(false);
     setParticipantToDelete(null);
+  };
+
+  // Edit participant handlers
+  const handleEditParticipant = (participant) => {
+    setEditingParticipant(participant);
+    setEditFormData({
+      firstName: participant.firstName || '',
+      lastName: participant.lastName || '',
+      email: participant.email || '',
+      participantStatus: participant.participantStatus || '',
+      participantType: participant.participantType || '',
+      notes: participant.notes || ''
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditingParticipant(null);
+    setEditFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      participantStatus: '',
+      participantType: '',
+      notes: ''
+    });
+  };
+
+  const handleEditFormChange = (field) => (event) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: event.target.value
+    }));
+  };
+
+  const handleSaveParticipant = async () => {
+    if (!editingParticipant) return;
+
+    setIsSavingParticipant(true);
+    try {
+      const response = await axios.post('/api/participants/updateParticipant', {
+        participantId: editingParticipant.id,
+        updates: {
+          firstName: editFormData.firstName,
+          lastName: editFormData.lastName,
+          email: editFormData.email,
+          participantStatus: editFormData.participantStatus || null,
+          participantType: editFormData.participantType || null,
+          notes: editFormData.notes || null
+        }
+      });
+
+      if (response.data.participant) {
+        dispatch(openSnackbar({
+          open: true,
+          message: 'Participant updated successfully',
+          variant: 'alert',
+          alert: { color: 'success' }
+        }));
+
+        // Refresh the training recipient data to get updated participants
+        dispatch(getSingleTrainingRecipient(id));
+        handleCloseEditDialog();
+      }
+    } catch (error) {
+      console.error('Error updating participant:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: error.response?.data?.error || 'Failed to update participant',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setIsSavingParticipant(false);
+    }
   };
 
   const handleBackToList = () => {
@@ -968,8 +1063,31 @@ const TrainingRecipientDetail = () => {
                   </ListItemAvatar>
                   <ListItemText
                     primary={
-                      <Box component="div" sx={{ fontWeight: 500, fontSize: '1rem' }}>
-                        {participant.firstName} {participant.lastName}
+                      <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box component="span" sx={{ fontWeight: 500, fontSize: '1rem' }}>
+                          {participant.firstName} {participant.lastName}
+                        </Box>
+                        {participant.participantStatus && (
+                          <Chip
+                            label={participant.participantStatus}
+                            size="small"
+                            color={
+                              participant.participantStatus === 'active' ? 'success' :
+                              participant.participantStatus === 'inactive' ? 'default' :
+                              participant.participantStatus === 'pending' ? 'warning' :
+                              participant.participantStatus === 'terminated' ? 'error' :
+                              participant.participantStatus === 'loa' ? 'info' :
+                              participant.participantStatus === 'pto' ? 'info' :
+                              participant.participantStatus === 'suspended' ? 'error' :
+                              'primary'
+                            }
+                            sx={{
+                              height: 20,
+                              fontSize: '0.7rem',
+                              textTransform: 'capitalize'
+                            }}
+                          />
+                        )}
                       </Box>
                     }
                     secondary={
@@ -1014,7 +1132,11 @@ const TrainingRecipientDetail = () => {
                   <ListItemSecondaryAction>
                     <Stack direction="row" spacing={1}>
                       <Tooltip title="Edit Participant">
-                        <IconButton edge="end" size="small">
+                        <IconButton
+                          edge="end"
+                          size="small"
+                          onClick={() => handleEditParticipant(participant)}
+                        >
                           <EditOutlined />
                         </IconButton>
                       </Tooltip>
@@ -1073,6 +1195,103 @@ const TrainingRecipientDetail = () => {
             : ''
         }
       />
+
+      {/* Edit Participant Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={handleCloseEditDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Edit Participant
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                fullWidth
+                label="First Name"
+                value={editFormData.firstName}
+                onChange={handleEditFormChange('firstName')}
+                required
+              />
+              <TextField
+                fullWidth
+                label="Last Name"
+                value={editFormData.lastName}
+                onChange={handleEditFormChange('lastName')}
+                required
+              />
+            </Stack>
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={editFormData.email}
+              onChange={handleEditFormChange('email')}
+              required
+            />
+            <Stack direction="row" spacing={2}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={editFormData.participantStatus}
+                  label="Status"
+                  onChange={handleEditFormChange('participantStatus')}
+                >
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="inactive">Inactive</MenuItem>
+                  <MenuItem value="pending">Pending</MenuItem>
+                  <MenuItem value="suspended">Suspended</MenuItem>
+                  <MenuItem value="loa">LOA</MenuItem>
+                  <MenuItem value="terminated">Terminated</MenuItem>
+                  <MenuItem value="pto">PTO</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Type</InputLabel>
+                <Select
+                  value={editFormData.participantType}
+                  label="Type"
+                  onChange={handleEditFormChange('participantType')}
+                >
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  <MenuItem value="employee">Employee</MenuItem>
+                  <MenuItem value="contractor">Contractor</MenuItem>
+                  <MenuItem value="intern">Intern</MenuItem>
+                  <MenuItem value="external">External</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <TextField
+              fullWidth
+              label="Notes"
+              multiline
+              rows={3}
+              value={editFormData.notes}
+              onChange={handleEditFormChange('notes')}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCloseEditDialog} disabled={isSavingParticipant}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveParticipant}
+            disabled={isSavingParticipant || !editFormData.firstName || !editFormData.lastName || !editFormData.email}
+          >
+            {isSavingParticipant ? <CircularProgress size={20} /> : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Page>
   );
 };

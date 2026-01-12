@@ -49,7 +49,8 @@ const AddParticipantsDialog = ({
   availableGroups,
   availableParticipants,
   courseRoleIds,
-  courseEvents = []
+  courseEvents = [],
+  allGroups = [] // All project groups for participant group lookup
 }) => {
   // State for session action (add to additional session or move)
   const [sessionAction, setSessionAction] = useState('add'); // 'add' or 'move'
@@ -64,6 +65,18 @@ const AddParticipantsDialog = ({
   const isParticipantRequired = (participant) => {
     const roleId = participant.participant?.role?.id;
     return roleId && courseRoleIds?.includes(roleId);
+  };
+
+  // Helper function to get the group(s) a participant belongs to
+  // participantId is the project_participant ID (numeric)
+  const getParticipantGroups = (participantId) => {
+    if (!allGroups.length) return [];
+    return allGroups.filter(group =>
+      group.participants?.some(gp =>
+        // gp.participant.id is the project_participant ID
+        gp.participant?.id === participantId
+      )
+    );
   };
 
   // Helper function to get events a participant is assigned to (for this course)
@@ -440,6 +453,7 @@ const AddParticipantsDialog = ({
                 const isSelected = selectedParticipants.some(sp => sp.id === participant.id);
                 const assignedEvents = getParticipantCourseEvents(participant.id);
                 const isRequired = isParticipantRequired(participant);
+                const participantGroups = getParticipantGroups(participant.id);
                 return (
                   <Box
                     key={participant.id}
@@ -489,6 +503,11 @@ const AddParticipantsDialog = ({
                             />
                           )}
                         </Stack>
+                        {participantGroups.length > 0 && (
+                          <Typography variant="caption" sx={{ color: participantGroups[0]?.chipColor || 'text.disabled', mt: 0.25 }}>
+                            {participantGroups.map(g => g.groupName).join(', ')}
+                          </Typography>
+                        )}
                         {assignedEvents.length > 0 && (
                           <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
                             {assignedEvents.map(event => {

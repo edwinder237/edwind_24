@@ -1378,6 +1378,35 @@ export const projectApi = createApi({
       invalidatesTags: ['Group', 'GroupParticipants', 'ProjectParticipants', 'ProjectAgenda'],
     }),
 
+    /**
+     * Mark participant as "not needed" for all events of a course
+     * Creates event_attendees records with attendance_status = 'not_needed'
+     * Action can be 'mark' (add not_needed) or 'unmark' (remove not_needed)
+     */
+    markParticipantNotNeeded: builder.mutation({
+      query: ({ courseId, enrolleeId, projectId, action = 'mark' }) => ({
+        url: 'projects/markParticipantNotNeeded',
+        method: 'POST',
+        body: { courseId, enrolleeId, projectId, action }
+      }),
+      invalidatesTags: (_, __, { projectId }) => [
+        { type: 'ProjectAgenda', id: projectId },
+        { type: 'Project', id: projectId },
+        'Event',
+        'Participant',
+        'Attendance'
+      ],
+      onQueryStarted: async ({ projectId }, { dispatch, queryFulfilled }) => {
+        try {
+          await queryFulfilled;
+          // Force refetch of project agenda to update course completion data
+          dispatch(projectApi.endpoints.getProjectAgenda.initiate(projectId, { forceRefetch: true }));
+        } catch (error) {
+          console.error('Failed to mark participant as not needed:', error);
+        }
+      }
+    }),
+
     // ==============================|| ROLES ||============================== //
 
     /**
@@ -1831,6 +1860,7 @@ export const {
   useRemoveParticipantMutation,
   useRemoveMultipleParticipantsMutation,
   useImportParticipantsFromCSVMutation,
+  useMarkParticipantNotNeededMutation,
 
   // Checklist Management
   useToggleChecklistItemMutation,

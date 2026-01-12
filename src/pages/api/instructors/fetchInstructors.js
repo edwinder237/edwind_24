@@ -68,14 +68,33 @@ async function handler(req, res) {
         availability: true,
         sub_organizationId: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        sub_organization: {
+          select: {
+            id: true,
+            title: true
+          }
+        },
+        _count: {
+          select: {
+            project_instructors: true,
+            course_instructors: true
+          }
+        }
       },
       orderBy: {
         firstName: 'asc'
       }
     });
 
-    res.status(200).json(instructors);
+    // Transform the response to include counts
+    const instructorsWithCount = instructors.map(instructor => ({
+      ...instructor,
+      projectCount: instructor._count?.project_instructors || 0,
+      courseCount: instructor._count?.course_instructors || 0
+    }));
+
+    res.status(200).json(instructorsWithCount);
   } catch (error) {
     console.error('Error fetching instructors:', error);
     throw error;

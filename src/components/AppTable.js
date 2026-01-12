@@ -36,6 +36,7 @@ import {
 import {
   CSVExport,
   HeaderSort,
+  HidingSelect,
   IndeterminateCheckbox,
   SortingSelect,
   TablePagination,
@@ -80,6 +81,8 @@ function AppTable({
   showFloatingActionButton = false,
   addButtonVariant = "emphasized", // "emphasized", "contained", "outlined"
   addButtonDescription = null,
+  // Column visibility toggle
+  showColumnToggle = false,
 }) {
   const theme = useTheme();
   const matchDownSM = useMediaQuery(theme.breakpoints.down("sm"));
@@ -205,14 +208,12 @@ function AppTable({
             </Box>
             <Button
               variant="contained"
+              color="primary"
               onClick={handleAdd}
               sx={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
                 fontWeight: 600,
                 px: 3,
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
                   transform: 'translateY(-1px)',
                 },
               }}
@@ -223,38 +224,56 @@ function AppTable({
         </Box>
       )}
       
-      <Stack spacing={3}>
+      <Stack spacing={2}>
         {/* Header Controls */}
         <Stack
           direction={matchDownSM ? "column" : "row"}
-          spacing={1}
+          spacing={2}
           justifyContent="space-between"
-          alignItems="center"
+          alignItems={matchDownSM ? "stretch" : "center"}
           sx={{ p: 3, pb: 0 }}
         >
           {/* Left side - Search */}
-          {showGlobalFilter && (
-            <GlobalFilter
-              preGlobalFilteredRows={preGlobalFilteredRows}
-              globalFilter={globalFilter}
-              setGlobalFilter={setGlobalFilter}
-              size="small"
-            />
-          )}
+          <Stack direction="row" spacing={2} alignItems="center" flex={1}>
+            {showGlobalFilter && (
+              <GlobalFilter
+                preGlobalFilteredRows={preGlobalFilteredRows}
+                globalFilter={globalFilter}
+                setGlobalFilter={setGlobalFilter}
+                size="small"
+              />
+            )}
+          </Stack>
 
           {/* Right side - Actions */}
           <Stack
-            direction={matchDownSM ? "column" : "row"}
+            direction="row"
             alignItems="center"
-            spacing={1}
+            spacing={2}
+            flexWrap="wrap"
+            justifyContent={matchDownSM ? "center" : "flex-end"}
           >
-            {showSorting && (
-              <SortingSelect
-                sortBy={defaultSortBy.id}
-                setSortBy={setSortBy}
-                allColumns={allColumns}
-              />
-            )}
+            {/* Dropdowns group */}
+            <Stack direction="row" spacing={1} alignItems="center">
+              {showSorting && (
+                <SortingSelect
+                  sortBy={defaultSortBy.id}
+                  setSortBy={setSortBy}
+                  allColumns={allColumns}
+                />
+              )}
+
+              {showColumnToggle && (
+                <HidingSelect
+                  hiddenColumns={allColumns.filter(col => !col.isVisible).map(col => col.id)}
+                  setHiddenColumns={setHiddenColumns}
+                  allColumns={allColumns}
+                />
+              )}
+            </Stack>
+
+            {/* Custom actions */}
+            {customActions && customActions}
 
             {/* Actions Button */}
             {showActionsButton && selectedCount > 0 && (
@@ -326,46 +345,42 @@ function AppTable({
               </>
             )}
 
-            {/* Custom actions */}
-            {customActions && customActions}
+            {/* Action buttons group */}
+            <Stack direction="row" spacing={1} alignItems="center">
+              {/* Add button */}
+              {showAddButton && handleAdd && (
+                <Button
+                  variant={addButtonVariant === "emphasized" ? "contained" : addButtonVariant}
+                  color="primary"
+                  startIcon={<PlusOutlined />}
+                  onClick={handleAdd}
+                  size={addButtonVariant === "emphasized" ? "medium" : "small"}
+                  sx={addButtonVariant === "emphasized" ? {
+                    fontWeight: 600,
+                    px: 3,
+                    py: 1,
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                    },
+                    transition: 'all 0.3s ease',
+                  } : {}}
+                >
+                  {addButtonText}
+                </Button>
+              )}
 
-            {/* Add button - Enhanced styling based on variant */}
-            {showAddButton && handleAdd && (
-              <Button
-                variant={addButtonVariant === "emphasized" ? "contained" : addButtonVariant}
-                startIcon={<PlusOutlined />}
-                onClick={handleAdd}
-                size={addButtonVariant === "emphasized" ? "medium" : "small"}
-                sx={addButtonVariant === "emphasized" ? {
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  fontWeight: 600,
-                  px: 3,
-                  py: 1,
-                  boxShadow: '0 4px 14px 0 rgba(102, 126, 234, 0.4)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
-                    transform: 'translateY(-1px)',
-                  },
-                  transition: 'all 0.3s ease',
-                } : {}}
-              >
-                {addButtonText}
-              </Button>
-            )}
-
-            {/* CSV Export */}
-            {showCSVExport && (
-              <CSVExport
-                data={
-                  selectedFlatRows.length > 0
-                    ? selectedFlatRows.map((d) => d.original)
-                    : data
-                }
-                filename={csvFilename}
-              />
-            )}
+              {/* CSV Export */}
+              {showCSVExport && (
+                <CSVExport
+                  data={
+                    selectedFlatRows.length > 0
+                      ? selectedFlatRows.map((d) => d.original)
+                      : data
+                  }
+                  filename={csvFilename}
+                />
+              )}
+            </Stack>
           </Stack>
         </Stack>
 
@@ -376,7 +391,6 @@ function AppTable({
               textAlign: 'center',
               py: 8,
               px: 3,
-              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%)',
               borderRadius: 2,
               border: '1px dashed',
               borderColor: 'divider',
@@ -391,20 +405,16 @@ function AppTable({
             </Typography>
             <Button
               variant="contained"
+              color="primary"
               startIcon={<PlusOutlined />}
               onClick={handleAdd}
               size="large"
               sx={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
                 fontWeight: 600,
                 px: 4,
                 py: 1.5,
                 fontSize: '1rem',
-                boxShadow: '0 4px 14px 0 rgba(102, 126, 234, 0.4)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
                   transform: 'translateY(-2px)',
                 },
                 transition: 'all 0.3s ease',
@@ -518,14 +528,9 @@ function AppTable({
               position: 'fixed',
               bottom: 24,
               right: 24,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
               width: 64,
               height: 64,
-              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
               '&:hover': {
-                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
-                boxShadow: '0 8px 28px rgba(102, 126, 234, 0.5)',
                 transform: 'scale(1.1)',
               },
               transition: 'all 0.3s ease',
@@ -578,6 +583,8 @@ AppTable.propTypes = {
   showFloatingActionButton: PropTypes.bool,
   addButtonVariant: PropTypes.oneOf(['emphasized', 'contained', 'outlined']),
   addButtonDescription: PropTypes.string,
+  // Column visibility toggle
+  showColumnToggle: PropTypes.bool,
 };
 
 // ==============================|| HELPER COMPONENTS ||============================== //

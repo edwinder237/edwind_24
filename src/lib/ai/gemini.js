@@ -31,9 +31,14 @@ const initGemini = () => {
  * @param {number} attendanceData.absent - Number of participants absent
  * @param {number} attendanceData.total - Total number of participants
  * @param {string[]} attendanceData.absentNames - Names of absent participants
+ * @param {object[]} parkingLotItems - Optional parking lot items (issues/questions)
+ * @param {string} parkingLotItems[].type - Item type (issue or question)
+ * @param {string} parkingLotItems[].title - Item title
+ * @param {string} parkingLotItems[].priority - Item priority (low, medium, high)
+ * @param {string} parkingLotItems[].status - Item status (open, in_progress, resolved)
  * @returns {Promise<{keyHighlights: string[], challenges: string[]}>}
  */
-export const summarizeSessionNotes = async (sessionNotes, attendanceData = null) => {
+export const summarizeSessionNotes = async (sessionNotes, attendanceData = null, parkingLotItems = null) => {
   try {
     const genAI = initGemini();
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
@@ -53,12 +58,35 @@ ${attendanceData.absentNames && attendanceData.absentNames.length > 0 ? `- Absen
 `;
     }
 
-    const prompt = `You are an expert training analyst. Analyze the following training session notes${attendanceData ? ' and attendance data' : ''} and extract:
+    // Build parking lot context if available
+    let parkingLotContext = '';
+    if (parkingLotItems && parkingLotItems.length > 0) {
+      const openItems = parkingLotItems.filter(item => item.status !== 'resolved');
+      const issues = openItems.filter(item => item.type === 'issue');
+      const questions = openItems.filter(item => item.type === 'question');
+      const highPriorityItems = openItems.filter(item => item.priority === 'high');
+
+      parkingLotContext = `
+Parking Lot Items (Open Issues & Questions):
+- Total Open Items: ${openItems.length}
+- Issues: ${issues.length}
+- Questions: ${questions.length}
+- High Priority Items: ${highPriorityItems.length}
+${issues.length > 0 ? `\nOpen Issues:\n${issues.map(i => `  - [${i.priority}] ${i.title}`).join('\n')}` : ''}
+${questions.length > 0 ? `\nOpen Questions:\n${questions.map(i => `  - [${i.priority}] ${i.title}`).join('\n')}` : ''}
+`;
+    }
+
+    const hasParkingLot = parkingLotItems && parkingLotItems.length > 0;
+    const hasAttendance = attendanceData && attendanceData.total > 0;
+
+    const prompt = `You are an expert training analyst. Analyze the following training session notes${hasAttendance ? ', attendance data' : ''}${hasParkingLot ? ', and parking lot items' : ''} and extract:
 
 1. Key Highlights: 3-5 positive outcomes, achievements, or important observations from the training
 2. Challenges: 2-4 obstacles, issues, or areas that need improvement
-${attendanceData ? '\nIMPORTANT: Include attendance-related insights in your analysis. If attendance was good, mention it as a highlight. If there were absences or late arrivals, mention them as challenges with the names of absent participants if provided.' : ''}
-${attendanceContext}
+${hasAttendance ? '\nIMPORTANT: Include attendance-related insights in your analysis. If attendance was good, mention it as a highlight. If there were absences or late arrivals, mention them as challenges with the names of absent participants if provided.' : ''}
+${hasParkingLot ? '\nIMPORTANT: Include relevant parking lot items in your analysis. Open issues and unanswered questions should be reflected in the challenges section. High priority items should be emphasized.' : ''}
+${attendanceContext}${parkingLotContext}
 Session Notes:
 ${sessionNotes}
 
@@ -74,7 +102,8 @@ Guidelines:
 - Use complete sentences
 - Prioritize the most important items
 - Ensure highlights are positive and challenges are constructive
-${attendanceData ? '- Include attendance insights when relevant (e.g., "Excellent attendance with all participants present" or "3 participants were absent: John, Jane, Bob - follow-up required")' : ''}`;
+${hasAttendance ? '- Include attendance insights when relevant (e.g., "Excellent attendance with all participants present" or "3 participants were absent: John, Jane, Bob - follow-up required")' : ''}
+${hasParkingLot ? '- Include parking lot insights when relevant (e.g., "Several open questions need to be addressed" or "High priority issue: [issue title] requires immediate attention")' : ''}`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;

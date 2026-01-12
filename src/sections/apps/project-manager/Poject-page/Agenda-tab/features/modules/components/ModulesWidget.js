@@ -2,10 +2,10 @@ import React, { useMemo, useState, useEffect } from "react";
 import Link from 'next/link';
 import { useDispatch, useSelector } from 'store';
 // material-ui
-import { Box, Chip, Typography, Stack, Accordion, AccordionSummary, AccordionDetails, IconButton, Tooltip } from "@mui/material";
+import { Box, Chip, Typography, Stack, Accordion, AccordionSummary, AccordionDetails, IconButton, Tooltip, Collapse } from "@mui/material";
 import { TreeView, TreeItem } from "@mui/lab";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { EditOutlined, CheckCircleOutlined } from '@mui/icons-material';
+import { EditOutlined, CheckCircleOutlined, ExpandLess, ExpandMore } from '@mui/icons-material';
 
 // project import
 import MainCard from "components/MainCard";
@@ -21,13 +21,16 @@ const Moduleswidget = React.memo(({ eventState }) => {
   const { courseTitle, modules, course, selectedEvent, participants } = eventState;
   const dispatch = useDispatch();
   const { moduleProgress } = useSelector((state) => state.projectAgenda);
-  
+
   // Memoize module count to avoid recalculation
   const moduleCount = useMemo(() => modules?.length || 0, [modules]);
-  
+
+  // State to track if the entire section is collapsed - default to collapsed
+  const [sectionCollapsed, setSectionCollapsed] = useState(true);
+
   // State to track expanded modules - by default first module is expanded
   const [expandedModules, setExpandedModules] = useState([0]);
-  
+
   // State to track completed modules
   const [completedModules, setCompletedModules] = useState([]);
 
@@ -138,11 +141,23 @@ const Moduleswidget = React.memo(({ eventState }) => {
       title={
         <Stack direction="row" alignItems="center" spacing={1} justifyContent="space-between">
           <Stack direction="row" alignItems="center" spacing={1}>
+            <IconButton
+              size="small"
+              onClick={() => setSectionCollapsed(!sectionCollapsed)}
+              sx={{
+                color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: 'action.hover'
+                }
+              }}
+            >
+              {sectionCollapsed ? <ExpandMore fontSize="small" /> : <ExpandLess fontSize="small" />}
+            </IconButton>
             <Typography variant="h6">{course.title}</Typography>
-            <Chip 
-              label={`${moduleCount} modules`} 
-              size="small" 
-              color="secondary" 
+            <Chip
+              label={`${moduleCount} modules`}
+              size="small"
+              color="secondary"
               variant="outlined"
             />
           </Stack>
@@ -164,100 +179,98 @@ const Moduleswidget = React.memo(({ eventState }) => {
         </Stack>
       }
     >
-      {moduleCount > 0 ? (
-        <Box sx={{ 
-          mt: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          flex: 1,
-          pb: 2,
-          // Hide scrollbar for Chrome, Safari and Opera
-          '&::-webkit-scrollbar': {
-            display: 'none',
-          },
-          // Hide scrollbar for IE, Edge and Firefox
-          msOverflowStyle: 'none',
-          scrollbarWidth: 'none'
-        }}>
-          {modules.map((module, i) => {
-            const activityCount = module.activities?.length || 0;
-            const isCompleted = completedModules.includes(i);
-            const isExpanded = expandedModules.includes(i);
-            
-            return (
-              <Accordion 
-                key={module.id || i}
-                expanded={isExpanded}
-                onChange={handleAccordionChange(i)}
-                sx={{ 
-                  mb: 1,
-                  '&:before': { display: 'none' },
-                  boxShadow: 'none',
-                  border: '1px solid',
-                  borderColor: isCompleted ? 'success.main' : 'divider',
-                  borderRadius: 1,
-                  backgroundColor: isCompleted ? 'success.lighter' : 'background.paper',
-                  transition: 'all 0.3s ease-in-out'
-                }}
-              >
-                <AccordionSummary 
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{ 
-                    '& .MuiAccordionSummary-content': { 
-                      alignItems: 'center' 
-                    }
+      <Collapse in={!sectionCollapsed}>
+        {moduleCount > 0 ? (
+          <Box sx={{
+            mt: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            maxHeight: '450px',
+            pb: 2,
+            '&::-webkit-scrollbar': { display: 'none' },
+            msOverflowStyle: 'none',
+            scrollbarWidth: 'none'
+          }}>
+            {modules.map((module, i) => {
+              const activityCount = module.activities?.length || 0;
+              const isCompleted = completedModules.includes(i);
+              const isExpanded = expandedModules.includes(i);
+
+              return (
+                <Accordion
+                  key={module.id || i}
+                  expanded={isExpanded}
+                  onChange={handleAccordionChange(i)}
+                  sx={{
+                    mb: 1,
+                    '&:before': { display: 'none' },
+                    boxShadow: 'none',
+                    border: '1px solid',
+                    borderColor: isCompleted ? 'success.main' : 'divider',
+                    borderRadius: 1,
+                    backgroundColor: isCompleted ? 'success.lighter' : 'background.paper',
+                    transition: 'all 0.3s ease-in-out'
                   }}
                 >
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
-                    {isCompleted && (
-                      <CheckCircleOutlined 
-                        sx={{ 
-                          color: 'success.main',
-                          fontSize: 20
-                        }} 
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{
+                      '& .MuiAccordionSummary-content': {
+                        alignItems: 'center'
+                      }
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
+                      {isCompleted && (
+                        <CheckCircleOutlined
+                          sx={{
+                            color: 'success.main',
+                            fontSize: 20
+                          }}
+                        />
+                      )}
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          flexGrow: 1,
+                          textDecoration: isCompleted ? 'line-through' : 'none',
+                          color: isCompleted ? 'text.secondary' : 'text.primary'
+                        }}
+                      >
+                        {module.title}
+                      </Typography>
+                      <Chip
+                        label={isCompleted ? 'Completed' : `${activityCount} activities`}
+                        size="small"
+                        variant={isCompleted ? "filled" : "outlined"}
+                        color={isCompleted ? "success" : "primary"}
                       />
-                    )}
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        flexGrow: 1,
-                        textDecoration: isCompleted ? 'line-through' : 'none',
-                        color: isCompleted ? 'text.secondary' : 'text.primary'
-                      }}
-                    >
-                      {module.title}
-                    </Typography>
-                    <Chip 
-                      label={isCompleted ? 'Completed' : `${activityCount} activities`}
-                      size="small"
-                      variant={isCompleted ? "filled" : "outlined"}
-                      color={isCompleted ? "success" : "primary"}
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ pt: 0 }}>
+                    <VerticalLinearStepper
+                      activities={module.activities || []}
+                      onComplete={handleModuleComplete}
+                      onReset={handleModuleReset}
+                      moduleIndex={i}
+                      eventId={selectedEvent?.id}
+                      moduleId={module.id}
+                      moduleTitle={module.title}
+                      eventData={selectedEvent}
                     />
-                  </Stack>
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0 }}>
-                  <VerticalLinearStepper 
-                    activities={module.activities || []} 
-                    onComplete={handleModuleComplete}
-                    onReset={handleModuleReset}
-                    moduleIndex={i}
-                    eventId={selectedEvent?.id}
-                    moduleId={module.id}
-                    moduleTitle={module.title}
-                    eventData={selectedEvent}
-                  />
-                </AccordionDetails>
-              </Accordion>
-            );
-          })}
-        </Box>
-      ) : (
-        <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
-          <Typography variant="body2">
-            No modules found for this course.
-          </Typography>
-        </Box>
-      )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })}
+          </Box>
+        ) : (
+          <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+            <Typography variant="body2">
+              No modules found for this course.
+            </Typography>
+          </Box>
+        )}
+      </Collapse>
     </MainCard>
   );
 });

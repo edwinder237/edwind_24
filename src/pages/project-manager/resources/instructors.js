@@ -1,21 +1,19 @@
-import { 
-  Typography, 
-  Button, 
-  Stack, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  TextField, 
+import {
+  Typography,
+  Button,
+  Stack,
+  Dialog,
+  TextField,
   MenuItem,
   Chip,
-  Avatar,
   Tooltip,
   IconButton,
   CircularProgress,
-  Alert
+  Alert,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
-import { UserOutlined, EditTwoTone, DeleteTwoTone, MailOutlined } from '@ant-design/icons';
+import { EditTwoTone, DeleteTwoTone, MailOutlined, CloseOutlined } from '@ant-design/icons';
 import React, { useState, useMemo, useEffect } from 'react';
 import axios from 'utils/axios';
 
@@ -25,6 +23,7 @@ import Page from 'components/Page';
 import MainCard from 'components/MainCard';
 import ScrollX from 'components/ScrollX';
 import AppTable, { SelectionCell, SelectionHeader } from 'components/AppTable';
+import InstructorDeleteAlert from 'sections/apps/project-manager/resources/InstructorDeleteAlert';
 
 // ==============================|| INSTRUCTORS ||============================== //
 
@@ -45,6 +44,9 @@ const Instructors = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [instructorToDelete, setInstructorToDelete] = useState(null);
+  const [hideInactive, setHideInactive] = useState(true);
 
   // Fetch instructors on component mount
   useEffect(() => {
@@ -180,11 +182,30 @@ const Instructors = () => {
     }
   };
 
-  const handleDelete = (instructorId) => {
-    console.log('Delete instructor:', instructorId);
-    // Here you would typically call your delete API
+  const handleDeleteClick = (instructor) => {
+    setInstructorToDelete(instructor);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteSuccess = (instructorId) => {
     setInstructors(instructors.filter(instructor => instructor.id !== instructorId));
   };
+
+  const handleDeactivateSuccess = (instructorId) => {
+    setInstructors(instructors.map(instructor =>
+      instructor.id === instructorId
+        ? { ...instructor, status: 'inactive' }
+        : instructor
+    ));
+  };
+
+  // Filter instructors based on hideInactive toggle
+  const filteredInstructors = useMemo(() => {
+    if (hideInactive) {
+      return instructors.filter(instructor => instructor.status !== 'inactive');
+    }
+    return instructors;
+  }, [instructors, hideInactive]);
 
   // Define columns for AppTable
   const columns = useMemo(() => [
@@ -205,20 +226,9 @@ const Instructors = () => {
       Header: "Instructor",
       accessor: "fullName",
       Cell: ({ row }) => {
-        const { firstName, lastName, email } = row.original;
-        const fullName = `${firstName} ${lastName}`;
+        const { firstName, lastName } = row.original;
         return (
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-              {firstName[0]}{lastName[0]}
-            </Avatar>
-            <Stack spacing={0}>
-              <Typography variant="subtitle2">{fullName}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {email}
-              </Typography>
-            </Stack>
-          </Stack>
+          <Typography variant="subtitle2">{firstName} {lastName}</Typography>
         );
       },
     },
@@ -240,10 +250,10 @@ const Instructors = () => {
         return (
           <Stack direction="row" spacing={0.5} flexWrap="wrap">
             {skills.map((skill, index) => (
-              <Chip 
+              <Chip
                 key={index}
-                label={skill} 
-                size="small" 
+                label={skill}
+                size="small"
                 variant="outlined"
                 color="primary"
               />
@@ -251,6 +261,39 @@ const Instructors = () => {
           </Stack>
         );
       },
+    },
+    {
+      Header: "Sub-Organization",
+      accessor: "sub_organization.title",
+      Cell: ({ row }) => {
+        const subOrg = row.original.sub_organization;
+        return subOrg ? (
+          <Chip
+            label={subOrg.title}
+            size="small"
+            variant="outlined"
+            color="default"
+          />
+        ) : (
+          <Typography variant="body2" color="text.secondary">-</Typography>
+        );
+      },
+    },
+    {
+      Header: "Projects",
+      accessor: "projectCount",
+      className: "cell-center",
+      Cell: ({ value }) => (
+        <Typography variant="body2">{value || 0}</Typography>
+      ),
+    },
+    {
+      Header: "Courses",
+      accessor: "courseCount",
+      className: "cell-center",
+      Cell: ({ value }) => (
+        <Typography variant="body2">{value || 0}</Typography>
+      ),
     },
     {
       Header: "Type",
@@ -297,12 +340,12 @@ const Instructors = () => {
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               color="error"
               onClick={(e) => {
                 e.stopPropagation();
-                handleDelete(row.original.id);
+                handleDeleteClick(row.original);
               }}
             >
               <DeleteTwoTone />
@@ -329,11 +372,11 @@ const Instructors = () => {
           <ScrollX>
             <AppTable
               columns={columns}
-              data={instructors}
+              data={filteredInstructors}
               handleAdd={handleClickOpen}
               addButtonText="Add Instructor"
               initialSortBy={{ id: "fullName", desc: false }}
-              initialHiddenColumns={["id"]}
+              initialHiddenColumns={["id", "expertise", "sub_organization.title"]}
               responsiveHiddenColumns={["email", "expertise"]}
               csvFilename="instructors-list.csv"
               emptyMessage="No instructors found"
@@ -342,21 +385,50 @@ const Instructors = () => {
               showGlobalFilter={true}
               showCSVExport={true}
               showSorting={true}
+              showColumnToggle={true}
+              customActions={
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={hideInactive}
+                      onChange={(e) => setHideInactive(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="body2">Hide inactive</Typography>}
+                  sx={{ mr: 1 }}
+                />
+              }
             />
           </ScrollX>
         )}
       </MainCard>
 
       {/* Add Instructor Dialog */}
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Instructor</DialogTitle>
-        <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <Stack spacing={2} sx={{ mt: 1 }}>
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        maxWidth="sm"
+        fullWidth
+        scroll="paper"
+        PaperProps={{ sx: { maxHeight: '90vh' } }}
+      >
+        <MainCard
+          title="Add New Instructor"
+          secondary={
+            <IconButton size="small" onClick={handleClose}>
+              <CloseOutlined />
+            </IconButton>
+          }
+          content={false}
+          sx={{ '& .MuiCardContent-root': { p: 0 }, height: '100%', display: 'flex', flexDirection: 'column' }}
+        >
+          <Stack spacing={2} sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
             <TextField
               autoFocus
               name="firstName"
@@ -429,30 +501,47 @@ const Instructors = () => {
               <MenuItem value="on_leave">On Leave</MenuItem>
             </TextField>
           </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained"
-            disabled={submitting}
-            startIcon={submitting && <CircularProgress size={16} />}
-          >
-            {submitting ? 'Adding...' : 'Add Instructor'}
-          </Button>
-        </DialogActions>
+          <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+            <Button onClick={handleClose} color="secondary">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              variant="contained"
+              disabled={submitting}
+              startIcon={submitting && <CircularProgress size={16} />}
+            >
+              {submitting ? 'Adding...' : 'Add Instructor'}
+            </Button>
+          </Stack>
+        </MainCard>
       </Dialog>
 
       {/* Edit Instructor Dialog */}
-      <Dialog open={editOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Instructor</DialogTitle>
-        <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <Stack spacing={2} sx={{ mt: 1 }}>
+      <Dialog
+        open={editOpen}
+        onClose={handleEditClose}
+        maxWidth="sm"
+        fullWidth
+        scroll="paper"
+        PaperProps={{ sx: { maxHeight: '90vh' } }}
+      >
+        <MainCard
+          title="Edit Instructor"
+          secondary={
+            <IconButton size="small" onClick={handleEditClose}>
+              <CloseOutlined />
+            </IconButton>
+          }
+          content={false}
+          sx={{ '& .MuiCardContent-root': { p: 0 }, height: '100%', display: 'flex', flexDirection: 'column' }}
+        >
+          <Stack spacing={2} sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
             <TextField
               autoFocus
               name="firstName"
@@ -525,19 +614,33 @@ const Instructors = () => {
               <MenuItem value="on_leave">On Leave</MenuItem>
             </TextField>
           </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditClose}>Cancel</Button>
-          <Button 
-            onClick={handleUpdate} 
-            variant="contained"
-            disabled={submitting}
-            startIcon={submitting && <CircularProgress size={16} />}
-          >
-            {submitting ? 'Updating...' : 'Update Instructor'}
-          </Button>
-        </DialogActions>
+          <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+            <Button onClick={handleEditClose} color="secondary">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdate}
+              variant="contained"
+              disabled={submitting}
+              startIcon={submitting && <CircularProgress size={16} />}
+            >
+              {submitting ? 'Updating...' : 'Update Instructor'}
+            </Button>
+          </Stack>
+        </MainCard>
       </Dialog>
+
+      {/* Delete Instructor Dialog */}
+      <InstructorDeleteAlert
+        instructor={instructorToDelete}
+        open={deleteDialogOpen}
+        handleClose={() => {
+          setDeleteDialogOpen(false);
+          setInstructorToDelete(null);
+        }}
+        onDeleteSuccess={handleDeleteSuccess}
+        onDeactivateSuccess={handleDeactivateSuccess}
+      />
     </Page>
   );
 };

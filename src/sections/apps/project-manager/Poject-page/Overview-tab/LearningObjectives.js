@@ -28,7 +28,9 @@ import {
 import { alpha, useTheme } from '@mui/material/styles';
 import { useSelector } from 'store';
 import { selectCourseCompletionData, selectCourseParticipantRoleDistribution } from 'store/selectors';
-import { useAddEventParticipantMutation } from 'store/api/projectApi';
+import { useAddEventParticipantMutation, useMarkParticipantNotNeededMutation } from 'store/api/projectApi';
+import { useRouter } from 'next/router';
+import { Undo, Block, MoreVert } from '@mui/icons-material';
 
 // ==============================|| COURSE CATEGORY ICONS ||============================== //
 
@@ -185,8 +187,9 @@ const ParticipantCard = ({ participantData, isEven, isLast }) => {
 /**
  * Unscheduled Participant Row - Compact view for participants who should take the course but aren't scheduled
  */
-const UnscheduledParticipantRow = ({ participant, enrolleeId, courseEvents, isEven, isLast, onSchedule, isScheduling }) => {
+const UnscheduledParticipantRow = ({ participant, enrolleeId, courseId, courseEvents, isEven, isLast, onSchedule, onMarkNotNeeded, isScheduling, isMarkingNotNeeded }) => {
   const [anchorEl, setAnchorEl] = useState(null);
+  const [moreAnchorEl, setMoreAnchorEl] = useState(null);
   const fullName = `${participant?.firstName || 'Unknown'} ${participant?.lastName || 'User'}`;
   const role = participant?.role?.title || 'No Role';
 
@@ -195,14 +198,30 @@ const UnscheduledParticipantRow = ({ participant, enrolleeId, courseEvents, isEv
     setAnchorEl(event.currentTarget);
   };
 
+  const handleMoreClick = (event) => {
+    event.stopPropagation();
+    setMoreAnchorEl(event.currentTarget);
+  };
+
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleMoreClose = () => {
+    setMoreAnchorEl(null);
   };
 
   const handleEventSelect = async (eventId) => {
     setAnchorEl(null);
     if (onSchedule) {
       await onSchedule(enrolleeId, eventId);
+    }
+  };
+
+  const handleMarkNotNeeded = async () => {
+    setMoreAnchorEl(null);
+    if (onMarkNotNeeded) {
+      await onMarkNotNeeded(enrolleeId, courseId);
     }
   };
 
@@ -250,7 +269,7 @@ const UnscheduledParticipantRow = ({ participant, enrolleeId, courseEvents, isEv
             <IconButton
               size="small"
               onClick={handleScheduleClick}
-              disabled={isScheduling}
+              disabled={isScheduling || isMarkingNotNeeded}
               sx={{
                 bgcolor: 'warning.lighter',
                 '&:hover': { bgcolor: 'warning.light' },
@@ -287,6 +306,110 @@ const UnscheduledParticipantRow = ({ participant, enrolleeId, courseEvents, isEv
           </Menu>
         </>
       )}
+
+      {/* More options menu */}
+      <Tooltip title="More options">
+        <IconButton
+          size="small"
+          onClick={handleMoreClick}
+          disabled={isScheduling || isMarkingNotNeeded}
+          sx={{
+            width: 24,
+            height: 24,
+            ml: 0.5
+          }}
+        >
+          {isMarkingNotNeeded ? (
+            <CircularProgress size={14} color="inherit" />
+          ) : (
+            <MoreVert sx={{ fontSize: 16 }} />
+          )}
+        </IconButton>
+      </Tooltip>
+      <Menu
+        anchorEl={moreAnchorEl}
+        open={Boolean(moreAnchorEl)}
+        onClose={handleMoreClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          onClick={handleMarkNotNeeded}
+          sx={{ fontSize: '0.8rem', color: 'text.secondary' }}
+        >
+          <Block sx={{ fontSize: 16, mr: 1 }} />
+          Mark as Not Needed
+        </MenuItem>
+      </Menu>
+    </ListItem>
+  );
+};
+
+/**
+ * Not Needed Participant Row - Compact view for participants marked as not needed for this course
+ */
+const NotNeededParticipantRow = ({ participant, enrolleeId, courseId, isEven, isLast, onUnmark, isUnmarking }) => {
+  const fullName = `${participant?.firstName || 'Unknown'} ${participant?.lastName || 'User'}`;
+  const role = participant?.role?.title || 'No Role';
+
+  const handleUnmark = async (event) => {
+    event.stopPropagation();
+    if (onUnmark) {
+      await onUnmark(enrolleeId, courseId);
+    }
+  };
+
+  return (
+    <ListItem
+      sx={{
+        px: 1.5,
+        py: 0.75,
+        bgcolor: isEven ? alpha('#9e9e9e', 0.08) : alpha('#9e9e9e', 0.04),
+        borderBottom: isLast ? 'none' : '1px solid',
+        borderColor: 'divider',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 0.5,
+        opacity: 0.7
+      }}
+    >
+      <Typography variant="body2" fontWeight={500} sx={{ minWidth: 120, color: 'text.secondary' }}>
+        {fullName}
+      </Typography>
+      <Typography variant="caption" color="text.disabled" sx={{ mr: 1 }}>
+        ({role})
+      </Typography>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.disabled',
+          fontWeight: 500,
+          flex: 1
+        }}
+      >
+        Not needed
+      </Typography>
+
+      {/* Undo button */}
+      <Tooltip title="Revert to Not Scheduled">
+        <IconButton
+          size="small"
+          onClick={handleUnmark}
+          disabled={isUnmarking}
+          sx={{
+            bgcolor: 'action.hover',
+            '&:hover': { bgcolor: 'action.selected' },
+            width: 24,
+            height: 24
+          }}
+        >
+          {isUnmarking ? (
+            <CircularProgress size={14} color="inherit" />
+          ) : (
+            <Undo sx={{ fontSize: 16, color: 'text.secondary' }} />
+          )}
+        </IconButton>
+      </Tooltip>
     </ListItem>
   );
 };
@@ -295,11 +418,16 @@ const UnscheduledParticipantRow = ({ participant, enrolleeId, courseEvents, isEv
 
 const CourseCompletionTracker = ({ project }) => {
   const theme = useTheme();
+  const router = useRouter();
+  const projectId = router.query.id;
   const [expandedCourses, setExpandedCourses] = useState([]);
   const [schedulingParticipant, setSchedulingParticipant] = useState(null);
+  const [markingNotNeeded, setMarkingNotNeeded] = useState(null); // { enrolleeId, courseId }
+  const [unmarkingNotNeeded, setUnmarkingNotNeeded] = useState(null); // { enrolleeId, courseId }
 
-  // RTK Query mutation for adding participant to event
+  // RTK Query mutations
   const [addEventParticipant] = useAddEventParticipantMutation();
+  const [markParticipantNotNeeded] = useMarkParticipantNotNeededMutation();
 
   // Get course completion data from normalized Redux store
   const completionData = useSelector(selectCourseCompletionData);
@@ -325,7 +453,7 @@ const CourseCompletionTracker = ({ project }) => {
         eventId,
         participantId: enrolleeId,
         attendance_status: 'scheduled',
-        projectId: project?.id
+        projectId: projectId
       }).unwrap();
       // RTK Query auto-invalidates and refetches
     } catch (error) {
@@ -333,7 +461,43 @@ const CourseCompletionTracker = ({ project }) => {
     } finally {
       setSchedulingParticipant(null);
     }
-  }, [addEventParticipant, project?.id]);
+  }, [addEventParticipant, projectId]);
+
+  // Handle marking a participant as not needed for a course
+  const handleMarkNotNeeded = useCallback(async (enrolleeId, courseId) => {
+    setMarkingNotNeeded({ enrolleeId, courseId });
+    try {
+      await markParticipantNotNeeded({
+        courseId,
+        enrolleeId,
+        projectId: parseInt(projectId),
+        action: 'mark'
+      }).unwrap();
+      // RTK Query auto-invalidates and refetches
+    } catch (error) {
+      console.error('Failed to mark participant as not needed:', error);
+    } finally {
+      setMarkingNotNeeded(null);
+    }
+  }, [markParticipantNotNeeded, projectId]);
+
+  // Handle unmarking a participant (revert to not scheduled)
+  const handleUnmarkNotNeeded = useCallback(async (enrolleeId, courseId) => {
+    setUnmarkingNotNeeded({ enrolleeId, courseId });
+    try {
+      await markParticipantNotNeeded({
+        courseId,
+        enrolleeId,
+        projectId: parseInt(projectId),
+        action: 'unmark'
+      }).unwrap();
+      // RTK Query auto-invalidates and refetches
+    } catch (error) {
+      console.error('Failed to unmark participant:', error);
+    } finally {
+      setUnmarkingNotNeeded(null);
+    }
+  }, [markParticipantNotNeeded, projectId]);
 
   // Empty state
   if (curriculums.length === 0) {
@@ -437,13 +601,21 @@ const CourseCompletionTracker = ({ project }) => {
                 {curriculum.description}
               </Typography>
             )}
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
               <Chip
                 label={`${curriculum.courseCount} courses`}
                 size="small"
                 color="primary"
                 variant="outlined"
               />
+              {curriculum.unscheduledCourseCount > 0 && (
+                <Chip
+                  label={`${curriculum.unscheduledCourseCount} not scheduled`}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                />
+              )}
               {curriculum.assignedGroups.length > 0 && (
                 <Chip
                   label={`Assigned to ${curriculum.assignedGroups.length} group${curriculum.assignedGroups.length > 1 ? 's' : ''}`}
@@ -454,9 +626,11 @@ const CourseCompletionTracker = ({ project }) => {
             </Stack>
           </Box>
 
-          {/* Course Sections */}
+          {/* Course Sections - scheduled courses first, unscheduled at bottom */}
           <Stack spacing={2}>
-            {curriculum.courses.map((course, courseIndex) => {
+            {[...curriculum.courses]
+              .sort((a, b) => (a.isUnscheduled === b.isUnscheduled ? 0 : a.isUnscheduled ? 1 : -1))
+              .map((course, courseIndex) => {
               const isExpanded = expandedCourses.includes(course.id);
               const courseParticipants = course.participants || [];
               const courseColor = getCategoryColor(curriculumIndex * 10 + courseIndex);
@@ -531,15 +705,40 @@ const CourseCompletionTracker = ({ project }) => {
                                 }}
                               />
                             )}
+                            {course.isUnscheduled && (
+                              <Chip
+                                label="No sessions"
+                                size="small"
+                                color="warning"
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.65rem',
+                                  fontWeight: 500
+                                }}
+                              />
+                            )}
                           </Stack>
                           <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              {course.totalEvents} event{course.totalEvents !== 1 ? 's' : ''} · {course.completedParticipants}/{courseParticipants.length} completed
-                            </Typography>
-                            {course.unscheduledParticipants?.length > 0 && (
-                              <Typography variant="caption" sx={{ color: 'warning.dark', fontWeight: 500 }}>
-                                · {course.unscheduledParticipants.length} not scheduled
+                            {course.isUnscheduled ? (
+                              <Typography variant="caption" sx={{ color: 'warning.main' }}>
+                                No sessions scheduled for this course
                               </Typography>
+                            ) : (
+                              <>
+                                <Typography variant="caption" color="text.secondary">
+                                  {course.totalEvents} event{course.totalEvents !== 1 ? 's' : ''} · {course.completedParticipants}/{courseParticipants.length} completed
+                                </Typography>
+                                {course.unscheduledParticipants?.length > 0 && (
+                                  <Typography variant="caption" sx={{ color: 'warning.dark', fontWeight: 500 }}>
+                                    · {course.unscheduledParticipants.length} not scheduled
+                                  </Typography>
+                                )}
+                                {course.notNeededParticipants?.length > 0 && (
+                                  <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 500 }}>
+                                    · {course.notNeededParticipants.length} not needed
+                                  </Typography>
+                                )}
+                              </>
                             )}
                           </Stack>
                         </Box>
@@ -568,10 +767,12 @@ const CourseCompletionTracker = ({ project }) => {
                               key={p.participantId || p.participant?.id}
                               participantData={extractParticipantData(p)}
                               isEven={idx % 2 === 0}
-                              isLast={idx === courseParticipants.length - 1 && (!course.unscheduledParticipants || course.unscheduledParticipants.length === 0)}
+                              isLast={idx === courseParticipants.length - 1 &&
+                                (!course.unscheduledParticipants || course.unscheduledParticipants.length === 0) &&
+                                (!course.notNeededParticipants || course.notNeededParticipants.length === 0)}
                             />
                           ))
-                        ) : !course.unscheduledParticipants?.length ? (
+                        ) : !course.unscheduledParticipants?.length && !course.notNeededParticipants?.length ? (
                           <Box sx={{ textAlign: 'center', py: 2 }}>
                             <Typography variant="caption" color="text.secondary">
                               No participants assigned to this course
@@ -599,11 +800,45 @@ const CourseCompletionTracker = ({ project }) => {
                                 key={p.participantId}
                                 participant={p.participant}
                                 enrolleeId={p.enrolleeId}
+                                courseId={course.id}
                                 courseEvents={course.events}
                                 isEven={idx % 2 === 0}
-                                isLast={idx === course.unscheduledParticipants.length - 1}
+                                isLast={idx === course.unscheduledParticipants.length - 1 &&
+                                  (!course.notNeededParticipants || course.notNeededParticipants.length === 0)}
                                 onSchedule={handleScheduleParticipant}
+                                onMarkNotNeeded={handleMarkNotNeeded}
                                 isScheduling={schedulingParticipant === p.enrolleeId}
+                                isMarkingNotNeeded={markingNotNeeded?.enrolleeId === p.enrolleeId && markingNotNeeded?.courseId === course.id}
+                              />
+                            ))}
+                          </>
+                        )}
+
+                        {/* Not Needed Participants */}
+                        {course.notNeededParticipants?.length > 0 && (
+                          <>
+                            <Box sx={{
+                              px: 1.5,
+                              py: 0.5,
+                              bgcolor: alpha('#9e9e9e', 0.1),
+                              borderTop: (courseParticipants.length > 0 || course.unscheduledParticipants?.length > 0) ? '1px solid' : 'none',
+                              borderBottom: '1px solid',
+                              borderColor: 'divider'
+                            }}>
+                              <Typography variant="caption" color="text.disabled" fontWeight={600}>
+                                Not Needed ({course.notNeededParticipants.length})
+                              </Typography>
+                            </Box>
+                            {course.notNeededParticipants.map((p, idx) => (
+                              <NotNeededParticipantRow
+                                key={p.participantId}
+                                participant={p.participant}
+                                enrolleeId={p.enrolleeId}
+                                courseId={course.id}
+                                isEven={idx % 2 === 0}
+                                isLast={idx === course.notNeededParticipants.length - 1}
+                                onUnmark={handleUnmarkNotNeeded}
+                                isUnmarking={unmarkingNotNeeded?.enrolleeId === p.enrolleeId && unmarkingNotNeeded?.courseId === course.id}
                               />
                             ))}
                           </>

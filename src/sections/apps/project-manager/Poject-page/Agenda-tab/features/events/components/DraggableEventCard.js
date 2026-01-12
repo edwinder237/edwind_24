@@ -1603,15 +1603,23 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         )}
       </DialogContent>
       
-      <DialogActions sx={{ 
-        p: 3, 
-        pt: 0, 
+      <DialogActions sx={{
+        p: 2,
+        px: 3,
+        pb: matchDownSM ? 'calc(16px + env(safe-area-inset-bottom, 0px))' : 2,
         bgcolor: 'background.paper',
         borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-        position: 'relative',
-        zIndex: 1
+        position: matchDownSM ? 'sticky' : 'relative',
+        bottom: 0,
+        zIndex: 10,
+        gap: 1.5,
+        flexDirection: matchDownSM ? 'row' : 'row',
+        '& > button': {
+          minHeight: 48,
+          fontSize: '1rem'
+        }
       }}>
-        <Button 
+        <Button
           onClick={() => {
             setManageEventDialogOpen(false);
             setEventDetailsLoading(false);
@@ -1641,7 +1649,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
           variant="contained"
           fullWidth={matchDownSM}
           disabled={eventDetailsLoading}
-          sx={{ 
+          sx={{
             bgcolor: getEventTypeColor(event),
             '&:hover': {
               bgcolor: getEventTypeColor(event),

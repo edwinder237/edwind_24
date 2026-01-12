@@ -46,7 +46,10 @@ import {
   ChevronRight,
   ContentCopy,
   Description,
-  AutoAwesome
+  AutoAwesome,
+  LocalParking,
+  HelpOutline,
+  ReportProblem
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useSelector, useDispatch } from 'react-redux';
@@ -65,6 +68,7 @@ import {
 } from 'store/commands/dailyNotesCommands';
 import { useGetDailyTrainingNotesQuery } from 'store/api/projectApi';
 import { useDateUtils } from 'hooks/useDateUtils';
+import axios from 'utils/axios';
 
 // Function to extract session notes from events and group by date
 const transformEventsToMockDailyNotes = (events, project) => {
@@ -417,6 +421,117 @@ const DailyNotes = ({ project }) => {
   const [editChallengeValue, setEditChallengeValue] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
+
+  // Parking Lot state
+  const [parkingLotItems, setParkingLotItems] = useState([]);
+  const [parkingLotLoading, setParkingLotLoading] = useState(false);
+  const [newParkingLotItem, setNewParkingLotItem] = useState({ type: 'issue', title: '' });
+  const [isAddingParkingLotItem, setIsAddingParkingLotItem] = useState(false);
+  const [savingParkingLotItem, setSavingParkingLotItem] = useState(false);
+
+  // Fetch parking lot items
+  useEffect(() => {
+    if (project?.id) {
+      fetchParkingLotItems();
+    }
+  }, [project?.id]);
+
+  const fetchParkingLotItems = async () => {
+    if (!project?.id) return;
+    try {
+      setParkingLotLoading(true);
+      const response = await axios.get(`/api/projects/parking-lot?projectId=${project.id}`);
+      setParkingLotItems(response.data || []);
+    } catch (error) {
+      console.error('Error fetching parking lot items:', error);
+    } finally {
+      setParkingLotLoading(false);
+    }
+  };
+
+  const handleAddParkingLotItem = async () => {
+    if (!newParkingLotItem.title.trim() || !project?.id) return;
+
+    setSavingParkingLotItem(true);
+    try {
+      const response = await axios.post(`/api/projects/parking-lot?projectId=${project.id}`, {
+        items: [{
+          type: newParkingLotItem.type,
+          title: newParkingLotItem.title.trim(),
+          description: null
+        }]
+      });
+
+      setParkingLotItems(response.data.items || []);
+      setNewParkingLotItem({ type: 'issue', title: '' });
+      setIsAddingParkingLotItem(false);
+
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Item added to parking lot',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+    } catch (error) {
+      console.error('Error adding parking lot item:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to add item',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setSavingParkingLotItem(false);
+    }
+  };
+
+  const handleToggleParkingLotStatus = async (item) => {
+    const newStatus = item.status === 'resolved' ? 'open' : 'resolved';
+    try {
+      const response = await axios.put(
+        `/api/projects/parking-lot?projectId=${project.id}&id=${item.id}`,
+        { status: newStatus }
+      );
+
+      setParkingLotItems(parkingLotItems.map(i =>
+        i.id === item.id ? response.data : i
+      ));
+    } catch (error) {
+      console.error('Error updating parking lot item:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to update item',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  };
+
+  const handleDeleteParkingLotItem = async (id) => {
+    try {
+      await axios.delete(`/api/projects/parking-lot?projectId=${project.id}&id=${id}`);
+      setParkingLotItems(parkingLotItems.filter(i => i.id !== id));
+
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Item removed from parking lot',
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+    } catch (error) {
+      console.error('Error deleting parking lot item:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to delete item',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    }
+  };
+
+  // Filter parking lot items - show only open items
+  const openParkingLotItems = parkingLotItems.filter(item => item.status !== 'resolved');
 
   // Initialize to today's note on first load
   useEffect(() => {
@@ -623,6 +738,7 @@ const DailyNotes = ({ project }) => {
   const handleSummarizeWithAI = async () => {
     if (isSummarizing || !currentNote?.sessionNotes) return;
 
+    setRegenerateDialogOpen(false);
     setIsSummarizing(true);
     try {
       // Build attendance data from events for the current note's date
@@ -678,11 +794,15 @@ const DailyNotes = ({ project }) => {
         absentNames
       } : null;
 
+      // Include parking lot items in the AI summarization
+      const parkingLotData = parkingLotItems.length > 0 ? parkingLotItems : null;
+
       await dispatch(summarizeWithAI({
         projectId: project.id,
         date: currentNote.date,
         sessionNotes: currentNote.sessionNotes,
-        attendanceData
+        attendanceData,
+        parkingLotItems: parkingLotData
       })).unwrap();
     } catch (error) {
       console.error('Failed to summarize with AI:', error);
@@ -692,6 +812,20 @@ const DailyNotes = ({ project }) => {
   };
 
   const currentNote = notes[currentNoteIndex];
+
+  // Check if current note has existing AI-generated content
+  const hasExistingAIContent = currentNote?.keyHighlights?.length > 0 || currentNote?.challenges?.length > 0;
+
+  // Handle click on summarize button - show dialog if content exists
+  const handleSummarizeClick = () => {
+    if (isSummarizing || !currentNote?.sessionNotes) return;
+
+    if (hasExistingAIContent) {
+      setRegenerateDialogOpen(true);
+    } else {
+      handleSummarizeWithAI();
+    }
+  };
 
   // Calculate real attendance data from events for the current note
   const currentNoteAttendance = useMemo(() => {
@@ -1366,7 +1500,7 @@ const DailyNotes = ({ project }) => {
                               size="small"
                               variant="outlined"
                               startIcon={isSummarizing ? <CircularProgress size={16} /> : <AutoAwesome />}
-                              onClick={handleSummarizeWithAI}
+                              onClick={handleSummarizeClick}
                               disabled={isSummarizing || !currentNote?.sessionNotes || currentNote.sessionNotes.trim().length < 10}
                               sx={{
                                 borderRadius: 2,
@@ -1471,6 +1605,217 @@ const DailyNotes = ({ project }) => {
                         </Typography>
                       </Box>
                     </Box>
+
+                  {/* Parking Lot Section */}
+                  <Box sx={{ mt: 3 }}>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight="bold"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 0.5,
+                        mb: 1
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <LocalParking sx={{ fontSize: 20, color: 'secondary.main' }} />
+                        Parking Lot
+                        {openParkingLotItems.length > 0 && (
+                          <Chip
+                            label={openParkingLotItems.length}
+                            size="small"
+                            color="secondary"
+                            sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setIsAddingParkingLotItem(true);
+                          setNewParkingLotItem({ type: 'issue', title: '' });
+                        }}
+                      >
+                        <Add sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Typography>
+
+                    {parkingLotLoading ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                        <CircularProgress size={24} />
+                      </Box>
+                    ) : (
+                      <Stack spacing={1} sx={{ pl: 3 }}>
+                        {/* Add new item input */}
+                        {isAddingParkingLotItem && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Box
+                              component="select"
+                              value={newParkingLotItem.type}
+                              onChange={(e) => setNewParkingLotItem({ ...newParkingLotItem, type: e.target.value })}
+                              sx={{
+                                px: 1,
+                                py: 0.5,
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                bgcolor: 'background.paper',
+                                color: 'text.primary',
+                                fontSize: '0.75rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                '&:focus': {
+                                  borderColor: 'primary.main'
+                                }
+                              }}
+                            >
+                              <option value="issue">Issue</option>
+                              <option value="question">Question</option>
+                            </Box>
+                            <TextField
+                              size="small"
+                              fullWidth
+                              autoFocus
+                              value={newParkingLotItem.title}
+                              onChange={(e) => setNewParkingLotItem({ ...newParkingLotItem, title: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && newParkingLotItem.title.trim()) {
+                                  handleAddParkingLotItem();
+                                } else if (e.key === 'Escape') {
+                                  setIsAddingParkingLotItem(false);
+                                  setNewParkingLotItem({ type: 'issue', title: '' });
+                                }
+                              }}
+                              placeholder="Type new item..."
+                              sx={{ flex: 1 }}
+                            />
+                            <Tooltip title="Save">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  disabled={!newParkingLotItem.title.trim() || savingParkingLotItem}
+                                  onClick={handleAddParkingLotItem}
+                                >
+                                  {savingParkingLotItem ? (
+                                    <CircularProgress size={16} />
+                                  ) : (
+                                    <CheckCircle sx={{ fontSize: 18 }} />
+                                  )}
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Cancel">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => {
+                                  setIsAddingParkingLotItem(false);
+                                  setNewParkingLotItem({ type: 'issue', title: '' });
+                                }}
+                              >
+                                <Close sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        )}
+
+                        {/* List of parking lot items */}
+                        {openParkingLotItems.length === 0 && !isAddingParkingLotItem ? (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontStyle: 'italic', py: 1 }}
+                          >
+                            No open items in parking lot.
+                          </Typography>
+                        ) : (
+                          openParkingLotItems.map((item) => {
+                            const createdDate = new Date(item.reportedDate || item.createdAt);
+                            const daysOpen = Math.ceil((new Date() - createdDate) / (1000 * 60 * 60 * 24));
+                            const formattedDate = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                            return (
+                              <Box
+                                key={item.id}
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  py: 0.5,
+                                  '&:hover .action-btns': { opacity: 1 }
+                                }}
+                              >
+                                <Tooltip title={item.type === 'issue' ? 'Issue' : 'Question'}>
+                                  {item.type === 'issue' ? (
+                                    <ReportProblem sx={{ fontSize: 16, color: 'error.main' }} />
+                                  ) : (
+                                    <HelpOutline sx={{ fontSize: 16, color: 'info.main' }} />
+                                  )}
+                                </Tooltip>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    flex: 1,
+                                    color: 'text.secondary'
+                                  }}
+                                >
+                                  {item.title}
+                                </Typography>
+                                <Tooltip title={`Created on ${formattedDate}`}>
+                                  <Chip
+                                    label={`${daysOpen}d`}
+                                    size="small"
+                                    variant="outlined"
+                                    color={daysOpen > 7 ? 'error' : daysOpen > 3 ? 'warning' : 'default'}
+                                    sx={{ height: 20, fontSize: '0.65rem', minWidth: 32 }}
+                                  />
+                                </Tooltip>
+                                <Chip
+                                  label={item.priority}
+                                  size="small"
+                                  color={
+                                    item.priority === 'high' ? 'error' :
+                                    item.priority === 'medium' ? 'warning' : 'success'
+                                  }
+                                  sx={{ height: 20, fontSize: '0.65rem', textTransform: 'capitalize' }}
+                                />
+                                <Box
+                                  className="action-btns"
+                                  sx={{
+                                    display: 'flex',
+                                    gap: 0.5,
+                                    opacity: 0,
+                                    transition: 'opacity 0.2s'
+                                  }}
+                                >
+                                  <Tooltip title="Mark as resolved">
+                                    <IconButton
+                                      size="small"
+                                      color="success"
+                                      onClick={() => handleToggleParkingLotStatus(item)}
+                                    >
+                                      <CheckCircle sx={{ fontSize: 14 }} />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Delete">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleDeleteParkingLotItem(item.id)}
+                                    >
+                                      <Close sx={{ fontSize: 14 }} />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Box>
+                              </Box>
+                            );
+                          })
+                        )}
+                      </Stack>
+                    )}
+                  </Box>
                 </CardContent>
               </Card>
             </Collapse>
@@ -1524,6 +1869,35 @@ const DailyNotes = ({ project }) => {
         <DialogActions>
           <Button onClick={() => setNewNoteDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={() => setNewNoteDialogOpen(false)}>Add Note</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Regenerate AI Summary Confirmation Dialog */}
+      <Dialog
+        open={regenerateDialogOpen}
+        onClose={() => setRegenerateDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Warning sx={{ color: 'warning.main' }} />
+          Regenerate Summary?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            This will replace the existing Key Highlights and Challenges with new AI-generated content. This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRegenerateDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleSummarizeWithAI}
+            startIcon={<AutoAwesome />}
+          >
+            Regenerate
+          </Button>
         </DialogActions>
       </Dialog>
     </Paper>

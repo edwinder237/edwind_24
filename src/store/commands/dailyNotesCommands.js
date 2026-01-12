@@ -530,16 +530,22 @@ export const fetchDailyNotes = createAsyncThunk(
  * @param {number} params.attendanceData.absent - Number of participants absent
  * @param {number} params.attendanceData.total - Total number of participants
  * @param {string[]} params.attendanceData.absentNames - Names of absent participants
+ * @param {object[]} params.parkingLotItems - Optional parking lot items
+ * @param {string} params.parkingLotItems[].type - Item type (issue or question)
+ * @param {string} params.parkingLotItems[].title - Item title
+ * @param {string} params.parkingLotItems[].priority - Item priority (low, medium, high)
+ * @param {string} params.parkingLotItems[].status - Item status (open, in_progress, resolved)
  */
 export const summarizeWithAI = createAsyncThunk(
   'dailyNotes/summarizeWithAI',
-  async ({ projectId, date, sessionNotes, attendanceData = null }, { dispatch, getState, rejectWithValue }) => {
+  async ({ projectId, date, sessionNotes, attendanceData = null, parkingLotItems = null }, { dispatch, getState, rejectWithValue }) => {
     try {
       const command = {
         type: 'SUMMARIZE_WITH_AI',
         projectId,
         date,
         hasAttendanceData: !!attendanceData,
+        hasParkingLotItems: !!parkingLotItems && parkingLotItems.length > 0,
         timestamp: new Date().toISOString()
       };
 
@@ -547,10 +553,11 @@ export const summarizeWithAI = createAsyncThunk(
 
       dispatch(loadingStarted());
 
-      // Call AI summarization API with optional attendance data
+      // Call AI summarization API with optional attendance and parking lot data
       const response = await axios.post('/api/ai/summarize-session-notes', {
         sessionNotes,
-        attendanceData
+        attendanceData,
+        parkingLotItems
       });
 
       if (!response.data.success) {
