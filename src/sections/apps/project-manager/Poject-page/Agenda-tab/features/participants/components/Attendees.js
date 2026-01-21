@@ -369,7 +369,10 @@ const AttendeesRTK = ({
           "& .MuiCardContent-root": {
             overflowY: 'auto',
             maxHeight: 300,
-            pt: 1
+            pt: 1,
+            '&::-webkit-scrollbar': { display: 'none' },
+            msOverflowStyle: 'none',
+            scrollbarWidth: 'none'
           }
         }}
       >

@@ -104,6 +104,13 @@ const ProjectManager = {
           type: 'item',
           url: '/project-manager/resources/participant-roles',
           breadcrumbs: true
+        },
+        {
+          id: 'pm-resources-rooms',
+          title: <FormattedMessage id="Rooms" />,
+          type: 'item',
+          url: '/project-manager/resources/rooms',
+          breadcrumbs: true
         }
       ]
     },

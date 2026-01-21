@@ -36,6 +36,7 @@ async function handler(req, res) {
         projectStatus: true,
         startDate: true,
         endDate: true,
+        trainingRecipientId: true,
         
         // Events with all necessary relations for agenda view
         events: {
@@ -57,7 +58,8 @@ async function handler(req, res) {
             editable: true,
             eventStatus: true,
             extendedProps: true,
-            
+            timezone: true,
+
             // Course information for each event
             course: {
               select: {
@@ -93,7 +95,8 @@ async function handler(req, res) {
                         activityCategory: true,
                         activityStatus: true,
                         ActivityOrder: true,
-                        backgroundImg: true
+                        backgroundImg: true,
+                        contentUrl: true
                       },
                       orderBy: {
                         ActivityOrder: 'asc'
@@ -256,7 +259,7 @@ async function handler(req, res) {
               select: {
                 id: true,
                 role: true,
-                
+
                 instructor: {
                   select: {
                     id: true,
@@ -270,6 +273,20 @@ async function handler(req, res) {
                     expertise: true
                   }
                 }
+              }
+            },
+
+            // Room assignment
+            roomId: true,
+            room: {
+              select: {
+                id: true,
+                name: true,
+                location: true,
+                capacity: true,
+                type: true,
+                roomType: true,
+                status: true
               }
             }
           },
@@ -485,6 +502,29 @@ async function handler(req, res) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    // Fetch available rooms based on project's training recipient
+    let availableRooms = [];
+    if (agendaData.trainingRecipientId) {
+      availableRooms = await prisma.rooms.findMany({
+        where: {
+          trainingRecipientId: agendaData.trainingRecipientId,
+          isActive: true
+        },
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          capacity: true,
+          type: true,
+          roomType: true,
+          status: true
+        },
+        orderBy: {
+          name: 'asc'
+        }
+      });
+    }
+
     // Calculate additional metrics that might be useful for agenda
     const metrics = {
       totalEvents: agendaData.events.length,
@@ -517,13 +557,15 @@ async function handler(req, res) {
         title: agendaData.title,
         projectStatus: agendaData.projectStatus,
         startDate: agendaData.startDate,
-        endDate: agendaData.endDate
+        endDate: agendaData.endDate,
+        trainingRecipientId: agendaData.trainingRecipientId
       },
       events: agendaData.events,
       groups: agendaData.groups,
       participants: agendaData.participants,
       curriculums: agendaData.project_curriculums,
       instructors: agendaData.project_instructors,
+      rooms: availableRooms,
       metrics: metrics,
       timestamp: new Date().toISOString()
     };

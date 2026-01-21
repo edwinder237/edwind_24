@@ -50,11 +50,16 @@ const ProjectScheduleCard = React.memo(({
     [settings.workingDays, onToggleWorkingDay]
   );
 
-  // Memoized timezone options
-  const timezoneMenuItems = useMemo(() => 
-    TIMEZONE_OPTIONS.map((tz) => (
-      <MenuItem key={tz} value={tz}>{tz}</MenuItem>
-    )), 
+  // Memoized timezone options - supports both old string format and new object format
+  const timezoneMenuItems = useMemo(() =>
+    TIMEZONE_OPTIONS.map((tz) => {
+      // Handle both object format { value, label } and legacy string format
+      const value = typeof tz === 'string' ? tz : tz.value;
+      const label = typeof tz === 'string' ? tz : tz.label;
+      return (
+        <MenuItem key={value} value={value}>{label}</MenuItem>
+      );
+    }),
     []
   );
 

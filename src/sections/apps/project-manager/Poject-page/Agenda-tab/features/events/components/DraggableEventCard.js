@@ -46,6 +46,11 @@ import {
   Add,
   Remove,
   Info,
+  MeetingRoom,
+  Share,
+  ChevronRight,
+  Email,
+  PersonAdd,
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
 import { useDispatch, useSelector } from 'store';
@@ -53,8 +58,11 @@ import { deleteEvent, updateEvent, duplicateEvent, addGroupToEvent } from 'store
 import { fetchProjectAgenda } from 'store/reducers/project/agenda';
 import { openSnackbar } from 'store/reducers/snackbar';
 import EventDetailsSection from './EventDetailsSection';
+import EmailAccessDialog from 'components/EmailAccessDialog';
+import SendInviteDialog from 'components/SendInviteDialog';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
 import { useTimeRangeInput } from 'hooks/useTimeRangeInput';
+import { getTimezoneOffset, convertTimezone } from 'utils/timezone';
 
 // Drag types
 const ItemTypes = {
@@ -102,8 +110,16 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [manageEventDialogOpen, setManageEventDialogOpen] = useState(false);
   const [eventDetailsLoading, setEventDetailsLoading] = useState(false);
+  const [shareMenuAnchorEl, setShareMenuAnchorEl] = useState(null);
+  const [emailAccessDialogOpen, setEmailAccessDialogOpen] = useState(false);
+  const [emailAccessParticipants, setEmailAccessParticipants] = useState([]);
+  const [loadingEmailAccess, setLoadingEmailAccess] = useState(false);
+  const [sendInviteDialogOpen, setSendInviteDialogOpen] = useState(false);
+  const [sendInviteParticipants, setSendInviteParticipants] = useState([]);
+  const [loadingSendInvite, setLoadingSendInvite] = useState(false);
   const menuOpen = Boolean(menuAnchorEl);
   const colorPickerOpen = Boolean(colorPickerAnchorEl);
+  const shareMenuOpen = Boolean(shareMenuAnchorEl);
 
   // Use standard color options from constants
   const colorOptions = APP_COLOR_OPTIONS;
@@ -216,6 +232,312 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
 
   const handleColorPickerClose = () => {
     setColorPickerAnchorEl(null);
+  };
+
+  // Share submenu handlers
+  const handleShareMenuOpen = (e) => {
+    e.stopPropagation();
+    setShareMenuAnchorEl(e.currentTarget);
+  };
+
+  const handleShareMenuClose = () => {
+    setShareMenuAnchorEl(null);
+  };
+
+  const handleShareAction = async (action, e) => {
+    e?.stopPropagation();
+    handleShareMenuClose();
+    handleMenuClose();
+
+    switch (action) {
+      case 'sendAccessToParticipants':
+        // Open Email Access dialog to select which tool credentials to send
+        try {
+          const attendeeCount = event.event_attendees?.length || 0;
+          if (attendeeCount === 0) {
+            dispatch(
+              openSnackbar({
+                open: true,
+                message: 'No participants in this event. Please add participants first.',
+                variant: 'alert',
+                alert: { color: 'warning' },
+                close: false,
+                anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+              })
+            );
+            return;
+          }
+
+          // Fetch participants with their tool accesses for the dialog
+          setLoadingEmailAccess(true);
+          const response = await fetch('/api/participants/fetch-event-participants-with-tools', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              eventId: event.id
+            })
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Failed to load participant data');
+          }
+
+          // Set participants for the dialog and open it
+          setEmailAccessParticipants(result.participants || []);
+          setEmailAccessDialogOpen(true);
+        } catch (error) {
+          console.error('Error loading participant data:', error);
+          dispatch(
+            openSnackbar({
+              open: true,
+              message: error.message || 'Failed to load participant data',
+              variant: 'alert',
+              alert: { color: 'error' },
+              close: false,
+              anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+            })
+          );
+        } finally {
+          setLoadingEmailAccess(false);
+        }
+        break;
+
+      case 'sendInviteToInstructor':
+        // Send calendar invite to lead instructor for this specific event
+        try {
+          // Get lead instructor - check multiple sources:
+          // 1. event_instructors relation (from fetchProjectAgenda)
+          // 2. event.instructor direct field
+          // 3. Fall back to project's lead instructor if no event-specific instructor
+          let leadInstructor = event.event_instructors?.[0]?.instructor || event.instructor;
+
+          // If no event-specific instructor, try to get from project instructors
+          if (!leadInstructor && project?.project_instructors?.length > 0) {
+            const projectLeadInstructor = project.project_instructors.find(
+              pi => pi.instructorType === 'lead' || pi.instructorType === 'primary'
+            ) || project.project_instructors[0];
+            leadInstructor = projectLeadInstructor?.instructor;
+          }
+
+          if (!leadInstructor || !leadInstructor.email) {
+            dispatch(
+              openSnackbar({
+                open: true,
+                message: 'No instructor assigned to this event. Please assign an instructor first.',
+                variant: 'alert',
+                alert: { color: 'warning' },
+                close: false,
+                anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+              })
+            );
+            return;
+          }
+
+          // Send calendar invite using the single-invite API
+          const response = await fetch('/api/projects/send-single-calendar-invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectId: project?.id,
+              eventId: event.id,
+              participantEmail: leadInstructor.email,
+              participantFirstName: leadInstructor.firstName || 'Instructor',
+              participantLastName: leadInstructor.lastName || '',
+              projectTitle: project?.title || 'Training Project',
+              includeMeetingLink: true
+            })
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Failed to send invite');
+          }
+
+          const instructorName = `${leadInstructor.firstName || ''} ${leadInstructor.lastName || ''}`.trim() || leadInstructor.email;
+          dispatch(
+            openSnackbar({
+              open: true,
+              message: `Calendar invite sent to ${instructorName}`,
+              variant: 'alert',
+              alert: { color: 'success' },
+              close: false,
+              anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+            })
+          );
+        } catch (error) {
+          console.error('Error sending invite to instructor:', error);
+          dispatch(
+            openSnackbar({
+              open: true,
+              message: error.message || 'Failed to send instructor invite',
+              variant: 'alert',
+              alert: { color: 'error' },
+              close: false,
+              anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+            })
+          );
+        }
+        break;
+
+      case 'sendInviteToParticipants':
+        // Open dialog to select participants and send calendar invites
+        try {
+          const participantCount = event.event_attendees?.length || 0;
+          if (participantCount === 0) {
+            dispatch(
+              openSnackbar({
+                open: true,
+                message: 'No participants in this event. Please add participants first.',
+                variant: 'alert',
+                alert: { color: 'warning' },
+                close: false,
+                anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+              })
+            );
+            return;
+          }
+
+          setLoadingSendInvite(true);
+
+          // Fetch participants with their data for the dialog
+          const response = await fetch('/api/participants/fetch-event-participants-with-tools', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eventId: event.id })
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Failed to load participant data');
+          }
+
+          // Set participants for the dialog and open it
+          setSendInviteParticipants(result.participants || []);
+          setSendInviteDialogOpen(true);
+        } catch (error) {
+          console.error('Error loading participant data:', error);
+          dispatch(
+            openSnackbar({
+              open: true,
+              message: error.message || 'Failed to load participants',
+              variant: 'alert',
+              alert: { color: 'error' },
+              close: false,
+              anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+            })
+          );
+        } finally {
+          setLoadingSendInvite(false);
+        }
+        break;
+
+      default:
+        break;
+    }
+  };
+
+  // Handler for sending credentials via EmailAccessDialog
+  const handleSendEmailCredentials = async ({ participants: emailParticipants, credentials }) => {
+    try {
+      const response = await fetch('/api/email/send-credentials-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participants: emailParticipants,
+          credentials: credentials,
+          projectName: project?.title || 'Training Project'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to send emails');
+      }
+
+      const { summary } = result;
+      let message = `Email sending completed!\n`;
+      message += `Emails sent: ${summary.emailsSent}\n`;
+      if (summary.emailsFailed > 0) {
+        message += `Failed: ${summary.emailsFailed}\n`;
+      }
+      message += `Credential types: ${summary.credentialTypes}`;
+
+      dispatch(openSnackbar({
+        open: true,
+        message: message,
+        variant: 'alert',
+        alert: { color: summary.emailsFailed > 0 ? 'warning' : 'success' },
+        close: false,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+      }));
+
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: `Failed to send emails: ${error.message}`,
+        variant: 'alert',
+        alert: { color: 'error' },
+        close: false,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+      }));
+      throw error;
+    }
+  };
+
+  // Handler for sending calendar invites via SendInviteDialog
+  const handleSendCalendarInvites = async (selectedParticipants) => {
+    try {
+      const response = await fetch('/api/projects/send-calendar-invites-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project?.id,
+          eventId: event.id,
+          projectTitle: project?.title || 'Training Project',
+          includeMeetingLink: true,
+          participantIds: selectedParticipants.map(p => p.participant?.id || p.id)
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to send calendar invites');
+      }
+
+      const { summary } = result;
+      let message = `Calendar invites sent to ${summary?.emailsSent || 0} participant(s)`;
+      if (summary?.emailsFailed > 0) {
+        message += ` (${summary.emailsFailed} failed)`;
+      }
+
+      dispatch(openSnackbar({
+        open: true,
+        message,
+        variant: 'alert',
+        alert: { color: summary?.emailsFailed > 0 ? 'warning' : 'success' },
+        close: false,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+      }));
+
+    } catch (error) {
+      console.error('Failed to send calendar invites:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: `Failed to send invites: ${error.message}`,
+        variant: 'alert',
+        alert: { color: 'error' },
+        close: false,
+        anchorOrigin: { vertical: 'bottom', horizontal: 'right' }
+      }));
+      throw error;
+    }
   };
 
   const handleColorChange = async (newColor) => {
@@ -733,6 +1055,20 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                 </Stack>
               )}
 
+              {event.room && (
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <MeetingRoom sx={{ fontSize: 16, color: 'text.secondary' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    {event.room.name}
+                    {event.room.location && (
+                      <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: 0.5 }}>
+                        ({event.room.location})
+                      </Typography>
+                    )}
+                  </Typography>
+                </Stack>
+              )}
+
               {event.instructor && (
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <Person sx={{ fontSize: 16, color: 'text.secondary' }} />
@@ -983,6 +1319,24 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
               >
                 {formatTime(event.start)} - {formatTime(event.end)}
               </Typography>
+              {/* Show timezone conversion if different from project - show what time it is for participants in event timezone */}
+              {event.timezone && event.timezone !== project?.project_settings?.timezone && project?.project_settings?.timezone && (
+                <Tooltip
+                  title={`Event is in ${getTimezoneOffset(event.timezone)}. For participants in that timezone, the project time of ${formatTime(event.start)} ${getTimezoneOffset(project.project_settings.timezone)} is ${convertTimezone(event.start, project.project_settings.timezone, event.timezone)} ${getTimezoneOffset(event.timezone)}`}
+                  arrow
+                >
+                  <Typography
+                    sx={{
+                      fontSize: '0.6rem',
+                      color: 'text.disabled',
+                      ml: 0.5,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    ({convertTimezone(event.start, project.project_settings.timezone, event.timezone)} {getTimezoneOffset(event.timezone)})
+                  </Typography>
+                </Tooltip>
+              )}
             </Stack>
           </Stack>
 
@@ -1079,6 +1433,21 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
             </ListItemIcon>
             <ListItemText>Change Color</ListItemText>
           </MenuItem>
+          <MenuItem
+            onClick={handleShareMenuOpen}
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <ListItemIcon>
+                <Share fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Share</ListItemText>
+            </Box>
+            <ChevronRight fontSize="small" sx={{ color: 'text.secondary' }} />
+          </MenuItem>
           <Divider />
           <MenuItem
             onClick={(e) => handleMenuAction('delete', e)}
@@ -1088,6 +1457,94 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
               <Delete fontSize="small" sx={{ color: 'error.main' }} />
             </ListItemIcon>
             <ListItemText>Delete</ListItemText>
+          </MenuItem>
+        </Menu>
+
+        {/* Share Submenu */}
+        <Menu
+          anchorEl={shareMenuAnchorEl}
+          open={shareMenuOpen}
+          onClose={handleShareMenuClose}
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
+          PaperProps={{
+            sx: {
+              boxShadow: theme.shadows[3],
+              minWidth: 200,
+              ml: 0.5
+            }
+          }}
+        >
+          <MenuItem
+            onClick={(e) => handleShareAction('sendAccessToParticipants', e)}
+            disabled={loadingEmailAccess}
+          >
+            <ListItemIcon>
+              {loadingEmailAccess ? <CircularProgress size={20} /> : <Email fontSize="small" />}
+            </ListItemIcon>
+            <ListItemText
+              primary="Email Access"
+              secondary={event.event_attendees?.length > 0
+                ? `${event.event_attendees.length} participant(s)`
+                : 'No participants'}
+              secondaryTypographyProps={{
+                variant: 'caption',
+                sx: { fontSize: '0.7rem', opacity: 0.8 }
+              }}
+            />
+          </MenuItem>
+          <MenuItem onClick={(e) => handleShareAction('sendInviteToInstructor', e)}>
+            <ListItemIcon>
+              <PersonAdd fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Send Invite to Instructor"
+              secondary={(() => {
+                // Check event-specific instructor first
+                let leadInstructor = event.event_instructors?.[0]?.instructor || event.instructor;
+                let isProjectInstructor = false;
+
+                // Fall back to project lead instructor
+                if (!leadInstructor && project?.project_instructors?.length > 0) {
+                  const projectLeadInstructor = project.project_instructors.find(
+                    pi => pi.instructorType === 'lead' || pi.instructorType === 'primary'
+                  ) || project.project_instructors[0];
+                  leadInstructor = projectLeadInstructor?.instructor;
+                  isProjectInstructor = true;
+                }
+
+                if (leadInstructor) {
+                  const name = `${leadInstructor.firstName || ''} ${leadInstructor.lastName || ''}`.trim() || leadInstructor.email || 'Lead Instructor';
+                  return isProjectInstructor ? `${name} (Project Lead)` : name;
+                }
+                return 'No instructor assigned';
+              })()}
+              secondaryTypographyProps={{
+                variant: 'caption',
+                sx: { fontSize: '0.7rem', opacity: 0.8 }
+              }}
+            />
+          </MenuItem>
+          <MenuItem onClick={(e) => handleShareAction('sendInviteToParticipants', e)}>
+            <ListItemIcon>
+              <Email fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Send Invite to Participants"
+              secondary={event.event_attendees?.length > 0
+                ? `${event.event_attendees.length} participant(s)`
+                : 'No participants'}
+              secondaryTypographyProps={{
+                variant: 'caption',
+                sx: { fontSize: '0.7rem', opacity: 0.8 }
+              }}
+            />
           </MenuItem>
         </Menu>
 
@@ -1664,6 +2121,29 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
         </Button>
       </DialogActions>
     </Dialog>
+
+    {/* Email Access Dialog for sending tool credentials */}
+    <EmailAccessDialog
+      open={emailAccessDialogOpen}
+      onClose={() => {
+        setEmailAccessDialogOpen(false);
+        setEmailAccessParticipants([]);
+      }}
+      selectedParticipants={emailAccessParticipants}
+      onSend={handleSendEmailCredentials}
+    />
+
+    {/* Send Invite Dialog for sending calendar invites to selected participants */}
+    <SendInviteDialog
+      open={sendInviteDialogOpen}
+      onClose={() => {
+        setSendInviteDialogOpen(false);
+        setSendInviteParticipants([]);
+      }}
+      participants={sendInviteParticipants}
+      eventTitle={event?.title || 'Event'}
+      onSend={handleSendCalendarInvites}
+    />
     </>
   );
 };

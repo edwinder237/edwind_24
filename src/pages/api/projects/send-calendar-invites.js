@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma';
 import { format, parseISO } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { enUS } from 'date-fns/locale';
 import { Resend } from 'resend';
 
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId, groupIds = [], events, projectTitle, dailyFocusData, includeMeetingLink = true, customMeetingLink = null, customTemplate, templateType, instructorEmails = [] } = req.body;
+    const { projectId, groupIds = [], events, projectTitle, dailyFocusData, includeMeetingLink = true, customMeetingLink = null, customTemplate, templateType, instructorEmails = [], timezone = 'UTC' } = req.body;
 
     // Require either groups or instructors to send to
     if ((!groupIds || !Array.isArray(groupIds) || groupIds.length === 0) && (!instructorEmails || !Array.isArray(instructorEmails) || instructorEmails.length === 0)) {
@@ -141,15 +142,33 @@ export default async function handler(req, res) {
         ? (customMeetingLink || event.meetingLink || event.zoomLink || null)
         : null;
 
+      // Get room information
+      const room = event.room || null;
+      const roomLocation = room ? `${room.name}${room.location ? ` - ${room.location}` : ''}` : null;
+
+      // Determine location: prefer room, then event location, then meeting link
+      let eventLocation = 'TBD';
+      if (roomLocation) {
+        eventLocation = roomLocation;
+      } else if (event.location) {
+        eventLocation = event.location;
+      } else if (includeMeetingLink && meetingLink) {
+        eventLocation = meetingLink;
+      }
+
       return {
         title: event.title || 'Training Event',
-        description: createEventDescription(event, dailyFocus, groupNames, meetingLink, includeMeetingLink),
+        description: createEventDescription(event, dailyFocus, groupNames, meetingLink, includeMeetingLink, room),
         startTime: startDate,
         endTime: endDate || new Date(startDate.getTime() + 60 * 60 * 1000), // Default 1 hour if no end time
-        location: includeMeetingLink ? (event.location || meetingLink) : (event.location || 'TBD'),
+        location: eventLocation,
         course: event.course?.title || null,
         meetingLink: meetingLink,
-        instructorName: instructorName
+        instructorName: instructorName,
+        room: room,
+        // Use event-specific timezone, or fall back to project timezone
+        // Check for both null and empty string
+        timezone: (event.timezone && event.timezone.trim()) || timezone
       };
     });
 
@@ -163,7 +182,7 @@ export default async function handler(req, res) {
       for (const event of calendarEvents) {
         try {
           const organizerName = event.instructorName || project.sub_organization?.title || 'EDWIND Training';
-          const eventIcal = generateSingleEventInvitation(event, projectTitle, participant, organizerName);
+          const eventIcal = generateSingleEventInvitation(event, participant, organizerName);
           
           // Send individual event invitation with rate limiting
           const emailData = await resend.emails.send({
@@ -263,7 +282,7 @@ export default async function handler(req, res) {
   }
 }
 
-function createEventDescription(event, dailyFocus, groupNames, meetingLink, includeMeetingLink = true) {
+function createEventDescription(event, dailyFocus, groupNames, meetingLink, includeMeetingLink = true, room = null) {
   let description = '';
 
   if (event.course) {
@@ -272,6 +291,17 @@ function createEventDescription(event, dailyFocus, groupNames, meetingLink, incl
 
   if (event.description) {
     description += `Description: ${event.description}\n\n`;
+  }
+
+  if (room) {
+    description += `Room: ${room.name}`;
+    if (room.location) {
+      description += ` (${room.location})`;
+    }
+    if (room.capacity) {
+      description += ` - Capacity: ${room.capacity}`;
+    }
+    description += '\n\n';
   }
 
   if (groupNames.length > 0) {
@@ -289,26 +319,63 @@ function createEventDescription(event, dailyFocus, groupNames, meetingLink, incl
   return description;
 }
 
-function generateSingleEventInvitation(event, projectTitle, participant, organizationName = 'EDWIND Training') {
+function generateSingleEventInvitation(event, participant, organizationName = 'EDWIND Training') {
   const now = new Date();
   const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const startTime = event.startTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const endTime = event.endTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const uid = `${timestamp}-${Math.random().toString(36).substring(7)}@edwind.training`;
+
+  // Format times with timezone support
+  // If event has a timezone, use TZID format; otherwise use UTC
+  const eventTimezone = event.timezone || 'UTC';
+  let dtstart, dtend, vtimezone = '';
+
+  if (eventTimezone && eventTimezone !== 'UTC') {
+    // Convert UTC time to the target timezone and format for ICS
+    // Use formatInTimeZone to get the correct local time in the specified timezone
+    const formatForICS = (date, tz) => {
+      return formatInTimeZone(date, tz, "yyyyMMdd'T'HHmmss");
+    };
+
+    dtstart = `DTSTART;TZID=${eventTimezone}:${formatForICS(event.startTime, eventTimezone)}`;
+    dtend = `DTEND;TZID=${eventTimezone}:${formatForICS(event.endTime, eventTimezone)}`;
+
+    // Add VTIMEZONE component for better compatibility
+    vtimezone = `BEGIN:VTIMEZONE
+TZID:${eventTimezone}
+X-LIC-LOCATION:${eventTimezone}
+END:VTIMEZONE
+`;
+  } else {
+    // Use UTC format
+    const startTime = event.startTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const endTime = event.endTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    dtstart = `DTSTART:${startTime}`;
+    dtend = `DTEND:${endTime}`;
+  }
+
+  // Escape special characters in description and location
+  const escapeIcal = (str) => {
+    if (!str) return '';
+    return str
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\n/g, '\\n');
+  };
 
   const ical = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//EDWIND//Training Event Invitation//EN
 CALSCALE:GREGORIAN
 METHOD:REQUEST
-BEGIN:VEVENT
+${vtimezone}BEGIN:VEVENT
 UID:${uid}
 DTSTAMP:${timestamp}
-DTSTART:${startTime}
-DTEND:${endTime}
-SUMMARY:${event.title}
-DESCRIPTION:${event.description.replace(/\n/g, '\\n')}
-LOCATION:${event.location}
+${dtstart}
+${dtend}
+SUMMARY:${escapeIcal(event.title)}
+DESCRIPTION:${escapeIcal(event.description)}
+LOCATION:${escapeIcal(event.location)}
 STATUS:CONFIRMED
 SEQUENCE:0
 ATTENDEE;CN=${participant.firstName} ${participant.lastName};RSVP=TRUE;ROLE=REQ-PARTICIPANT:mailto:${participant.email}
@@ -350,8 +417,9 @@ function generateEventInviteTemplate({ participantName, event, projectTitle, gro
           <div style="margin: 15px 0;">
             <p style="margin: 5px 0;"><strong>Date:</strong> ${startTime}</p>
             <p style="margin: 5px 0;"><strong>Time:</strong> ${timeRange}</p>
-            <p style="margin: 5px 0;"><strong>Time Zone:</strong> ${Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
-            ${event.location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${event.location}</p>` : ''}
+            <p style="margin: 5px 0;"><strong>Time Zone:</strong> ${event.timezone || 'UTC'}</p>
+            ${event.room ? `<p style="margin: 5px 0;"><strong>Room:</strong> ${event.room.name}${event.room.location ? ` (${event.room.location})` : ''}</p>` : ''}
+            ${event.location && !event.room ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${event.location}</p>` : ''}
             ${event.meetingLink ? `
               <p style="margin: 5px 0;"><strong>Join Meeting:</strong>
                 <a href="${event.meetingLink}" target="_blank" style="color: #1976d2; text-decoration: none; font-weight: 500;">

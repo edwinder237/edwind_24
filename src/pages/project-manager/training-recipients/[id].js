@@ -54,7 +54,8 @@ import {
   UploadOutlined,
   DeleteOutlined,
   LockOutlined,
-  StopOutlined
+  StopOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'store';
 import { getSingleTrainingRecipient, updateTrainingRecipient, deleteParticipant } from 'store/reducers/trainingRecipients';
@@ -67,6 +68,7 @@ import Page from 'components/Page';
 import MainCard from 'components/MainCard';
 import GoogleMaps from 'sections/apps/project-manager/projects-list/google-map-autocomplete/GoogleMap';
 import DeleteCard from 'components/cards/DeleteCard';
+import ActivityTimeline from 'components/ActivityTimeline';
 
 // ==============================|| TRAINING RECIPIENT DETAIL PAGE ||============================== //
 
@@ -1064,7 +1066,19 @@ const TrainingRecipientDetail = () => {
                   <ListItemText
                     primary={
                       <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box component="span" sx={{ fontWeight: 500, fontSize: '1rem' }}>
+                        <Box
+                          component="span"
+                          sx={{
+                            fontWeight: 500,
+                            fontSize: '1rem',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              color: 'primary.main',
+                              textDecoration: 'underline'
+                            }
+                          }}
+                          onClick={() => router.push(`/project-manager/participants/${participant.id}?from=training-recipient&recipientId=${id}`)}
+                        >
                           {participant.firstName} {participant.lastName}
                         </Box>
                         {participant.participantStatus && (
@@ -1131,6 +1145,16 @@ const TrainingRecipientDetail = () => {
                   />
                   <ListItemSecondaryAction>
                     <Stack direction="row" spacing={1}>
+                      <Tooltip title="View Details">
+                        <IconButton
+                          edge="end"
+                          size="small"
+                          color="primary"
+                          onClick={() => router.push(`/project-manager/participants/${participant.id}?from=training-recipient&recipientId=${id}`)}
+                        >
+                          <EyeOutlined />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Edit Participant">
                         <IconButton
                           edge="end"
@@ -1141,9 +1165,9 @@ const TrainingRecipientDetail = () => {
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete Participant">
-                        <IconButton 
-                          edge="end" 
-                          size="small" 
+                        <IconButton
+                          edge="end"
+                          size="small"
                           color="error"
                           onClick={() => handleDeleteParticipant(participant.id, `${participant.firstName} ${participant.lastName}`)}
                         >
@@ -1171,15 +1195,7 @@ const TrainingRecipientDetail = () => {
 
       {tabValue === 3 && (
         <MainCard title="Activity History">
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <CalendarOutlined style={{ fontSize: 64, color: '#999', marginBottom: 16 }} />
-            <Typography variant="h6" gutterBottom>
-              Activity Timeline Coming Soon
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              This section will show the activity history and timeline for {recipient.name}
-            </Typography>
-          </Paper>
+          <ActivityTimeline recipientId={id} />
         </MainCard>
       )}
 

@@ -62,6 +62,7 @@ import TrainingRecipientPicker from "./TrainingRecipientPicker";
 import InstructorPicker from "./InstructorPicker";
 import GoogleMapAutocomplete from "./google-map-autocomplete";
 import CurriculumPicker from "./CurriculumPicker";
+import { TIMEZONE_OPTIONS, getTimezoneOffset } from "utils/timezone";
 
 // assets
 import {
@@ -268,6 +269,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
   const [selectedTrainingRecipient, setSelectedTrainingRecipient] = useState(null);
   const [selectedInstructor, setSelectedInstructor] = useState(null);
   const [selectedCurriculum, setSelectedCurriculum] = useState(null);
+  const [projectTimezone, setProjectTimezone] = useState(project?.project_settings?.timezone || "UTC");
 
   // Set initial training recipient for editing
   useEffect(() => {
@@ -468,6 +470,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
           trainingRecipientId: trainingRecipientId,
           instructorId: selectedInstructor ? selectedInstructor.id : null,
           curriculumId: selectedCurriculum ? selectedCurriculum.id : null,
+          timezone: projectTimezone,
         };
         if (project) {
           // Update existing project
@@ -558,18 +561,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
           const result = await dispatch(addProject(newProject, projects, isAdding));
           
           if (result.success) {
-            // If an instructor was selected, assign them as the main project instructor
-            if (selectedInstructor) {
-              try {
-                await axios.post(`/api/projects/instructors?projectId=${result.projectId}`, {
-                  instructorId: selectedInstructor.id,
-                  instructorType: 'main'
-                });
-              } catch (error) {
-                console.error('Error assigning instructor to project:', error);
-                // Don't fail the project creation if instructor assignment fails
-              }
-            }
+            // Instructor is now assigned atomically in db-create-project.js API
 
             dispatch(
               openSnackbar({
@@ -1381,6 +1373,27 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
               handleEndDateChange={handleEndDateChange}
             />
           </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="subtitle1" gutterBottom>
+              Project Timezone
+            </Typography>
+            <FormControl fullWidth>
+              <Select
+                value={projectTimezone}
+                onChange={(e) => setProjectTimezone(e.target.value)}
+                displayEmpty
+              >
+                {TIMEZONE_OPTIONS.map((tz) => (
+                  <MenuItem key={tz.value} value={tz.value}>
+                    {tz.label} ({getTimezoneOffset(tz.value)})
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>
+                All event times will be displayed in this timezone
+              </FormHelperText>
+            </FormControl>
+          </Grid>
         </Grid>
       </Box>
     </Fade>
@@ -1424,6 +1437,12 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                   <Typography variant="body2" color="textSecondary">Instructor:</Typography>
                   <Typography variant="body1">
                     {selectedInstructor ? `${selectedInstructor.firstName} ${selectedInstructor.lastName}` : 'Not selected'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Timezone:</Typography>
+                  <Typography variant="body1">
+                    {TIMEZONE_OPTIONS.find(tz => tz.value === projectTimezone)?.label || projectTimezone}
                   </Typography>
                 </Grid>
               </Grid>

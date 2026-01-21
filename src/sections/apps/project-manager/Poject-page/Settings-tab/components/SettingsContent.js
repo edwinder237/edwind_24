@@ -11,7 +11,7 @@ import {
 } from './';
 import ProjectInstructors from './ProjectInstructors';
 
-const SettingsContent = ({ 
+const SettingsContent = ({
   activeCategory,
   settings,
   project,
@@ -19,6 +19,7 @@ const SettingsContent = ({
   onUpdateField,
   onToggleWorkingDay,
   onUpdateTitle,
+  onUpdateSummary,
   onUpdateBackgroundImage,
   onUpdateLocation,
   onUpdateTrainingRecipient
@@ -43,6 +44,7 @@ const SettingsContent = ({
               project={project}
               projectSettings={projectSettings}
               onUpdateTitle={onUpdateTitle}
+              onUpdateSummary={onUpdateSummary}
               onUpdateLocation={onUpdateLocation}
               onUpdateBackgroundImage={onUpdateBackgroundImage}
               onUpdateTrainingRecipient={onUpdateTrainingRecipient}
@@ -132,6 +134,7 @@ SettingsContent.propTypes = {
   onUpdateField: PropTypes.func,
   onToggleWorkingDay: PropTypes.func,
   onUpdateTitle: PropTypes.func,
+  onUpdateSummary: PropTypes.func,
   onUpdateBackgroundImage: PropTypes.func,
   onUpdateLocation: PropTypes.func,
   onUpdateTrainingRecipient: PropTypes.func

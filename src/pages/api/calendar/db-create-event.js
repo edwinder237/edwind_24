@@ -23,10 +23,12 @@ export default async function handler(req, res) {
         borderColor: "#000000",
         editable: true,
         eventStatus: "Active",
+        timezone: newEvent.timezone || null,
         extendedProps: { location: "Conference Room A", priority: "High" },
         project: {connect: {id: parseInt(projectId)}},
         ...(newEvent.courseId && { course: {connect: {id: parseInt(newEvent.courseId)}} }),
-        ...(newEvent.supportActivityId && { supportActivity: {connect: {id: parseInt(newEvent.supportActivityId)}} })
+        ...(newEvent.supportActivityId && { supportActivity: {connect: {id: parseInt(newEvent.supportActivityId)}} }),
+        ...(newEvent.roomId && { room: {connect: {id: parseInt(newEvent.roomId)}} })
       };
        await prisma.events.create({
         data: event,

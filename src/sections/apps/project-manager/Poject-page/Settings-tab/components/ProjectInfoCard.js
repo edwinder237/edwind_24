@@ -19,7 +19,7 @@ import { useSelector } from 'store';
 import { selectAvailableTrainingRecipients, selectProjectInfo } from 'store/reducers/project/settings';
 import { formatDisplayDate } from '../utils/timeHelpers';
 
-const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, onUpdateTrainingRecipient }) => {
+const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, onUpdateSummary, onUpdateTrainingRecipient }) => {
   // Get training recipients and project info from settings store first
   const trainingRecipients = useSelector(selectAvailableTrainingRecipients);
   const projectInfoFromSettings = useSelector(selectProjectInfo);
@@ -37,6 +37,11 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
   // State for editing training recipient
   const [isEditingRecipient, setIsEditingRecipient] = useState(false);
   const [recipientValue, setRecipientValue] = useState(currentProject?.trainingRecipientId || '');
+
+  // State for editing summary/description
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [summaryValue, setSummaryValue] = useState(currentProject?.summary || '');
+  const [summaryError, setSummaryError] = useState('');
   
 
   // Memoized formatted dates
@@ -55,6 +60,11 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
   React.useEffect(() => {
     setRecipientValue(currentProject?.trainingRecipientId || '');
   }, [currentProject?.trainingRecipientId]);
+
+  // Update summaryValue when project changes
+  React.useEffect(() => {
+    setSummaryValue(currentProject?.summary || '');
+  }, [currentProject?.summary]);
   
   // Memoized training recipient display
   const trainingRecipientDisplay = useMemo(() => {
@@ -137,7 +147,7 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
       setIsEditingRecipient(false);
       return;
     }
-    
+
     try {
       if (onUpdateTrainingRecipient) {
         await onUpdateTrainingRecipient(recipientValue || null);
@@ -147,6 +157,43 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
       console.error('Failed to update training recipient:', error);
       // Revert to original value on error
       setRecipientValue(currentProject?.trainingRecipientId || '');
+    }
+  };
+
+  // Handle summary/description editing
+  const handleStartEditSummary = () => {
+    setIsEditingSummary(true);
+    setSummaryValue(currentProject?.summary || '');
+    setSummaryError('');
+  };
+
+  const handleCancelEditSummary = () => {
+    setIsEditingSummary(false);
+    setSummaryValue(currentProject?.summary || '');
+    setSummaryError('');
+  };
+
+  const handleSaveSummary = async () => {
+    const trimmedSummary = summaryValue.trim();
+
+    if (trimmedSummary.length > 1000) {
+      setSummaryError('Description must be less than 1000 characters');
+      return;
+    }
+
+    if (trimmedSummary === (currentProject?.summary || '')) {
+      setIsEditingSummary(false);
+      return;
+    }
+
+    try {
+      if (onUpdateSummary) {
+        await onUpdateSummary(trimmedSummary);
+      }
+      setIsEditingSummary(false);
+      setSummaryError('');
+    } catch (error) {
+      setSummaryError(error.message || 'Failed to update description');
     }
   };
 
@@ -212,6 +259,70 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
           )}
         </Box>
 
+        {/* Editable Project Description */}
+        <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Project Description
+          </Typography>
+          {isEditingSummary ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                value={summaryValue}
+                onChange={(e) => setSummaryValue(e.target.value)}
+                error={!!summaryError}
+                helperText={summaryError || `${summaryValue.length}/1000 characters`}
+                size="small"
+                placeholder="Enter project description"
+                autoFocus
+              />
+              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                <Tooltip title="Save changes">
+                  <IconButton
+                    size="small"
+                    onClick={handleSaveSummary}
+                    color="primary"
+                  >
+                    <CheckOutlined fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Cancel changes">
+                  <IconButton
+                    size="small"
+                    onClick={handleCancelEditSummary}
+                    color="secondary"
+                  >
+                    <CloseOutlined fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+              <Typography
+                variant="body1"
+                sx={{
+                  flex: 1,
+                  color: currentProject?.summary ? 'text.primary' : 'text.secondary',
+                  fontStyle: currentProject?.summary ? 'normal' : 'italic'
+                }}
+              >
+                {currentProject?.summary || 'No description provided'}
+              </Typography>
+              <Tooltip title="Edit project description">
+                <IconButton
+                  size="small"
+                  onClick={handleStartEditSummary}
+                  color="primary"
+                >
+                  <EditOutlined fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+        </Box>
 
         {/* Editable Training Recipient */}
         <Box>
@@ -311,6 +422,7 @@ ProjectInfoCard.propTypes = {
   project: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     title: PropTypes.string,
+    summary: PropTypes.string,
     projectStatus: PropTypes.string,
     createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     trainingRecipientId: PropTypes.number,
@@ -320,6 +432,7 @@ ProjectInfoCard.propTypes = {
     updatedAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
   }),
   onUpdateTitle: PropTypes.func,
+  onUpdateSummary: PropTypes.func,
   onUpdateTrainingRecipient: PropTypes.func
 };
 

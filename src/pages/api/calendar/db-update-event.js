@@ -5,6 +5,12 @@ export default async function handler(req, res) {
     const { event, eventId } = req.body;
     
     // Clean the event data to only include database fields
+    // Note: 'location' is stored in extendedProps since it's not a direct DB column
+    const extendedProps = {
+      ...(event.extendedProps || {}),
+      ...(event.location !== undefined && { location: event.location })
+    };
+
     const updateData = {
       title: event.title,
       description: event.description,
@@ -18,11 +24,13 @@ export default async function handler(req, res) {
       borderColor: event.borderColor,
       editable: event.editable,
       eventStatus: event.eventStatus,
-      extendedProps: event.extendedProps,
-      // Only include courseId/supportActivityId if explicitly provided in the update
-      // This prevents accidentally unlinking courses when updating other fields
+      extendedProps: Object.keys(extendedProps).length > 0 ? extendedProps : undefined,
+      timezone: event.timezone,
+      // Only include courseId/supportActivityId/roomId if explicitly provided in the update
+      // This prevents accidentally unlinking courses/rooms when updating other fields
       ...(event.courseId !== undefined && { courseId: event.courseId }),
-      ...(event.supportActivityId !== undefined && { supportActivityId: event.supportActivityId })
+      ...(event.supportActivityId !== undefined && { supportActivityId: event.supportActivityId }),
+      ...(event.roomId !== undefined && { roomId: event.roomId })
     };
 
     // Remove undefined values
@@ -41,6 +49,29 @@ export default async function handler(req, res) {
         },
         data: updateData,
       });
+
+      // Handle instructor assignment if instructor is provided
+      if (event.instructor !== undefined) {
+        const instructorId = event.instructor?.id ? parseInt(event.instructor.id) : null;
+
+        // Delete existing instructor assignments for this event
+        await tx.event_instructors.deleteMany({
+          where: {
+            eventId: parseInt(eventId)
+          }
+        });
+
+        // Create new instructor assignment if an instructor is selected
+        if (instructorId) {
+          await tx.event_instructors.create({
+            data: {
+              eventId: parseInt(eventId),
+              instructorId: instructorId,
+              role: 'lead' // First/only instructor is considered lead
+            }
+          });
+        }
+      }
 
       // Handle group assignments if selectedGroups is provided
       if (event.selectedGroups !== undefined) {

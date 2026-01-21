@@ -35,6 +35,7 @@ import { useGetProjectAgendaQuery } from 'store/api/projectApi';
 import { eventCommands } from 'store/commands';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
 import { useDateTimeRangeInput, formatDateTimeLocal } from 'hooks/useTimeRangeInput';
+import { TIMEZONE_OPTIONS } from 'utils/timezone';
 
 const EditEventDialog = ({ open, onClose, event, project }) => {
   const theme = useTheme();
@@ -86,6 +87,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   // Extract data from CQRS query - use cached data from Redux store
   const curriculums = agendaData?.curriculums || [];
   const projectInstructors = agendaData?.instructors || [];
+  const availableRooms = agendaData?.rooms || [];
 
   // Extract all courses from curriculums with proper nesting
   const availableCourses = useMemo(() => {
@@ -127,7 +129,9 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     backgroundColor: theme.palette.primary.main,
     courseId: null,
     supportActivityId: null,
-    selectedGroups: []
+    selectedGroups: [],
+    timezone: null,
+    roomId: null
   });
 
   // Use standard color options from constants
@@ -192,13 +196,15 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         description: event.description || '',
         eventType: event.eventType || 'other',
         allDay: event.allDay || false,
-        location: event.location || '',
+        location: event.location || event.extendedProps?.location || '',
         instructor: instructorToUse,
         color: event.color || theme.palette.primary.main,
         backgroundColor: event.backgroundColor || event.color || theme.palette.primary.main,
         courseId: courseId,
         supportActivityId: event.supportActivityId || null,
-        selectedGroups: event.event_groups?.map(eg => eg.groupId || eg.groups?.id).filter(Boolean) || []
+        selectedGroups: event.event_groups?.map(eg => eg.groupId || eg.groups?.id).filter(Boolean) || [],
+        timezone: event.timezone || project?.project_settings?.timezone || 'UTC',
+        roomId: event.roomId || null
       });
     }
   }, [event, open, theme.palette.primary.main, defaultInstructor, _setStartRaw, _setEndRaw]);
@@ -243,7 +249,9 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
       color: theme.palette.primary.main,
       backgroundColor: theme.palette.primary.main,
       courseId: null,
-      supportActivityId: null
+      supportActivityId: null,
+      timezone: null,
+      roomId: null
     });
     onClose();
   };
@@ -579,6 +587,56 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                   />
                 )}
               />
+            </Grid>
+
+            {/* Room Selection */}
+            <Grid item xs={12} sm={6}>
+              <Autocomplete
+                fullWidth
+                size="small"
+                options={availableRooms}
+                getOptionLabel={(option) => option.name || ''}
+                value={availableRooms.find(room => room.id === formData.roomId) || null}
+                onChange={(_, newValue) => handleInputChange('roomId', newValue?.id || null)}
+                noOptionsText="No rooms available for this project"
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Stack>
+                      <Typography variant="body2">{option.name}</Typography>
+                      {option.location && (
+                        <Typography variant="caption" color="text.secondary">
+                          {option.location}{option.capacity ? ` • Capacity: ${option.capacity}` : ''}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Room"
+                    placeholder={availableRooms.length > 0 ? "Select room" : "No rooms available"}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Timezone */}
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Timezone</InputLabel>
+                <Select
+                  value={formData.timezone || project?.project_settings?.timezone || 'UTC'}
+                  label="Timezone"
+                  onChange={(e) => handleInputChange('timezone', e.target.value)}
+                >
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <MenuItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
 
           </Grid>

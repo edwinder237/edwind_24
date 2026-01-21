@@ -63,9 +63,12 @@ async function handler(req, res) {
           
           for (const participantData of batch) {
             try {
-              // Check if participant with this email already exists
-              const existingParticipant = await tx.participants.findUnique({
-                where: { email: participantData.email }
+              // Check if participant with this email already exists IN THIS SUB-ORGANIZATION
+              const existingParticipant = await tx.participants.findFirst({
+                where: {
+                  email: participantData.email.toLowerCase().trim(),
+                  sub_organization: project.sub_organizationId
+                }
               });
 
               let participant;
@@ -93,7 +96,7 @@ async function handler(req, res) {
                     firstName: participantData.firstName,
                     lastName: participantData.lastName,
                     middleName: participantData.middleName || null,
-                    email: participantData.email,
+                    email: participantData.email.toLowerCase().trim(),
                     derpartement: participantData.derpartement || null,
                     roleId: roleId, // Now properly mapped to role ID
                     participantType: participantData.participantType || 'student',

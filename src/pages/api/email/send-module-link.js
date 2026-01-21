@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { eventId, moduleTitle, moduleUrl, activityTitle } = req.body;
+    const { eventId, moduleTitle, moduleUrl, activityTitle, participantIds = [] } = req.body;
 
     if (!eventId || !moduleTitle || !moduleUrl || !activityTitle) {
       return res.status(400).json({ message: 'Event ID, module title, module URL, and activity title are required' });
@@ -29,6 +29,13 @@ export default async function handler(req, res) {
           }
         },
         event_attendees: {
+          where: {
+            enrollee: {
+              status: {
+                not: 'removed'
+              }
+            }
+          },
           include: {
             enrollee: {
               include: {
@@ -51,10 +58,28 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'No participants found for this event' });
     }
 
+    // Filter attendees if participantIds is provided
+    let attendeesToSend = event.event_attendees;
+    if (participantIds && participantIds.length > 0) {
+      // Convert all IDs to integers for consistent comparison
+      const participantIdArray = participantIds.map(id => parseInt(id, 10));
+      const participantIdSet = new Set(participantIdArray);
+
+      attendeesToSend = event.event_attendees.filter(attendee => {
+        const participantId = attendee.enrollee?.participant?.id;
+        // Ensure we're comparing integers to integers
+        return participantId && participantIdSet.has(parseInt(participantId, 10));
+      });
+    }
+
+    if (attendeesToSend.length === 0) {
+      return res.status(400).json({ message: 'No valid participants found to send to' });
+    }
+
     const emailResults = [];
 
-    // Send emails to all participants
-    for (const eventAttendee of event.event_attendees) {
+    // Send emails to selected participants
+    for (const eventAttendee of attendeesToSend) {
       const participant = eventAttendee.enrollee.participant;
       
       if (!participant?.email) {
@@ -125,7 +150,7 @@ export default async function handler(req, res) {
       message: `Module link sent to ${successCount} participant(s)`,
       results: emailResults,
       summary: {
-        totalParticipants: event.event_attendees.length,
+        totalParticipants: attendeesToSend.length,
         emailsSent: successCount,
         emailsFailed: failureCount,
         emailsSkipped: skippedCount

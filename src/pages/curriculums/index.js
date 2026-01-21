@@ -1,62 +1,207 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import NextLink from 'next/link';
 import {
   Container,
   Box,
   Typography,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Chip,
-  Stack,
-  Alert,
-  Skeleton,
-  Paper,
-  Avatar,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
   IconButton,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  Tooltip,
-  Fab,
-  Breadcrumbs,
-  Link,
+  Stack,
+  Button,
   CircularProgress,
   FormControl,
   InputLabel,
   Select,
   OutlinedInput,
   Checkbox,
-  ListItemText as MuiListItemText
+  MenuItem,
+  Chip,
+  ListItemText as MuiListItemText,
+  Menu,
+  ListItemIcon,
+  Divider,
+  Tooltip
 } from '@mui/material';
 import {
-  MenuBook as MenuBookIcon,
-  Edit as EditIcon,
-  School as SchoolIcon,
-  Support as SupportIcon,
-  Business as BusinessIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  MoreVert as MoreVertIcon,
   Close as CloseIcon,
   Save as SaveIcon,
+  Delete as DeleteIcon,
+  MenuBook as MenuBookIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
   Visibility as VisibilityIcon,
   ContentCopy as CopyIcon,
-  Archive as ArchiveIcon
+  MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import { useDispatch } from 'react-redux';
 import { openSnackbar } from 'store/reducers/snackbar';
 import MainCard from 'components/MainCard';
 import Layout from 'layout';
+import DataTable, { DataTableSkeleton } from 'components/DataTable';
+
+// ==============================|| CELL RENDERERS ||============================== //
+
+const TitleCell = ({ value, row }) => (
+  <Stack direction="row" spacing={1.5} alignItems="center">
+    <Box
+      sx={{
+        width: 40,
+        height: 40,
+        borderRadius: 1,
+        bgcolor: 'primary.main',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: '1rem'
+      }}
+    >
+      {value?.charAt(0)?.toUpperCase() || 'C'}
+    </Box>
+    <Stack spacing={0}>
+      <Typography variant="subtitle1" fontWeight={600}>
+        {value}
+      </Typography>
+      {row.original.description && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{
+            maxWidth: 300,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {row.original.description}
+        </Typography>
+      )}
+    </Stack>
+  </Stack>
+);
+
+const ChipCell = ({ value, label, color = 'primary' }) => (
+  <Chip
+    label={`${value || 0} ${label}`}
+    size="small"
+    color={color}
+    variant="outlined"
+  />
+);
+
+const DateCell = ({ value }) => (
+  <Typography variant="body2" color="text.secondary">
+    {value ? new Date(value).toLocaleDateString() : '-'}
+  </Typography>
+);
+
+// ==============================|| ACTION CELL ||============================== //
+
+const ActionCell = ({ row, onEdit, onDelete, onDuplicate, duplicatingId }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+  const item = row.original;
+
+  const handleClick = (event) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  return (
+    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0}>
+      <Tooltip title="Edit & Manage">
+        <IconButton
+          component={NextLink}
+          href={`/curriculums/edit/${item.id}`}
+          color="primary"
+          size="small"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <EditIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Duplicate">
+        <IconButton
+          color="secondary"
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDuplicate(item);
+          }}
+          disabled={duplicatingId === item.id}
+        >
+          {duplicatingId === item.id ? (
+            <CircularProgress size={16} />
+          ) : (
+            <CopyIcon fontSize="small" />
+          )}
+        </IconButton>
+      </Tooltip>
+      <IconButton
+        color="secondary"
+        size="small"
+        onClick={handleClick}
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        onClick={(e) => e.stopPropagation()}
+        slotProps={{ paper: { sx: { minWidth: 160 } } }}
+      >
+        <MenuItem
+          component={NextLink}
+          href={`/curriculums/edit/${item.id}`}
+          onClick={handleClose}
+        >
+          <ListItemIcon>
+            <VisibilityIcon fontSize="small" />
+          </ListItemIcon>
+          <MuiListItemText>View & Manage</MuiListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { handleClose(); onEdit(item); }}>
+          <ListItemIcon>
+            <EditIcon fontSize="small" />
+          </ListItemIcon>
+          <MuiListItemText>Edit Details</MuiListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => { handleClose(); onDuplicate(item); }}
+          disabled={duplicatingId === item.id}
+        >
+          <ListItemIcon>
+            {duplicatingId === item.id ? (
+              <CircularProgress size={16} />
+            ) : (
+              <CopyIcon fontSize="small" />
+            )}
+          </ListItemIcon>
+          <MuiListItemText>Duplicate</MuiListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { handleClose(); onDelete(item); }} sx={{ color: 'error.main' }}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <MuiListItemText>Delete</MuiListItemText>
+        </MenuItem>
+      </Menu>
+    </Stack>
+  );
+};
+
+// ==============================|| CURRICULUMS PAGE ||============================== //
 
 const CurriculumsPage = () => {
   const dispatch = useDispatch();
@@ -69,12 +214,63 @@ const CurriculumsPage = () => {
   const [selectedCurriculum, setSelectedCurriculum] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState(null);
-  const [menuAnchor, setMenuAnchor] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     selectedCourses: []
   });
+
+  // Table columns configuration
+  const columns = useMemo(
+    () => [
+      {
+        Header: 'Title',
+        accessor: 'title',
+        Cell: TitleCell
+      },
+      {
+        Header: 'Courses',
+        accessor: 'courseCount',
+        Cell: ({ value }) => <ChipCell value={value} label="Courses" color="primary" />,
+        className: 'cell-center'
+      },
+      {
+        Header: 'Support',
+        accessor: 'supportActivitiesCount',
+        Cell: ({ value }) => <ChipCell value={value} label="Support" color="secondary" />,
+        className: 'cell-center'
+      },
+      {
+        Header: 'Projects',
+        accessor: 'projectCount',
+        Cell: ({ value }) => <ChipCell value={value} label="Projects" color={value > 0 ? 'success' : 'default'} />,
+        className: 'cell-center'
+      },
+      {
+        Header: 'Created',
+        accessor: 'createdAt',
+        Cell: DateCell,
+        disableFilters: true
+      },
+      {
+        Header: 'Updated',
+        accessor: 'updatedAt',
+        Cell: DateCell,
+        disableFilters: true
+      },
+      {
+        Header: 'ID',
+        accessor: 'id',
+        disableFilters: true
+      },
+      {
+        Header: 'Description',
+        accessor: 'description',
+        disableFilters: true
+      }
+    ],
+    []
+  );
 
   // Fetch all curriculums
   const fetchCurriculums = async () => {
@@ -82,12 +278,10 @@ const CurriculumsPage = () => {
       setLoading(true);
       const response = await fetch('/api/curriculums/fetchCurriculums');
       const data = await response.json();
-
-      // Ensure data is always an array (API might return error object or null)
       setCurriculums(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching curriculums:', error);
-      setCurriculums([]); // Reset to empty array on error
+      setCurriculums([]);
       dispatch(openSnackbar({
         open: true,
         message: 'Failed to fetch curriculums',
@@ -124,8 +318,7 @@ const CurriculumsPage = () => {
 
     try {
       setActionLoading(true);
-      
-      // Create curriculum first
+
       const response = await fetch('/api/curriculums/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,11 +327,10 @@ const CurriculumsPage = () => {
           description: formData.description
         })
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
-        // Add courses to curriculum if any selected
         if (formData.selectedCourses.length > 0) {
           await Promise.all(
             formData.selectedCourses.map(courseId =>
@@ -153,14 +345,14 @@ const CurriculumsPage = () => {
             )
           );
         }
-        
+
         dispatch(openSnackbar({
           open: true,
           message: 'Curriculum created successfully',
           variant: 'alert',
           alert: { color: 'success' }
         }));
-        
+
         setCreateDialogOpen(false);
         setFormData({ title: '', description: '', selectedCourses: [] });
         fetchCurriculums();
@@ -194,8 +386,7 @@ const CurriculumsPage = () => {
 
     try {
       setActionLoading(true);
-      
-      // Update curriculum basic info first
+
       const response = await fetch('/api/curriculums/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -205,20 +396,16 @@ const CurriculumsPage = () => {
           description: formData.description
         })
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
-        // Handle course changes
         const currentCourseIds = selectedCurriculum.curriculum_courses?.map(cc => cc.courseId) || [];
         const newCourseIds = formData.selectedCourses;
-        
-        // Find courses to remove
+
         const coursesToRemove = currentCourseIds.filter(id => !newCourseIds.includes(id));
-        // Find courses to add
         const coursesToAdd = newCourseIds.filter(id => !currentCourseIds.includes(id));
-        
-        // Remove courses
+
         await Promise.all(
           coursesToRemove.map(courseId =>
             fetch('/api/curriculums/remove-course', {
@@ -231,8 +418,7 @@ const CurriculumsPage = () => {
             })
           )
         );
-        
-        // Add courses
+
         await Promise.all(
           coursesToAdd.map(courseId =>
             fetch('/api/curriculums/add-course', {
@@ -245,14 +431,14 @@ const CurriculumsPage = () => {
             })
           )
         );
-        
+
         dispatch(openSnackbar({
           open: true,
           message: 'Curriculum updated successfully',
           variant: 'alert',
           alert: { color: 'success' }
         }));
-        
+
         setEditDialogOpen(false);
         setSelectedCurriculum(null);
         setFormData({ title: '', description: '', selectedCourses: [] });
@@ -282,9 +468,9 @@ const CurriculumsPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: curriculum.id })
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         dispatch(openSnackbar({
           open: true,
@@ -292,9 +478,6 @@ const CurriculumsPage = () => {
           variant: 'alert',
           alert: { color: 'success' }
         }));
-        
-        setMenuAnchor(null);
-        setSelectedCurriculum(null);
         fetchCurriculums();
       } else {
         throw new Error(result.message || 'Failed to duplicate curriculum');
@@ -321,9 +504,9 @@ const CurriculumsPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: selectedCurriculum.id })
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         dispatch(openSnackbar({
           open: true,
@@ -331,7 +514,7 @@ const CurriculumsPage = () => {
           variant: 'alert',
           alert: { color: 'success' }
         }));
-        
+
         setDeleteDialogOpen(false);
         setSelectedCurriculum(null);
         fetchCurriculums();
@@ -366,27 +549,12 @@ const CurriculumsPage = () => {
       selectedCourses: curriculum.curriculum_courses?.map(cc => cc.courseId) || []
     });
     setEditDialogOpen(true);
-    setMenuAnchor(null);
   };
 
   // Open delete dialog
   const handleOpenDeleteDialog = (curriculum) => {
     setSelectedCurriculum(curriculum);
     setDeleteDialogOpen(true);
-    setMenuAnchor(null);
-  };
-
-  // Handle menu click
-  const handleMenuClick = (event, curriculum) => {
-    event.stopPropagation();
-    setMenuAnchor(event.currentTarget);
-    setSelectedCurriculum(curriculum);
-  };
-
-  // Close menu
-  const handleMenuClose = () => {
-    setMenuAnchor(null);
-    setSelectedCurriculum(null);
   };
 
   // Handle form input change
@@ -397,6 +565,17 @@ const CurriculumsPage = () => {
     }));
   };
 
+  // Render actions for each row
+  const renderActions = (row) => (
+    <ActionCell
+      row={row}
+      onEdit={handleOpenEditDialog}
+      onDelete={handleOpenDeleteDialog}
+      onDuplicate={handleDuplicateCurriculum}
+      duplicatingId={duplicatingId}
+    />
+  );
+
   useEffect(() => {
     fetchCurriculums();
     fetchCourses();
@@ -406,14 +585,7 @@ const CurriculumsPage = () => {
     return (
       <Container maxWidth="xl">
         <Box sx={{ py: 3 }}>
-          <Skeleton variant="text" width={300} height={40} sx={{ mb: 3 }} />
-          <Grid container spacing={3}>
-            {[1, 2, 3, 4].map((item) => (
-              <Grid item xs={12} md={6} lg={4} key={item}>
-                <Skeleton variant="rectangular" height={200} />
-              </Grid>
-            ))}
-          </Grid>
+          <DataTableSkeleton rows={10} columns={7} />
         </Box>
       </Container>
     );
@@ -422,19 +594,12 @@ const CurriculumsPage = () => {
   return (
     <Container maxWidth="xl">
       <Box sx={{ py: 3 }}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-          <Button 
-            variant="contained" 
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreateDialog}
-            size="large"
-          >
-            Create Curriculum
-          </Button>
-        </Stack>
+        {/* Page Description */}
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Organize courses into structured learning paths. Create and manage curriculums to define training programs for your projects.
+        </Typography>
 
-        {/* Curriculums Grid */}
+        {/* Empty State */}
         {curriculums.length === 0 ? (
           <MainCard>
             <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -445,8 +610,8 @@ const CurriculumsPage = () => {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 Create your first curriculum to get started with organized learning paths.
               </Typography>
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleOpenCreateDialog}
                 size="large"
@@ -456,186 +621,17 @@ const CurriculumsPage = () => {
             </Box>
           </MainCard>
         ) : (
-          <Grid container spacing={3}>
-            {curriculums.map((curriculum) => (
-              <Grid item xs={12} md={6} lg={4} key={curriculum.id}>
-                <Card 
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: (theme) => theme.shadows[8]
-                    }
-                  }}
-                >
-                  <CardContent sx={{ flex: 1 }}>
-                    <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ mb: 2 }}>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        <MenuBookIcon />
-                      </Avatar>
-                      <Box sx={{ flex: 1 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                          <Typography variant="h6" fontWeight="bold" gutterBottom>
-                            {curriculum.title}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleMenuClick(e, curriculum)}
-                          >
-                            <MoreVertIcon />
-                          </IconButton>
-                        </Stack>
-                        {curriculum.description && (
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary" 
-                            sx={{ 
-                              mb: 2,
-                              display: '-webkit-box',
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden'
-                            }}
-                          >
-                            {curriculum.description}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Stack>
-
-                    <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
-                      <Chip
-                        icon={<SchoolIcon />}
-                        label={`${curriculum.courseCount || 0} Courses`}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
-                      <Chip
-                        icon={<SupportIcon />}
-                        label={`${curriculum.supportActivitiesCount || 0} Support`}
-                        size="small"
-                        color="secondary"
-                        variant="outlined"
-                      />
-                      <Chip
-                        icon={<BusinessIcon />}
-                        label={`${curriculum.projectCount || 0} Projects`}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Stack>
-
-                    <Typography variant="caption" color="text.secondary">
-                      Created {new Date(curriculum.createdAt).toLocaleDateString()}
-                      {curriculum.updatedAt && (
-                        <span> • Updated {new Date(curriculum.updatedAt).toLocaleDateString()}</span>
-                      )}
-                    </Typography>
-                  </CardContent>
-                  
-                  <CardActions sx={{ p: 2, pt: 0 }}>
-                    <Stack direction="row" spacing={1} width="100%">
-                      <NextLink href={`/curriculums/edit/${curriculum.id}`} passHref>
-                        <Button
-                          startIcon={<EditIcon />}
-                          size="small"
-                          variant="contained"
-                          sx={{ flex: 1 }}
-                        >
-                          Edit & Manage
-                        </Button>
-                      </NextLink>
-                      
-                      <Tooltip title="Duplicate Curriculum">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDuplicateCurriculum(curriculum);
-                          }}
-                          disabled={duplicatingId === curriculum.id}
-                          sx={{ 
-                            border: 1, 
-                            borderColor: 'divider',
-                            '&:hover': {
-                              backgroundColor: 'primary.main',
-                              color: 'white',
-                              borderColor: 'primary.main'
-                            }
-                          }}
-                        >
-                          {duplicatingId === curriculum.id ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <CopyIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+          <DataTable
+            columns={columns}
+            data={curriculums}
+            hiddenColumns={['id', 'description']}
+            emptyMessage="No Curriculums Found"
+            csvFilename="curriculums.csv"
+            createButtonLabel="Create Curriculum"
+            onCreate={handleOpenCreateDialog}
+            renderActions={renderActions}
+          />
         )}
-
-        {/* Context Menu */}
-        <Menu
-          anchorEl={menuAnchor}
-          open={Boolean(menuAnchor)}
-          onClose={handleMenuClose}
-          PaperProps={{
-            sx: { minWidth: 200 }
-          }}
-        >
-          <MenuItem onClick={() => handleOpenEditDialog(selectedCurriculum)}>
-            <ListItemIcon>
-              <EditIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit Details</ListItemText>
-          </MenuItem>
-          
-          <MenuItem 
-            component={NextLink}
-            href={`/curriculums/edit/${selectedCurriculum?.id}`}
-            onClick={handleMenuClose}
-          >
-            <ListItemIcon>
-              <VisibilityIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>View & Manage</ListItemText>
-          </MenuItem>
-          
-          <MenuItem 
-            onClick={() => handleDuplicateCurriculum(selectedCurriculum)}
-            disabled={duplicatingId === selectedCurriculum?.id}
-          >
-            <ListItemIcon>
-              {duplicatingId === selectedCurriculum?.id ? (
-                <CircularProgress size={16} />
-              ) : (
-                <CopyIcon fontSize="small" />
-              )}
-            </ListItemIcon>
-            <ListItemText>Duplicate</ListItemText>
-          </MenuItem>
-          
-          <Divider />
-          
-          <MenuItem 
-            onClick={() => handleOpenDeleteDialog(selectedCurriculum)}
-            sx={{ color: 'error.main' }}
-          >
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText>Delete</ListItemText>
-          </MenuItem>
-        </Menu>
 
         {/* Create Dialog */}
         <Dialog
@@ -669,7 +665,7 @@ const CurriculumsPage = () => {
                   required
                   placeholder="e.g., Full Stack Web Development"
                 />
-                
+
                 <TextField
                   fullWidth
                   label="Description"
@@ -692,10 +688,10 @@ const CurriculumsPage = () => {
                         {selected.map((value) => {
                           const course = courses.find(c => c.id === value);
                           return (
-                            <Chip 
-                              key={value} 
-                              label={course?.title || `Course ${value}`} 
-                              size="small" 
+                            <Chip
+                              key={value}
+                              label={course?.title || `Course ${value}`}
+                              size="small"
                             />
                           );
                         })}
@@ -705,7 +701,7 @@ const CurriculumsPage = () => {
                     {courses.map((course) => (
                       <MenuItem key={course.id} value={course.id}>
                         <Checkbox checked={formData.selectedCourses.indexOf(course.id) > -1} />
-                        <MuiListItemText 
+                        <MuiListItemText
                           primary={course.title}
                           secondary={`${course.level} • ${course.courseCategory}`}
                         />
@@ -715,7 +711,7 @@ const CurriculumsPage = () => {
                 </FormControl>
 
                 <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
-                  <Button 
+                  <Button
                     onClick={() => setCreateDialogOpen(false)}
                     variant="outlined"
                   >
@@ -766,7 +762,7 @@ const CurriculumsPage = () => {
                   onChange={(e) => handleInputChange('title', e.target.value)}
                   required
                 />
-                
+
                 <TextField
                   fullWidth
                   label="Description"
@@ -789,10 +785,10 @@ const CurriculumsPage = () => {
                         {selected.map((value) => {
                           const course = courses.find(c => c.id === value);
                           return (
-                            <Chip 
-                              key={value} 
-                              label={course?.title || `Course ${value}`} 
-                              size="small" 
+                            <Chip
+                              key={value}
+                              label={course?.title || `Course ${value}`}
+                              size="small"
                             />
                           );
                         })}
@@ -802,7 +798,7 @@ const CurriculumsPage = () => {
                     {courses.map((course) => (
                       <MenuItem key={course.id} value={course.id}>
                         <Checkbox checked={formData.selectedCourses.indexOf(course.id) > -1} />
-                        <MuiListItemText 
+                        <MuiListItemText
                           primary={course.title}
                           secondary={`${course.level} • ${course.courseCategory}`}
                         />
@@ -812,7 +808,7 @@ const CurriculumsPage = () => {
                 </FormControl>
 
                 <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
-                  <Button 
+                  <Button
                     onClick={() => setEditDialogOpen(false)}
                     variant="outlined"
                   >
@@ -843,7 +839,7 @@ const CurriculumsPage = () => {
               Delete Curriculum
             </Typography>
           </DialogTitle>
-          
+
           <DialogContent>
             <Typography variant="body1" gutterBottom>
               Are you sure you want to delete "{selectedCurriculum?.title}"?
@@ -857,7 +853,7 @@ const CurriculumsPage = () => {
               )}
             </Typography>
           </DialogContent>
-          
+
           <DialogActions>
             <Button onClick={() => setDeleteDialogOpen(false)}>
               Cancel

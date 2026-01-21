@@ -6,14 +6,21 @@ import { useMemo } from 'react';
  */
 export const useParticipantData = (eventParticipants, participantStatuses, course) => {
   
-  // Remove duplicate participants
+  // Remove duplicate participants and always sort by name
   const uniqueParticipants = useMemo(() => {
-    return eventParticipants.filter((participant, index, self) => {
+    const deduped = eventParticipants.filter((participant, index, self) => {
       const identifier = participant.enrolleeId || participant.participant?.id || participant.participant?.email || participant.id || participant.email;
       return index === self.findIndex(p => {
         const pIdentifier = p.enrolleeId || p.participant?.id || p.participant?.email || p.id || p.email;
         return pIdentifier === identifier;
       });
+    });
+
+    // Always sort by name alphabetically
+    return deduped.sort((a, b) => {
+      const aName = `${a.participant?.firstName || ''} ${a.participant?.lastName || ''}`.trim().toLowerCase();
+      const bName = `${b.participant?.firstName || ''} ${b.participant?.lastName || ''}`.trim().toLowerCase();
+      return aName.localeCompare(bName);
     });
   }, [eventParticipants]);
 

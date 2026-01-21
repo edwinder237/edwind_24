@@ -1,6 +1,6 @@
 {
   "name": "edwind",
-  "version": "1.2.0",
+  "version": "0.5.2",
   "private": true,
   "scripts": {
     "dev": "next dev -p 8081",
@@ -51,6 +51,7 @@
     "fix-react2shell-next": "^1.1.4",
     "formik": "^2.2.9",
     "framer-motion": "^7.5.3",
+    "googleapis": "^170.1.0",
     "immutability-helper": "^3.1.1",
     "match-sorter": "^6.3.1",
     "moment-timezone": "^0.6.0",

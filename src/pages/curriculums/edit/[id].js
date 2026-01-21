@@ -81,7 +81,8 @@ import {
   Assessment as AssessmentIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  CheckBox as CheckBoxIcon
+  CheckBox as CheckBoxIcon,
+  Poll as PollIcon
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -98,6 +99,7 @@ import { createModuleOptions, createSupportActivityOptions, formatDuration } fro
 import { ModuleSelector, SupportActivitySelector, ModuleDropdownCell } from '../../../components/ModuleSelector';
 import SupportActivitiesManager from 'components/curriculum/SupportActivitiesManager';
 import CurriculumChecklistManager from 'components/curriculum/CurriculumChecklistManager';
+import { CurriculumSurveyManager } from 'components/curriculum/surveys';
 import MainCard from 'components/MainCard';
 import Layout from 'layout';
 
@@ -775,6 +777,16 @@ const CurriculumEditPage = () => {
               <Tab
                 icon={<CheckBoxIcon />}
                 label="Trainer Checklist"
+                iconPosition="start"
+              />
+              <Tab
+                icon={<PollIcon />}
+                label="Surveys"
+                iconPosition="start"
+              />
+              <Tab
+                icon={<AssessmentIcon />}
+                label="Assessments"
                 iconPosition="start"
               />
             </Tabs>
@@ -2169,6 +2181,15 @@ const CurriculumEditPage = () => {
             <TabPanel value={activeTab} index={4}>
               {/* Trainer Checklist Tab */}
               <CurriculumChecklistManager curriculumId={curriculum.id} />
+            </TabPanel>
+
+            <TabPanel value={activeTab} index={5}>
+              {/* Surveys Tab */}
+              <CurriculumSurveyManager
+                curriculumId={curriculum.id}
+                curriculumTitle={curriculum.title}
+                courses={curriculum.curriculum_courses?.map(cc => cc.course) || []}
+              />
             </TabPanel>
           </Box>
         </MainCard>

@@ -498,99 +498,163 @@ const ProjectsList = () => {
     <Fragment>
       {/* Main Filter Bar */}
       <Paper elevation={0} sx={{ p: matchDownSM ? 2 : 3, mb: matchDownSM ? 2 : 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <Stack spacing={showFilters ? 3 : 1.5}>
+        <Stack spacing={matchDownSM ? 2 : (showFilters ? 3 : 1.5)}>
           {/* Header Row: Search, Filters, Sort, and Add */}
           <Stack
-            direction={matchDownSM ? "column" : "row"}
-            spacing={2}
-            justifyContent="space-between"
-            alignItems={matchDownSM ? "stretch" : "center"}
+            direction="column"
+            spacing={matchDownSM ? 1.5 : 2}
             sx={{
-              flexWrap: 'nowrap' // Prevent wrapping
+              flexWrap: 'nowrap'
             }}
           >
-            {/* Left Side: Search */}
-            <Box sx={{
-              flex: '1 1 auto',
-              minWidth: 0, // Allow shrinking
-              maxWidth: matchDownSM ? '100%' : '50%'
-            }}>
-              <GlobalFilter
-                preGlobalFilteredRows={projects || []}
-                globalFilter={globalFilter}
-                setGlobalFilter={setGlobalFilter}
-              />
-            </Box>
-
-            {/* Right Side: Filters, Sort and Add */}
+            {/* Top Row: Search with Filter button on mobile, shared with controls on desktop */}
             <Stack
-              direction={matchDownSM ? "column" : "row"}
-              spacing={1.5}
-              alignItems={matchDownSM ? "stretch" : "center"}
-              sx={{
-                flexShrink: 0,
-                flexWrap: 'nowrap'
-              }}
+              direction="row"
+              spacing={matchDownSM ? 1 : 2}
+              justifyContent="space-between"
+              alignItems="center"
             >
-              {!showFilters && (
-                <Button
-                  variant="outlined"
-                  startIcon={<DownOutlined />}
-                  onClick={() => setShowFilters(true)}
-                  size="medium"
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Filters
-                  {getActiveFilterCount() > 0 && (
-                    <Chip
-                      label={getActiveFilterCount()}
+              {/* Search */}
+              <Box sx={{
+                flex: '1 1 auto',
+                minWidth: 0,
+                maxWidth: matchDownSM ? '100%' : '50%'
+              }}>
+                <GlobalFilter
+                  preGlobalFilteredRows={projects || []}
+                  globalFilter={globalFilter}
+                  setGlobalFilter={setGlobalFilter}
+                />
+              </Box>
+
+              {/* Mobile: Project count + Filter icon */}
+              {matchDownSM && (
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    {userCard.length}/{projects?.length || 0}
+                  </Typography>
+                  {!showFilters && (
+                    <IconButton
+                      onClick={() => setShowFilters(true)}
                       size="small"
-                      color="primary"
-                      sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                    />
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        p: 1,
+                        position: 'relative'
+                      }}
+                    >
+                      <FilterOutlined />
+                      {getActiveFilterCount() > 0 && (
+                        <Chip
+                          label={getActiveFilterCount()}
+                          size="small"
+                          color="primary"
+                          sx={{
+                            position: 'absolute',
+                            top: -8,
+                            right: -8,
+                            height: 18,
+                            minWidth: 18,
+                            fontSize: '0.65rem',
+                            '& .MuiChip-label': { px: 0.5 }
+                          }}
+                        />
+                      )}
+                    </IconButton>
                   )}
-                </Button>
+                </Stack>
               )}
 
-              <FormControl sx={{
-                minWidth: matchDownSM ? 'auto' : 150,
-                maxWidth: 180
-              }}>
-                <Select
-                  value={sortBy}
-                  onChange={handleChange}
-                  displayEmpty
-                  size="medium"
-                  renderValue={(selected) => (
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {selected ? `Sort: ${selected}` : "Sort By"}
-                    </Typography>
-                  )}
+              {/* Desktop: Filters and Sort inline */}
+              {!matchDownSM && (
+                <Stack
+                  direction="row"
+                  spacing={1.5}
+                  alignItems="center"
+                  sx={{ flexShrink: 0 }}
                 >
-                  {allColumns.map((column) => (
-                    <MenuItem key={column.id} value={column.header}>
-                      {column.header}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  {!showFilters && (
+                    <Button
+                      variant="outlined"
+                      startIcon={<DownOutlined />}
+                      onClick={() => setShowFilters(true)}
+                      size="medium"
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Filters
+                      {getActiveFilterCount() > 0 && (
+                        <Chip
+                          label={getActiveFilterCount()}
+                          size="small"
+                          color="primary"
+                          sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                        />
+                      )}
+                    </Button>
+                  )}
 
+                  <FormControl sx={{ minWidth: 150, maxWidth: 180 }}>
+                    <Select
+                      value={sortBy}
+                      onChange={handleChange}
+                      displayEmpty
+                      size="medium"
+                      renderValue={(selected) => (
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {selected ? `Sort: ${selected}` : "Sort By"}
+                        </Typography>
+                      )}
+                    >
+                      {allColumns.map((column) => (
+                        <MenuItem key={column.id} value={column.header}>
+                          {column.header}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <AddButton
+                    variant="contained"
+                    startIcon={<PlusOutlined />}
+                    onClick={handleAdd}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      px: 2.5,
+                      py: 1,
+                      whiteSpace: 'nowrap',
+                      minWidth: 'fit-content',
+                      background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
+                      }
+                    }}
+                  >
+                    Add Project
+                  </AddButton>
+                </Stack>
+              )}
+            </Stack>
+
+            {/* Mobile: Add Project Button (prominent CTA) */}
+            {matchDownSM && (
               <AddButton
                 variant="contained"
                 startIcon={<PlusOutlined />}
                 onClick={handleAdd}
-                fullWidth={matchDownSM}
+                fullWidth
                 sx={{
                   textTransform: 'none',
                   fontWeight: 600,
-                  px: matchDownSM ? 2 : 2.5,
-                  py: matchDownSM ? 1.5 : 1,
+                  px: 2,
+                  py: 1.25,
                   whiteSpace: 'nowrap',
-                  minWidth: 'fit-content',
                   background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
@@ -599,7 +663,7 @@ const ProjectsList = () => {
               >
                 Add Project
               </AddButton>
-            </Stack>
+            )}
           </Stack>
 
           {/* Filters Panel */}
@@ -841,17 +905,19 @@ const ProjectsList = () => {
               </Box>
             </Collapse>
 
-          {/* Results Summary - Always visible */}
-          <Box sx={{ textAlign: matchDownSM ? 'center' : 'right' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-              <strong>{userCard.length}</strong> of <strong>{projects?.length || 0}</strong> projects
-              {getActiveFilterCount() > 0 && (
-                <span style={{ color: 'var(--mui-palette-primary-main)' }}>
-                  {' '}• {getActiveFilterCount()} filter{getActiveFilterCount() !== 1 ? 's' : ''} active
-                </span>
-              )}
-            </Typography>
-          </Box>
+          {/* Results Summary - Desktop only (mobile shows compact version in search row) */}
+          {!matchDownSM && (
+            <Box sx={{ textAlign: 'right' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                <strong>{userCard.length}</strong> of <strong>{projects?.length || 0}</strong> projects
+                {getActiveFilterCount() > 0 && (
+                  <span style={{ color: 'var(--mui-palette-primary-main)' }}>
+                    {' '}• {getActiveFilterCount()} filter{getActiveFilterCount() !== 1 ? 's' : ''} active
+                  </span>
+                )}
+              </Typography>
+            </Box>
+          )}
         </Stack>
       </Paper>
       {hasError ? (

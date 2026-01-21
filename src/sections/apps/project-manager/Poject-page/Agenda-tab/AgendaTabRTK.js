@@ -9,6 +9,7 @@ import {
 } from 'store/reducers/project/settings';
 import { derivedSelectors } from 'store/selectors';
 import { ViewList, CalendarMonth, DateRange, MenuBook, OpenInNew, Today, People } from '@mui/icons-material';
+import { getTimezoneLabel } from 'utils/timezone';
 
 // Components
 import MainCard from 'components/MainCard';
@@ -452,31 +453,49 @@ const AgendaTabRTK = React.memo(() => {
         </Button>
       </Stack>
 
-      {/* View Toggle Buttons - Hide on mobile */}
+      {/* View Toggle Buttons with Timezone - Hide on mobile */}
       {!matchDownSM && (
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={handleViewModeChange}
-          size="small"
-          sx={toggleButtonStyles}
-        >
-          <ToggleButton value={VIEW_MODES.AGENDA}>
-            <ViewList sx={{ mr: 0.5, fontSize: '1rem' }} />
-            Agenda
-          </ToggleButton>
-          <ToggleButton value={VIEW_MODES.WEEK}>
-            <DateRange sx={{ mr: 0.5, fontSize: '1rem' }} />
-            Week
-          </ToggleButton>
-          <ToggleButton value={VIEW_MODES.MONTH}>
-            <CalendarMonth sx={{ mr: 0.5, fontSize: '1rem' }} />
-            Month
-          </ToggleButton>
-        </ToggleButtonGroup>
+        <Box sx={{ position: 'relative' }}>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            size="small"
+            sx={toggleButtonStyles}
+          >
+            <ToggleButton value={VIEW_MODES.AGENDA}>
+              <ViewList sx={{ mr: 0.5, fontSize: '1rem' }} />
+              Agenda
+            </ToggleButton>
+            <ToggleButton value={VIEW_MODES.WEEK}>
+              <DateRange sx={{ mr: 0.5, fontSize: '1rem' }} />
+              Week
+            </ToggleButton>
+            <ToggleButton value={VIEW_MODES.MONTH}>
+              <CalendarMonth sx={{ mr: 0.5, fontSize: '1rem' }} />
+              Month
+            </ToggleButton>
+          </ToggleButtonGroup>
+          {/* Project Timezone Display - positioned below buttons */}
+          {project?.project_settings?.timezone && (
+            <Typography
+              color="text.secondary"
+              sx={{
+                position: 'absolute',
+                right: 0,
+                top: '100%',
+                mt: 0.5,
+                whiteSpace: 'nowrap',
+                fontSize: '0.7rem'
+              }}
+            >
+              Timezone: {getTimezoneLabel(project.project_settings.timezone)}
+            </Typography>
+          )}
+        </Box>
       )}
     </Stack>
-  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM, hasCurriculumWithNoCourses, firstCurriculumId, theme, handleGoToToday, handleOpenParticipantsDrawer]);
+  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM, hasCurriculumWithNoCourses, firstCurriculumId, theme, handleGoToToday, handleOpenParticipantsDrawer, project?.project_settings?.timezone]);
 
   // Error Display Component
   const ErrorDisplay = useCallback(() => (

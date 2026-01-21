@@ -86,9 +86,9 @@ export const prepareSettingsForSubmission = (state) => {
 export const validateSettings = (state) => {
   const errors = [];
 
-  // Validate date range
-  if (state.startDate && state.endDate && state.startDate >= state.endDate) {
-    errors.push('End date must be after start date');
+  // Validate date range - end date must be on or after start date
+  if (state.startDate && state.endDate && state.startDate > state.endDate) {
+    errors.push('End date must be on or after start date');
   }
 
   // Validate time format

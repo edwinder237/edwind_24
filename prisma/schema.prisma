@@ -124,6 +124,7 @@ model training_recipients {
   participants         participants[]
   projects             projects[]
   project_participants project_participants[]
+  rooms                rooms[]
   sub_organization     sub_organizations          @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 
   @@index([sub_organizationId])
@@ -269,7 +270,7 @@ model participants {
   firstName           String
   middleName          String?
   lastName            String
-  email               String                             @unique
+  email               String
   participantStatus   String?
   participantType     String?
   sub_organization    Int
@@ -290,8 +291,10 @@ model participants {
   projects            project_participants[]
   toolAccesses        toolAccesses[]
 
+  @@unique([email, sub_organization])
   @@index([trainingRecipientId])
   @@index([roleId])
+  @@index([sub_organization])
 }
 
 model project_curriculums {
@@ -421,6 +424,7 @@ model courses {
   curriculum_courses        curriculum_courses[]
   events                    events[]
   modules                   modules[]
+  survey_triggers           curriculum_surveys[]        @relation("SurveyTriggerCourse")
   training_plan_modules     training_plan_modules[]
 
   @@index([sub_organizationId])
@@ -483,6 +487,7 @@ model curriculums {
   assessment_configs       curriculum_assessment_config[]
   curriculum_checklist_items curriculum_checklist_items[]
   curriculum_courses       curriculum_courses[]
+  curriculum_surveys       curriculum_surveys[]
   group_curriculums        group_curriculums[]
   project_curriculums      project_curriculums[]
   supportActivities        supportActivities[]
@@ -533,6 +538,7 @@ model events {
   projectId         Int
   courseId          Int?
   supportActivityId Int?
+  roomId            Int?
   start             DateTime
   end               DateTime
   allDay            Boolean
@@ -542,6 +548,7 @@ model events {
   borderColor       String?
   editable          Boolean?
   eventStatus       String?
+  timezone          String?
   extendedProps     Json?
   event_activity_progress event_activity_progress[]
   event_attendees         event_attendees[]
@@ -550,11 +557,13 @@ model events {
   course                  courses?                    @relation(fields: [courseId], references: [id])
   project                 projects                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   supportActivity         supportActivities?          @relation(fields: [supportActivityId], references: [id])
+  room                    rooms?                      @relation(fields: [roomId], references: [id])
   event_module_progress   event_module_progress[]
 
   @@index([projectId])
   @@index([courseId])
   @@index([supportActivityId])
+  @@index([roomId])
 }
 
 model event_attendees {
@@ -1258,4 +1267,79 @@ model subscription_history {
   @@index([eventType])
   @@index([changedAt])
   @@index([toPlanId])
+}
+
+// ============================================
+// CURRICULUM SURVEYS
+// ============================================
+
+model curriculum_surveys {
+  id                Int       @id @default(autoincrement())
+  curriculumId      Int
+  title             String
+  description       String?   @db.Text
+  surveyType        String    @default("post_training") // pre_training, post_training, per_course, custom
+  provider          String    // google_forms, microsoft_forms, typeform, surveymonkey
+
+  // Provider configuration (JSON) - stores formUrl, formId, apiKey, spreadsheetId, etc.
+  providerConfig    Json
+
+  // Settings
+  isRequired        Boolean   @default(true)
+  triggerCourseId   Int?      // For per_course surveys
+  customTriggerDays Int?      // For custom timing
+  displayOrder      Int?
+
+  // Standard fields
+  status            String    @default("active") // draft, active, archived
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdBy         String
+  updatedBy         String?
+
+  curriculum        curriculums @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  triggerCourse     courses?    @relation("SurveyTriggerCourse", fields: [triggerCourseId], references: [id])
+
+  @@index([curriculumId])
+  @@index([status])
+  @@index([provider])
+  @@index([isActive])
+  @@index([triggerCourseId])
+}
+
+// ============================================
+// ROOMS (Belong to Training Recipients)
+// ============================================
+
+model rooms {
+  id                  Int       @id @default(autoincrement())
+  name                String
+  location            String?
+  capacity            Int?
+  type                String    @default("Physical") // Physical or Virtual
+  roomType            String    @default("Conference") // Theatre, U-shape, Classroom, etc.
+  status              String    @default("Available") // Available, Occupied, Maintenance
+  equipment           String[]  @default([])
+  notes               String?   @db.VarChar(500)
+
+  // Training Recipient Scoping
+  trainingRecipientId Int
+  training_recipient  training_recipients @relation(fields: [trainingRecipientId], references: [id], onDelete: Cascade)
+
+  // Event relation
+  events              events[]
+
+  // Audit Fields
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  createdBy           String    // WorkOS user ID
+  updatedBy           String?
+
+  @@index([trainingRecipientId])
+  @@index([status])
+  @@index([type])
+  @@index([roomType])
+  @@index([isActive])
 }

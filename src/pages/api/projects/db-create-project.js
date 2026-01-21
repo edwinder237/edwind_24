@@ -72,7 +72,7 @@ export default async function handler(req, res) {
           startOfDayTime: "09:00",
           endOfDayTime: "17:00", 
           lunchTime: "12:00-13:00",
-          timezone: "UTC",
+          timezone: newProject.timezone || "UTC",
           workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
           createdBy: newProject.createdBy
         }
@@ -89,7 +89,18 @@ export default async function handler(req, res) {
       });
     }
 
-    res.status(200).json({ 
+    // If instructorId is provided, create project_instructors relationship
+    if (newProject.instructorId) {
+      await prisma.project_instructors.create({
+        data: {
+          projectId: createdProject.id,
+          instructorId: parseInt(newProject.instructorId),
+          instructorType: 'main'
+        }
+      });
+    }
+
+    res.status(200).json({
       message: "Project created and saved to database",
       projectId: createdProject.id
     });

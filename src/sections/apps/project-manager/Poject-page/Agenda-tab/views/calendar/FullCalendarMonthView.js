@@ -479,7 +479,7 @@ const FullCalendarMonthView = ({ project, events, onEventSelect }) => {
             plugins={[dayGridPlugin, interactionPlugin, momentTimezonePlugin]}
             initialView="dayGridMonth"
             events={calendarEvents}
-            timeZone="local"
+            timeZone={project?.project_settings?.timezone || 'UTC'}
             height="auto"
             headerToolbar={false}
             dayHeaderContent={(arg) => {

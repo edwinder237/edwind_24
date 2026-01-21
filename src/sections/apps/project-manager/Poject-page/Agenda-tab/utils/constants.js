@@ -41,6 +41,25 @@ export const EVENT_STATUSES = {
   IN_PROGRESS: 'in_progress'
 };
 
+export const CUSTOM_EVENT_CATEGORIES = [
+  'Break',
+  'Meeting',
+  'Presentation',
+  'Workshop',
+  'Social',
+  'Administrative',
+  'Other'
+];
+
+export const CUSTOM_EVENT_DURATIONS = [
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 45, label: '45 min' },
+  { value: 60, label: '1 hour' },
+  { value: 90, label: '1.5 hours' },
+  { value: 120, label: '2 hours' }
+];
+
 export const SCROLL_STYLES = {
   '&::-webkit-scrollbar': {
     width: '8px',

@@ -287,10 +287,10 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
       end: event.end,
       ...event.extendedProps
     };
-    
+
     setSelectedEvent(eventData);
     setEditDialogOpen(true);
-    
+
     if (onEventSelect) {
       onEventSelect(event.id);
     }
@@ -1351,7 +1351,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
             plugins={[timeGridPlugin, interactionPlugin, momentTimezonePlugin]}
             initialView="timeGridWeek"
             events={calendarEvents}
-            timeZone="local"
+            timeZone={project?.project_settings?.timezone || 'UTC'}
             height="auto"
             headerToolbar={false}
             editable={true}

@@ -1,9 +1,11 @@
 import prisma from "../../../lib/prisma";
+import { withOrgScope } from "../../../lib/middleware/withOrgScope";
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
     // Extract participant data from the request body
     const { projectId, newParticipant } = req.body;
+    const { orgContext } = req;
 
     if (!projectId || !newParticipant || !newParticipant.participant) {
       return res.status(400).json({
@@ -12,16 +14,40 @@ export default async function handler(req, res) {
       });
     }
 
+    if (!orgContext || !orgContext.subOrganizationIds?.length) {
+      return res.status(403).json({
+        success: false,
+        error: "Organization context required"
+      });
+    }
+
     const email = newParticipant.participant.email.toLowerCase().trim();
     const projectIdInt = parseInt(projectId);
 
-    // Get the project to find its training recipient
-    const project = await prisma.projects.findUnique({
-      where: { id: projectIdInt },
-      select: { trainingRecipientId: true }
+    // Get the project to find its training recipient AND sub-organization
+    // Also verify the project belongs to the user's accessible sub-organizations
+    const project = await prisma.projects.findFirst({
+      where: {
+        id: projectIdInt,
+        sub_organizationId: {
+          in: orgContext.subOrganizationIds
+        }
+      },
+      select: {
+        trainingRecipientId: true,
+        sub_organizationId: true
+      }
     });
 
-    if (!project || !project.trainingRecipientId) {
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        error: "Project not found or access denied",
+        message: "Cannot find the project or you don't have access to it"
+      });
+    }
+
+    if (!project.trainingRecipientId) {
       return res.status(400).json({
         success: false,
         error: "Project has no training recipient",
@@ -29,9 +55,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Check if participant already exists in the system
-    let participant = await prisma.participants.findUnique({
-      where: { email }
+    // Check if participant already exists in THIS sub-organization (multi-tenant scoping)
+    let participant = await prisma.participants.findFirst({
+      where: {
+        email,
+        sub_organization: project.sub_organizationId
+      }
     });
 
     // Check if participant is already enrolled in this project
@@ -54,34 +83,23 @@ export default async function handler(req, res) {
       }
     }
 
-    // If participant doesn't exist, create them
+    // If participant doesn't exist in this sub-organization, create them
     if (!participant) {
-      // First, get the project to find its training recipient
-      const project = await prisma.projects.findUnique({
-        where: { id: projectIdInt },
-        select: { trainingRecipientId: true }
-      });
-
-      if (!project || !project.trainingRecipientId) {
-        return res.status(400).json({
-          success: false,
-          error: "Project has no training recipient",
-          message: "Cannot create participant: project must be linked to a training recipient"
-        });
-      }
-
       // Validate and set roleId
       let roleId = null;
       if (newParticipant.participant.roleId) {
         roleId = parseInt(newParticipant.participant.roleId);
-        
-        // Verify role exists (check sub_organization_participant_role table)
-        const roleExists = await prisma.sub_organization_participant_role.findUnique({
-          where: { id: roleId }
+
+        // Verify role exists AND belongs to the same sub-organization
+        const roleExists = await prisma.sub_organization_participant_role.findFirst({
+          where: {
+            id: roleId,
+            sub_organizationId: project.sub_organizationId
+          }
         });
-        
+
         if (!roleExists) {
-          console.warn(`Role with ID ${roleId} not found, setting to null`);
+          console.warn(`Role with ID ${roleId} not found in sub-organization, setting to null`);
           roleId = null;
         }
       }
@@ -93,7 +111,7 @@ export default async function handler(req, res) {
         participantStatus: newParticipant.participant.participantStatus || "active",
         trainingRecipientId: project.trainingRecipientId,
         roleId: roleId,
-        sub_organization: 1, // Default sub-organization ID
+        sub_organization: project.sub_organizationId, // Use the project's sub-organization
         profilePrefs: newParticipant.participant.profilePrefs || {},
         credentials: newParticipant.participant.credentials || {}
       };
@@ -161,7 +179,7 @@ export default async function handler(req, res) {
     if (newParticipant.group && newParticipant.group.trim() !== '') {
       try {
         const groupName = newParticipant.group.trim();
-        
+
         // Check if the group exists
         let group = await prisma.groups.findFirst({
           where: {
@@ -207,13 +225,13 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Error creating participant:", error);
-    
+
     // Handle specific Prisma errors
     if (error.code === 'P2002') {
       return res.status(409).json({
         success: false,
         error: "Email already exists",
-        message: "A participant with this email address already exists in the system.",
+        message: "A participant with this email address already exists in this organization.",
         details: error.message
       });
     }
@@ -226,3 +244,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export default withOrgScope(handler);

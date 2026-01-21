@@ -17,7 +17,7 @@ import { MenuFoldOutlined, MenuUnfoldOutlined ,ArrowRightOutlined, ArrowLeftOutl
 
 // ==============================|| MAIN LAYOUT - HEADER ||============================== //
 
-const Header = ({ open, handleDrawerToggle }) => {
+const Header = ({ open, handleDrawerToggle, onSearchClick }) => {
   const theme = useTheme();
   const downLG = useMediaQuery(theme.breakpoints.down('lg'));
   const { menuOrientation } = useConfig();
@@ -25,7 +25,7 @@ const Header = ({ open, handleDrawerToggle }) => {
   const isHorizontal = menuOrientation === LAYOUT_CONST.HORIZONTAL_LAYOUT && !downLG;
 
   // header content
-  const headerContent = useMemo(() => <HeaderContent />, []);
+  const headerContent = useMemo(() => <HeaderContent onSearchClick={onSearchClick} />, [onSearchClick]);
 
   const iconBackColorOpen = theme.palette.mode === 'dark' ? 'grey.200' : 'grey.300';
   const iconBackColor = theme.palette.mode === 'dark' ? 'background.default' : 'grey.100';
@@ -77,7 +77,8 @@ const Header = ({ open, handleDrawerToggle }) => {
 
 Header.propTypes = {
   open: PropTypes.bool,
-  handleDrawerToggle: PropTypes.func
+  handleDrawerToggle: PropTypes.func,
+  onSearchClick: PropTypes.func
 };
 
 export default Header;

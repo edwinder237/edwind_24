@@ -117,7 +117,13 @@ const ParticipantList = ({
   }
 
   return (
-    <Box sx={{ maxHeight: 350, overflowY: 'auto' }}>
+    <Box sx={{
+      maxHeight: 350,
+      overflowY: 'auto',
+      '&::-webkit-scrollbar': { display: 'none' },
+      msOverflowStyle: 'none',
+      scrollbarWidth: 'none'
+    }}>
       {participants.map((eventParticipant, index) => {
         const participant = eventParticipant.participant;
         if (!participant) return null;

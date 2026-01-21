@@ -57,7 +57,8 @@ export const projectApi = createApi({
     'ParticipantScores',
     'AssessmentAttempts',
     'ProjectAssessments',
-    'DailyNotes'
+    'DailyNotes',
+    'CurriculumSurvey'
   ],
   
   endpoints: (builder) => ({
@@ -1807,6 +1808,125 @@ export const projectApi = createApi({
         { type: 'Project', id: projectId }
       ]
     }),
+
+    // ==============================|| CURRICULUM SURVEYS ||============================== //
+
+    /**
+     * Get all surveys for a curriculum
+     * Returns surveys with provider config and trigger course info
+     */
+    getCurriculumSurveys: builder.query({
+      query: (curriculumId) => ({
+        url: 'curriculum-surveys/list',
+        params: { curriculumId }
+      }),
+      providesTags: (_, __, curriculumId) => [
+        { type: 'CurriculumSurvey', id: `curriculum-${curriculumId}` }
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response.surveys;
+        }
+        throw new Error(response.message || 'Failed to fetch surveys');
+      },
+      keepUnusedDataFor: 300,
+    }),
+
+    /**
+     * Get single survey details
+     */
+    getCurriculumSurveyDetails: builder.query({
+      query: (surveyId) => ({
+        url: 'curriculum-surveys/fetch',
+        params: { id: surveyId }
+      }),
+      providesTags: (_, __, surveyId) => [
+        { type: 'CurriculumSurvey', id: surveyId }
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response.survey;
+        }
+        throw new Error(response.message || 'Failed to fetch survey');
+      },
+    }),
+
+    /**
+     * Create new curriculum survey
+     */
+    createCurriculumSurvey: builder.mutation({
+      query: (surveyData) => ({
+        url: 'curriculum-surveys/create',
+        method: 'POST',
+        body: surveyData
+      }),
+      invalidatesTags: (_, __, { curriculumId }) => [
+        { type: 'CurriculumSurvey', id: `curriculum-${curriculumId}` }
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response.survey;
+        }
+        throw new Error(response.message || 'Failed to create survey');
+      },
+    }),
+
+    /**
+     * Update curriculum survey
+     */
+    updateCurriculumSurvey: builder.mutation({
+      query: ({ id, ...updates }) => ({
+        url: 'curriculum-surveys/update',
+        method: 'PUT',
+        body: { id, ...updates }
+      }),
+      invalidatesTags: (_, __, { id, curriculumId }) => [
+        { type: 'CurriculumSurvey', id },
+        { type: 'CurriculumSurvey', id: `curriculum-${curriculumId}` }
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response.survey;
+        }
+        throw new Error(response.message || 'Failed to update survey');
+      },
+    }),
+
+    /**
+     * Delete curriculum survey (soft delete)
+     */
+    deleteCurriculumSurvey: builder.mutation({
+      query: ({ id, curriculumId }) => ({
+        url: 'curriculum-surveys/delete',
+        method: 'DELETE',
+        body: { id }
+      }),
+      invalidatesTags: (_, __, { curriculumId }) => [
+        { type: 'CurriculumSurvey', id: `curriculum-${curriculumId}` }
+      ],
+      transformResponse: (response) => {
+        if (response.success) {
+          return response;
+        }
+        throw new Error(response.message || 'Failed to delete survey');
+      },
+    }),
+
+    /**
+     * Fetch survey results from external provider
+     * Supports: Google Forms, Typeform
+     */
+    getSurveyResults: builder.query({
+      query: (surveyId) => ({
+        url: 'curriculum-surveys/results/fetch',
+        params: { surveyId }
+      }),
+      providesTags: (_, __, surveyId) => [
+        { type: 'CurriculumSurvey', id: `results-${surveyId}` }
+      ],
+      // Don't cache results for long - they may change
+      keepUnusedDataFor: 60,
+    }),
   }),
 });
 
@@ -1882,6 +2002,15 @@ export const {
   useGetDailyTrainingNotesQuery,
   useUpdateDailyTrainingNotesMutation,
   useDeleteDailyTrainingNotesMutation,
+
+  // Curriculum Surveys
+  useGetCurriculumSurveysQuery,
+  useGetCurriculumSurveyDetailsQuery,
+  useCreateCurriculumSurveyMutation,
+  useUpdateCurriculumSurveyMutation,
+  useDeleteCurriculumSurveyMutation,
+  useGetSurveyResultsQuery,
+  useLazyGetSurveyResultsQuery,
 
   // Utilities
   useLazyGetProjectAgendaQuery,

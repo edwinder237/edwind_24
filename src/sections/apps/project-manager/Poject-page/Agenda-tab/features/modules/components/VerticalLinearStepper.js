@@ -8,6 +8,7 @@ import { OpenInNew, VideocamOutlined, DescriptionOutlined, SlideshowOutlined, Gr
 
 // project import
 import MainCard from 'components/MainCard';
+import SendInviteDialog from 'components/SendInviteDialog';
 import { saveModuleProgress, resetModuleProgress } from 'store/reducers/project/agenda';
 
 const steps = [
@@ -68,6 +69,10 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
   const { progressLoading, moduleProgress } = useSelector((state) => state.projectAgenda);
   const [activeStep, setActiveStep] = useState(0);
   const [sendingEmail, setSendingEmail] = useState({});
+  const [sendInviteDialogOpen, setSendInviteDialogOpen] = useState(false);
+  const [sendInviteParticipants, setSendInviteParticipants] = useState([]);
+  const [currentActivity, setCurrentActivity] = useState(null);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
 
   // Check if this module is already completed
   const isModuleCompleted = useMemo(() => {
@@ -133,12 +138,54 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
     setActiveStep(0);
   };
 
-  const handleSendModuleEmail = async (activity, activityIndex) => {
+  // Open dialog to select participants before sending module email
+  const handleOpenSendDialog = async (activity, activityIndex) => {
     if (!activity.contentUrl || !eventId) return;
-    
-    setSendingEmail(prev => ({ ...prev, [activityIndex]: true }));
-    
+
+    setLoadingParticipants(true);
+    setCurrentActivity({ ...activity, activityIndex });
+
     try {
+      // Fetch participants for this event
+      const response = await fetch('/api/participants/fetch-event-participants-with-tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to load participants');
+      }
+
+      setSendInviteParticipants(result.participants || []);
+      setSendInviteDialogOpen(true);
+    } catch (error) {
+      console.error('Error loading participants:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: error.message || 'Failed to load participants',
+        variant: 'alert',
+        alert: { color: 'error' },
+        close: true
+      }));
+    } finally {
+      setLoadingParticipants(false);
+    }
+  };
+
+  // Send module email to selected participants
+  const handleSendModuleEmail = async (selectedParticipants) => {
+    if (!currentActivity?.contentUrl || !eventId) return;
+
+    try {
+      // Extract participant IDs - the structure is { id: attendeeId, participant: { id: participantId, ... } }
+      const participantIds = selectedParticipants.map(p => {
+        const id = p.participant?.id;
+        return id;
+      }).filter(Boolean);
+
       const response = await fetch('/api/email/send-module-link', {
         method: 'POST',
         headers: {
@@ -147,17 +194,18 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
         body: JSON.stringify({
           eventId,
           moduleTitle: moduleTitle || 'Module',
-          moduleUrl: activity.contentUrl,
-          activityTitle: activity.title
+          moduleUrl: currentActivity.contentUrl,
+          activityTitle: currentActivity.title,
+          participantIds
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         dispatch(openSnackbar({
           open: true,
-          message: `Module link sent to ${data.summary.emailsSent} participant(s)`,
+          message: `Module link sent to ${data.summary?.emailsSent || selectedParticipants.length} participant(s)`,
           variant: 'alert',
           alert: {
             color: 'success'
@@ -178,8 +226,7 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
         },
         close: true
       }));
-    } finally {
-      setSendingEmail(prev => ({ ...prev, [activityIndex]: false }));
+      throw error;
     }
   };
 
@@ -244,9 +291,9 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleSendModuleEmail(activitie, index);
+                          handleOpenSendDialog(activitie, index);
                         }}
-                        disabled={sendingEmail[index]}
+                        disabled={loadingParticipants && currentActivity?.activityIndex === index}
                         sx={{
                           color: 'secondary.main',
                           '&:hover': {
@@ -254,7 +301,7 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
                           }
                         }}
                       >
-                        {sendingEmail[index] ? (
+                        {loadingParticipants && currentActivity?.activityIndex === index ? (
                           <CircularProgress size={16} />
                         ) : (
                           <EmailOutlined fontSize="small" />
@@ -290,11 +337,11 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
       {activeStep === activities.length && (
         <Box sx={{ pt: 2 }}>
           <Typography sx={{ color: 'success.main' }}>All steps completed - you&apos;re finished</Typography>
-          <Button 
-            size="small" 
-            variant="contained" 
-            color="error" 
-            onClick={handleReset} 
+          <Button
+            size="small"
+            variant="contained"
+            color="error"
+            onClick={handleReset}
             sx={{ mt: 2, mr: 1 }}
             disabled={progressLoading}
           >
@@ -302,6 +349,19 @@ export default function VerticalLinearStepper({activities, onComplete, onReset, 
           </Button>
         </Box>
       )}
+
+      {/* Send Module Link Dialog */}
+      <SendInviteDialog
+        open={sendInviteDialogOpen}
+        onClose={() => {
+          setSendInviteDialogOpen(false);
+          setSendInviteParticipants([]);
+          setCurrentActivity(null);
+        }}
+        participants={sendInviteParticipants}
+        eventTitle={currentActivity?.title || 'Module Activity'}
+        onSend={handleSendModuleEmail}
+      />
     </div>
   );
 }

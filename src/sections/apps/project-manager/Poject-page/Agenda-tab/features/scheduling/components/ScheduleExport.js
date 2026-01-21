@@ -44,8 +44,6 @@ import {
 } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
 import { useSelector } from 'store';
-import { selectAllGroups } from 'store/entities/groupsSlice';
-import { selectProjectInstructors } from 'store/reducers/project/settings';
 import useUser from 'hooks/useUser';
 
 const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "Project Schedule" }) => {
@@ -56,10 +54,12 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   const storeProjectTitle = useSelector(state => state.projectSettings?.projectInfo?.title);
   // Use store title if available, otherwise fall back to prop
   const projectTitle = storeProjectTitle || propProjectTitle;
-  // Read groups from normalized entities store (CQRS Read Model)
-  const groups = useSelector(selectAllGroups);
-  // Get project instructors for "send to all instructors" option
-  const projectInstructors = useSelector(selectProjectInstructors);
+  // Read groups from projectAgenda store (CQRS Read Model)
+  const groups = useSelector(state => state.projectAgenda?.groups) || [];
+  // Get project instructors from projectAgenda store (loaded with agenda data)
+  const projectInstructors = useSelector(state => state.projectAgenda?.instructors) || [];
+  // Get project timezone from settings
+  const projectTimezone = useSelector(state => state.projectSettings?.settings?.timezone);
   const [viewMode, setViewMode] = useState('preview');
   const [dailyFocusData, setDailyFocusData] = useState({});
   const focusCache = useRef(new Map());
@@ -107,7 +107,14 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   // Preview customization options
   const [showLogo, setShowLogo] = useState(true);
   const [showFocusOfDay, setShowFocusOfDay] = useState(false);
-  const [selectedTimezone, setSelectedTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [selectedTimezone, setSelectedTimezone] = useState(projectTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+  // Update timezone when project timezone loads
+  useEffect(() => {
+    if (projectTimezone) {
+      setSelectedTimezone(projectTimezone);
+    }
+  }, [projectTimezone]);
 
   // PDF download state
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -645,7 +652,8 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
           onlyAssignedEvents,
           includeMeetingLink,
           customMeetingLink: customMeetingLink.trim() || null,
-          instructorEmails: instructorEmails.length > 0 ? instructorEmails : undefined
+          instructorEmails: instructorEmails.length > 0 ? instructorEmails : undefined,
+          timezone: selectedTimezone
         }),
       });
 

@@ -1,5 +1,6 @@
 import prisma from '../../../lib/prisma';
 import { format, parseISO } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { enUS } from 'date-fns/locale';
 import { Resend } from 'resend';
 
@@ -97,15 +98,22 @@ export default async function handler(req, res) {
       description += `Join Meeting: ${meetingLink}\n\n`;
     }
 
+    // Get location from event or extendedProps (location is stored in extendedProps JSON)
+    const eventLocation = event.location || event.extendedProps?.location || null;
+
+    // Get timezone from event (stored in DB) - default to UTC if not set
+    const eventTimezone = event.timezone || 'UTC';
+
     const calendarEvent = {
       title: event.title || 'Training Event',
       description,
       startTime: startDate,
       endTime: endDate,
-      location: includeMeetingLink ? (event.location || meetingLink) : (event.location || 'TBD'),
+      location: includeMeetingLink ? (eventLocation || meetingLink) : (eventLocation || 'TBD'),
       course: event.course?.title || null,
       meetingLink,
-      instructorName
+      instructorName,
+      timezone: eventTimezone
     };
 
     const participant = {
@@ -164,23 +172,60 @@ export default async function handler(req, res) {
 function generateSingleEventInvitation(event, projectTitle, participant, organizationName = 'EDWIND Training') {
   const now = new Date();
   const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const startTime = event.startTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const endTime = event.endTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const uid = `${timestamp}-${Math.random().toString(36).substring(7)}@edwind.training`;
+
+  // Format times with timezone support
+  // If event has a timezone, use TZID format; otherwise use UTC
+  const eventTimezone = event.timezone || 'UTC';
+  let dtstart, dtend, vtimezone = '';
+
+  if (eventTimezone && eventTimezone !== 'UTC') {
+    // Convert UTC time to the target timezone and format for ICS
+    // Use formatInTimeZone to get the correct local time in the specified timezone
+    const formatForICS = (date, tz) => {
+      return formatInTimeZone(date, tz, "yyyyMMdd'T'HHmmss");
+    };
+
+    dtstart = `DTSTART;TZID=${eventTimezone}:${formatForICS(event.startTime, eventTimezone)}`;
+    dtend = `DTEND;TZID=${eventTimezone}:${formatForICS(event.endTime, eventTimezone)}`;
+
+    // Add VTIMEZONE component for better compatibility
+    vtimezone = `BEGIN:VTIMEZONE
+TZID:${eventTimezone}
+X-LIC-LOCATION:${eventTimezone}
+END:VTIMEZONE
+`;
+  } else {
+    // Use UTC format
+    const startTime = event.startTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const endTime = event.endTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    dtstart = `DTSTART:${startTime}`;
+    dtend = `DTEND:${endTime}`;
+  }
+
+  // Escape special characters in description and location
+  const escapeIcal = (str) => {
+    if (!str) return '';
+    return str
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\n/g, '\\n');
+  };
 
   const ical = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//EDWIND//Training Event Invitation//EN
 CALSCALE:GREGORIAN
 METHOD:REQUEST
-BEGIN:VEVENT
+${vtimezone}BEGIN:VEVENT
 UID:${uid}
 DTSTAMP:${timestamp}
-DTSTART:${startTime}
-DTEND:${endTime}
-SUMMARY:${event.title}
-DESCRIPTION:${event.description.replace(/\n/g, '\\n')}
-LOCATION:${event.location}
+${dtstart}
+${dtend}
+SUMMARY:${escapeIcal(event.title)}
+DESCRIPTION:${escapeIcal(event.description)}
+LOCATION:${escapeIcal(event.location)}
 STATUS:CONFIRMED
 SEQUENCE:0
 ATTENDEE;CN=${participant.firstName} ${participant.lastName};RSVP=TRUE;ROLE=REQ-PARTICIPANT:mailto:${participant.email}
@@ -193,8 +238,16 @@ END:VCALENDAR`;
 }
 
 function generateEventInviteTemplate({ participantName, event, projectTitle, groupName }) {
-  const startTime = format(event.startTime, 'EEEE, MMMM d, yyyy', { locale: enUS });
-  const timeRange = `${format(event.startTime, 'HH:mm')} - ${format(event.endTime, 'HH:mm')}`;
+  const eventTimezone = event.timezone || 'UTC';
+
+  // Format date and time in the event's timezone
+  const startTime = eventTimezone !== 'UTC'
+    ? formatInTimeZone(event.startTime, eventTimezone, 'EEEE, MMMM d, yyyy', { locale: enUS })
+    : format(event.startTime, 'EEEE, MMMM d, yyyy', { locale: enUS });
+
+  const timeRange = eventTimezone !== 'UTC'
+    ? `${formatInTimeZone(event.startTime, eventTimezone, 'HH:mm')} - ${formatInTimeZone(event.endTime, eventTimezone, 'HH:mm')}`
+    : `${format(event.startTime, 'HH:mm')} - ${format(event.endTime, 'HH:mm')}`;
 
   return `
     <!DOCTYPE html>
@@ -222,7 +275,7 @@ function generateEventInviteTemplate({ participantName, event, projectTitle, gro
           <div style="margin: 15px 0;">
             <p style="margin: 5px 0;"><strong>Date:</strong> ${startTime}</p>
             <p style="margin: 5px 0;"><strong>Time:</strong> ${timeRange}</p>
-            <p style="margin: 5px 0;"><strong>Time Zone:</strong> ${Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
+            <p style="margin: 5px 0;"><strong>Time Zone:</strong> ${eventTimezone}</p>
             ${event.location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${event.location}</p>` : ''}
             ${event.meetingLink ? `
               <p style="margin: 5px 0;"><strong>Join Meeting:</strong>

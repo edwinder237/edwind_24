@@ -16,18 +16,27 @@ export const WORKING_DAY_OPTIONS = [
   { value: 'sunday', label: 'Sunday' },
 ];
 
+// Enhanced timezone options with labels
 export const TIMEZONE_OPTIONS = [
-  'UTC',
-  'America/New_York',
-  'America/Toronto', 
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'Europe/London',
-  'Europe/Paris',
-  'Asia/Tokyo',
-  'Australia/Sydney'
+  { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+  { value: 'America/New_York', label: 'Eastern Time (New York)' },
+  { value: 'America/Toronto', label: 'Eastern Time (Toronto)' },
+  { value: 'America/Chicago', label: 'Central Time (Chicago)' },
+  { value: 'America/Denver', label: 'Mountain Time (Denver)' },
+  { value: 'America/Edmonton', label: 'Mountain Time (Edmonton)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (Los Angeles)' },
+  { value: 'America/Vancouver', label: 'Pacific Time (Vancouver)' },
+  { value: 'Europe/London', label: 'Greenwich Mean Time (London)' },
+  { value: 'Europe/Paris', label: 'Central European Time (Paris)' },
+  { value: 'Europe/Berlin', label: 'Central European Time (Berlin)' },
+  { value: 'Asia/Tokyo', label: 'Japan Standard Time (Tokyo)' },
+  { value: 'Asia/Dubai', label: 'Gulf Standard Time (Dubai)' },
+  { value: 'Asia/Singapore', label: 'Singapore Time' },
+  { value: 'Australia/Sydney', label: 'Australian Eastern Time (Sydney)' },
 ];
+
+// Legacy: simple array of timezone values for backward compatibility
+export const TIMEZONE_VALUES = TIMEZONE_OPTIONS.map(tz => tz.value);
 
 export const NOTIFICATION_MESSAGES = {
   SAVE_SUCCESS: 'Project settings updated successfully',

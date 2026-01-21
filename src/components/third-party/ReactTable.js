@@ -177,8 +177,8 @@ export const TableRowSelection = ({ selected }) => (
         variant="light"
         sx={{
           position: 'absolute',
-          right: 8,
-          top: 8,
+          right: 200,
+          top: 18,
           borderRadius: '4px',
           zIndex: 10
         }}

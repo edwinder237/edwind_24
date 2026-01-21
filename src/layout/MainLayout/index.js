@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'store';
 
 // material-ui
@@ -12,6 +12,7 @@ import Header from './Header';
 import Footer from './Footer';
 import HorizontalBar from './Drawer/HorizontalBar';
 import Breadcrumbs from 'components/@extended/Breadcrumbs';
+import CommandPalette from 'components/CommandPalette';
 import navigation from 'menu-items';
 import useConfig from 'hooks/useConfig';
 import { openDrawer } from 'store/reducers/menu';
@@ -41,6 +42,22 @@ const MainLayout = ({ children }) => {
     dispatch(openDrawer({ drawerOpen: !open }));
   };
 
+  // Command palette state
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  // Global keyboard shortcut for command palette (Ctrl+K / Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // set media wise responsive drawer
   useEffect(() => {
     if (!miniDrawer) {
@@ -57,7 +74,7 @@ const MainLayout = ({ children }) => {
 
   return (
     <Box sx={{ display: 'flex', width: '100%' }}>
-      <Header open={open} handleDrawerToggle={handleDrawerToggle} />
+      <Header open={open} handleDrawerToggle={handleDrawerToggle} onSearchClick={() => setCommandPaletteOpen(true)} />
       {!isHorizontal ? <Drawer open={open} handleDrawerToggle={handleDrawerToggle} /> : <HorizontalBar />}
       <Box component="main" sx={{ width: 'calc(100% - 260px)', flexGrow: 1, p: { xs: 2, sm: 3 } }}>
         <Toolbar sx={{ mt: isHorizontal ? 8 : 'inherit' }} />
@@ -77,6 +94,7 @@ const MainLayout = ({ children }) => {
         </Container>
       </Box>
       <GlobalLoadingProvider />
+      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
     </Box>
   );
 };

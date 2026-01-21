@@ -36,8 +36,11 @@ import { useGetProjectAgendaQuery } from 'store/api/projectApi';
 import { eventCommands } from 'store/commands';
 import { openSnackbar } from 'store/reducers/snackbar';
 import EventModalCards from '../components/EventModalCards';
+import CustomEventForm from '../components/CustomEventForm';
 import { calculateCourseDurationFromModules } from 'utils/durationCalculations';
 import { useTimeRangeInput } from 'hooks/useTimeRangeInput';
+import { getTimezoneOffset } from 'utils/timezone';
+import { APP_COLOR_OPTIONS } from 'constants/eventColors';
 
 // Tab Panel Component
 function TabPanel(props) {
@@ -101,6 +104,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   }, [projectInstructors]);
   const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCustomForm, setShowCustomForm] = useState(false);
 
   // Use the reusable time range hook with auto-adjustment
   const {
@@ -379,6 +383,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     setSearchQuery(''); // Reset search when switching tabs
+    setShowCustomForm(false); // Reset custom form when switching tabs
   };
 
   const handleClose = () => {
@@ -388,6 +393,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     }
     setSearchQuery('');
     setTabValue(0);
+    setShowCustomForm(false);
     onClose();
   };
 
@@ -814,6 +820,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         allDay: false,
         location: '', // Can be set later
         instructor: defaultInstructor, // Default to project main lead instructor
+        timezone: project?.project_settings?.timezone || null, // Default to project timezone
         extendedProps: {
           curriculumId: course.curriculumId,
           curriculumName: course.curriculumName,
@@ -920,6 +927,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         allDay: false,
         location: '', // Can be set later
         instructor: activity.instructor || defaultInstructor, // Use activity instructor or default to project main lead
+        timezone: project?.project_settings?.timezone || null, // Default to project timezone
         extendedProps: {
           category: activity.category
         }
@@ -1020,6 +1028,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         allDay: false,
         location: '', // Can be set later
         instructor: defaultInstructor, // Default to project main lead instructor
+        timezone: project?.project_settings?.timezone || null, // Default to project timezone
         extendedProps: {
           category: eventSuggestion.category,
           icon: eventSuggestion.icon
@@ -1053,6 +1062,100 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       });
       // Always reset creating state
       setIsCreatingEvent(false);
+    }
+  };
+
+  // Handle custom event form submission
+  const handleCustomEventSubmit = async (customEventData) => {
+    // Prevent multiple clicks
+    if (isCreatingEvent) {
+      return;
+    }
+
+    try {
+      setIsCreatingEvent(true);
+
+      // Calculate start time using editableTime
+      const startDate = new Date(selectedDate);
+      if (editableTime) {
+        const [time, period] = editableTime.split(' ');
+        const [hours, minutes] = time.split(':');
+        let hour = parseInt(hours);
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
+        startDate.setHours(hour, parseInt(minutes), 0, 0);
+      } else {
+        // Default to 9 AM if no time selected
+        startDate.setHours(9, 0, 0, 0);
+      }
+
+      // Calculate end time based on editableEndTime or custom duration
+      let endDate;
+      if (editableEndTime) {
+        // Use the user-specified end time
+        endDate = new Date(startDate);
+        const [endTime, endPeriod] = editableEndTime.split(' ');
+        const [endHours, endMinutes] = endTime.split(':');
+        let endHour = parseInt(endHours);
+        if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+        if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+        endDate.setHours(endHour, parseInt(endMinutes), 0, 0);
+      } else {
+        // Fallback to duration-based calculation
+        const duration = customEventData.duration || 60;
+        endDate = new Date(startDate.getTime() + duration * 60000);
+      }
+
+      // Get color and textColor from selected color or use default
+      let eventColor = theme.palette.warning.main;
+      let eventTextColor = '#fff';
+      if (customEventData.color) {
+        const colorOption = APP_COLOR_OPTIONS.find(c => c.value === customEventData.color);
+        eventColor = customEventData.color;
+        eventTextColor = colorOption?.textColor || '#fff';
+      }
+
+      // Create event data
+      const eventData = {
+        title: customEventData.title,
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        eventType: 'other',
+        projectId: project.id,
+        description: customEventData.description || '',
+        color: eventColor,
+        backgroundColor: eventColor,
+        textColor: eventTextColor,
+        allDay: false,
+        location: '',
+        instructor: defaultInstructor,
+        timezone: project?.project_settings?.timezone || null,
+        extendedProps: {
+          category: customEventData.category,
+          icon: customEventData.icon
+        }
+      };
+
+      // Use the helper function to create event with proper state updates
+      await createEventWithStateUpdate(eventData);
+
+    } catch (error) {
+      console.error('Error creating custom event:', error);
+
+      dispatch(
+        openSnackbar({
+          open: true,
+          message: 'Failed to add custom event. Please try again.',
+          variant: 'alert',
+          alert: {
+            color: 'error'
+          },
+          close: false
+        })
+      );
+    } finally {
+      setIsCreatingEvent(false);
+      setShowCustomForm(false);
     }
   };
 
@@ -1224,6 +1327,19 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                     </Tooltip>
                   )}
                 </Box>
+                {/* Timezone Indicator */}
+                {project?.project_settings?.timezone && (
+                  <Chip
+                    size="small"
+                    label={getTimezoneOffset(project.project_settings.timezone)}
+                    variant="outlined"
+                    sx={{
+                      fontSize: '0.7rem',
+                      height: 24,
+                      ml: 0.5
+                    }}
+                  />
+                )}
               </Stack>
             )}
             <IconButton onClick={handleClose} size="small">
@@ -1231,7 +1347,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
             </IconButton>
           </Stack>
         }
-        sx={{ 
+        sx={{
           m: 0,
           '& .MuiCardContent-root': {
             p: 0
@@ -1441,49 +1557,56 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
           </TabPanel>
 
           <TabPanel value={tabValue} index={2}>
-            {/* Other Events Content */}
-            <Box>
-              {!searchQuery && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Choose from common event types or search for specific events.
-                </Typography>
-              )}
-              
-              {/* Event Suggestions List */}
-              <Box sx={{ maxHeight: { xs: '50vh', sm: '40vh' }, overflowY: 'auto', p: 1 }}>
-                <EventModalCards
-                  items={commonEventSuggestions}
-                  onItemSelect={handleOtherEventSelect}
-                  type="other"
-                  scheduledItemCounts={{}} // Other events don't have scheduled state tracking yet
-                  pendingItemIds={pendingEventIdsArray}
-                  disabled={isCreatingEvent}
-                />
-              </Box>
+            {/* Other Events Content - Toggle between suggestions and custom form */}
+            {showCustomForm ? (
+              <CustomEventForm
+                onSubmit={handleCustomEventSubmit}
+                onCancel={() => setShowCustomForm(false)}
+                isSubmitting={isCreatingEvent}
+                theme={theme}
+              />
+            ) : (
+              <Box>
+                {!searchQuery && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Choose from common event types or create a custom event.
+                  </Typography>
+                )}
 
-              {/* Quick Create Button for Custom Events */}
-              <Box sx={{ textAlign: 'center', pt: 2, mt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<Add />}
-                  onClick={() => {
-                    // TODO: Implement custom event creation form
-                    console.log('Quick create custom event');
-                  }}
-                  sx={{
-                    borderRadius: 3,
-                    px: 3,
-                    py: 1,
-                    borderStyle: 'dashed',
-                    '&:hover': {
-                      borderStyle: 'solid'
-                    }
-                  }}
-                >
-                  Create Custom Event
-                </Button>
+                {/* Event Suggestions List */}
+                <Box sx={{ maxHeight: { xs: '50vh', sm: '40vh' }, overflowY: 'auto', p: 1 }}>
+                  <EventModalCards
+                    items={commonEventSuggestions}
+                    onItemSelect={handleOtherEventSelect}
+                    type="other"
+                    scheduledItemCounts={{}} // Other events don't have scheduled state tracking yet
+                    pendingItemIds={pendingEventIdsArray}
+                    disabled={isCreatingEvent}
+                  />
+                </Box>
+
+                {/* Quick Create Button for Custom Events */}
+                <Box sx={{ textAlign: 'center', pt: 2, mt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Add />}
+                    onClick={() => setShowCustomForm(true)}
+                    disabled={isCreatingEvent}
+                    sx={{
+                      borderRadius: 3,
+                      px: 3,
+                      py: 1,
+                      borderStyle: 'dashed',
+                      '&:hover': {
+                        borderStyle: 'solid'
+                      }
+                    }}
+                  >
+                    Create Custom Event
+                  </Button>
+                </Box>
               </Box>
-            </Box>
+            )}
           </TabPanel>
         </Box>
         

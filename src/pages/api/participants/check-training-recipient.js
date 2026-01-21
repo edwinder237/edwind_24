@@ -1,23 +1,30 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../../lib/prisma';
+import { withOrgScope } from '../../../lib/middleware/withOrgScope';
 
-const prisma = new PrismaClient();
-
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
     const { email } = req.query;
+    const { orgContext } = req;
 
     if (!email) {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    // Check if participant with this email exists
+    if (!orgContext || !orgContext.subOrganizationIds?.length) {
+      return res.status(403).json({ message: 'Organization context required' });
+    }
+
+    // Check if participant with this email exists WITHIN the user's accessible sub-organizations
     const participant = await prisma.participants.findFirst({
       where: {
-        email: email.toLowerCase().trim()
+        email: email.toLowerCase().trim(),
+        sub_organization: {
+          in: orgContext.subOrganizationIds
+        }
       },
       include: {
         training_recipient: {
@@ -41,7 +48,7 @@ export default async function handler(req, res) {
       message: 'Failed to check participant',
       error: error.message
     });
-  } finally {
-    await prisma.$disconnect();
   }
 }
+
+export default withOrgScope(handler);
