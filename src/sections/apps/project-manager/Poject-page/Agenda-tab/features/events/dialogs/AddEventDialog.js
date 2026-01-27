@@ -113,6 +113,9 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     setStartTime: setTimeInputValue,
     setEndTime: setEndTimeInputValue,
     reset: resetTimes,
+    endTimeError,
+    endTimeHelperText,
+    canSave: canSaveTime,
     _setStartTimeRaw,
     _setEndTimeRaw
   } = useTimeRangeInput({ minDurationMinutes: 60 });
@@ -1268,6 +1271,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                         onChange={(e) => setEndTimeInputValue(e.target.value)}
                         onKeyDown={(e) => handleKeyPress(e, true)}
                         size="small"
+                        error={endTimeError}
+                        helperText={endTimeHelperText}
                         sx={{
                           '& .MuiInputBase-input': {
                             fontSize: '0.75rem',
@@ -1277,13 +1282,19 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                           '& .MuiOutlinedInput-root': {
                             height: 28,
                             minWidth: 80
+                          },
+                          '& .MuiFormHelperText-root': {
+                            fontSize: '0.6rem',
+                            mx: 0,
+                            mt: 0.25
                           }
                         }}
                       />
                       <IconButton
                         size="small"
                         onClick={handleEndTimeEditSave}
-                        sx={{ color: 'success.main', p: 0.25 }}
+                        disabled={!canSaveTime}
+                        sx={{ color: canSaveTime ? 'success.main' : 'text.disabled', p: 0.25 }}
                       >
                         <Check fontSize="small" />
                       </IconButton>

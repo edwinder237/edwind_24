@@ -301,7 +301,11 @@ const settingsSlice = createSlice({
       projectApi.endpoints.getProjectSettings.matchRejected,
       (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message || 'Failed to load settings';
+        // Filter out the "condition callback" error - this occurs when query is skipped
+        // due to missing projectId and is not a real error
+        const errorMessage = action.error?.message || '';
+        const isSkipError = errorMessage.includes('condition callback returning false');
+        state.error = isSkipError ? null : (errorMessage || 'Failed to load settings');
       }
     );
   }

@@ -96,6 +96,9 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
     setStartTime,
     setEndTime,
     reset: resetTimes,
+    endTimeError,
+    endTimeHelperText,
+    canSave: canSaveTime,
     _setStartTimeRaw,
     _setEndTimeRaw
   } = useTimeRangeInput({ minDurationMinutes: 60 });
@@ -1651,6 +1654,8 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 disabled={allDay}
+                error={endTimeError}
+                helperText={endTimeHelperText}
                 sx={{
                   width: 95,
                   '& .MuiOutlinedInput-root': {
@@ -1659,6 +1664,11 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                     '& input': {
                       px: 0.5
                     }
+                  },
+                  '& .MuiFormHelperText-root': {
+                    fontSize: '0.65rem',
+                    mx: 0,
+                    mt: 0.25
                   }
                 }}
               />
@@ -1683,7 +1693,7 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
               <Button
                 variant="contained"
                 size="small"
-                disabled={!startTime || !endTime}
+                disabled={!canSaveTime}
                 onClick={() => {
                   if (startTime && endTime) {
                     const eventDate = new Date(event.start);

@@ -47,13 +47,16 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   // Track if dialog was ever opened to prevent premature data loading
   const [wasOpened, setWasOpened] = useState(false);
 
-  // DateTime range hook with auto-adjustment
+  // DateTime range hook with validation
   const {
     startDateTime,
     endDateTime,
     setStartDateTime,
     setEndDateTime,
     reset: resetDateTimes,
+    endTimeError,
+    endTimeHelperText,
+    canSave: canSaveDateTime,
     _setStartRaw,
     _setEndRaw
   } = useDateTimeRangeInput({ minDurationMinutes: 60 });
@@ -555,6 +558,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 value={endDateTime}
                 onChange={(e) => setEndDateTime(e.target.value)}
                 disabled={formData.allDay}
+                error={endTimeError}
+                helperText={endTimeHelperText}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -678,7 +683,7 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
             <Button
               variant="contained"
               onClick={handleSubmit}
-              disabled={loading || deleting || !formData.title.trim()}
+              disabled={loading || deleting || !formData.title.trim() || !canSaveDateTime}
               startIcon={<Save />}
               sx={{ minWidth: 140 }}
             >

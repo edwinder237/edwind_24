@@ -24,8 +24,12 @@ import {
   Menu,
   ListItemIcon,
   Divider,
-  Tooltip
+  Tooltip,
+  Card,
+  CardContent,
+  Grid
 } from '@mui/material';
+import { Clear as ClearIcon } from '@mui/icons-material';
 import {
   Close as CloseIcon,
   Save as SaveIcon,
@@ -219,6 +223,55 @@ const CurriculumsPage = () => {
     description: '',
     selectedCourses: []
   });
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    courseCount: 'all', // 'all', 'none', '1-3', '4-6', '7+'
+    hasProjects: 'all', // 'all', 'yes', 'no'
+    hasSupportActivities: 'all' // 'all', 'yes', 'no'
+  });
+
+  // Filter curriculums based on filter state
+  const filteredCurriculums = useMemo(() => {
+    return curriculums.filter(curriculum => {
+      // Course count filter
+      if (filters.courseCount !== 'all') {
+        const count = curriculum.courseCount || 0;
+        if (filters.courseCount === 'none' && count !== 0) return false;
+        if (filters.courseCount === '1-3' && (count < 1 || count > 3)) return false;
+        if (filters.courseCount === '4-6' && (count < 4 || count > 6)) return false;
+        if (filters.courseCount === '7+' && count < 7) return false;
+      }
+
+      // Has projects filter
+      if (filters.hasProjects !== 'all') {
+        const hasProjects = (curriculum.projectCount || 0) > 0;
+        if (filters.hasProjects === 'yes' && !hasProjects) return false;
+        if (filters.hasProjects === 'no' && hasProjects) return false;
+      }
+
+      // Has support activities filter
+      if (filters.hasSupportActivities !== 'all') {
+        const hasSupport = (curriculum.supportActivitiesCount || 0) > 0;
+        if (filters.hasSupportActivities === 'yes' && !hasSupport) return false;
+        if (filters.hasSupportActivities === 'no' && hasSupport) return false;
+      }
+
+      return true;
+    });
+  }, [curriculums, filters]);
+
+  // Check if any filters are active
+  const hasActiveFilters = filters.courseCount !== 'all' || filters.hasProjects !== 'all' || filters.hasSupportActivities !== 'all';
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      courseCount: 'all',
+      hasProjects: 'all',
+      hasSupportActivities: 'all'
+    });
+  };
 
   // Table columns configuration
   const columns = useMemo(
@@ -599,6 +652,78 @@ const CurriculumsPage = () => {
           Organize courses into structured learning paths. Create and manage curriculums to define training programs for your projects.
         </Typography>
 
+        {/* Filter Section */}
+        {curriculums.length > 0 && (
+          <Card variant="outlined" sx={{ mb: 2 }}>
+            <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Courses</InputLabel>
+                    <Select
+                      value={filters.courseCount}
+                      label="Courses"
+                      onChange={(e) => setFilters(prev => ({ ...prev, courseCount: e.target.value }))}
+                    >
+                      <MenuItem value="all">All</MenuItem>
+                      <MenuItem value="none">No courses</MenuItem>
+                      <MenuItem value="1-3">1-3 courses</MenuItem>
+                      <MenuItem value="4-6">4-6 courses</MenuItem>
+                      <MenuItem value="7+">7+ courses</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Projects</InputLabel>
+                    <Select
+                      value={filters.hasProjects}
+                      label="Projects"
+                      onChange={(e) => setFilters(prev => ({ ...prev, hasProjects: e.target.value }))}
+                    >
+                      <MenuItem value="all">All</MenuItem>
+                      <MenuItem value="yes">Has projects</MenuItem>
+                      <MenuItem value="no">No projects</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Support Activities</InputLabel>
+                    <Select
+                      value={filters.hasSupportActivities}
+                      label="Support Activities"
+                      onChange={(e) => setFilters(prev => ({ ...prev, hasSupportActivities: e.target.value }))}
+                    >
+                      <MenuItem value="all">All</MenuItem>
+                      <MenuItem value="yes">Has support</MenuItem>
+                      <MenuItem value="no">No support</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Button
+                      variant="text"
+                      size="small"
+                      startIcon={<ClearIcon />}
+                      onClick={clearFilters}
+                      disabled={!hasActiveFilters}
+                    >
+                      Clear
+                    </Button>
+                    {hasActiveFilters && (
+                      <Typography variant="caption" color="text.secondary">
+                        {filteredCurriculums.length} of {curriculums.length}
+                      </Typography>
+                    )}
+                  </Stack>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Empty State */}
         {curriculums.length === 0 ? (
           <MainCard>
@@ -623,9 +748,9 @@ const CurriculumsPage = () => {
         ) : (
           <DataTable
             columns={columns}
-            data={curriculums}
+            data={filteredCurriculums}
             hiddenColumns={['id', 'description']}
-            emptyMessage="No Curriculums Found"
+            emptyMessage={hasActiveFilters ? "No curriculums match the selected filters" : "No Curriculums Found"}
             csvFilename="curriculums.csv"
             createButtonLabel="Create Curriculum"
             onCreate={handleOpenCreateDialog}

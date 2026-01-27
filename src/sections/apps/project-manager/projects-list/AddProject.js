@@ -622,7 +622,19 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
     setFieldValue,
     setFieldTouched,
     dirty,
+    values,
   } = formik;
+
+  // Auto-generate project title when training recipient and project type are selected (only for new projects)
+  useEffect(() => {
+    if (!project && selectedTrainingRecipient && values.type && !values.title) {
+      const recipientName = selectedTrainingRecipient.name || '';
+      const projectType = values.type || '';
+      const generatedTitle = `${recipientName} | ${projectType}`;
+      setFieldValue("title", generatedTitle);
+      setProjectTitle(generatedTitle);
+    }
+  }, [selectedTrainingRecipient, values.type, values.title, project, setFieldValue]);
 
   // Check if form has unsaved changes
   const hasUnsavedChanges = () => {

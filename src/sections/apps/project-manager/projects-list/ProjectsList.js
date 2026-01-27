@@ -447,7 +447,7 @@ const ProjectsList = () => {
     isValidProjectsArray
   ]);
 
-  const PER_PAGE = 6;
+  const PER_PAGE = 9;
 
   const count = Math.ceil(userCard.length / PER_PAGE);
   const _DATA = usePagination(userCard, PER_PAGE);
@@ -929,7 +929,7 @@ const ProjectsList = () => {
       ) : userCard.length > 0 ? (
         <Grid container spacing={matchDownSM ? 2 : 3}>
           <AnimatePresence mode="popLayout">
-            {userCard.map((project, index) => (
+            {_DATA.currentData().map((project) => (
               <Grid item xs={12} sm={6} md={6} lg={4} key={project.id}>
                 <motion.div
                   layout

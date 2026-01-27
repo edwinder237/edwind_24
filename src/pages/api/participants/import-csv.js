@@ -77,17 +77,40 @@ async function handler(req, res) {
                 // Use existing participant
                 participant = existingParticipant;
               } else {
-                // Handle role mapping - try to find role by title, otherwise use null
+                // Handle role mapping - try to find role by title (case-insensitive) or by ID
                 let roleId = null;
                 if (participantData.roleId) {
-                  const role = await tx.sub_organization_participant_role.findFirst({
-                    where: { 
-                      title: participantData.roleId,
-                      isActive: true,
-                      sub_organizationId: project.sub_organizationId
+                  // First, check if roleId is a numeric ID
+                  const numericRoleId = parseInt(participantData.roleId, 10);
+                  if (!isNaN(numericRoleId)) {
+                    // It's a numeric ID - verify it exists and belongs to this sub-org
+                    const roleById = await tx.sub_organization_participant_role.findFirst({
+                      where: {
+                        id: numericRoleId,
+                        isActive: true,
+                        sub_organizationId: project.sub_organizationId
+                      }
+                    });
+                    if (roleById) {
+                      roleId = roleById.id;
                     }
-                  });
-                  roleId = role ? role.id : null;
+                  }
+
+                  // If not found by ID, try to find by title (case-insensitive)
+                  if (!roleId) {
+                    const allRoles = await tx.sub_organization_participant_role.findMany({
+                      where: {
+                        isActive: true,
+                        sub_organizationId: project.sub_organizationId
+                      }
+                    });
+
+                    // Case-insensitive title match
+                    const roleByTitle = allRoles.find(
+                      r => r.title.toLowerCase() === participantData.roleId.toString().toLowerCase().trim()
+                    );
+                    roleId = roleByTitle ? roleByTitle.id : null;
+                  }
                 }
 
                 // Create new participant

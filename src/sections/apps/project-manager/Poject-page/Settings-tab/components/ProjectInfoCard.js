@@ -275,7 +275,6 @@ const ProjectInfoCard = React.memo(({ project, projectSettings, onUpdateTitle, o
                 error={!!summaryError}
                 helperText={summaryError || `${summaryValue.length}/1000 characters`}
                 size="small"
-                placeholder="Enter project description"
                 autoFocus
               />
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>

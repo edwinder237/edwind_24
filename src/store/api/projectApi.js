@@ -58,7 +58,8 @@ export const projectApi = createApi({
     'AssessmentAttempts',
     'ProjectAssessments',
     'DailyNotes',
-    'CurriculumSurvey'
+    'CurriculumSurvey',
+    'Curriculum'
   ],
   
   endpoints: (builder) => ({
@@ -1084,8 +1085,8 @@ export const projectApi = createApi({
     updateProject: builder.mutation({
       query: ({ projectId, ...updates }) => ({
         url: 'projects/updateProject',
-        method: 'POST',
-        body: { projectId, ...updates }
+        method: 'PUT',
+        body: { id: projectId, ...updates }
       }),
       invalidatesTags: (_, __, { projectId }) => [
         { type: 'Project', id: projectId },
@@ -1809,6 +1810,26 @@ export const projectApi = createApi({
       ]
     }),
 
+    // ==============================|| CURRICULUMS ||============================== //
+
+    /**
+     * Get all curriculums for the organization
+     * Used by analytics filters and curriculum pickers
+     */
+    getCurriculums: builder.query({
+      query: () => ({
+        url: 'curriculums/fetchCurriculums',
+        method: 'GET'
+      }),
+      providesTags: ['Curriculum'],
+      transformResponse: (response) => {
+        // API returns array directly
+        return Array.isArray(response) ? response : [];
+      },
+      // Cache for 10 minutes - curriculums don't change frequently
+      keepUnusedDataFor: 600,
+    }),
+
     // ==============================|| CURRICULUM SURVEYS ||============================== //
 
     /**
@@ -1985,6 +2006,7 @@ export const {
   // Checklist Management
   useToggleChecklistItemMutation,
   useUpdateParticipantChecklistProgressMutation,
+  useGetCurriculumsQuery,
   useGetCurriculumChecklistItemsQuery,
   useCreateCurriculumChecklistItemMutation,
   useUpdateCurriculumChecklistItemMutation,

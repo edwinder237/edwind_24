@@ -62,7 +62,7 @@ const TabSettings = React.memo(({ project: passedProject }) => {
   }, [updateProjectInfo]);
 
   const handleUpdateSummary = useCallback(async (newSummary) => {
-    return updateProjectInfo({ summary: newSummary });
+    return updateProjectInfo({ description: newSummary });
   }, [updateProjectInfo]);
 
   const handleUpdateTrainingRecipient = useCallback(async (recipientId) => {

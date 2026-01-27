@@ -499,7 +499,7 @@ const CourseCompletionTracker = ({ project }) => {
     }
   }, [markParticipantNotNeeded, projectId]);
 
-  // Empty state
+  // Empty state - still show role breakdown if participants exist
   if (curriculums.length === 0) {
     return (
       <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
@@ -507,7 +507,61 @@ const CourseCompletionTracker = ({ project }) => {
           <Psychology sx={{ color: 'primary.main' }} />
           <Typography variant="h6" fontWeight="bold">Course Completion Tracker</Typography>
         </Stack>
-        <Alert severity="info" sx={{ mt: 2 }}>
+
+        {/* Role Breakdown - show when participants exist even without curriculums */}
+        {roleDistribution.length > 0 && (
+          <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+            <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ mb: 2 }}>
+              Role Breakdown
+            </Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {roleDistribution.map((roleStat, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1,
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      bgcolor: roleStat.color
+                    }}
+                  />
+                  <Typography variant="body2" fontWeight={500}>
+                    {roleStat.role}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {roleStat.count}
+                  </Typography>
+                  <Chip
+                    label={`${roleStat.percentage}%`}
+                    size="small"
+                    sx={{
+                      bgcolor: roleStat.color,
+                      color: 'white',
+                      fontSize: '0.65rem',
+                      height: 18,
+                      minWidth: 35
+                    }}
+                  />
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        <Alert severity="info">
           No curriculums assigned to this project. Assign curriculums to groups to track course completion.
         </Alert>
       </Paper>

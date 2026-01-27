@@ -58,21 +58,19 @@ export const useTimeRangeInput = ({
   }, [minDurationMinutes]);
 
   const setEndTime = useCallback((newEndTime) => {
-    setStartTimeState((currentStartTime) => {
-      // Auto-adjust if user tries to set invalid end time
-      if (currentStartTime && newEndTime <= currentStartTime) {
-        setEndTimeState(calculateEndTimeOffset(currentStartTime, minDurationMinutes));
-      } else {
-        setEndTimeState(newEndTime);
-      }
-      return currentStartTime; // Don't change start time
-    });
-  }, [minDurationMinutes]);
+    // Allow user to freely edit end time - no auto-correction
+    // Validation is available via isValidRange for checking on save
+    setEndTimeState(newEndTime);
+  }, []);
 
   const reset = useCallback((start, end) => {
     setStartTimeState(start);
     setEndTimeState(end);
   }, []);
+
+  // Validation state
+  const isValidRange = isValidTimeRange(startTime, endTime);
+  const hasEndTimeError = !!startTime && !!endTime && !isValidRange;
 
   return {
     startTime,
@@ -80,7 +78,11 @@ export const useTimeRangeInput = ({
     setStartTime,
     setEndTime,
     reset,
-    isValidRange: isValidTimeRange(startTime, endTime),
+    isValidRange,
+    // Validation helpers for UI components
+    endTimeError: hasEndTimeError,
+    endTimeHelperText: hasEndTimeError ? 'End must be after start' : '',
+    canSave: !!startTime && !!endTime && isValidRange,
     // Raw setters for initialization without auto-adjust
     _setStartTimeRaw: setStartTimeState,
     _setEndTimeRaw: setEndTimeState
@@ -148,20 +150,19 @@ export const useDateTimeRangeInput = ({
   }, [minDurationMinutes]);
 
   const setEndDateTime = useCallback((newEnd) => {
-    setStartDateTimeState((currentStart) => {
-      if (currentStart && newEnd <= currentStart) {
-        setEndDateTimeState(addMinutesToDateTime(currentStart, minDurationMinutes));
-      } else {
-        setEndDateTimeState(newEnd);
-      }
-      return currentStart;
-    });
-  }, [minDurationMinutes]);
+    // Allow user to freely edit end datetime - no auto-correction
+    // Validation should be done on save
+    setEndDateTimeState(newEnd);
+  }, []);
 
   const reset = useCallback((start, end) => {
     setStartDateTimeState(start);
     setEndDateTimeState(end);
   }, []);
+
+  // Validation state
+  const isValidRange = !startDateTime || !endDateTime || endDateTime > startDateTime;
+  const hasEndTimeError = !!startDateTime && !!endDateTime && !isValidRange;
 
   return {
     startDateTime,
@@ -169,6 +170,11 @@ export const useDateTimeRangeInput = ({
     setStartDateTime,
     setEndDateTime,
     reset,
+    isValidRange,
+    // Validation helpers for UI components
+    endTimeError: hasEndTimeError,
+    endTimeHelperText: hasEndTimeError ? 'End must be after start' : '',
+    canSave: !!startDateTime && !!endDateTime && isValidRange,
     _setStartRaw: setStartDateTimeState,
     _setEndRaw: setEndDateTimeState
   };
@@ -247,21 +253,19 @@ export const useDateRangeInput = ({
   }, [minDurationDays]);
 
   const setEndDate = useCallback((newEnd) => {
-    setStartDateState((currentStart) => {
-      // If new end date is before current start date, adjust end to be after start
-      if (currentStart && newEnd && isDateAfter(currentStart, newEnd)) {
-        setEndDateState(addDaysToDate(currentStart, minDurationDays));
-      } else {
-        setEndDateState(newEnd);
-      }
-      return currentStart; // Don't change start date
-    });
-  }, [minDurationDays]);
+    // Allow user to freely edit end date - no auto-correction
+    // Validation is available via isValidRange for checking on save
+    setEndDateState(newEnd);
+  }, []);
 
   const reset = useCallback((start, end) => {
     setStartDateState(start);
     setEndDateState(end);
   }, []);
+
+  // Validation state
+  const isValidRange = !startDate || !endDate || !isDateAfter(startDate, endDate);
+  const hasEndDateError = !!startDate && !!endDate && !isValidRange;
 
   return {
     startDate,
@@ -269,8 +273,12 @@ export const useDateRangeInput = ({
     setStartDate,
     setEndDate,
     reset,
-    isValidRange: !startDate || !endDate || !isDateAfter(startDate, endDate),
+    isValidRange,
     isSameDay: startDate && endDate && isSameDay(startDate, endDate),
+    // Validation helpers for UI components
+    endDateError: hasEndDateError,
+    endDateHelperText: hasEndDateError ? 'End must be after start' : '',
+    canSave: !!startDate && !!endDate && isValidRange,
     _setStartDateRaw: setStartDateState,
     _setEndDateRaw: setEndDateState
   };

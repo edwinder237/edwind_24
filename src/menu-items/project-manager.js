@@ -126,6 +126,13 @@ const ProjectManager = {
           type: 'item',
           url: '/project-manager/reports/reports',
           breadcrumbs: true
+        },
+        {
+          id: 'pm-analytics-kirkpatrick',
+          title: <FormattedMessage id="Kirkpatrick" />,
+          type: 'item',
+          url: '/project-manager/reports/kirkpatrick',
+          breadcrumbs: true
         }
       ]
     }

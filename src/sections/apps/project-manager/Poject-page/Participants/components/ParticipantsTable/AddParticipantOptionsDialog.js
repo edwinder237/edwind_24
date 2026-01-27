@@ -38,6 +38,7 @@ import TransferLists from './transferLists';
 import { useGetTrainingRecipientParticipantsQuery, useGetAvailableRolesQuery } from 'store/api/projectApi';
 import { useSelector } from 'store';
 import axios from 'utils/axios';
+import * as XLSX from 'xlsx';
 
 const AddParticipantOptionsDialog = ({
   open,
@@ -328,8 +329,12 @@ const AddParticipantOptionsDialog = ({
     const file = event.target.files[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setCsvErrors(['Please select a CSV file']);
+    const fileName = file.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.numbers');
+
+    if (!isCSV && !isExcel) {
+      setCsvErrors(['Please select a CSV or Excel file (.csv, .xlsx, .xls, .numbers)']);
       return;
     }
 
@@ -338,28 +343,66 @@ const AddParticipantOptionsDialog = ({
 
     reader.onload = (e) => {
       try {
-        const text = e.target.result;
-        const lines = text.split('\n').filter(line => line.trim());
+        let headers, rows;
 
-        if (lines.length < 2) {
-          setCsvErrors(['CSV file must contain at least a header row and one data row']);
-          return;
-        }
+        if (isExcel) {
+          // Parse Excel/Numbers file using xlsx library
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
 
-        // Parse headers
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        setCsvHeaders(headers);
+          // Get the first sheet (participant_template)
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
 
-        // Parse data rows
-        const rows = lines.slice(1).map((line, index) => {
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-          const row = {};
-          headers.forEach((header, i) => {
-            row[header] = values[i] || '';
+          // Convert to JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          if (jsonData.length < 2) {
+            setCsvErrors(['File must contain at least a header row and one data row']);
+            return;
+          }
+
+          // First row is headers
+          headers = jsonData[0].map(h => String(h || '').trim());
+          setCsvHeaders(headers);
+
+          // Rest are data rows
+          rows = jsonData.slice(1)
+            .filter(row => row.some(cell => cell !== undefined && cell !== '')) // Filter empty rows
+            .map((row, index) => {
+              const rowObj = {};
+              headers.forEach((header, i) => {
+                rowObj[header] = row[i] !== undefined ? String(row[i]).trim() : '';
+              });
+              rowObj._rowIndex = index + 2;
+              return rowObj;
+            });
+
+        } else {
+          // Parse CSV file
+          const text = e.target.result;
+          const lines = text.split('\n').filter(line => line.trim());
+
+          if (lines.length < 2) {
+            setCsvErrors(['CSV file must contain at least a header row and one data row']);
+            return;
+          }
+
+          // Parse headers
+          headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+          setCsvHeaders(headers);
+
+          // Parse data rows
+          rows = lines.slice(1).map((line, index) => {
+            const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+            const row = {};
+            headers.forEach((header, i) => {
+              row[header] = values[i] || '';
+            });
+            row._rowIndex = index + 2;
+            return row;
           });
-          row._rowIndex = index + 2;
-          return row;
-        });
+        }
 
         // Validate data
         const validationErrors = validateCsvData(headers, rows);
@@ -367,28 +410,62 @@ const AddParticipantOptionsDialog = ({
         setCsvData(rows);
 
       } catch (error) {
-        setCsvErrors(['Error parsing CSV file: ' + error.message]);
+        setCsvErrors(['Error parsing file: ' + error.message]);
       }
     };
 
-    reader.readAsText(file);
+    // Read as ArrayBuffer for Excel, as text for CSV
+    if (isExcel) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
+    }
   };
 
-  const getSampleCSV = () => {
-    const headers = ['firstName', 'lastName', 'email', 'middleName', 'derpartement', 'roleId', 'participantType', 'participantStatus', 'notes'];
-    const sampleRow = ['John', 'Doe', 'john.doe@example.com', 'Michael', 'Engineering', 'participant', 'student', 'active', 'Sample participant'];
-    return [headers.join(','), sampleRow.join(',')].join('\n');
-  };
+  const downloadTemplate = () => {
+    // Create workbook with two sheets
+    const wb = XLSX.utils.book_new();
 
-  const downloadSampleCSV = () => {
-    const csvContent = getSampleCSV();
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'participant_template.csv';
-    link.click();
-    window.URL.revokeObjectURL(url);
+    // Sheet 1: Participant Template
+    const templateHeaders = ['firstName', 'lastName', 'email', 'middleName', 'derpartement', 'roleId', 'notes'];
+    const sampleRow = ['John', 'Doe', 'john.doe@example.com', 'Michael', 'Engineering', availableRoles[0]?.title || 'participant', 'Sample participant'];
+    const templateData = [templateHeaders, sampleRow];
+    const templateSheet = XLSX.utils.aoa_to_sheet(templateData);
+
+    // Set column widths for better readability
+    templateSheet['!cols'] = [
+      { wch: 12 }, // firstName
+      { wch: 12 }, // lastName
+      { wch: 25 }, // email
+      { wch: 12 }, // middleName
+      { wch: 15 }, // derpartement
+      { wch: 20 }, // roleId
+      { wch: 30 }, // notes
+    ];
+    XLSX.utils.book_append_sheet(wb, templateSheet, 'participant_template');
+
+    // Sheet 2: Role Legend
+    const roleHeaders = ['ID', 'Role Title (use in roleId column)', 'Description'];
+    const roleData = [roleHeaders];
+
+    if (availableRoles && availableRoles.length > 0) {
+      availableRoles.forEach(role => {
+        roleData.push([role.id, role.title, role.description || '']);
+      });
+    } else {
+      roleData.push(['', 'participant', 'Default participant role']);
+    }
+
+    const roleSheet = XLSX.utils.aoa_to_sheet(roleData);
+    roleSheet['!cols'] = [
+      { wch: 8 },  // ID
+      { wch: 35 }, // Role Title
+      { wch: 50 }, // Description
+    ];
+    XLSX.utils.book_append_sheet(wb, roleSheet, 'Available Roles');
+
+    // Download the file
+    XLSX.writeFile(wb, 'participant_template.xlsx');
   };
 
   const handleCSVImport = async () => {
@@ -725,10 +802,10 @@ const AddParticipantOptionsDialog = ({
                 <Button
                   variant="outlined"
                   startIcon={<FileTextOutlined />}
-                  onClick={downloadSampleCSV}
+                  onClick={downloadTemplate}
                   size="small"
                 >
-                  Download CSV Template
+                  Download Template
                 </Button>
               </Box>
             )}
@@ -739,7 +816,7 @@ const AddParticipantOptionsDialog = ({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls,.numbers"
                   onChange={handleFileSelect}
                   style={{ display: 'none' }}
                 />
@@ -749,7 +826,7 @@ const AddParticipantOptionsDialog = ({
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isSubmitting}
                 >
-                  Select CSV File
+                  Select File
                 </Button>
                 {fileName && (
                   <Typography variant="body2" sx={{ mt: 1 }}>

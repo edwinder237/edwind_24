@@ -101,6 +101,7 @@ import SupportActivitiesManager from 'components/curriculum/SupportActivitiesMan
 import CurriculumChecklistManager from 'components/curriculum/CurriculumChecklistManager';
 import { CurriculumSurveyManager } from 'components/curriculum/surveys';
 import MainCard from 'components/MainCard';
+import CourseTransferList from 'components/CourseTransferList';
 import Layout from 'layout';
 
 // Tab panel component
@@ -908,207 +909,199 @@ const CurriculumEditPage = () => {
                       onClick={() => setAddCourseDialogOpen(true)}
                       disabled={actionLoading}
                     >
-                      Add Courses
+                      Manage Courses
                     </Button>
                   </Stack>
-                  
+
                   {curriculum.curriculum_courses?.length === 0 ? (
                     <Alert severity="info" sx={{ mb: 2 }}>
-                      No courses assigned to this curriculum yet. Click "Add Courses" to get started.
+                      No courses assigned to this curriculum yet. Click "Manage Courses" to get started.
                     </Alert>
                   ) : (
-                    <Grid container spacing={2}>
-                      {curriculum.curriculum_courses?.map((curriculumCourse) => (
-                        <Grid item xs={12} md={6} key={curriculumCourse.id}>
-                          <Card variant="outlined">
-                            <CardContent>
-                              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
-                                <Typography variant="subtitle1" fontWeight="bold">
-                                  {curriculumCourse.course?.title || 'Course Title'}
-                                </Typography>
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleRemoveCourse(curriculumCourse.courseId)}
-                                  disabled={actionLoading}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Stack>
-                              
-                              {/* Inactive Course Warning */}
-                              {curriculumCourse.course?.isActive === false && (
-                                <Alert
-                                  severity="warning"
-                                  size="small"
-                                  sx={{ mb: 2 }}
-                                  icon={<AlertIcon fontSize="small" />}
-                                >
-                                  This course is not active and may not be available for training delivery.
-                                </Alert>
-                              )}
-                              
-                              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                {curriculumCourse.course?.summary || 'No description available'}
-                              </Typography>
-                              <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                                <Chip label={curriculumCourse.course?.level || 'N/A'} size="small" />
-                                <Chip 
-                                  label={curriculumCourse.course?.courseCategory || 'General'} 
-                                  size="small" 
-                                  variant="outlined" 
-                                />
-                                {curriculumCourse.course?.isActive === false && (
-                                  <Chip 
-                                    label="INACTIVE" 
-                                    size="small" 
-                                    color="warning"
-                                    variant="filled"
-                                  />
-                                )}
-                              </Stack>
-                              <Typography variant="caption" color="text.secondary">
-                                {curriculumCourse.course?.modules?.length || 0} modules •
-                                Duration: {curriculumCourse.course?.modules?.reduce((total, module) => {
-                                  const moduleTotal = module.customDuration ||
-                                    module.activities?.reduce((sum, activity) => sum + (activity.duration || 0), 0) || 0;
-                                  return total + moduleTotal;
-                                }, 0) || 0} minutes
-                              </Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Course</TableCell>
+                            <TableCell>Code</TableCell>
+                            <TableCell>Version</TableCell>
+                            <TableCell align="center">Modules</TableCell>
+                            <TableCell align="center">Duration</TableCell>
+                            <TableCell align="center">Assessments</TableCell>
+                            <TableCell align="center">Actions</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {curriculum.curriculum_courses?.map((curriculumCourse) => {
+                            const course = curriculumCourse.course;
+                            const moduleCount = course?.modules?.length || 0;
+                            const duration = course?.modules?.reduce((total, module) => {
+                              const moduleTotal = module.customDuration ||
+                                module.activities?.reduce((sum, activity) => sum + (activity.duration || 0), 0) || 0;
+                              return total + moduleTotal;
+                            }, 0) || 0;
+                            const assessmentCount = assessmentsByCourse[curriculumCourse.courseId]?.assessments?.length || 0;
 
-                              {/* Assessments Section */}
-                              <Divider sx={{ my: 2 }} />
-
-                              <Box>
-                                <Button
-                                  fullWidth
-                                  variant="text"
-                                  size="small"
-                                  onClick={() => handleToggleExpandAssessments(curriculumCourse.courseId)}
-                                  endIcon={expandedAssessments[curriculumCourse.courseId] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                                  startIcon={<AssessmentIcon />}
-                                  sx={{ justifyContent: 'space-between' }}
+                            return (
+                              <React.Fragment key={curriculumCourse.id}>
+                                <TableRow
+                                  sx={{
+                                    '&:hover': { backgroundColor: 'action.hover' },
+                                    ...(course?.isActive === false && {
+                                      backgroundColor: alpha(theme.palette.warning.main, 0.05)
+                                    })
+                                  }}
                                 >
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      Assessments
+                                  <TableCell>
+                                    <Box>
+                                      <Typography variant="body2" fontWeight={600}>
+                                        {course?.title || 'Untitled Course'}
+                                      </Typography>
+                                      {course?.isActive === false && (
+                                        <Chip
+                                          label="INACTIVE"
+                                          size="small"
+                                          color="warning"
+                                          sx={{ height: 18, fontSize: '0.65rem', mt: 0.5 }}
+                                        />
+                                      )}
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {course?.code || '-'}
                                     </Typography>
-                                    {assessmentsByCourse[curriculumCourse.courseId] && (
-                                      <Chip
-                                        label={assessmentsByCourse[curriculumCourse.courseId].assessments.length}
-                                        size="small"
-                                        color="primary"
-                                        sx={{ height: 20, fontSize: '0.7rem' }}
-                                      />
-                                    )}
-                                  </Box>
-                                </Button>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {course?.version ? `v${course.version}` : '-'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Typography variant="body2">
+                                      {moduleCount}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Typography variant="body2">
+                                      {duration} min
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Button
+                                      size="small"
+                                      variant="text"
+                                      onClick={() => handleToggleExpandAssessments(curriculumCourse.courseId)}
+                                      endIcon={expandedAssessments[curriculumCourse.courseId] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                      sx={{ minWidth: 'auto' }}
+                                    >
+                                      {assessmentCount}
+                                    </Button>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={() => handleRemoveCourse(curriculumCourse.courseId)}
+                                      disabled={actionLoading}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
 
-                                <Collapse in={expandedAssessments[curriculumCourse.courseId]}>
-                                  <Box sx={{ pt: 2 }}>
-                                    {loadingAssessments ? (
-                                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                                        <CircularProgress size={24} />
-                                      </Box>
-                                    ) : assessmentsByCourse[curriculumCourse.courseId]?.assessments.length > 0 ? (
-                                      <List dense>
-                                        {assessmentsByCourse[curriculumCourse.courseId].assessments.map((assessment) => {
-                                          const toggleKey = `${curriculumCourse.courseId}-${assessment.id}`;
-                                          const isToggling = togglingAssessment === toggleKey;
+                                {/* Expandable Assessments Row */}
+                                <TableRow>
+                                  <TableCell colSpan={7} sx={{ py: 0, border: 0 }}>
+                                    <Collapse in={expandedAssessments[curriculumCourse.courseId]} timeout="auto" unmountOnExit>
+                                      <Box sx={{ py: 2, px: 2, backgroundColor: alpha(theme.palette.primary.main, 0.02) }}>
+                                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                          Assessments for {course?.title}
+                                        </Typography>
+                                        {loadingAssessments ? (
+                                          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                                            <CircularProgress size={24} />
+                                          </Box>
+                                        ) : assessmentsByCourse[curriculumCourse.courseId]?.assessments.length > 0 ? (
+                                          <Table size="small">
+                                            <TableHead>
+                                              <TableRow>
+                                                <TableCell>Assessment</TableCell>
+                                                <TableCell align="center">Max Score</TableCell>
+                                                <TableCell align="center">Pass %</TableCell>
+                                                <TableCell align="center">Status</TableCell>
+                                                <TableCell align="center">Enabled</TableCell>
+                                              </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                              {assessmentsByCourse[curriculumCourse.courseId].assessments.map((assessment) => {
+                                                const toggleKey = `${curriculumCourse.courseId}-${assessment.id}`;
+                                                const isToggling = togglingAssessment === toggleKey;
 
-                                          return (
-                                            <ListItem
-                                              key={assessment.id}
-                                              sx={{
-                                                border: '1px solid',
-                                                borderColor: 'divider',
-                                                borderRadius: 1,
-                                                mb: 1,
-                                                backgroundColor: assessment.effectiveIsActive
-                                                  ? alpha(theme.palette.success.main, 0.05)
-                                                  : alpha(theme.palette.error.main, 0.05)
-                                              }}
-                                              secondaryAction={
-                                                <FormControlLabel
-                                                  control={
-                                                    <Switch
-                                                      checked={assessment.effectiveIsActive}
-                                                      onChange={() => handleToggleAssessment(
-                                                        curriculumCourse.courseId,
-                                                        assessment.id,
-                                                        assessment.effectiveIsActive
+                                                return (
+                                                  <TableRow key={assessment.id}>
+                                                    <TableCell>
+                                                      <Typography variant="body2" fontWeight={500}>
+                                                        {assessment.title}
+                                                      </Typography>
+                                                      {assessment.description && (
+                                                        <Typography variant="caption" color="text.secondary">
+                                                          {assessment.description}
+                                                        </Typography>
                                                       )}
-                                                      disabled={isToggling}
-                                                      size="small"
-                                                    />
-                                                  }
-                                                  label=""
-                                                  sx={{ mr: 0 }}
-                                                />
-                                              }
-                                            >
-                                              <ListItemIcon sx={{ minWidth: 36 }}>
-                                                {assessment.effectiveIsActive ? (
-                                                  <CheckCircleIcon color="success" fontSize="small" />
-                                                ) : (
-                                                  <CancelIcon color="error" fontSize="small" />
-                                                )}
-                                              </ListItemIcon>
-                                              <Box sx={{ flexGrow: 1, pr: 2 }}>
-                                                <Typography variant="body2" fontWeight={600}>
-                                                  {assessment.title}
-                                                </Typography>
-                                                {assessment.description && (
-                                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                                    {assessment.description}
-                                                  </Typography>
-                                                )}
-                                                <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                                                  <Chip
-                                                    label={`Max: ${assessment.maxScore}`}
-                                                    size="small"
-                                                    variant="outlined"
-                                                    sx={{ height: 18, fontSize: '0.65rem' }}
-                                                  />
-                                                  <Chip
-                                                    label={`Pass: ${assessment.passingScore}%`}
-                                                    size="small"
-                                                    variant="outlined"
-                                                    sx={{ height: 18, fontSize: '0.65rem' }}
-                                                  />
-                                                  {assessment.hasOverride && (
-                                                    <Chip
-                                                      label="Override"
-                                                      size="small"
-                                                      color="warning"
-                                                      sx={{ height: 18, fontSize: '0.65rem' }}
-                                                    />
-                                                  )}
-                                                </Stack>
-                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                                  {assessment.hasOverride
-                                                    ? `${assessment.effectiveIsActive ? 'Enabled' : 'Disabled'} for this curriculum`
-                                                    : `Using course default (${assessment.baseIsActive ? 'Active' : 'Inactive'})`
-                                                  }
-                                                </Typography>
-                                              </Box>
-                                            </ListItem>
-                                          );
-                                        })}
-                                      </List>
-                                    ) : (
-                                      <Alert severity="info" sx={{ fontSize: '0.8rem' }}>
-                                        No assessments configured for this course.
-                                      </Alert>
-                                    )}
-                                  </Box>
-                                </Collapse>
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                      {assessment.maxScore}
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                      {assessment.passingScore}%
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                      {assessment.hasOverride ? (
+                                                        <Chip
+                                                          label="Override"
+                                                          size="small"
+                                                          color="warning"
+                                                          sx={{ height: 20, fontSize: '0.7rem' }}
+                                                        />
+                                                      ) : (
+                                                        <Typography variant="caption" color="text.secondary">
+                                                          Default
+                                                        </Typography>
+                                                      )}
+                                                    </TableCell>
+                                                    <TableCell align="center">
+                                                      <Switch
+                                                        checked={assessment.effectiveIsActive}
+                                                        onChange={() => handleToggleAssessment(
+                                                          curriculumCourse.courseId,
+                                                          assessment.id,
+                                                          assessment.effectiveIsActive
+                                                        )}
+                                                        disabled={isToggling}
+                                                        size="small"
+                                                      />
+                                                    </TableCell>
+                                                  </TableRow>
+                                                );
+                                              })}
+                                            </TableBody>
+                                          </Table>
+                                        ) : (
+                                          <Typography variant="body2" color="text.secondary">
+                                            No assessments configured for this course.
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                    </Collapse>
+                                  </TableCell>
+                                </TableRow>
+                              </React.Fragment>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
                   )}
                 </CardContent>
               </Card>
@@ -2194,21 +2187,22 @@ const CurriculumEditPage = () => {
           </Box>
         </MainCard>
 
-        {/* Add Courses Dialog */}
+        {/* Manage Courses Dialog */}
         <Dialog
           open={addCourseDialogOpen}
           onClose={() => setAddCourseDialogOpen(false)}
-          maxWidth="sm"
+          maxWidth="md"
           fullWidth
           sx={{
             '& .MuiDialog-paper': {
-              maxWidth: '550px',
-              width: '100%'
+              maxWidth: { xs: '100%', sm: '95%', md: '900px' },
+              width: '100%',
+              m: { xs: 1, sm: 2 }
             }
           }}
         >
           <MainCard
-            title="Add Courses to Curriculum"
+            title="Manage Curriculum Courses"
             secondary={
               <IconButton onClick={() => setAddCourseDialogOpen(false)} size="small">
                 <CloseIcon />
@@ -2216,163 +2210,91 @@ const CurriculumEditPage = () => {
             }
             content={false}
           >
-            <Box sx={{ p: 3 }}>
-              {/* Available courses filtered */}
-              {(() => {
-                const availableCourses = courses.filter(course =>
-                  !curriculum.curriculum_courses?.some(cc => cc.courseId === course.id)
-                );
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+              {courses.length === 0 ? (
+                <Alert severity="info">
+                  No courses available in your organization.{' '}
+                  <Link href="/courses" underline="hover" sx={{ fontWeight: 500 }}>
+                    Create a new course
+                  </Link>
+                </Alert>
+              ) : (
+                <CourseTransferList
+                  allCourses={courses}
+                  assignedCourseIds={curriculum.curriculum_courses?.map(cc => cc.courseId) || []}
+                  onAssignmentChange={async (newAssignedIds, toAdd, toRemove) => {
+                    try {
+                      setActionLoading(true);
 
-                if (availableCourses.length === 0) {
-                  return (
-                    <Alert severity="info">
-                      All available courses are already assigned to this curriculum.{' '}
-                      <Link href="/courses" underline="hover" sx={{ fontWeight: 500 }}>
-                        Create a new course
-                      </Link>
-                    </Alert>
-                  );
-                }
-
-                return (
-                  <>
-                    <Autocomplete
-                      multiple
-                      id="course-autocomplete"
-                      options={availableCourses}
-                      value={availableCourses.filter(c => selectedCourses.includes(c.id))}
-                      onChange={(event, newValue) => {
-                        setSelectedCourses(newValue.map(c => c.id));
-                      }}
-                      getOptionLabel={(option) => option.title || ''}
-                      filterOptions={(options, { inputValue }) => {
-                        const searchLower = inputValue.toLowerCase();
-                        return options.filter(option =>
-                          option.title?.toLowerCase().includes(searchLower) ||
-                          option.level?.toLowerCase().includes(searchLower) ||
-                          option.courseCategory?.toLowerCase().includes(searchLower)
+                      // Add new courses
+                      if (toAdd.length > 0) {
+                        await Promise.all(
+                          toAdd.map(courseId =>
+                            fetch('/api/curriculums/add-course', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                curriculumId: parseInt(id),
+                                courseId
+                              })
+                            })
+                          )
                         );
-                      }}
-                      disableCloseOnSelect
-                      renderOption={(props, option, { selected }) => {
-                        const { key, ...otherProps } = props;
-                        return (
-                          <li
-                            key={key}
-                            {...otherProps}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              padding: '10px 16px',
-                              borderBottom: `1px solid ${theme.palette.divider}`,
-                              backgroundColor: selected ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
-                            }}
-                          >
-                            <Checkbox
-                              checked={selected}
-                              sx={{ p: 0 }}
-                            />
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="body2" fontWeight={600} noWrap>
-                                {option.title}
-                              </Typography>
-                              <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
-                                <Chip
-                                  label={option.level || 'N/A'}
-                                  size="small"
-                                  sx={{ height: 20, fontSize: '0.7rem' }}
-                                />
-                                <Chip
-                                  label={option.courseCategory || 'General'}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{ height: 20, fontSize: '0.7rem' }}
-                                />
-                                <Chip
-                                  label={`${option.modules?.length || 0} modules`}
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                  sx={{ height: 20, fontSize: '0.7rem' }}
-                                />
-                              </Stack>
-                            </Box>
-                          </li>
-                        );
-                      }}
-                      renderTags={(value, getTagProps) =>
-                        value.map((option, index) => {
-                          const { key, ...tagProps } = getTagProps({ index });
-                          return (
-                            <Chip
-                              key={key}
-                              label={option.title}
-                              size="small"
-                              {...tagProps}
-                              sx={{
-                                maxWidth: '200px',
-                                '& .MuiChip-label': {
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis'
-                                }
-                              }}
-                            />
-                          );
-                        })
                       }
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder={selectedCourses.length === 0 ? "Search courses by name, level, or category..." : ""}
-                          InputProps={{
-                            ...params.InputProps,
-                            startAdornment: (
-                              <>
-                                <SearchIcon sx={{ color: 'text.secondary', ml: 1, mr: 0.5 }} />
-                                {params.InputProps.startAdornment}
-                              </>
-                            )
-                          }}
-                        />
-                      )}
-                      ListboxProps={{
-                        sx: {
-                          maxHeight: 350,
-                          '& .MuiAutocomplete-option': {
-                            padding: 0
-                          }
-                        }
-                      }}
-                      noOptionsText={
-                        <Box sx={{ p: 2, textAlign: 'center' }}>
-                          <Typography variant="body2" color="text.secondary">
-                            No courses found matching your search
-                          </Typography>
-                        </Box>
-                      }
-                    />
 
-                    {selectedCourses.length > 0 && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                        {selectedCourses.length} course{selectedCourses.length !== 1 ? 's' : ''} selected
-                      </Typography>
-                    )}
-                  </>
-                );
-              })()}
+                      // Remove courses
+                      if (toRemove.length > 0) {
+                        await Promise.all(
+                          toRemove.map(courseId =>
+                            fetch('/api/curriculums/remove-course', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                curriculumId: parseInt(id),
+                                courseId
+                              })
+                            })
+                          )
+                        );
+                      }
+
+                      // Show success message
+                      const actions = [];
+                      if (toAdd.length > 0) actions.push(`${toAdd.length} added`);
+                      if (toRemove.length > 0) actions.push(`${toRemove.length} removed`);
+
+                      dispatch(openSnackbar({
+                        open: true,
+                        message: `Courses updated: ${actions.join(', ')}`,
+                        variant: 'alert',
+                        alert: { color: 'success' }
+                      }));
+
+                      // Refresh curriculum data
+                      fetchCurriculum();
+                    } catch (error) {
+                      console.error('Error updating courses:', error);
+                      dispatch(openSnackbar({
+                        open: true,
+                        message: 'Failed to update courses',
+                        variant: 'alert',
+                        alert: { color: 'error' }
+                      }));
+                    } finally {
+                      setActionLoading(false);
+                    }
+                  }}
+                />
+              )}
 
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                <Button variant="outlined" onClick={() => setAddCourseDialogOpen(false)}>
-                  Cancel
-                </Button>
                 <Button
-                  onClick={handleAddCourses}
                   variant="contained"
-                  startIcon={actionLoading ? <CircularProgress size={20} /> : <AddIcon />}
-                  disabled={actionLoading || selectedCourses.length === 0}
+                  onClick={() => setAddCourseDialogOpen(false)}
+                  disabled={actionLoading}
                 >
-                  Add {selectedCourses.length > 0 ? `${selectedCourses.length} ` : ''}Course{selectedCourses.length !== 1 ? 's' : ''}
+                  {actionLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+                  Done
                 </Button>
               </Box>
             </Box>

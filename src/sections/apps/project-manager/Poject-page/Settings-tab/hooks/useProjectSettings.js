@@ -307,7 +307,15 @@ export const useProjectSettings = (projectId) => {
 
   const isLoading = queryLoading || storeLoading;
   const isSaving = isUpdating || isUpdatingProject;
-  const error = localError || queryError?.message || storeError;
+
+  // Filter out the "condition callback" error - this occurs when query is skipped due to missing projectId
+  // It's not a real error, just RTK Query indicating the query was intentionally skipped
+  const queryErrorMessage = queryError?.message;
+  const isQuerySkipError = queryErrorMessage?.includes('condition callback returning false');
+  const isStoreSkipError = storeError?.includes?.('condition callback returning false');
+  const filteredQueryError = isQuerySkipError ? null : queryErrorMessage;
+  const filteredStoreError = isStoreSkipError ? null : storeError;
+  const error = localError || filteredQueryError || filteredStoreError;
 
   // Use query data directly for instructors/topics/curriculums if available
   const actualProjectInstructors = queryData?.projectInstructors || projectInstructors || [];

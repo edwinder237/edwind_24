@@ -32,7 +32,9 @@ import {
   TableRow,
   FormControl,
   Select,
-  InputLabel
+  InputLabel,
+  Tooltip,
+  Snackbar
 } from '@mui/material';
 import { selectAllParticipants } from 'store/entities/participantsSlice';
 import { selectAllEvents } from 'store/entities/eventsSlice';
@@ -48,7 +50,8 @@ import {
   Today,
   AccessTime,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ContentCopy
 } from '@mui/icons-material';
 import { useSelector } from 'store';
 import MainCard from 'components/MainCard';
@@ -115,6 +118,9 @@ const ModernOverviewTab = () => {
 
   // State for attendance report course filter
   const [selectedCourse, setSelectedCourse] = useState('all');
+
+  // State for copy feedback
+  const [copySnackbarOpen, setCopySnackbarOpen] = useState(false);
 
   // State for selected date (for day navigation)
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -222,6 +228,76 @@ const ModernOverviewTab = () => {
     const rate = Math.round((attendedCount / filteredAttendance.length) * 100);
     return rate;
   }, [filteredAttendance]);
+
+  // Handle copying attendance report to clipboard
+  const handleCopyAttendanceReport = () => {
+    if (filteredAttendance.length === 0) return;
+
+    const dateStr = selectedDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Build the report text
+    let reportText = `DAILY ATTENDANCE REPORT\n`;
+    reportText += `Date: ${dateStr}\n`;
+    if (selectedCourse !== 'all') {
+      reportText += `Course: ${selectedCourse}\n`;
+    }
+    reportText += `\n`;
+
+    // Group by session for better readability
+    const sessionGroups = {};
+    filteredAttendance.forEach(row => {
+      if (!sessionGroups[row.sessionTitle]) {
+        sessionGroups[row.sessionTitle] = {
+          time: row.sessionTime,
+          instructor: row.instructor,
+          attendees: []
+        };
+      }
+      sessionGroups[row.sessionTitle].attendees.push({
+        name: row.employeeName,
+        status: row.status
+      });
+    });
+
+    Object.entries(sessionGroups).forEach(([sessionTitle, session]) => {
+      reportText += `SESSION: ${sessionTitle}\n`;
+      reportText += `Time: ${session.time}\n`;
+      reportText += `Instructor: ${session.instructor}\n`;
+      reportText += `Attendees:\n`;
+      session.attendees.forEach(attendee => {
+        const statusLabel = getStatusLabel(attendee.status);
+        reportText += `  - ${attendee.name}: ${statusLabel}\n`;
+      });
+      reportText += `\n`;
+    });
+
+    // Add summary
+    const presentCount = filteredAttendance.filter(a => a.status === 'present').length;
+    const lateCount = filteredAttendance.filter(a => a.status === 'late').length;
+    const absentCount = filteredAttendance.filter(a => a.status === 'absent').length;
+    const scheduledCount = filteredAttendance.filter(a => a.status === 'scheduled').length;
+
+    reportText += `SUMMARY\n`;
+    reportText += `Present: ${presentCount}\n`;
+    reportText += `Late: ${lateCount}\n`;
+    reportText += `Absent: ${absentCount}\n`;
+    reportText += `Scheduled: ${scheduledCount}\n`;
+    reportText += `Total: ${filteredAttendance.length}\n`;
+    if (attendanceRate !== null) {
+      reportText += `Attendance Rate: ${attendanceRate}%\n`;
+    }
+
+    navigator.clipboard.writeText(reportText).then(() => {
+      setCopySnackbarOpen(true);
+    }).catch(err => {
+      console.error('Failed to copy attendance report:', err);
+    });
+  };
 
   const handleOpenParticipantDrawer = () => {
     // Trigger the participant drawer opening
@@ -450,6 +526,22 @@ const ModernOverviewTab = () => {
                     ))}
                   </Select>
                 </FormControl>
+              )}
+
+              {/* Copy Report Button */}
+              {todaysAttendanceData.length > 0 && (
+                <Tooltip title="Copy attendance report to clipboard">
+                  <IconButton
+                    size="small"
+                    onClick={handleCopyAttendanceReport}
+                    sx={{
+                      bgcolor: 'action.hover',
+                      '&:hover': { bgcolor: 'action.selected' }
+                    }}
+                  >
+                    <ContentCopy fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
             </Stack>
           </Stack>
@@ -731,6 +823,14 @@ const ModernOverviewTab = () => {
         </Grid>
       </Grid>
 
+      {/* Copy success snackbar */}
+      <Snackbar
+        open={copySnackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setCopySnackbarOpen(false)}
+        message="Attendance report copied to clipboard"
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 };
