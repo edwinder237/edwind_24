@@ -65,7 +65,7 @@ export * from './templates';
 // ============================================
 
 import { getResendClient, EMAIL_SENDERS } from './resendClient';
-import { isValidEmail, cleanEmail } from './validators';
+import { isValidEmail, cleanEmail, validateEmailList } from './validators';
 import { sendWithRetry, sendBatch as sendBatchEmails, delay } from './rateLimiter';
 import { generateSingleEventICS, createICSAttachment } from './icsGenerator';
 import { createAntiCollapseHeaders, formatRecipientName } from './helpers';
