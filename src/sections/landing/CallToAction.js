@@ -1,6 +1,9 @@
+// third-party
+import { FormattedMessage } from 'react-intl';
+
 // material-ui
 import { useTheme } from '@mui/material/styles';
-import { Box, Button, Container, CardMedia, Grid, Link, Typography } from '@mui/material';
+import { Box, Button, Container, Grid, Typography } from '@mui/material';
 
 // third party
 import { motion } from 'framer-motion';
@@ -71,12 +74,12 @@ const CallToActionPage = () => {
                     }}
                   >
                     <Box component="span" sx={{ mx: 0 }}>
-                      Start Your Training Journey
+                      <FormattedMessage id="landing.cta.title1" />
                     </Box>
                     <Box component="span" sx={{ mx: 0, color: theme.palette.primary.main }}>
-                      &nbsp;Today&nbsp;
+                      &nbsp;<FormattedMessage id="landing.cta.title2" />&nbsp;
                     </Box>
-                    with EDWIND
+                    <FormattedMessage id="landing.cta.title3" />
                   </Typography>
                 </motion.div>
               </Grid>
@@ -101,7 +104,7 @@ const CallToActionPage = () => {
                         document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
                       }}
                     >
-                      Get Started Now
+                      <FormattedMessage id="landing.cta.button" />
                     </Button>
                   </AnimateButton>
                 </motion.div>

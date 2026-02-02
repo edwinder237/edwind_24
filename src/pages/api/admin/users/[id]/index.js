@@ -1,6 +1,42 @@
 import { parse } from 'cookie';
+import { WorkOS } from '@workos-inc/node';
 import prisma from '../../../../../lib/prisma';
 import { getCurrentOrganization, getOrganizationContext } from '../../../../../lib/session/organizationSession';
+
+const workos = new WorkOS(process.env.WORKOS_API_KEY);
+
+/**
+ * Revoke all WorkOS sessions for a user
+ * This forces immediate logout across all devices
+ */
+async function revokeUserSessions(workosUserId) {
+  if (!workosUserId) return;
+
+  try {
+    // List all sessions for this user
+    const sessionsResponse = await workos.userManagement.listSessions({
+      userId: workosUserId
+    });
+
+    const sessions = sessionsResponse.data || [];
+    console.log(`🔐 Found ${sessions.length} sessions for user ${workosUserId}`);
+
+    // Revoke each session
+    for (const session of sessions) {
+      try {
+        await workos.userManagement.revokeSession(session.id);
+        console.log(`   ✅ Revoked session ${session.id}`);
+      } catch (revokeError) {
+        console.error(`   ⚠️ Failed to revoke session ${session.id}:`, revokeError.message);
+      }
+    }
+
+    console.log(`🔐 Completed session revocation for user ${workosUserId}`);
+  } catch (error) {
+    console.error('Error revoking user sessions:', error.message);
+    // Don't throw - session revocation failure shouldn't block deactivation
+  }
+}
 
 // Admin role check
 const ADMIN_ROLES = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
@@ -128,7 +164,6 @@ async function handleGet(req, res, id, orgContext) {
     firstName: user.firstName,
     lastName: user.lastName,
     isActive: user.isActive,
-    status: user.status,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     sub_organization: user.sub_organization,
@@ -150,7 +185,7 @@ async function handlePut(req, res, id, orgContext) {
   // First verify the user belongs to admin's organization
   const existingUser = await prisma.user.findUnique({
     where: { id },
-    select: { sub_organizationId: true }
+    select: { sub_organizationId: true, workos_user_id: true, isActive: true }
   });
 
   if (!existingUser) {
@@ -168,6 +203,11 @@ async function handlePut(req, res, id, orgContext) {
 
   if (isActive !== undefined) {
     updateData.isActive = isActive;
+
+    // If deactivating user, revoke their WorkOS sessions immediately
+    if (isActive === false && existingUser.isActive === true) {
+      await revokeUserSessions(existingUser.workos_user_id);
+    }
   }
 
   if (sub_organizationId !== undefined) {
@@ -233,7 +273,7 @@ async function handleDelete(req, res, id, orgContext) {
   // Check if user exists
   const existingUser = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, sub_organizationId: true }
+    select: { id: true, email: true, sub_organizationId: true, workos_user_id: true }
   });
 
   if (!existingUser) {
@@ -244,6 +284,9 @@ async function handleDelete(req, res, id, orgContext) {
   if (!orgContext.subOrganizationIds.includes(existingUser.sub_organizationId)) {
     return res.status(403).json({ error: 'User does not belong to your organization' });
   }
+
+  // Revoke all WorkOS sessions for this user immediately
+  await revokeUserSessions(existingUser.workos_user_id);
 
   // Soft delete by setting isActive to false
   const deactivatedUser = await prisma.user.update({

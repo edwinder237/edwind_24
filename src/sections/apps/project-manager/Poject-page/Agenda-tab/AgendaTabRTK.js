@@ -8,7 +8,7 @@ import {
   selectSettingsLoading
 } from 'store/reducers/project/settings';
 import { derivedSelectors } from 'store/selectors';
-import { ViewList, CalendarMonth, DateRange, MenuBook, OpenInNew, Today, People } from '@mui/icons-material';
+import { ViewList, CalendarMonth, DateRange, MenuBook, OpenInNew, Today } from '@mui/icons-material';
 import { getTimezoneLabel } from 'utils/timezone';
 
 // Components
@@ -20,7 +20,6 @@ import { FullCalendarMonthView, FullCalendarWeekView } from './views/calendar';
 import ScheduleExport from './features/scheduling/components/ScheduleExport';
 import ImportOptionsDialog from './features/scheduling/components/ImportOptionsDialog';
 import { AddEventDialog } from './features/events/dialogs';
-import ParticipantsAttendanceDrawer from './components/ParticipantsAttendanceDrawer';
 
 // Modernized hooks using CQRS architecture
 import { useNormalizedEvents } from './features/events/hooks';
@@ -67,15 +66,6 @@ const AgendaTabRTK = React.memo(() => {
     skip: !projectId
   });
 
-  // Create a mock project object for backward compatibility with child components
-  const project = dashboardData?.projectInfo ? {
-    id: dashboardData.projectInfo.id,
-    title: dashboardData.projectInfo.title,
-    summary: dashboardData.projectInfo.summary,
-    projectStatus: dashboardData.projectInfo.projectStatus,
-    project_settings: projectSettingsData?.settings // Add settings for agenda time range (CQRS)
-  } : null;
-
   // Normalized data management with caching
   const {
     events,
@@ -92,6 +82,17 @@ const AgendaTabRTK = React.memo(() => {
     metrics,
     forceRefresh
   } = useNormalizedEvents(projectId);
+
+  // Create a mock project object for backward compatibility with child components
+  // Include project_instructors so events can fall back to project instructor when no event-specific instructor
+  const project = dashboardData?.projectInfo ? {
+    id: dashboardData.projectInfo.id,
+    title: dashboardData.projectInfo.title,
+    summary: dashboardData.projectInfo.summary,
+    projectStatus: dashboardData.projectInfo.projectStatus,
+    project_settings: projectSettingsData?.settings, // Add settings for agenda time range (CQRS)
+    project_instructors: projectSettingsData?.projectInstructors || [] // Add instructors for fallback when event has no instructor
+  } : null;
 
   // CRUD operations with RTK Query mutations
   const crudConfig = useMemo(() => ({
@@ -125,7 +126,6 @@ const AgendaTabRTK = React.memo(() => {
   // Local state for dialogs
   const [importDialogOpen, setImportDialogOpen] = React.useState(false);
   const [addEventDialogOpen, setAddEventDialogOpen] = React.useState(false);
-  const [participantsDrawerOpen, setParticipantsDrawerOpen] = React.useState(false);
 
   // Domain events subscription for real-time updates
   useEffect(() => {
@@ -194,15 +194,6 @@ const AgendaTabRTK = React.memo(() => {
 
   const handleCloseAddEventDialog = useCallback(() => {
     setAddEventDialogOpen(false);
-  }, []);
-
-  // Participants drawer handlers
-  const handleOpenParticipantsDrawer = useCallback(() => {
-    setParticipantsDrawerOpen(true);
-  }, []);
-
-  const handleCloseParticipantsDrawer = useCallback(() => {
-    setParticipantsDrawerOpen(false);
   }, []);
 
   // Handle import completion
@@ -374,21 +365,6 @@ const AgendaTabRTK = React.memo(() => {
   // Header content with better performance
   const headerContent = useMemo(() => (
     <Stack direction="row" spacing={2} alignItems="center">
-      {/* Show Participants Button */}
-      <Button
-        size="small"
-        variant="outlined"
-        startIcon={<People sx={{ fontSize: 16 }} />}
-        onClick={handleOpenParticipantsDrawer}
-        sx={{
-          ...buttonStyles.common,
-          ...buttonStyles.outlined,
-          fontWeight: 600
-        }}
-      >
-        Show Participants
-      </Button>
-
       {/* Add Courses Button - Show when curriculum has no courses */}
       {hasCurriculumWithNoCourses && firstCurriculumId && (
         <Tooltip title="Your curriculum has no courses. Add courses to enable full scheduling features.">
@@ -495,7 +471,7 @@ const AgendaTabRTK = React.memo(() => {
         </Box>
       )}
     </Stack>
-  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM, hasCurriculumWithNoCourses, firstCurriculumId, theme, handleGoToToday, handleOpenParticipantsDrawer, project?.project_settings?.timezone]);
+  ), [viewMode, handleViewModeChange, toggleButtonStyles, handleOpenImportDialog, openViewSchedule, buttonStyles, matchDownSM, hasCurriculumWithNoCourses, firstCurriculumId, theme, handleGoToToday, project?.project_settings?.timezone]);
 
   // Error Display Component
   const ErrorDisplay = useCallback(() => (
@@ -674,11 +650,6 @@ const AgendaTabRTK = React.memo(() => {
         </MainCard>
       </Dialog>
 
-      {/* Participants Attendance Drawer */}
-      <ParticipantsAttendanceDrawer
-        open={participantsDrawerOpen}
-        onClose={handleCloseParticipantsDrawer}
-      />
     </Box>
   );
 });

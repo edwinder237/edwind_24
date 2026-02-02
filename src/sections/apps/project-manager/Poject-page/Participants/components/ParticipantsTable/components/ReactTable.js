@@ -42,6 +42,7 @@ import {
   EmptyTable,
   IndeterminateCheckbox,
 } from 'components/third-party/ReactTable';
+import MobileColumnVisibility from 'components/third-party/MobileColumnVisibility';
 import {
   renderFilterTypes,
   GlobalFilter,
@@ -681,15 +682,26 @@ const ReactTable = ({
               )}
             </Stack>
 
-            <Stack direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} alignItems="center">
               {!isEmpty && (
-                <Box sx={{ display: { xs: "none", sm: "flex" } }}>
-                  <HidingSelect
-                    hiddenColumns={hiddenColumns}
-                    setHiddenColumns={setHiddenColumns}
-                    allColumns={allColumns}
-                  />
-                </Box>
+                <>
+                  {/* Mobile column visibility - shown on smaller screens (up to md) */}
+                  <Box sx={{ display: { xs: "flex", md: "none" } }}>
+                    <MobileColumnVisibility
+                      hiddenColumns={hiddenColumns}
+                      setHiddenColumns={setHiddenColumns}
+                      allColumns={allColumns}
+                    />
+                  </Box>
+                  {/* Desktop column visibility - shown on larger screens (md and up) */}
+                  <Box sx={{ display: { xs: "none", md: "flex" } }}>
+                    <HidingSelect
+                      hiddenColumns={hiddenColumns}
+                      setHiddenColumns={setHiddenColumns}
+                      allColumns={allColumns}
+                    />
+                  </Box>
+                </>
               )}
 
               <Button

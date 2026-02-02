@@ -1,4 +1,5 @@
-// next
+// third-party
+import { FormattedMessage } from 'react-intl';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -10,7 +11,6 @@ import Animation from './Animation';
 
 // assets
 import { TeamOutlined, BookOutlined, DashboardOutlined } from '@ant-design/icons';
-
 
 // ==============================|| LANDING - DEMO PAGE ||============================== //
 
@@ -26,17 +26,17 @@ const DemoBlock = () => {
               <Grid container spacing={1} justifyContent="center">
                 <Grid item xs={12}>
                   <Typography variant="subtitle1" color="primary">
-                    Complete Training Solution
+                    <FormattedMessage id="landing.demo.subtitle" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="h2" sx={{ mb: 2 }}>
-                    Everything You Need
+                    <FormattedMessage id="landing.demo.title" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="body1">
-                    From course creation to participant management, EDWIND provides all the tools you need for successful training programs
+                    <FormattedMessage id="landing.demo.description" />
                   </Typography>
                 </Grid>
               </Grid>
@@ -55,35 +55,35 @@ const DemoBlock = () => {
               <Grid container spacing={1.5}>
                 <Grid item xs={12}>
                   <Typography variant="h3" sx={{ fontWeight: 600, mt: 2 }}>
-                    Course Management
+                    <FormattedMessage id="landing.demo.courseManagement" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="body1" color="secondary">
-                    Create comprehensive training courses with modules, objectives, and customizable content. Track completion and progress.
+                    <FormattedMessage id="landing.demo.courseManagementDesc" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
                     <BookOutlined style={{ fontSize: '20px', color: '#1976d2', marginRight: '8px' }} />
                     <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
-                      Course Creation Tools
+                      <FormattedMessage id="landing.demo.courseCreationTools" />
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12}>
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Module-based curriculum design
+                      • <FormattedMessage id="landing.demo.moduleCurriculum" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Interactive content creation
+                      • <FormattedMessage id="landing.demo.interactiveContent" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Progress assessment tools
+                      • <FormattedMessage id="landing.demo.progressAssessment" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Certification management
+                      • <FormattedMessage id="landing.demo.certificationManagement" />
                     </Typography>
                   </Box>
                 </Grid>
@@ -102,35 +102,35 @@ const DemoBlock = () => {
               <Grid container spacing={1.5}>
                 <Grid item xs={12}>
                   <Typography variant="h3" sx={{ fontWeight: 600, mt: 2 }}>
-                    Project Management
+                    <FormattedMessage id="landing.demo.projectManagement" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="body1" color="secondary">
-                    Organize training projects with enrollment management, scheduling, groups, and comprehensive participant tracking.
+                    <FormattedMessage id="landing.demo.projectManagementDesc" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
                     <DashboardOutlined style={{ fontSize: '20px', color: '#1976d2', marginRight: '8px' }} />
                     <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
-                      Advanced Analytics Dashboard
+                      <FormattedMessage id="landing.demo.advancedDashboard" />
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12}>
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Real-time dashboard analytics
+                      • <FormattedMessage id="landing.demo.realtimeDashboard" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Participant enrollment tracking
+                      • <FormattedMessage id="landing.demo.enrollmentTracking" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Schedule and calendar integration
+                      • <FormattedMessage id="landing.demo.scheduleIntegration" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Group management tools
+                      • <FormattedMessage id="landing.demo.groupManagement" />
                     </Typography>
                   </Box>
                 </Grid>
@@ -149,35 +149,35 @@ const DemoBlock = () => {
               <Grid container spacing={1.5}>
                 <Grid item xs={12}>
                   <Typography variant="h3" sx={{ fontWeight: 600, mt: 2 }}>
-                    Participant Tracking
+                    <FormattedMessage id="landing.demo.participantTracking" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="body1" color="secondary">
-                    Monitor participant progress, attendance, and performance with detailed analytics and reporting capabilities.
+                    <FormattedMessage id="landing.demo.participantTrackingDesc" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
                     <TeamOutlined style={{ fontSize: '20px', color: '#1976d2', marginRight: '8px' }} />
                     <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
-                      Real-time Progress Tracking
+                      <FormattedMessage id="landing.demo.realtimeProgress" />
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12}>
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Individual progress monitoring
+                      • <FormattedMessage id="landing.demo.individualProgress" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Attendance tracking system
+                      • <FormattedMessage id="landing.demo.attendanceTracking" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Performance analytics reports
+                      • <FormattedMessage id="landing.demo.performanceAnalytics" />
                     </Typography>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      • Certification status updates
+                      • <FormattedMessage id="landing.demo.certificationStatus" />
                     </Typography>
                   </Box>
                 </Grid>

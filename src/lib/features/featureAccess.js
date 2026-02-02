@@ -20,19 +20,26 @@
 // ============================================
 
 export const PLAN_IDS = {
-  FREE: 'free',
-  PRO: 'pro',
+  ESSENTIAL: 'essential',
+  PROFESSIONAL: 'professional',
   ENTERPRISE: 'enterprise',
   CUSTOM: 'custom'
 };
 
+// Stripe Product IDs (from Stripe Dashboard)
+export const STRIPE_PRODUCT_IDS = {
+  ESSENTIAL: 'prod_Ttf9CY9vJg3D9U',
+  PROFESSIONAL: 'prod_TtfCECTkNj7VNU',
+  ENTERPRISE: 'prod_TtfD6zO0xkPhDH'
+};
+
+// Plan definitions - pricing fetched from Stripe (source of truth)
 export const PLAN_DEFINITIONS = {
-  [PLAN_IDS.FREE]: {
-    id: 'free',
-    name: 'Free Plan',
-    description: 'Perfect for getting started with basic project management',
-    price: 0,
-    billingInterval: 'monthly',
+  [PLAN_IDS.ESSENTIAL]: {
+    id: 'essential',
+    name: 'Essential',
+    description: 'Perfect for small teams getting started',
+    stripeProductId: STRIPE_PRODUCT_IDS.ESSENTIAL,
     features: [
       'basic_project_management',
       'basic_participant_management',
@@ -41,33 +48,31 @@ export const PLAN_DEFINITIONS = {
       'single_sub_organization'
     ],
     limits: {
-      maxProjects: 3,
-      maxParticipants: 50,
+      maxProjects: 5,
+      maxParticipants: 100,
       maxSubOrganizations: 1,
-      maxInstructors: 2,
-      maxCourses: 10,
-      maxCurriculums: 3,
-      maxStorageGB: 1,
-      maxProjectsPerMonth: 3
+      maxInstructors: 3,
+      maxCourses: 15,
+      maxCurriculums: 5,
+      maxStorageGB: 5,
+      maxProjectsPerMonth: 5
     }
   },
 
-  [PLAN_IDS.PRO]: {
-    id: 'pro',
+  [PLAN_IDS.PROFESSIONAL]: {
+    id: 'professional',
     name: 'Professional',
     description: 'For growing teams who need advanced features',
-    price: 49,
-    billingInterval: 'monthly',
-    annualPrice: 490, // ~17% discount
+    stripeProductId: STRIPE_PRODUCT_IDS.PROFESSIONAL,
     features: [
-      // Include all free features
+      // Include all essential features
       'basic_project_management',
       'basic_participant_management',
       'basic_courses',
       'basic_reporting',
       'single_sub_organization',
 
-      // Pro-only features
+      // Professional-only features
       'advanced_analytics',
       'bulk_participant_import',
       'multiple_instructors',
@@ -101,10 +106,9 @@ export const PLAN_DEFINITIONS = {
     id: 'enterprise',
     name: 'Enterprise',
     description: 'For large organizations with advanced needs',
-    price: null, // Custom pricing
-    billingInterval: 'custom',
+    stripeProductId: STRIPE_PRODUCT_IDS.ENTERPRISE,
     features: [
-      // Include all pro features
+      // Include all professional features
       'basic_project_management',
       'basic_participant_management',
       'basic_courses',

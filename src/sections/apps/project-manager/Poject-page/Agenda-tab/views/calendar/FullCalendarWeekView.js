@@ -708,6 +708,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     const event = eventInfo.event;
     const hasGroups = event.extendedProps.event_groups?.length > 0;
     const isConflicting = event.extendedProps.isConflicting;
+
     
     return (
       <Box
@@ -805,8 +806,8 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
               </Box>
             </Tooltip>
           )}
-          <Typography 
-            sx={{ 
+          <Typography
+            sx={{
               fontSize: '0.8rem',
               fontWeight: 600,
               lineHeight: 1.3,

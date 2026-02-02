@@ -185,8 +185,9 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
       // Invalidate RTK Query cache to trigger refetch of participants
       if (projectId) {
         dispatch(projectApi.util.invalidateTags([
-          { type: 'ProjectParticipants', id: projectId },
-          { type: 'Participant', id: participantId }
+          { type: 'ProjectParticipants', id: parseInt(projectId) },
+          { type: 'Participant', id: participantId },
+          'Participant'
         ]));
       }
 
@@ -224,8 +225,9 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
       // Invalidate RTK Query cache to trigger refetch of participants
       if (projectId) {
         dispatch(projectApi.util.invalidateTags([
-          { type: 'ProjectParticipants', id: projectId },
-          { type: 'Participant', id: participantId }
+          { type: 'ProjectParticipants', id: parseInt(projectId) },
+          { type: 'Participant', id: participantId },
+          'Participant'
         ]));
       }
 
@@ -388,7 +390,7 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
       {/* Add/Edit Form Dialog */}
       <Dialog open={formOpen} onClose={handleCloseForm} maxWidth="sm" fullWidth>
         <MainCard
-          title={editingAccess ? 'Edit Tool Access' : 'Add Tool Access'}
+          title={editingAccess ? `Edit Tool Access - ${participantName}` : `Add Tool Access - ${participantName}`}
           content={false}
           sx={{ m: 0 }}
         >

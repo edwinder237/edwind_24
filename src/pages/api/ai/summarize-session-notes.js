@@ -7,6 +7,7 @@
 
 import { summarizeSessionNotes } from '../../../lib/ai/gemini';
 import { WorkOS } from '@workos-inc/node';
+import { logUsage, PROVIDERS, getOrgIdFromUser } from '../../../lib/usage/usageLogger';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
@@ -30,6 +31,9 @@ export default async function handler(req, res) {
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
+
+    // Get user's organization for usage tracking
+    const organizationId = await getOrgIdFromUser(userId);
 
     // Extract session notes, attendance data, and parking lot items from request body
     const { sessionNotes, attendanceData, parkingLotItems } = req.body;
@@ -57,7 +61,27 @@ export default async function handler(req, res) {
     }
 
     // Call Gemini AI to summarize with optional attendance and parking lot data
+    const startTime = Date.now();
     const summary = await summarizeSessionNotes(sessionNotes, attendanceData, parkingLotItems);
+    const durationMs = Date.now() - startTime;
+
+    // Calculate output size for cost estimation
+    const outputSize = JSON.stringify(summary).length;
+
+    // Log usage with actual token counts from Gemini API (fire-and-forget)
+    logUsage({
+      provider: PROVIDERS.GEMINI,
+      action: 'summarize_session_notes',
+      organizationId,
+      userId,
+      inputSize: sessionNotes.length,
+      outputSize,
+      durationMs,
+      success: true,
+      inputTokens: summary.tokenUsage?.inputTokens,
+      outputTokens: summary.tokenUsage?.outputTokens,
+      totalTokens: summary.tokenUsage?.totalTokens
+    });
 
     console.log('[AI Summarization] Generated:', {
       highlights: summary.keyHighlights.length,
@@ -76,10 +100,41 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('[AI Summarization] Error:', error);
 
-    // Return user-friendly error message
-    return res.status(500).json({
+    // Log failed usage (organizationId may not be available in error case)
+    logUsage({
+      provider: PROVIDERS.GEMINI,
+      action: 'summarize_session_notes',
+      userId: req.cookies?.workos_user_id,
+      inputSize: req.body?.sessionNotes?.length || 0,
       success: false,
-      error: error.message || 'Failed to generate AI summary'
+      errorCode: error.message?.slice(0, 100)
+    });
+
+    // Determine appropriate status code based on error type
+    let statusCode = 500;
+    let userMessage = error.message || 'Failed to generate AI summary';
+
+    // Map error messages to appropriate HTTP status codes
+    if (userMessage.includes('not configured') || userMessage.includes('access denied')) {
+      statusCode = 503; // Service Unavailable
+    } else if (userMessage.includes('quota exceeded') || userMessage.includes('Too many requests')) {
+      statusCode = 429; // Too Many Requests
+    } else if (userMessage.includes('temporarily unavailable') || userMessage.includes('experiencing issues')) {
+      statusCode = 503; // Service Unavailable
+    } else if (userMessage.includes('timed out')) {
+      statusCode = 504; // Gateway Timeout
+    } else if (userMessage.includes('Unable to connect')) {
+      statusCode = 502; // Bad Gateway
+    }
+
+    // Return user-friendly error message
+    return res.status(statusCode).json({
+      success: false,
+      error: userMessage,
+      errorType: statusCode === 429 ? 'rate_limit' :
+                 statusCode === 503 ? 'service_unavailable' :
+                 statusCode === 504 ? 'timeout' :
+                 statusCode === 502 ? 'connection_error' : 'server_error'
     });
   }
 }

@@ -1,3 +1,6 @@
+// third-party
+import { FormattedMessage } from 'react-intl';
+
 // material-ui
 import { Container, Grid, Typography } from '@mui/material';
 
@@ -30,11 +33,13 @@ const NumberBlock = () => (
               <Grid container spacing={1}>
                 <Grid item xs={12}>
                   <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                    Training Courses
+                    <FormattedMessage id="landing.numbers.courses" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body1">Comprehensive course library with customizable modules and objectives.</Typography>
+                  <Typography variant="body1">
+                    <FormattedMessage id="landing.numbers.coursesDesc" />
+                  </Typography>
                 </Grid>
               </Grid>
             </Grid>
@@ -62,11 +67,13 @@ const NumberBlock = () => (
               <Grid container spacing={1}>
                 <Grid item xs={12}>
                   <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                    Active Participants
+                    <FormattedMessage id="landing.numbers.participants" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body1">Track and manage training participants with detailed progress monitoring.</Typography>
+                  <Typography variant="body1">
+                    <FormattedMessage id="landing.numbers.participantsDesc" />
+                  </Typography>
                 </Grid>
               </Grid>
             </Grid>
@@ -94,11 +101,13 @@ const NumberBlock = () => (
               <Grid container spacing={1}>
                 <Grid item xs={12}>
                   <Typography variant="h4" sx={{ fontWeight: 600 }}>
-                    Training Projects
+                    <FormattedMessage id="landing.numbers.projects" />
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body1">Manage multiple training projects with scheduling and enrollment features.</Typography>
+                  <Typography variant="body1">
+                    <FormattedMessage id="landing.numbers.projectsDesc" />
+                  </Typography>
                 </Grid>
               </Grid>
             </Grid>

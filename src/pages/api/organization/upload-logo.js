@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import prisma from '../../../lib/prisma';
 import { WorkOS } from '@workos-inc/node';
+import { logUsage, PROVIDERS } from '../../../lib/usage/usageLogger';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
@@ -78,6 +79,16 @@ export default async function handler(req, res) {
     const logoUrl = `${PUBLIC_URL_BASE}/${fileName}`;
     console.log('Logo uploaded successfully:', logoUrl);
 
+    // Log R2 usage (fire-and-forget)
+    logUsage({
+      provider: PROVIDERS.R2,
+      action: 'upload_logo',
+      organizationId,
+      userId,
+      inputSize: buffer.length,
+      success: true
+    });
+
     // Update organization logo in database if organizationId is provided
     if (organizationId) {
       // First check if the organization exists
@@ -134,9 +145,22 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error uploading organization logo:', error);
-    return res.status(500).json({ 
+
+    // Log failed R2 usage
+    const userId = req.cookies?.workos_user_id;
+    const organizationId = req.body?.organizationId;
+    logUsage({
+      provider: PROVIDERS.R2,
+      action: 'upload_logo',
+      organizationId,
+      userId,
+      success: false,
+      errorCode: error.message?.slice(0, 100)
+    });
+
+    return res.status(500).json({
       error: 'Failed to upload logo',
-      details: error.message 
+      details: error.message
     });
   }
 }

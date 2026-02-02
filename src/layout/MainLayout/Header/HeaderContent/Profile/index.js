@@ -54,7 +54,13 @@ import { useDispatch } from 'store';
 import { refreshUser } from 'store/reducers/user';
 
 // assets
-import { LogoutOutlined, UserOutlined, WalletOutlined, QuestionCircleOutlined, CommentOutlined, SettingOutlined, EditOutlined, CheckCircleOutlined, ApartmentOutlined, BugOutlined } from '@ant-design/icons';
+import { LogoutOutlined, UserOutlined, WalletOutlined, QuestionCircleOutlined, CommentOutlined, SettingOutlined, EditOutlined, CheckCircleOutlined, ApartmentOutlined, BugOutlined, GlobalOutlined } from '@ant-design/icons';
+
+// Language options
+const languages = [
+  { code: 'en', label: 'English', flag: '🇺🇸' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' }
+];
 
 // Helper function to check if user has admin role
 const isAdmin = (role) => {
@@ -71,7 +77,7 @@ const Profile = () => {
   const dispatch = useDispatch();
   const { user } = useUser();
   const router = useRouter();
-  const { mode, onChangeMode } = useConfig();
+  const { mode, onChangeMode, i18n, onChangeLocalization } = useConfig();
 
   // Check if user has admin role
   const hasAdminAccess = isAdmin(user?.role);
@@ -389,67 +395,66 @@ const Profile = () => {
             >
               <ClickAwayListener onClickAway={handleClose}>
                 <MainCard elevation={0} border={false} content={false}>
-                  <CardContent sx={{ px: 2.5, pt: 3 }}>
-                    <Grid container justifyContent="flex-start" alignItems="center">
-                      <Grid item>
-                        <Stack direction="row" spacing={1.25} alignItems="center">
-                          <Avatar 
-                            sx={{ 
-                              width: 32, 
-                              height: 32, 
-                              bgcolor: theme.palette.primary.main,
-                              color: theme.palette.primary.contrastText
+                  <CardContent sx={{ px: 2.5, pt: 2.5, pb: 1.5 }}>
+                    <Stack spacing={0.5}>
+                      {user?.organizationName && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            {user.organizationName}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={handleOpenOrgDialog}
+                            sx={{
+                              p: 0.25,
+                              '&:hover': { bgcolor: 'action.hover' }
                             }}
                           >
-                            {getInitials(user?.name)}
-                          </Avatar>
-                          <Stack>
-                            <Typography variant="body2" color="textSecondary">
-                              {user?.role || 'User'}
-                            </Typography>
-                            {user?.organizationName && (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.75rem' }}>
-                                  {user.organizationName}
-                                </Typography>
-                                <IconButton
-                                  size="small"
-                                  onClick={handleOpenOrgDialog}
-                                  sx={{
-                                    p: 0.25,
-                                    '&:hover': { bgcolor: 'action.hover' }
-                                  }}
-                                >
-                                  <EditOutlined style={{ fontSize: '0.7rem', color: '#666' }} />
-                                </IconButton>
-                              </Box>
-                            )}
-                            {user?.subOrganizationName && (
-                              <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
-                                {user.subOrganizationName}
-                              </Typography>
-                            )}
-                            {user?.subscription?.planName && (
-                              <Chip
-                                label={user.subscription.planName}
-                                size="small"
-                                sx={{
-                                  height: 18,
-                                  fontSize: '0.65rem',
-                                  mt: 0.5,
-                                  bgcolor: user.subscription.planId === 'free' ? '#e0e0e0' : '#e3f2fd',
-                                  color: user.subscription.planId === 'free' ? '#666' : '#1565c0'
-                                }}
-                              />
-                            )}
-                          </Stack>
-                        </Stack>
-                      </Grid>
-                    </Grid>
+                            <EditOutlined style={{ fontSize: '0.75rem', color: '#666' }} />
+                          </IconButton>
+                        </Box>
+                      )}
+                      {user?.subOrganizationName && (
+                        <Typography variant="caption" color="textSecondary" sx={{ fontStyle: 'italic' }}>
+                          {user.subOrganizationName}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                        <Chip
+                          label={user?.role || 'User'}
+                          size="small"
+                          sx={{
+                            height: 22,
+                            fontSize: '0.75rem',
+                            bgcolor: 'primary.lighter',
+                            color: 'primary.dark'
+                          }}
+                        />
+                        {user?.subscription?.planName && (
+                          <Chip
+                            label={user.subscription.planName}
+                            size="small"
+                            sx={{
+                              height: 22,
+                              fontSize: '0.75rem',
+                              bgcolor: user.subscription.planId === 'free' ? '#e0e0e0' : '#e3f2fd',
+                              color: user.subscription.planId === 'free' ? '#666' : '#1565c0'
+                            }}
+                          />
+                        )}
+                      </Box>
+                      {user?.email && (
+                        <Typography variant="caption" color="textSecondary">
+                          {user.email}
+                        </Typography>
+                      )}
+                    </Stack>
                   </CardContent>
 
+                  <Divider />
+
                   {/* Dark Mode Toggle */}
-                  <Box sx={{ px: 2.5, pb: 2 }}>
+                  <Box sx={{ px: 2.5, py: 1.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Typography variant="body2">
                         Dark Mode
@@ -463,7 +468,40 @@ const Profile = () => {
                     </Box>
                   </Box>
 
-                  {/* Combined Menu */}
+                  {/* Language Switch */}
+                  <Box sx={{ px: 2.5, py: 1.5, pt: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <GlobalOutlined style={{ fontSize: 14, color: theme.palette.text.secondary }} />
+                        <Typography variant="body2">
+                          Language
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {languages.map((lang) => (
+                          <Button
+                            key={lang.code}
+                            size="small"
+                            variant={(i18n || 'en') === lang.code ? 'contained' : 'outlined'}
+                            onClick={() => onChangeLocalization(lang.code)}
+                            sx={{
+                              minWidth: 'auto',
+                              px: 1,
+                              py: 0.25,
+                              fontSize: '0.75rem',
+                              textTransform: 'none'
+                            }}
+                          >
+                            {lang.flag}
+                          </Button>
+                        ))}
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Divider />
+
+                  {/* Menu Items */}
                   <List component="nav" sx={{ p: 0, '& .MuiListItemIcon-root': { minWidth: 32 } }}>
                     <ListItemButton selected={selectedIndex === 0} onClick={handleViewProfile}>
                       <ListItemIcon>
@@ -476,7 +514,7 @@ const Profile = () => {
                         <ListItemIcon>
                           <SettingOutlined />
                         </ListItemIcon>
-                        <ListItemText primary="Organization & Plan" />
+                        <ListItemText primary="Account Settings" />
                       </ListItemButton>
                     )}
                     <ListItemButton selected={selectedIndex === 2} onClick={handleOpenFeedback}>
@@ -493,6 +531,9 @@ const Profile = () => {
                         <ListItemText primary="User Debug" />
                       </ListItemButton>
                     )}
+
+                    <Divider sx={{ my: 0.5 }} />
+
                     <ListItemButton selected={selectedIndex === 6} onClick={handleLogout}>
                       <ListItemIcon>
                         <LogoutOutlined />
@@ -513,11 +554,8 @@ const Profile = () => {
         onClose={handleCloseOrgDialog}
         maxWidth="xs"
         fullWidth
-        PaperProps={{
-          sx: { bgcolor: '#fff' }
-        }}
       >
-        <DialogTitle sx={{ pb: 1, color: '#000' }}>
+        <DialogTitle sx={{ pb: 1 }}>
           Switch Organization
         </DialogTitle>
         <Divider />
@@ -528,7 +566,7 @@ const Profile = () => {
             </Box>
           ) : organizations.length === 0 ? (
             <Box sx={{ p: 3, textAlign: 'center' }}>
-              <Typography variant="body2" sx={{ color: '#666' }}>
+              <Typography variant="body2" color="textSecondary">
                 No organizations available
               </Typography>
             </Box>
@@ -539,27 +577,26 @@ const Profile = () => {
                   key={org.id}
                   selected={org.isCurrent}
                   onClick={() => handleSwitchOrganization(org.id)}
-                  disabled={switchingOrg || org.isCurrent}
+                  disabled={switchingOrg}
                   sx={{
                     py: 1.5,
-                    bgcolor: '#fff',
-                    '&:hover': { bgcolor: '#f5f5f5' },
+                    '&:hover': { bgcolor: 'action.hover' },
                     '&.Mui-selected': {
-                      bgcolor: '#f0f0f0',
-                      '&:hover': { bgcolor: '#f0f0f0' }
+                      bgcolor: 'primary.lighter',
+                      '&:hover': { bgcolor: 'primary.lighter' }
                     }
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 36 }}>
                     {org.isCurrent ? (
-                      <CheckCircleOutlined style={{ color: '#000' }} />
+                      <CheckCircleOutlined style={{ color: theme.palette.primary.main }} />
                     ) : (
-                      <ApartmentOutlined style={{ color: '#666' }} />
+                      <ApartmentOutlined style={{ color: theme.palette.text.secondary }} />
                     )}
                   </ListItemIcon>
                   <ListItemText
                     primary={
-                      <Typography variant="body2" sx={{ fontWeight: org.isCurrent ? 600 : 400, color: '#000' }}>
+                      <Typography variant="body2" sx={{ fontWeight: org.isCurrent ? 600 : 400, color: org.isCurrent ? 'primary.dark' : 'text.primary' }}>
                         {org.title}
                       </Typography>
                     }
@@ -571,17 +608,17 @@ const Profile = () => {
                           sx={{
                             height: 18,
                             fontSize: '0.65rem',
-                            bgcolor: '#e0e0e0',
-                            color: '#000'
+                            bgcolor: org.isCurrent ? 'primary.main' : 'action.selected',
+                            color: org.isCurrent ? 'primary.contrastText' : 'text.primary'
                           }}
                         />
                         {org.subOrganizationCount > 0 && (
-                          <Typography variant="caption" sx={{ color: '#666', fontSize: '0.65rem' }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.65rem', color: org.isCurrent ? 'primary.dark' : 'text.secondary' }}>
                             {org.subOrganizationCount} sub-org{org.subOrganizationCount !== 1 ? 's' : ''}
                           </Typography>
                         )}
                         {org.isCurrent && (
-                          <Typography variant="caption" sx={{ fontWeight: 500, color: '#000' }}>
+                          <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.dark' }}>
                             Current
                           </Typography>
                         )}
@@ -594,9 +631,9 @@ const Profile = () => {
           )}
 
           {switchingOrg && (
-            <Box sx={{ p: 2, pt: 1, display: 'flex', alignItems: 'center', gap: 1, borderTop: '1px solid #eee' }}>
+            <Box sx={{ p: 2, pt: 1, display: 'flex', alignItems: 'center', gap: 1, borderTop: 1, borderColor: 'divider' }}>
               <CircularProgress size={16} />
-              <Typography variant="caption" sx={{ color: '#666' }}>
+              <Typography variant="caption" color="textSecondary">
                 Switching organization...
               </Typography>
             </Box>

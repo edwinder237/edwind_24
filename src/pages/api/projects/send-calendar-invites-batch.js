@@ -1,10 +1,20 @@
 import prisma from '../../../lib/prisma';
-import { format, parseISO } from 'date-fns';
-import { formatInTimeZone } from 'date-fns-tz';
-import { enUS } from 'date-fns/locale';
-import { Resend } from 'resend';
+import { parseISO } from 'date-fns';
+import { logUsage, getOrgIdFromProject, PROVIDERS } from '../../../lib/usage/usageLogger';
+import {
+  isValidEmail,
+  cleanEmail,
+  sendWithRetry,
+  delay,
+  generateSingleEventICS,
+  createICSAttachment,
+  createEventDescription,
+  generateEventInviteTemplate,
+  EMAIL_SENDERS
+} from '../../../lib/email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Rate limiting configuration
+const RATE_LIMIT_DELAY = 600;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -98,26 +108,17 @@ export default async function handler(req, res) {
       ? (event.meetingLink || event.zoomLink || null)
       : null;
 
-    // Create event description
-    let description = '';
-    if (event.course) {
-      description += `Course: ${event.course.title}\n\n`;
-    }
-    if (event.description) {
-      description += `Description: ${event.description}\n\n`;
-    }
-    if (groupNames.length > 0) {
-      description += `Groups: ${groupNames.join(', ')}\n\n`;
-    }
-    if (meetingLink) {
-      description += `Join Meeting: ${meetingLink}\n\n`;
-    }
-
     // Get location from event or extendedProps
     const eventLocation = event.location || event.extendedProps?.location || null;
 
     // Get timezone from event
     const eventTimezone = event.timezone || 'UTC';
+
+    // Create event description using centralized helper
+    const description = createEventDescription(
+      { ...event, course: event.course },
+      { groupNames, meetingLink, includeMeetingLink }
+    );
 
     const calendarEvent = {
       title: event.title || 'Training Event',
@@ -136,6 +137,8 @@ export default async function handler(req, res) {
 
     // Filter attendees if participantIds is provided
     let attendeesToSend = event.event_attendees;
+    const invalidEmailRecipients = [];
+
     if (participantIds && participantIds.length > 0) {
       const participantIdSet = new Set(participantIds.map(id => parseInt(id)));
       attendeesToSend = event.event_attendees.filter(attendee => {
@@ -153,12 +156,29 @@ export default async function handler(req, res) {
 
     for (const attendee of attendeesToSend) {
       const participant = attendee.enrollee?.participant;
+      const participantName = participant ? `${participant.firstName || ''} ${participant.lastName || ''}`.trim() : 'Unknown';
 
       if (!participant?.email) {
         emailResults.push({
           participantId: participant?.id,
-          participantName: participant ? `${participant.firstName} ${participant.lastName}` : 'Unknown',
+          participantName,
           error: 'No email address',
+          status: 'skipped'
+        });
+        continue;
+      }
+
+      // Validate email format
+      if (!isValidEmail(participant.email)) {
+        invalidEmailRecipients.push({
+          name: participantName,
+          email: participant.email || '(no email)',
+          type: 'participant'
+        });
+        emailResults.push({
+          participantId: participant.id,
+          participantName,
+          error: 'Invalid email address',
           status: 'skipped'
         });
         continue;
@@ -166,16 +186,18 @@ export default async function handler(req, res) {
 
       try {
         const participantData = {
-          email: participant.email,
+          email: cleanEmail(participant.email),
           firstName: participant.firstName || 'Participant',
           lastName: participant.lastName || ''
         };
 
-        const eventIcal = generateEventInvitation(calendarEvent, finalProjectTitle, participantData, organizerName);
+        // Generate ICS using centralized generator
+        const eventIcal = generateSingleEventICS(calendarEvent, participantData, organizerName);
 
-        const emailData = await resend.emails.send({
-          from: 'Training Schedule <admin@edwind.ca>',
-          to: [participant.email],
+        // Send email using centralized service with retry logic
+        const emailResponse = await sendWithRetry({
+          from: EMAIL_SENDERS.training,
+          to: [participantData.email],
           subject: `Training Session: ${calendarEvent.title} | ${finalProjectTitle}`,
           html: generateEventInviteTemplate({
             participantName: `${participant.firstName} ${participant.lastName}`,
@@ -183,30 +205,26 @@ export default async function handler(req, res) {
             projectTitle: finalProjectTitle,
             groupName: groupNames.length > 0 ? groupNames.join(', ') : null
           }),
-          attachments: [
-            {
-              filename: `${calendarEvent.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_invite.ics`,
-              content: Buffer.from(eventIcal).toString('base64'),
-              type: 'text/calendar; method=REQUEST',
-              disposition: 'attachment'
-            }
-          ]
+          attachments: [createICSAttachment(eventIcal, calendarEvent.title)]
         });
 
-        if (emailData.error) {
+        // Rate limiting delay
+        await delay(RATE_LIMIT_DELAY);
+
+        if (emailResponse.error) {
           emailResults.push({
             participantId: participant.id,
-            participantEmail: participant.email,
-            participantName: `${participant.firstName} ${participant.lastName}`,
-            error: emailData.error.message || 'Email service error',
+            participantEmail: participantData.email,
+            participantName,
+            error: emailResponse.error.message || 'Email service error',
             status: 'failed'
           });
         } else {
           emailResults.push({
             participantId: participant.id,
-            participantEmail: participant.email,
-            participantName: `${participant.firstName} ${participant.lastName}`,
-            emailId: emailData.data?.id || emailData.id,
+            participantEmail: participantData.email,
+            participantName,
+            emailId: emailResponse.data?.id || emailResponse.id,
             status: 'sent'
           });
         }
@@ -214,7 +232,7 @@ export default async function handler(req, res) {
         emailResults.push({
           participantId: participant.id,
           participantEmail: participant.email,
-          participantName: `${participant.firstName} ${participant.lastName}`,
+          participantName,
           error: emailError.message,
           status: 'failed'
         });
@@ -225,15 +243,33 @@ export default async function handler(req, res) {
     const failureCount = emailResults.filter(r => r.status === 'failed').length;
     const skippedCount = emailResults.filter(r => r.status === 'skipped').length;
 
+    // Log email usage (fire-and-forget)
+    if (projectId) {
+      const orgId = await getOrgIdFromProject(parseInt(projectId));
+      const userId = req.cookies?.workos_user_id;
+
+      logUsage({
+        provider: PROVIDERS.RESEND,
+        action: 'send_calendar_invites_batch',
+        organizationId: orgId,
+        userId,
+        projectId: parseInt(projectId),
+        inputSize: successCount,
+        success: successCount > 0,
+        errorCode: failureCount > 0 ? 'PARTIAL_FAILURE' : null
+      });
+    }
+
     res.status(200).json({
-      success: true,
+      success: successCount > 0,
       message: `Calendar invites sent to ${successCount} participant(s)`,
       results: emailResults,
       summary: {
         totalParticipants: attendeesToSend.length,
         emailsSent: successCount,
         emailsFailed: failureCount,
-        emailsSkipped: skippedCount
+        emailsSkipped: skippedCount,
+        invalidEmailRecipients: invalidEmailRecipients.length > 0 ? invalidEmailRecipients : undefined
       }
     });
 
@@ -245,141 +281,4 @@ export default async function handler(req, res) {
       error: error.message
     });
   }
-}
-
-function generateEventInvitation(event, projectTitle, participant, organizationName = 'EDWIND Training') {
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const uid = `${timestamp}-${Math.random().toString(36).substring(7)}@edwind.training`;
-
-  const eventTimezone = event.timezone || 'UTC';
-  let dtstart, dtend, vtimezone = '';
-
-  if (eventTimezone && eventTimezone !== 'UTC') {
-    const formatForICS = (date, tz) => {
-      return formatInTimeZone(date, tz, "yyyyMMdd'T'HHmmss");
-    };
-
-    dtstart = `DTSTART;TZID=${eventTimezone}:${formatForICS(event.startTime, eventTimezone)}`;
-    dtend = `DTEND;TZID=${eventTimezone}:${formatForICS(event.endTime, eventTimezone)}`;
-
-    vtimezone = `BEGIN:VTIMEZONE
-TZID:${eventTimezone}
-X-LIC-LOCATION:${eventTimezone}
-END:VTIMEZONE
-`;
-  } else {
-    const startTime = event.startTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const endTime = event.endTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    dtstart = `DTSTART:${startTime}`;
-    dtend = `DTEND:${endTime}`;
-  }
-
-  const escapeIcal = (str) => {
-    if (!str) return '';
-    return str
-      .replace(/\\/g, '\\\\')
-      .replace(/;/g, '\\;')
-      .replace(/,/g, '\\,')
-      .replace(/\n/g, '\\n');
-  };
-
-  const ical = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//EDWIND//Training Event Invitation//EN
-CALSCALE:GREGORIAN
-METHOD:REQUEST
-${vtimezone}BEGIN:VEVENT
-UID:${uid}
-DTSTAMP:${timestamp}
-${dtstart}
-${dtend}
-SUMMARY:${escapeIcal(event.title)}
-DESCRIPTION:${escapeIcal(event.description)}
-LOCATION:${escapeIcal(event.location)}
-STATUS:CONFIRMED
-SEQUENCE:0
-ATTENDEE;CN=${participant.firstName} ${participant.lastName};RSVP=TRUE;ROLE=REQ-PARTICIPANT:mailto:${participant.email}
-ORGANIZER;CN=${organizationName}:mailto:admin@edwind.ca
-REQUEST-STATUS:2.0;Success
-END:VEVENT
-END:VCALENDAR`;
-
-  return ical;
-}
-
-function generateEventInviteTemplate({ participantName, event, projectTitle, groupName }) {
-  const eventTimezone = event.timezone || 'UTC';
-
-  const startTime = eventTimezone !== 'UTC'
-    ? formatInTimeZone(event.startTime, eventTimezone, 'EEEE, MMMM d, yyyy', { locale: enUS })
-    : format(event.startTime, 'EEEE, MMMM d, yyyy', { locale: enUS });
-
-  const timeRange = eventTimezone !== 'UTC'
-    ? `${formatInTimeZone(event.startTime, eventTimezone, 'HH:mm')} - ${formatInTimeZone(event.endTime, eventTimezone, 'HH:mm')}`
-    : `${format(event.startTime, 'HH:mm')} - ${format(event.endTime, 'HH:mm')}`;
-
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Training Session - ${event.title}</title>
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-
-      <div style="background: #ffffff; border-radius: 12px; padding: 30px; border: 1px solid #e1e5e9; margin-bottom: 20px;">
-        <p style="font-size: 18px; margin-bottom: 20px;">
-          Hello <strong>${participantName}</strong>,
-        </p>
-
-        <p style="color: #6c757d; margin-bottom: 25px;">
-          You are invited to attend the following training session${groupName ? ` as part of the <strong>${groupName}</strong> group` : ''}:
-        </p>
-
-        <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid #1976d2;">
-          <h2 style="margin: 0 0 15px 0; color: #1976d2; font-size: 24px;">${event.title}</h2>
-          ${event.course && event.course !== event.title ? `<p style="margin: 0 0 10px 0; color: #6c757d; font-weight: 500;">Course: ${event.course}</p>` : ''}
-
-          <div style="margin: 15px 0;">
-            <p style="margin: 5px 0;"><strong>Date:</strong> ${startTime}</p>
-            <p style="margin: 5px 0;"><strong>Time:</strong> ${timeRange}</p>
-            <p style="margin: 5px 0;"><strong>Time Zone:</strong> ${eventTimezone}</p>
-            ${event.location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${event.location}</p>` : ''}
-            ${event.meetingLink ? `
-              <p style="margin: 5px 0;"><strong>Join Meeting:</strong>
-                <a href="${event.meetingLink}" target="_blank" style="color: #1976d2; text-decoration: none; font-weight: 500;">
-                  Click to Join
-                </a>
-              </p>
-            ` : ''}
-          </div>
-
-          ${event.description ? `
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
-              <p style="margin: 0; color: #6c757d;">${event.description.replace(/\\n/g, '<br>')}</p>
-            </div>
-          ` : ''}
-        </div>
-
-        <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 16px; margin: 25px 0;">
-          <h3 style="margin: 0 0 8px 0; color: #155724; font-size: 16px;">Calendar Invitation Attached</h3>
-          <p style="margin: 8px 0; color: #155724;">
-            A calendar invitation (.ics file) is attached to this email. Click on it to add this event to your calendar and respond with Accept/Decline.
-          </p>
-        </div>
-
-      </div>
-
-      <div style="text-align: center; color: #6c757d; font-size: 14px; border-top: 1px solid #e1e5e9; padding-top: 20px;">
-        <p style="margin: 0;">
-          EDWIND Training Management System<br>
-          <a href="mailto:support@edwind.ca" style="color: #1976d2;">support@edwind.ca</a>
-        </p>
-      </div>
-
-    </body>
-    </html>
-  `;
 }

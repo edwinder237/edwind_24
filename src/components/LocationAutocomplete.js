@@ -1,26 +1,27 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   TextField,
-  InputAdornment
+  InputAdornment,
+  Autocomplete,
+  Box,
+  Typography,
+  CircularProgress
 } from '@mui/material';
 import { EnvironmentOutlined } from '@ant-design/icons';
+import debounce from 'lodash/debounce';
 
-// Function to load Google Maps script
-function loadScript(src, position, id) {
-  if (!position) {
-    return;
-  }
-
-  const script = document.createElement('script');
-  script.setAttribute('async', '');
-  script.setAttribute('id', id);
-  script.src = src;
-  position.appendChild(script);
-}
-
-const LocationAutocomplete = ({ 
-  value, 
-  onChange, 
+/**
+ * LocationAutocomplete component using server-side proxy for usage tracking
+ *
+ * This component uses our API proxy endpoints:
+ * - /api/maps/autocomplete - for searching locations
+ * - /api/maps/place-details - for getting full place details
+ *
+ * This allows us to track Google Maps API usage per organization/user.
+ */
+const LocationAutocomplete = ({
+  value,
+  onChange,
   onLocationChange,
   label = "Location",
   placeholder = "Search for a location",
@@ -32,10 +33,15 @@ const LocationAutocomplete = ({
   variant = "outlined",
   size = "medium"
 }) => {
-  const inputRef = useRef(null);
-  const autocompleteRef = useRef(null);
-  const [loaded, setLoaded] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [options, setOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [sessionToken, setSessionToken] = useState('');
+
+  // Generate a session token for Google's session-based billing
+  useEffect(() => {
+    setSessionToken(crypto.randomUUID());
+  }, []);
 
   // Initialize input value from props
   useEffect(() => {
@@ -43,71 +49,93 @@ const LocationAutocomplete = ({
       setInputValue(value.description);
     } else if (typeof value === 'string') {
       setInputValue(value);
-    } else {
-      setInputValue('');
     }
   }, [value]);
 
-  // Load Google Maps script
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !loaded) {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
-      
-      if (!apiKey) {
-        console.error('Google Maps API key is not configured');
+  // Debounced search function
+  const searchLocations = useCallback(
+    debounce(async (query) => {
+      if (!query || query.length < 3) {
+        setOptions([]);
         return;
       }
-      
-      if (!document.querySelector('#google-maps')) {
-        loadScript(
-          `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`,
-          document.querySelector('head'),
-          'google-maps'
-        );
-        
-        // Set up callback
-        window.initGoogleMaps = () => {
-          setLoaded(true);
-        };
-      } else if (window.google && window.google.maps && window.google.maps.places) {
-        setLoaded(true);
+
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          input: query,
+          sessionToken,
+          types: 'establishment|geocode',
+          components: 'country:us|country:ca'
+        });
+
+        const response = await fetch(`/api/maps/autocomplete?${params}`);
+        const data = await response.json();
+
+        if (data.status === 'OK' && data.predictions) {
+          setOptions(data.predictions.map(prediction => ({
+            place_id: prediction.place_id,
+            description: prediction.description,
+            structured_formatting: prediction.structured_formatting,
+            types: prediction.types
+          })));
+        } else if (data.status === 'ZERO_RESULTS') {
+          setOptions([]);
+        } else {
+          console.warn('[LocationAutocomplete] API error:', data.status);
+          setOptions([]);
+        }
+      } catch (err) {
+        console.error('[LocationAutocomplete] Search error:', err);
+        setOptions([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300),
+    [sessionToken]
+  );
+
+  // Handle input change - trigger search
+  const handleInputChange = (event, newInputValue, reason) => {
+    setInputValue(newInputValue);
+
+    if (reason === 'input') {
+      searchLocations(newInputValue);
+    }
+
+    // If user clears the input, reset the selection
+    if (!newInputValue && onChange) {
+      onChange(null);
+      if (onLocationChange) {
+        onLocationChange(null);
       }
     }
-  }, [loaded]);
+  };
 
-  // Initialize Google Places Autocomplete
-  useEffect(() => {
-    if (loaded && inputRef.current && !autocompleteRef.current) {
-      // Get the actual input element (Material-UI wraps it)
-      const inputElement = inputRef.current.querySelector('input') || inputRef.current;
-      
-      const options = {
-        fields: [
-          'place_id',
-          'formatted_address', 
-          'name',
-          'geometry',
-          'address_components',
-          'types',
-          'photos'
-        ],
-        componentRestrictions: { country: ['us', 'ca'] }, // Restrict to US and Canada
-        types: ['establishment', 'geocode']
-      };
+  // Handle selection - fetch place details
+  const handleChange = async (event, newValue) => {
+    if (!newValue) {
+      onChange?.(null);
+      onLocationChange?.(null);
+      return;
+    }
 
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
-        inputElement,
-        options
-      );
+    // Set the autocomplete value immediately
+    onChange?.(newValue);
 
-      // Add place changed listener
-      autocompleteRef.current.addListener('place_changed', () => {
-        const place = autocompleteRef.current.getPlace();
-        
-        if (!place || !place.place_id) {
-          console.warn('No place selected');
-          return;
-        }
+    // Fetch full place details from our proxy
+    try {
+      const params = new URLSearchParams({
+        placeId: newValue.place_id,
+        sessionToken,
+        fields: 'place_id,formatted_address,name,geometry,address_components,types,photos'
+      });
+
+      const response = await fetch(`/api/maps/place-details?${params}`);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.result) {
+        const place = data.result;
 
         // Create location data object
         const locationData = {
@@ -116,16 +144,18 @@ const LocationAutocomplete = ({
           name: place.name,
           description: place.formatted_address,
           geometry: place.geometry ? {
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng()
+            lat: place.geometry.location.lat,
+            lng: place.geometry.location.lng
           } : null,
           types: place.types || [],
           photos: place.photos ? place.photos.map(photo => ({
-            url: photo.getUrl({ maxWidth: 800, maxHeight: 600 }),
+            url: photo.photo_reference ?
+              `/api/maps/photo?photoReference=${photo.photo_reference}&maxWidth=800` :
+              null,
             htmlAttributions: photo.html_attributions
-          })) : [],
-          imageUrl: place.photos && place.photos.length > 0 
-            ? place.photos[0].getUrl({ maxWidth: 1200, maxHeight: 800 })
+          })).filter(p => p.url) : [],
+          imageUrl: place.photos && place.photos.length > 0 && place.photos[0].photo_reference
+            ? `/api/maps/photo?photoReference=${place.photos[0].photo_reference}&maxWidth=1200`
             : null
         };
 
@@ -153,76 +183,77 @@ const LocationAutocomplete = ({
           locationData.components = components;
         }
 
-        // Create a compatible object for the autocomplete value
-        const autocompleteValue = {
-          description: place.formatted_address,
-          place_id: place.place_id,
-          structured_formatting: {
-            main_text: place.name || '',
-            secondary_text: place.formatted_address || ''
-          }
-        };
+        onLocationChange?.(locationData);
 
-        // Update input value
-        setInputValue(place.formatted_address);
-
-        // Call callbacks
-        if (onChange) {
-          onChange(autocompleteValue);
-        }
-        if (onLocationChange) {
-          onLocationChange(locationData);
-        }
-      });
-    }
-  }, [loaded, onChange, onLocationChange]);
-
-  // Handle input changes
-  const handleInputChange = (event) => {
-    const newValue = event.target.value;
-    setInputValue(newValue);
-    
-    // If user clears the input, reset the selection
-    if (!newValue && onChange) {
-      onChange(null);
-      if (onLocationChange) {
-        onLocationChange(null);
+        // Generate new session token after a place is selected (as per Google's billing)
+        setSessionToken(crypto.randomUUID());
       }
-    }
-  };
-
-  // Handle input blur
-  const handleInputBlur = () => {
-    // If the input doesn't match a selected place, reset it
-    if (value && typeof value === 'object' && value.description) {
-      if (inputValue !== value.description) {
-        setInputValue(value.description);
-      }
+    } catch (err) {
+      console.error('[LocationAutocomplete] Place details error:', err);
     }
   };
 
   return (
-    <TextField
+    <Autocomplete
+      freeSolo
       fullWidth={fullWidth}
-      label={label}
-      placeholder={placeholder}
-      required={required}
-      error={error}
-      helperText={helperText}
-      variant={variant}
-      size={size}
       disabled={disabled}
-      value={inputValue}
-      onChange={handleInputChange}
-      onBlur={handleInputBlur}
-      InputProps={{
-        ref: inputRef,
-        startAdornment: (
-          <InputAdornment position="start">
-            <EnvironmentOutlined style={{ fontSize: '20px', color: '#666' }} />
-          </InputAdornment>
-        ),
+      options={options}
+      loading={loading}
+      value={value}
+      inputValue={inputValue}
+      onInputChange={handleInputChange}
+      onChange={handleChange}
+      getOptionLabel={(option) => {
+        if (typeof option === 'string') return option;
+        return option.description || '';
       }}
+      isOptionEqualToValue={(option, value) => option.place_id === value?.place_id}
+      filterOptions={(x) => x} // Disable built-in filtering since we use API
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          placeholder={placeholder}
+          required={required}
+          error={error}
+          helperText={helperText}
+          variant={variant}
+          size={size}
+          InputProps={{
+            ...params.InputProps,
+            startAdornment: (
+              <>
+                <InputAdornment position="start">
+                  <EnvironmentOutlined style={{ fontSize: '20px', color: '#666' }} />
+                </InputAdornment>
+                {params.InputProps.startAdornment}
+              </>
+            ),
+            endAdornment: (
+              <>
+                {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                {params.InputProps.endAdornment}
+              </>
+            ),
+          }}
+        />
+      )}
+      renderOption={(props, option) => (
+        <Box component="li" {...props} key={option.place_id}>
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="body2" fontWeight={500}>
+              {option.structured_formatting?.main_text || option.description}
+            </Typography>
+            {option.structured_formatting?.secondary_text && (
+              <Typography variant="caption" color="text.secondary">
+                {option.structured_formatting.secondary_text}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
+      noOptionsText={inputValue.length < 3 ? "Type at least 3 characters" : "No locations found"}
     />
   );
 };

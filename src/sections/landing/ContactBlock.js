@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Container,
   Grid,
@@ -18,11 +19,13 @@ import Animation from './Animation';
 
 const ContactBlock = () => {
   const theme = useTheme();
+  const intl = useIntl();
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     company: '',
-    subject: 'General Inquiry',
+    subject: intl.formatMessage({ id: 'landing.contact.generalInquiry' }),
     message: ''
   });
   const [loading, setLoading] = useState(false);
@@ -33,13 +36,13 @@ const ContactBlock = () => {
   });
 
   const subjectOptions = [
-    'General Inquiry',
-    'Product Demo',
-    'Pricing Information',
-    'Technical Support',
-    'Partnership',
-    'Enterprise Solutions',
-    'Other'
+    { value: 'General Inquiry', labelId: 'landing.contact.generalInquiry' },
+    { value: 'Product Demo', labelId: 'landing.contact.productDemo' },
+    { value: 'Pricing Information', labelId: 'landing.contact.pricingInfo' },
+    { value: 'Technical Support', labelId: 'landing.contact.technicalSupport' },
+    { value: 'Partnership', labelId: 'landing.contact.partnership' },
+    { value: 'Enterprise Solutions', labelId: 'landing.contact.enterpriseSolutions' },
+    { value: 'Other', labelId: 'landing.contact.other' }
   ];
 
   const handleInputChange = (event) => {
@@ -68,29 +71,29 @@ const ContactBlock = () => {
       if (response.ok) {
         setNotification({
           open: true,
-          message: 'Thank you for your message! We\'ll get back to you within 24 hours.',
+          message: intl.formatMessage({ id: 'landing.contact.successMessage' }),
           severity: 'success'
         });
-        
+
         // Reset form
         setFormData({
           name: '',
           email: '',
           company: '',
-          subject: 'General Inquiry',
+          subject: intl.formatMessage({ id: 'landing.contact.generalInquiry' }),
           message: ''
         });
       } else {
         setNotification({
           open: true,
-          message: result.error || 'Failed to send message. Please try again.',
+          message: result.error || intl.formatMessage({ id: 'landing.contact.errorMessage' }),
           severity: 'error'
         });
       }
     } catch (error) {
       setNotification({
         open: true,
-        message: 'Network error. Please check your connection and try again.',
+        message: intl.formatMessage({ id: 'landing.contact.networkError' }),
         severity: 'error'
       });
     } finally {
@@ -118,21 +121,20 @@ const ContactBlock = () => {
           >
             <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="h3" component="h2" gutterBottom>
-                Get in Touch
+                <FormattedMessage id="landing.contact.title" />
               </Typography>
-              
+
               <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-                Ready to transform your training programs? Contact our team to learn how 
-                EDWIND can help your organization achieve better learning outcomes.
+                <FormattedMessage id="landing.contact.description" />
               </Typography>
 
               <Box sx={{ mb: 4, flex: 1 }}>
                 {/* Contact Information Cards */}
-                <Paper 
-                  elevation={1} 
-                  sx={{ 
-                    p: 3, 
-                    mb: 3, 
+                <Paper
+                  elevation={1}
+                  sx={{
+                    p: 3,
+                    mb: 3,
                     border: `1px solid ${theme.palette.divider}`,
                     '&:hover': {
                       boxShadow: theme.shadows[4]
@@ -142,19 +144,21 @@ const ContactBlock = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Email color="primary" sx={{ fontSize: 32 }} />
                     <Box>
-                      <Typography variant="h6">Email Us</Typography>
+                      <Typography variant="h6">
+                        <FormattedMessage id="landing.contact.emailUs" />
+                      </Typography>
                       <Typography variant="body2" color="text.secondary">
                         admin@edwind.ca
                       </Typography>
                     </Box>
                   </Box>
                 </Paper>
-
               </Box>
 
               <Box sx={{ mt: 'auto' }}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Response Time:</strong> We typically respond within 24 hours during business days.
+                  <strong><FormattedMessage id="landing.contact.responseTime" /></strong>{' '}
+                  <FormattedMessage id="landing.contact.responseTimeDesc" />
                 </Typography>
               </Box>
             </Box>
@@ -169,9 +173,9 @@ const ContactBlock = () => {
               hidden: { opacity: 0, x: 50 }
             }}
           >
-            <Paper 
-              elevation={2} 
-              sx={{ 
+            <Paper
+              elevation={2}
+              sx={{
                 p: { xs: 3, md: 4 },
                 border: `1px solid ${theme.palette.divider}`
               }}
@@ -179,7 +183,7 @@ const ContactBlock = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                 <Business color="primary" />
                 <Typography variant="h4" component="h3">
-                  Send us a Message
+                  <FormattedMessage id="landing.contact.sendMessage" />
                 </Typography>
               </Box>
 
@@ -188,7 +192,7 @@ const ContactBlock = () => {
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label="Full Name"
+                      label={intl.formatMessage({ id: 'landing.contact.fullName' })}
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
@@ -196,11 +200,11 @@ const ContactBlock = () => {
                       variant="outlined"
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label="Email Address"
+                      label={intl.formatMessage({ id: 'landing.contact.emailAddress' })}
                       name="email"
                       type="email"
                       value={formData.email}
@@ -209,23 +213,23 @@ const ContactBlock = () => {
                       variant="outlined"
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label="Company/Organization"
+                      label={intl.formatMessage({ id: 'landing.contact.company' })}
                       name="company"
                       value={formData.company}
                       onChange={handleInputChange}
                       variant="outlined"
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
                       select
-                      label="Subject"
+                      label={intl.formatMessage({ id: 'landing.contact.subject' })}
                       name="subject"
                       value={formData.subject}
                       onChange={handleInputChange}
@@ -233,17 +237,17 @@ const ContactBlock = () => {
                       variant="outlined"
                     >
                       {subjectOptions.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
+                        <MenuItem key={option.value} value={option.value}>
+                          {intl.formatMessage({ id: option.labelId })}
                         </MenuItem>
                       ))}
                     </TextField>
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
-                      label="Message"
+                      label={intl.formatMessage({ id: 'landing.contact.message' })}
                       name="message"
                       value={formData.message}
                       onChange={handleInputChange}
@@ -251,10 +255,10 @@ const ContactBlock = () => {
                       multiline
                       rows={4}
                       variant="outlined"
-                      placeholder="Tell us about your training needs, questions, or how we can help your organization..."
+                      placeholder={intl.formatMessage({ id: 'landing.contact.messagePlaceholder' })}
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <Button
                       type="submit"
@@ -262,21 +266,22 @@ const ContactBlock = () => {
                       size="large"
                       startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
                       disabled={loading}
-                      sx={{ 
+                      sx={{
                         minWidth: 160,
                         py: 1.5
                       }}
                     >
-                      {loading ? 'Sending...' : 'Send Message'}
+                      {loading
+                        ? intl.formatMessage({ id: 'landing.contact.sending' })
+                        : intl.formatMessage({ id: 'landing.contact.send' })}
                     </Button>
                   </Grid>
                 </Grid>
               </Box>
-              
+
               <Box sx={{ mt: 3 }}>
                 <Alert severity="info" variant="outlined">
-                  By submitting this form, you agree to our privacy policy. We'll only use 
-                  your information to respond to your inquiry.
+                  <FormattedMessage id="landing.contact.privacyNote" />
                 </Alert>
               </Box>
             </Paper>
@@ -291,8 +296,8 @@ const ContactBlock = () => {
         onClose={handleCloseNotification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={handleCloseNotification} 
+        <Alert
+          onClose={handleCloseNotification}
           severity={notification.severity}
           sx={{ width: '100%' }}
         >

@@ -6,15 +6,13 @@ import {
   Typography,
   Tooltip,
   Chip,
-  Stack,
-  Avatar,
-  LinearProgress,
-  Grid
+  Grid,
+  Stack
 } from '@mui/material';
-import { 
-  format, 
-  startOfMonth, 
-  endOfMonth, 
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
   eachDayOfInterval,
   eachWeekOfInterval,
   eachMonthOfInterval,
@@ -23,8 +21,12 @@ import {
   isWeekend,
   parseISO,
   startOfWeek,
-  endOfWeek
+  endOfWeek,
+  isPast
 } from 'date-fns';
+import { GlobalOutlined, AppstoreOutlined, EnvironmentOutlined, UserOutlined, TeamOutlined } from '@ant-design/icons';
+import { projectionTypes } from 'data/mockData';
+
 
 // ==============================|| GANTT CHART COMPONENT ||============================== //
 
@@ -34,7 +36,8 @@ const GanttChart = ({
   zoomLevel = 100,
   onProjectClick,
   instructors = [],
-  scrollToToday = false
+  scrollToToday = false,
+  showProjections = true
 }) => {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -46,7 +49,7 @@ const GanttChart = ({
       if (containerRef.current) {
         setDimensions({
           width: containerRef.current.offsetWidth,
-          height: Math.max(600, projects.length * 60 + 100)
+          height: Math.max(600, projects.length * 95 + 100)
         });
       }
     };
@@ -152,12 +155,24 @@ const GanttChart = ({
     const projectStart = parseISO(project.startDate);
     const projectEnd = parseISO(project.endDate);
     const { start: chartStart } = dateRange;
-    
-    const startDays = differenceInDays(projectStart, chartStart);
-    const duration = differenceInDays(projectEnd, projectStart) + 1;
-    
+
+    // Check if any projection comes before project start (e.g., hiring deadline)
+    let barStart = projectStart;
+    if (project.projections && project.projections.length > 0) {
+      const sortedProjections = [...project.projections].sort((a, b) =>
+        parseISO(a.date).getTime() - parseISO(b.date).getTime()
+      );
+      const firstProjectionDate = parseISO(sortedProjections[0].date);
+      if (firstProjectionDate < projectStart) {
+        barStart = firstProjectionDate;
+      }
+    }
+
+    const startDays = differenceInDays(barStart, chartStart);
+    const duration = differenceInDays(projectEnd, barStart) + 1;
+
     const pixelsPerDay = chartWidth / differenceInDays(dateRange.end, chartStart);
-    
+
     return {
       left: startDays * pixelsPerDay,
       width: duration * pixelsPerDay
@@ -176,8 +191,14 @@ const GanttChart = ({
     return colors[status] || '#2196f3';
   };
 
+  // Get projection type info
+  const getProjectionTypeInfo = (type) => {
+    return projectionTypes.find(pt => pt.id === type) || projectionTypes.find(pt => pt.id === 'custom');
+  };
+
+
   // Row height
-  const rowHeight = 75;
+  const rowHeight = 95;
   const headerHeight = 80;
   const projectColumnWidth = 300;
 
@@ -201,17 +222,41 @@ const GanttChart = ({
             borderRight: 2,
             borderColor: 'divider',
             px: 2,
-            py: 2.5,
+            py: 1.5,
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
+            justifyContent: 'center',
             position: 'sticky',
             left: 0,
             bgcolor: 'grey.50',
             zIndex: 11
           }}>
-            <Typography variant="subtitle1" fontWeight="bold" color="text.primary">
+            <Typography variant="subtitle1" fontWeight="bold" color="text.primary" sx={{ mb: 0.5 }}>
               Projects
             </Typography>
+            {/* Status Legend */}
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+              {[
+                { label: 'Upcoming', color: '#ff9800' },
+                { label: 'In Progress', color: '#2196f3' },
+                { label: 'Completed', color: '#4caf50' },
+                { label: 'Cancelled', color: '#f44336' }
+              ].map((status) => (
+                <Stack key={status.label} direction="row" spacing={0.5} alignItems="center">
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      bgcolor: status.color
+                    }}
+                  />
+                  <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.65rem' }}>
+                    {status.label}
+                  </Typography>
+                </Stack>
+              ))}
+            </Stack>
           </Box>
 
           {/* Timeline Columns Headers */}
@@ -242,7 +287,8 @@ const GanttChart = ({
         {projects.map((project, projectIndex) => {
           const barPosition = calculateBarPosition(project);
           const instructor = instructors.find(i => i.id === project.instructorId);
-          
+          const instructor2 = project.instructor2Id ? instructors.find(i => i.id === project.instructor2Id) : null;
+
           return (
             <Box
               key={project.id}
@@ -264,7 +310,7 @@ const GanttChart = ({
                 borderRight: 2,
                 borderColor: 'divider',
                 px: 2,
-                py: 2.5,
+                py: 1.5,
                 display: 'flex',
                 alignItems: 'center',
                 position: 'sticky',
@@ -272,84 +318,113 @@ const GanttChart = ({
                 bgcolor: 'background.paper',
                 zIndex: 5
               }}>
-                <Grid container spacing={2} alignItems="center">
-                  {/* Left side - Status Badge */}
-                  <Grid item>
-                    <Chip
-                      label={project.status}
-                      size="small"
+                <Stack spacing={0.5} sx={{ width: '100%' }}>
+                  {/* Project Name with Status Dot */}
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box
                       sx={{
-                        height: 28,
-                        fontSize: '0.65rem',
-                        bgcolor: `${getStatusColor(project.status)}20`,
-                        color: getStatusColor(project.status),
-                        borderColor: getStatusColor(project.status),
-                        fontWeight: 700,
-                        textTransform: 'lowercase',
-                        borderRadius: 1,
-                        '& .MuiChip-label': {
-                          px: 1.5
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: getStatusColor(project.status),
+                        flexShrink: 0
+                      }}
+                    />
+                    <Typography
+                      component="div"
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        lineHeight: 1.3,
+                        '&:hover': {
+                          color: 'primary.main'
                         }
                       }}
-                      variant="outlined"
-                    />
-                  </Grid>
+                      onClick={() => onProjectClick && onProjectClick(project)}
+                    >
+                      {project.name}
+                    </Typography>
+                  </Stack>
 
-                  {/* Right side - Project details */}
-                  <Grid item xs zeroMinWidth>
-                    <Grid container spacing={0.75}>
-                      <Grid item xs={12}>
-                        <Typography
-                          component="div"
-                          variant="subtitle1"
-                          sx={{
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            lineHeight: 1.4,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            '&:hover': {
-                              fontWeight: 600
-                            }
-                          }}
-                          onClick={() => onProjectClick && onProjectClick(project)}
-                        >
-                          {project.name}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{
-                            fontSize: '0.75rem',
-                            display: 'block',
-                            lineHeight: 1.3
-                          }}
-                        >
-                          {format(parseISO(project.startDate), 'MMM dd')} - {format(parseISO(project.endDate), 'MMM dd, yyyy')}
-                        </Typography>
-                      </Grid>
-                      {instructor && (
-                        <Grid item xs={12}>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{
-                              fontSize: '0.75rem',
-                              display: 'block',
-                              lineHeight: 1.3
-                            }}
-                          >
-                            {instructor.name}
-                          </Typography>
-                        </Grid>
-                      )}
-                    </Grid>
-                  </Grid>
-                </Grid>
+                  {/* Date & Location Row */}
+                  <Box sx={{ pl: 2, display: 'flex', alignItems: 'center', gap: 0.75, fontSize: '0.7rem', color: 'text.secondary' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+                      {format(parseISO(project.startDate), 'MMM dd')} - {format(parseISO(project.endDate), 'MMM dd, yyyy')}
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled">•</Typography>
+                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.7rem' }}>
+                      {(() => {
+                        // Parse location if it's JSON, otherwise use as string
+                        if (!project.location) return 'No location';
+                        try {
+                          const loc = JSON.parse(project.location);
+                          // Check if remote
+                          const desc = loc.description || '';
+                          if (desc.toLowerCase() === 'remote' || desc.toLowerCase().includes('remote')) {
+                            return (
+                              <>
+                                <GlobalOutlined style={{ fontSize: 11, color: '#1976d2' }} />
+                                <span>Remote</span>
+                              </>
+                            );
+                          }
+                          // In-person - show room if available
+                          if (loc.room) {
+                            return (
+                              <>
+                                <AppstoreOutlined style={{ fontSize: 11, color: '#2e7d32' }} />
+                                <span>{loc.room}</span>
+                              </>
+                            );
+                          }
+                          return (
+                            <>
+                              <EnvironmentOutlined style={{ fontSize: 11, color: '#ed6c02' }} />
+                              <span>{loc.description || loc.address || 'In Person'}</span>
+                            </>
+                          );
+                        } catch {
+                          // Not JSON, check if it's "Remote" or a room/location name
+                          const locStr = project.location.toLowerCase();
+                          if (locStr === 'remote' || locStr.includes('remote')) {
+                            return (
+                              <>
+                                <GlobalOutlined style={{ fontSize: 11, color: '#1976d2' }} />
+                                <span>Remote</span>
+                              </>
+                            );
+                          }
+                          return (
+                            <>
+                              <EnvironmentOutlined style={{ fontSize: 11, color: '#ed6c02' }} />
+                              <span>{project.location}</span>
+                            </>
+                          );
+                        }
+                      })()}
+                    </Box>
+                  </Box>
+                  {/* Instructor Row */}
+                  {(instructor || instructor2) && (
+                    <Box sx={{ pl: 2, display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.7rem' }}>
+                      <UserOutlined style={{ fontSize: 11, color: '#8c8c8c' }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        {instructor?.name}{instructor && instructor2 && ', '}{instructor2?.name}
+                      </Typography>
+                    </Box>
+                  )}
+                  {/* Recipient Row */}
+                  {project.recipient && (
+                    <Box sx={{ pl: 2, display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.7rem' }}>
+                      <TeamOutlined style={{ fontSize: 11, color: '#1976d2' }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        {project.recipient}
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
               </Box>
 
               {/* Timeline Grid and Bar */}
@@ -370,87 +445,255 @@ const GanttChart = ({
                   ))}
                 </Box>
 
-                {/* Project Bar */}
-                <Tooltip
-                  title={
-                    <Box sx={{ p: 1 }}>
-                      <Typography variant="body2" fontWeight="bold">{project.name}</Typography>
-                      <Typography variant="caption">
-                        {format(parseISO(project.startDate), 'MMM dd, yyyy')} - {format(parseISO(project.endDate), 'MMM dd, yyyy')}
-                      </Typography>
-                      <br />
-                      <Typography variant="caption">Status: {project.status}</Typography>
-                      <br />
-                      <Typography variant="caption">Instructor: {instructor?.name || 'Unassigned'}</Typography>
-                      {project.progress !== undefined && (
-                        <>
-                          <br />
-                          <Typography variant="caption">Progress: {project.progress}%</Typography>
-                        </>
-                      )}
-                    </Box>
+                {/* Project Bar - Segmented by Milestones */}
+                {(() => {
+                  const projectStart = parseISO(project.startDate);
+                  const projectEnd = parseISO(project.endDate);
+                  // Training color is yellow (locked to project dates)
+                  const trainingColor = '#f1c40f';
+
+                  // Build segments from projections
+                  const segments = [];
+
+                  if (showProjections && project.projections && project.projections.length > 0) {
+                    // Sort projections by date (exclude any manually added training_start - it's auto-generated)
+                    const sortedProjections = [...project.projections]
+                      .filter(p => p.type !== 'training_start')
+                      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+
+                    // Separate projections into before project start (e.g., hiring) and during/after
+                    const beforeProjectStart = sortedProjections.filter(p => parseISO(p.date) < projectStart);
+                    const duringProject = sortedProjections.filter(p => {
+                      const pDate = parseISO(p.date);
+                      return pDate >= projectStart && pDate <= projectEnd;
+                    });
+
+                    // Add pre-project milestones (e.g., hiring) with gaps
+                    let lastEndDate = null;
+                    for (let i = 0; i < beforeProjectStart.length; i++) {
+                      const currentProjection = beforeProjectStart[i];
+                      const currentDate = parseISO(currentProjection.date);
+
+                      // Use milestone's endDate if set, otherwise end at next milestone or project start
+                      const milestoneEnd = currentProjection.endDate
+                        ? parseISO(currentProjection.endDate)
+                        : (i < beforeProjectStart.length - 1
+                            ? parseISO(beforeProjectStart[i + 1].date)
+                            : projectStart);
+
+                      const typeInfo = getProjectionTypeInfo(currentProjection.type);
+                      const isOverdue = isPast(currentDate) && !isToday(currentDate) && project.status !== 'completed';
+
+                      segments.push({
+                        start: currentDate,
+                        end: milestoneEnd,
+                        color: typeInfo?.color || '#95a5a6',
+                        label: currentProjection.label,
+                        projection: currentProjection,
+                        typeInfo,
+                        isOverdue
+                      });
+
+                      lastEndDate = milestoneEnd;
+                    }
+
+                    // Add transparent gap segment between last pre-project milestone and project start if needed
+                    if (lastEndDate && lastEndDate < projectStart) {
+                      segments.push({
+                        start: lastEndDate,
+                        end: projectStart,
+                        color: 'transparent',
+                        label: '',
+                        isGap: true
+                      });
+                    }
+
+                    // Auto-generate training segment (project dates)
+                    // Find first milestone during project to determine training end
+                    const firstDuringMilestone = duringProject.length > 0 ? parseISO(duringProject[0].date) : null;
+                    const trainingEnd = firstDuringMilestone || projectEnd;
+
+                    segments.push({
+                      start: projectStart,
+                      end: trainingEnd,
+                      color: trainingColor,
+                      label: project.name,
+                      isTrainingSegment: true,
+                      isBase: true
+                    });
+
+                    // Add milestones during the project
+                    for (let i = 0; i < duringProject.length; i++) {
+                      const currentProjection = duringProject[i];
+                      const currentDate = parseISO(currentProjection.date);
+                      // Use milestone's endDate if set, otherwise fall back to next milestone or project end
+                      const nextDate = currentProjection.endDate
+                        ? parseISO(currentProjection.endDate)
+                        : (i < duringProject.length - 1
+                            ? parseISO(duringProject[i + 1].date)
+                            : projectEnd);
+
+                      const typeInfo = getProjectionTypeInfo(currentProjection.type);
+                      const isOverdue = isPast(currentDate) && !isToday(currentDate) && project.status !== 'completed';
+
+                      segments.push({
+                        start: currentDate,
+                        end: nextDate,
+                        color: typeInfo?.color || '#95a5a6',
+                        label: currentProjection.label,
+                        projection: currentProjection,
+                        typeInfo,
+                        isOverdue
+                      });
+                    }
+                  } else {
+                    // No projections or hidden - single yellow segment (training = project dates)
+                    segments.push({
+                      start: projectStart,
+                      end: projectEnd,
+                      color: trainingColor,
+                      label: project.name,
+                      isTrainingSegment: true,
+                      isBase: true
+                    });
                   }
-                  arrow
-                  placement="top"
-                >
-                  <Box
-                    onClick={() => onProjectClick && onProjectClick(project)}
-                    sx={{
-                      position: 'absolute',
-                      left: barPosition.left,
-                      width: barPosition.width,
-                      height: 40,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      bgcolor: project.color || getStatusColor(project.status),
-                      borderRadius: 1,
-                      cursor: 'pointer',
-                      opacity: hoveredProject === project.id ? 1 : 0.9,
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      px: 1.5,
-                      overflow: 'hidden',
-                      boxShadow: hoveredProject === project.id ? 3 : 1,
-                      border: '1px solid',
-                      borderColor: 'rgba(0,0,0,0.1)',
-                      '&:hover': {
-                        transform: 'translateY(-50%) scale(1.02)',
-                        boxShadow: 4
-                      }
-                    }}
-                  >
-                    {project.progress !== undefined && project.progress > 0 && (
-                      <LinearProgress
-                        variant="determinate"
-                        value={project.progress}
-                        sx={{
-                          position: 'absolute',
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          height: 3,
-                          bgcolor: 'rgba(255,255,255,0.3)',
-                          '& .MuiLinearProgress-bar': {
-                            bgcolor: 'rgba(255,255,255,0.7)'
-                          }
-                        }}
-                      />
-                    )}
-                    <Typography
-                      variant="caption"
+
+                  const { start: chartStart } = dateRange;
+                  const pixelsPerDay = chartWidth / differenceInDays(dateRange.end, chartStart);
+
+                  return (
+                    <Box
+                      onClick={() => onProjectClick && onProjectClick(project)}
                       sx={{
-                        color: 'white',
-                        fontWeight: 500,
-                        whiteSpace: 'nowrap',
+                        position: 'absolute',
+                        left: barPosition.left,
+                        width: barPosition.width,
+                        height: rowHeight - 10,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        display: 'flex',
+                        cursor: 'pointer',
+                        borderRadius: 0,
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+                        boxShadow: hoveredProject === project.id ? 3 : 1,
+                        border: '1px solid',
+                        borderColor: 'rgba(0,0,0,0.1)',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          transform: 'translateY(-50%) scale(1.02)',
+                          boxShadow: 4
+                        }
                       }}
                     >
-                      {project.name}
-                    </Typography>
-                  </Box>
-                </Tooltip>
+                      {segments.map((segment, segIndex) => {
+                        const segmentDuration = differenceInDays(segment.end, segment.start) + (segIndex === segments.length - 1 ? 1 : 0);
+                        const segmentWidth = segmentDuration * pixelsPerDay;
+
+                        const tooltipContent = segment.projection ? (
+                          <Box sx={{ p: 0.5 }}>
+                            <Typography variant="body2" fontWeight="bold">
+                              {segment.projection.label}
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              {segment.typeInfo?.label}
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              {format(parseISO(segment.projection.date), 'MMM dd, yyyy')}
+                              {segment.projection.endDate && ` - ${format(parseISO(segment.projection.endDate), 'MMM dd, yyyy')}`}
+                            </Typography>
+                            {segment.projection.notes && (
+                              <Typography variant="caption" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                                {segment.projection.notes}
+                              </Typography>
+                            )}
+                            {segment.isOverdue && (
+                              <Typography variant="caption" display="block" sx={{ mt: 0.5, color: '#ff6b6b', fontWeight: 600 }}>
+                                OVERDUE
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : (
+                          <Box sx={{ p: 1 }}>
+                            <Typography variant="body2" fontWeight="bold">{project.name}</Typography>
+                            <Typography variant="caption">
+                              {format(projectStart, 'MMM dd, yyyy')} - {format(projectEnd, 'MMM dd, yyyy')}
+                            </Typography>
+                            <br />
+                            <Typography variant="caption">Status: {project.status}</Typography>
+                            <br />
+                            <Typography variant="caption">Instructor: {instructor?.name || 'Unassigned'}</Typography>
+                            {project.progress !== undefined && (
+                              <>
+                                <br />
+                                <Typography variant="caption">Progress: {project.progress}%</Typography>
+                              </>
+                            )}
+                          </Box>
+                        );
+
+                        // Gap segments - just empty space, no tooltip
+                        if (segment.isGap) {
+                          return (
+                            <Box
+                              key={segIndex}
+                              sx={{
+                                width: segmentWidth,
+                                height: '100%',
+                                bgcolor: 'transparent'
+                              }}
+                            />
+                          );
+                        }
+
+                        return (
+                          <Tooltip
+                            key={segIndex}
+                            title={tooltipContent}
+                            arrow
+                            placement="top"
+                          >
+                            <Box
+                              sx={{
+                                width: segmentWidth,
+                                height: '100%',
+                                bgcolor: segment.color,
+                                opacity: hoveredProject === project.id ? 1 : 0.9,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative',
+                                borderRight: segIndex < segments.length - 1 && !segments[segIndex + 1]?.isGap ? '2px solid rgba(255,255,255,0.5)' : 'none',
+                                overflow: 'hidden',
+                                '&:hover': {
+                                  opacity: 1,
+                                  filter: 'brightness(1.1)'
+                                }
+                              }}
+                            >
+                              {/* Always show label - truncate if needed */}
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: 'white',
+                                  fontWeight: 600,
+                                  fontSize: segmentWidth > 80 ? '0.7rem' : '0.6rem',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  px: 0.5,
+                                  textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                                  maxWidth: '100%'
+                                }}
+                              >
+                                {segment.isBase ? project.name : segment.label}
+                              </Typography>
+                            </Box>
+                          </Tooltip>
+                        );
+                      })}
+                    </Box>
+                  );
+                })()}
               </Box>
             </Box>
           );
@@ -498,7 +741,8 @@ GanttChart.propTypes = {
   zoomLevel: PropTypes.number,
   onProjectClick: PropTypes.func,
   instructors: PropTypes.array,
-  scrollToToday: PropTypes.bool
+  scrollToToday: PropTypes.bool,
+  showProjections: PropTypes.bool
 };
 
 export default GanttChart;

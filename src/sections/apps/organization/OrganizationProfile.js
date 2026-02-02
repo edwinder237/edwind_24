@@ -34,6 +34,15 @@ const OrganizationProfile = ({ focusInput }) => {
       }
     };
     loadData();
+
+    // Listen for subscription updates from SubscriptionCard
+    const handleSubscriptionUpdate = () => {
+      fetchSubscription();
+    };
+    window.addEventListener('subscription-updated', handleSubscriptionUpdate);
+    return () => {
+      window.removeEventListener('subscription-updated', handleSubscriptionUpdate);
+    };
   }, []);
 
   const fetchOrganization = async () => {
@@ -109,8 +118,9 @@ const OrganizationProfile = ({ focusInput }) => {
     switch (planId) {
       case 'enterprise':
         return <CrownOutlined />;
-      case 'pro':
+      case 'professional':
         return <StarOutlined />;
+      case 'essential':
       default:
         return <RocketOutlined />;
     }
@@ -120,8 +130,9 @@ const OrganizationProfile = ({ focusInput }) => {
     switch (planId) {
       case 'enterprise':
         return 'success';
-      case 'pro':
+      case 'professional':
         return 'primary';
+      case 'essential':
       default:
         return 'default';
     }

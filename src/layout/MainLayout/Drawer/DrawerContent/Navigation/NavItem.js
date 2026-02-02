@@ -37,13 +37,19 @@ const NavItem = ({ item, level }) => {
     const userPermissions = user?.permissions || [];
     const userRole = user?.role?.toLowerCase() || '';
 
-    // Check if the required permission is a role (like 'admin')
-    // or if it exists in the user's permissions array
-    const isRoleMatch = item.permission.toLowerCase() === userRole;
-    const hasPermission = userPermissions.includes(item.permission);
+    // Admin roles that should have access to ALL menu items (Level 0-1)
+    const adminRoles = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
 
-    if (!isRoleMatch && !hasPermission) {
-      return null; // Hide menu item if user doesn't have required permission/role
+    // Level 0-1 admins have access to everything - skip permission checks
+    if (adminRoles.includes(userRole)) {
+      // Allow access - admin tier users can see all menu items
+    } else {
+      // For non-admin users, check specific permission
+      const hasPermission = userPermissions.includes(item.permission);
+
+      if (!hasPermission) {
+        return null; // Hide menu item if user doesn't have required permission
+      }
     }
   }
 

@@ -2,6 +2,9 @@
 import NextLink from 'next/link';
 import Image from 'next/legacy/image';
 
+// third-party
+import { FormattedMessage } from 'react-intl';
+
 // material-ui
 import { useTheme } from '@mui/material/styles';
 import { Box, Button, Container, Grid, Link, Typography } from '@mui/material';
@@ -46,14 +49,14 @@ const HeaderPage = () => {
                     lineHeight: { xs: 1.3, sm: 1.3, md: 1.3 }
                   }}
                 >
-                  <span>Welcome to </span>
-                  <Box component="span" sx={{ 
+                  <FormattedMessage id="landing.hero.welcome" />
+                  <Box component="span" sx={{
                     color: '#1976d2',
                     textShadow: '0 0 10px rgba(25, 118, 210, 0.5), 0 0 20px rgba(25, 118, 210, 0.3), 0 0 30px rgba(25, 118, 210, 0.2)'
                   }}>
-                    <span>EDWIND </span>
+                    <FormattedMessage id="landing.hero.edwind" />
                   </Box>
-                  <span>Training Platform</span>
+                  <FormattedMessage id="landing.hero.platform" />
                 </Typography>
               </motion.div>
             </Grid>
@@ -78,7 +81,7 @@ const HeaderPage = () => {
                     lineHeight: { xs: 1.4, md: 1.4 }
                   }}
                 >
-                  Empower your organization with comprehensive training management and participant tracking solutions.
+                  <FormattedMessage id="landing.hero.description" />
                 </Typography>
               </motion.div>
             </Grid>
@@ -96,9 +99,9 @@ const HeaderPage = () => {
                 <Grid container spacing={2} sx={{ justifyContent: { xs: 'center', md: 'flex-start' } }}>
                   <Grid item>
                     <AnimateButton>
-                      <Button 
-                        size="large" 
-                        variant="outlined" 
+                      <Button
+                        size="large"
+                        variant="outlined"
                         onClick={() => {
                           document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
                         }}
@@ -111,7 +114,7 @@ const HeaderPage = () => {
                           }
                         }}
                       >
-                        See Pricing
+                        <FormattedMessage id="landing.hero.seePricing" />
                       </Button>
                     </AnimateButton>
                   </Grid>
@@ -132,7 +135,7 @@ const HeaderPage = () => {
                           }
                         }}
                       >
-                        Get Started
+                        <FormattedMessage id="landing.nav.getStarted" />
                       </Button>
                     </AnimateButton>
                   </Grid>
@@ -152,13 +155,13 @@ const HeaderPage = () => {
               delay: 0.6
             }}
           >
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               width: '100%',
               height: '100%',
-              [theme.breakpoints.down('md')]: { mt: 4 } 
+              [theme.breakpoints.down('md')]: { mt: 4 }
             }}>
               <Image src={headerlogo} alt="EDWIND" width={380} height={160} style={{ zIndex: 9 }} />
             </Box>

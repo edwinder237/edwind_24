@@ -86,7 +86,8 @@ export default async function handler(req, res) {
       sortOrder = 'desc',
       isActive,
       subOrgId,
-      role
+      role,
+      appRole // Filter by application role (Level 2-4)
     } = req.query;
 
     const pageNum = parseInt(page, 10);
@@ -129,7 +130,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Get users with their organization memberships
+    // Get users with their organization memberships and app role assignments
     const [users, totalCount] = await Promise.all([
       prisma.user.findMany({
         where,
@@ -146,6 +147,23 @@ export default async function handler(req, res) {
                 select: {
                   id: true,
                   title: true
+                }
+              }
+            }
+          },
+          role_assignments: {
+            where: {
+              organizationId: currentOrgId,
+              isActive: true
+            },
+            include: {
+              role: {
+                select: {
+                  id: true,
+                  slug: true,
+                  name: true,
+                  description: true,
+                  hierarchyLevel: true
                 }
               }
             }
@@ -189,6 +207,10 @@ export default async function handler(req, res) {
           }
         }
 
+        // Get app role from role_assignments
+        const appRoleAssignment = user.role_assignments?.[0];
+        const userAppRole = appRoleAssignment?.role || null;
+
         return {
           id: user.id,
           workos_user_id: user.workos_user_id,
@@ -197,12 +219,12 @@ export default async function handler(req, res) {
           firstName: user.firstName,
           lastName: user.lastName,
           isActive: user.isActive,
-          status: user.status,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
           sub_organization: user.sub_organization,
           role: workosRole || 'member',
           workosStatus: workosStatus || 'active',
+          appRole: userAppRole,
           organizations: user.organization_memberships.map(m => ({
             id: m.organization.id,
             title: m.organization.title,
@@ -212,11 +234,18 @@ export default async function handler(req, res) {
       })
     );
 
-    // Filter by role if specified
+    // Filter by WorkOS role if specified
     let filteredUsers = usersWithRoles;
     if (role) {
       filteredUsers = usersWithRoles.filter(
         user => user.role?.toLowerCase() === role.toLowerCase()
+      );
+    }
+
+    // Filter by app role if specified
+    if (appRole) {
+      filteredUsers = filteredUsers.filter(
+        user => user.appRole?.slug?.toLowerCase() === appRole.toLowerCase()
       );
     }
 

@@ -1,3 +1,6 @@
+// third-party
+import { FormattedMessage, useIntl } from 'react-intl';
+
 // material-ui
 import { useTheme } from '@mui/material/styles';
 import { Box, Button, Container, Grid, Typography, List, ListItem, ListItemIcon, ListItemText, Card, CardContent, Chip } from '@mui/material';
@@ -13,62 +16,63 @@ import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 
 const PricingBlock = () => {
   const theme = useTheme();
+  const intl = useIntl();
 
   const plans = [
     {
-      title: 'Starter',
+      title: intl.formatMessage({ id: 'landing.pricing.starter' }),
       price: 49,
-      period: 'per month',
-      description: 'Perfect for small teams getting started with training management',
+      period: intl.formatMessage({ id: 'landing.pricing.perMonth' }),
+      description: intl.formatMessage({ id: 'landing.pricing.starterDesc' }),
       features: [
-        { text: 'Up to 50 participants', included: true },
-        { text: '5 concurrent projects', included: true },
-        { text: 'Basic analytics', included: true },
-        { text: 'Email support', included: true },
-        { text: 'Course templates', included: true },
-        { text: 'Advanced reporting', included: false },
-        { text: 'API access', included: false },
-        { text: 'Custom branding', included: false }
+        { text: intl.formatMessage({ id: 'landing.pricing.upTo50Participants' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.5Projects' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.basicAnalytics' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.emailSupport' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.courseTemplates' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.advancedReporting' }), included: false },
+        { text: intl.formatMessage({ id: 'landing.pricing.apiAccess' }), included: false },
+        { text: intl.formatMessage({ id: 'landing.pricing.customBranding' }), included: false }
       ],
-      buttonText: 'Start Free Trial',
+      buttonText: intl.formatMessage({ id: 'landing.pricing.startFreeTrial' }),
       buttonVariant: 'outlined',
       popular: false
     },
     {
-      title: 'Professional',
+      title: intl.formatMessage({ id: 'landing.pricing.professional' }),
       price: 149,
-      period: 'per month',
-      description: 'Ideal for growing organizations with advanced training needs',
+      period: intl.formatMessage({ id: 'landing.pricing.perMonth' }),
+      description: intl.formatMessage({ id: 'landing.pricing.professionalDesc' }),
       features: [
-        { text: 'Up to 500 participants', included: true },
-        { text: 'Unlimited projects', included: true },
-        { text: 'Advanced analytics', included: true },
-        { text: 'Priority email & chat support', included: true },
-        { text: 'Course templates', included: true },
-        { text: 'Advanced reporting', included: true },
-        { text: 'API access', included: true },
-        { text: 'Custom branding', included: false }
+        { text: intl.formatMessage({ id: 'landing.pricing.upTo500Participants' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.unlimitedProjects' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.advancedAnalytics' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.prioritySupport' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.courseTemplates' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.advancedReporting' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.apiAccess' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.customBranding' }), included: false }
       ],
-      buttonText: 'Get Started',
+      buttonText: intl.formatMessage({ id: 'landing.pricing.getStarted' }),
       buttonVariant: 'contained',
       popular: true
     },
     {
-      title: 'Enterprise',
-      price: 'Custom',
+      title: intl.formatMessage({ id: 'landing.pricing.enterprise' }),
+      price: intl.formatMessage({ id: 'landing.pricing.custom' }),
       period: '',
-      description: 'Tailored solutions for large organizations with complex requirements',
+      description: intl.formatMessage({ id: 'landing.pricing.enterpriseDesc' }),
       features: [
-        { text: 'Unlimited participants', included: true },
-        { text: 'Unlimited projects', included: true },
-        { text: 'Advanced analytics', included: true },
-        { text: 'Dedicated support team', included: true },
-        { text: 'Course templates', included: true },
-        { text: 'Advanced reporting', included: true },
-        { text: 'Full API access', included: true },
-        { text: 'Custom branding', included: true }
+        { text: intl.formatMessage({ id: 'landing.pricing.unlimitedParticipants' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.unlimitedProjects' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.advancedAnalytics' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.dedicatedSupport' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.courseTemplates' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.advancedReporting' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.fullApiAccess' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.customBranding' }), included: true }
       ],
-      buttonText: 'Contact Sales',
+      buttonText: intl.formatMessage({ id: 'landing.pricing.contactSales' }),
       buttonVariant: 'outlined',
       popular: false
     }
@@ -84,24 +88,24 @@ const PricingBlock = () => {
                 <Grid container spacing={1} justifyContent="center">
                   <Grid item xs={12}>
                     <Typography variant="subtitle1" color="primary">
-                      Pricing Plans
+                      <FormattedMessage id="landing.pricing.subtitle" />
                     </Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="h2" sx={{ mb: 2 }}>
-                      Choose Your Plan
+                      <FormattedMessage id="landing.pricing.title" />
                     </Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="body1" color="textSecondary">
-                      Flexible pricing options to meet your organization's training needs
+                      <FormattedMessage id="landing.pricing.description" />
                     </Typography>
                   </Grid>
                 </Grid>
               </Grid>
             </Grid>
           </Grid>
-          
+
           <Grid item xs={12}>
             <Grid container spacing={3} alignItems="center" justifyContent="center">
               {plans.map((plan, index) => (
@@ -112,8 +116,8 @@ const PricingBlock = () => {
                       visible: { opacity: 1, translateY: 0 }
                     }}
                   >
-                    <Card 
-                      sx={{ 
+                    <Card
+                      sx={{
                         position: 'relative',
                         height: '100%',
                         border: plan.popular ? `2px solid ${theme.palette.primary.main}` : '1px solid',
@@ -128,21 +132,21 @@ const PricingBlock = () => {
                       <CardContent sx={{ p: 4, pt: plan.popular ? 2 : 4 }}>
                         {plan.popular && (
                           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                            <Chip 
-                              label="MOST POPULAR" 
-                              color="primary" 
+                            <Chip
+                              label={<FormattedMessage id="landing.pricing.mostPopular" />}
+                              color="primary"
                               size="small"
-                              sx={{ 
+                              sx={{
                                 fontWeight: 600
-                              }} 
+                              }}
                             />
                           </Box>
                         )}
-                        
+
                         <Typography variant="h4" sx={{ fontWeight: 600, mb: 1, textAlign: 'center' }}>
                           {plan.title}
                         </Typography>
-                        
+
                         <Box sx={{ textAlign: 'center', mb: 3 }}>
                           {typeof plan.price === 'number' ? (
                             <>
@@ -159,11 +163,11 @@ const PricingBlock = () => {
                             </Typography>
                           )}
                         </Box>
-                        
+
                         <Typography variant="body2" color="textSecondary" sx={{ mb: 3, textAlign: 'center', minHeight: 48 }}>
                           {plan.description}
                         </Typography>
-                        
+
                         <List sx={{ mb: 3 }}>
                           {plan.features.map((feature, idx) => (
                             <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
@@ -174,7 +178,7 @@ const PricingBlock = () => {
                                   <CloseOutlined style={{ fontSize: '18px', color: '#9e9e9e' }} />
                                 )}
                               </ListItemIcon>
-                              <ListItemText 
+                              <ListItemText
                                 primary={feature.text}
                                 primaryTypographyProps={{
                                   variant: 'body2',
@@ -185,11 +189,11 @@ const PricingBlock = () => {
                             </ListItem>
                           ))}
                         </List>
-                        
+
                         <AnimateButton>
-                          <Button 
-                            fullWidth 
-                            size="large" 
+                          <Button
+                            fullWidth
+                            size="large"
                             variant={plan.buttonVariant}
                             sx={{
                               backgroundColor: plan.buttonVariant === 'contained' ? '#1976d2' : 'transparent',
@@ -211,13 +215,13 @@ const PricingBlock = () => {
               ))}
             </Grid>
           </Grid>
-          
+
           <Grid item xs={12} sx={{ mt: 4, textAlign: 'center' }}>
             <Typography variant="body2" color="textSecondary">
-              All plans include unlimited course creation, mobile access, and automatic progress tracking
+              <FormattedMessage id="landing.pricing.footer1" />
             </Typography>
             <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-              Start with a 14-day free trial • No credit card required • Cancel anytime
+              <FormattedMessage id="landing.pricing.footer2" />
             </Typography>
           </Grid>
         </Grid>

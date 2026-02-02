@@ -53,7 +53,7 @@ async function main() {
       password: 'system_managed',
       firstName: 'System',
       lastName: 'Administrator',
-      status: 'active',
+      isActive: true,
       info: {
         bio: 'System administrator account for course management',
         phone: '+1-555-0100'

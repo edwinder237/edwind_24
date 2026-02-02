@@ -19,7 +19,6 @@ model User {
   firstName               String
   midName                 String?
   lastName                String
-  status                  String                      @default("active")
   isActive                Boolean                     @default(true)
   info                    Json
   createdAt               DateTime                    @default(now())
@@ -28,6 +27,7 @@ model User {
   projects                projects[]
   organization_memberships organization_memberships[]
   sub_organization        sub_organizations?          @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+  role_assignments        user_role_assignments[]
 
   @@index([sub_organizationId])
   @@index([workos_user_id])
@@ -53,6 +53,8 @@ model organizations {
   sub_organizations       sub_organizations[]
   organization_memberships organization_memberships[]
   subscription            subscriptions?
+  user_role_assignments   user_role_assignments[]
+  organization_role_overrides organization_role_overrides[]
 
   @@index([workos_org_id])
 }
@@ -1164,12 +1166,9 @@ model organization_memberships {
 
 model subscription_plans {
   id                  Int             @id @default(autoincrement())
-  planId              String          @unique // "free", "pro", "enterprise", "custom"
-  name                String          // "Free Plan", "Professional", "Enterprise"
+  planId              String          @unique // "essential", "professional", "enterprise"
+  name                String          // "Essential", "Professional", "Enterprise"
   description         String?         @db.Text
-  price               Float           @default(0)
-  currency            String          @default("USD")
-  billingInterval     String          @default("monthly") // "monthly", "annual", "one_time"
   trialDays           Int             @default(0)
   isActive            Boolean         @default(true)
   isPublic            Boolean         @default(true) // Show on pricing page
@@ -1177,6 +1176,11 @@ model subscription_plans {
   // Features and Limits (stored as JSON for flexibility)
   features            Json            // Array of feature keys
   resourceLimits      Json            // { maxProjects: 50, maxParticipants: 500, etc. }
+
+  // Stripe Integration - Price/currency/interval fetched from Stripe (source of truth)
+  stripeProductId     String?         // Stripe Product ID (prod_xxx)
+  stripePriceId       String?         // Stripe monthly Price ID (price_xxx)
+  stripeAnnualPriceId String?         // Stripe annual Price ID (price_xxx)
 
   // Display
   displayOrder        Int             @default(0)
@@ -1194,6 +1198,8 @@ model subscription_plans {
   @@index([isActive])
   @@index([isPublic])
   @@index([displayOrder])
+  @@index([stripeProductId])
+  @@index([stripePriceId])
 }
 
 model subscriptions {
@@ -1202,12 +1208,11 @@ model subscriptions {
   organization        organizations      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Plan information
-  planId              String             // "free", "pro", "enterprise", "custom"
+  planId              String             // "essential", "professional", "enterprise"
   plan                subscription_plans @relation(fields: [planId], references: [planId])
   status              String             @default("active") // "active", "trialing", "past_due", "canceled", "suspended"
 
-  // Billing
-  billingInterval     String?            // "monthly", "annual"
+  // Billing - billingInterval fetched from Stripe (source of truth)
   currentPeriodStart  DateTime           @default(now())
   currentPeriodEnd    DateTime
   cancelAt            DateTime?          // Scheduled cancellation date
@@ -1342,4 +1347,154 @@ model rooms {
   @@index([type])
   @@index([roomType])
   @@index([isActive])
+}
+
+// ============================================
+// SYSTEM ROLES (Level 2-4 Application Roles)
+// ============================================
+
+model system_roles {
+  id              Int       @id @default(autoincrement())
+  slug            String    @unique // "training_manager", "training_coordinator", "instructor", "participant", "viewer"
+  name            String    // "Training Manager"
+  description     String?
+  hierarchyLevel  Int       // 2, 3, 4 (Level 0-1 handled by WorkOS)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  assignments     user_role_assignments[]
+  role_permissions role_permissions[]
+  organization_role_overrides organization_role_overrides[]
+
+  @@index([slug])
+  @@index([hierarchyLevel])
+  @@index([isActive])
+}
+
+// ============================================
+// USER ROLE ASSIGNMENTS (Level 2-4 only)
+// ============================================
+
+model user_role_assignments {
+  id                  Int       @id @default(autoincrement())
+  userId              String
+  roleId              Int
+  organizationId      String
+  assignedAt          DateTime  @default(now())
+  assignedBy          String    // WorkOS user ID who assigned
+  isActive            Boolean   @default(true)
+
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role                system_roles  @relation(fields: [roleId], references: [id])
+  organization        organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId]) // One role per user per org
+  @@index([userId])
+  @@index([roleId])
+  @@index([organizationId])
+  @@index([isActive])
+}
+
+// ============================================
+// PERMISSIONS CATALOG
+// ============================================
+
+model permissions {
+  id              Int       @id @default(autoincrement())
+  key             String    @unique // "projects:create", "events:edit:assigned"
+  name            String    // "Create Projects"
+  description     String?
+  resource        String    // "projects", "events", "courses"
+  action          String    // "create", "read", "update", "delete"
+  scope           String?   // null (all), "own", "assigned", "enrolled"
+  category        String    // "projects", "courses", "resources", "user_management"
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  role_permissions role_permissions[]
+  organization_role_overrides organization_role_overrides[]
+
+  @@index([key])
+  @@index([resource])
+  @@index([category])
+  @@index([isActive])
+}
+
+// ============================================
+// DEFAULT ROLE-PERMISSION MAPPING (System-wide)
+// ============================================
+
+model role_permissions {
+  id              Int         @id @default(autoincrement())
+  roleId          Int
+  permissionId    Int
+  createdAt       DateTime    @default(now())
+
+  role            system_roles @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission      permissions  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// ============================================
+// ORGANIZATION-SPECIFIC PERMISSION OVERRIDES
+// ============================================
+
+model organization_role_overrides {
+  id              Int         @id @default(autoincrement())
+  organizationId  String
+  roleId          Int
+  permissionId    Int
+  isEnabled       Boolean     // true = explicitly enabled, false = explicitly disabled
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  updatedBy       String      // WorkOS user ID who made the change
+
+  organization    organizations @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role            system_roles  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission      permissions   @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, roleId, permissionId])
+  @@index([organizationId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// ============================================
+// PROVIDER USAGE TRACKING
+// ============================================
+
+model usage_logs {
+  id                Int       @id @default(autoincrement())
+  provider          String    // "gemini", "maps", "resend", "r2"
+  action            String    // "summarize", "autocomplete", "send_email", "upload"
+  organizationId    String?
+  userId            String?   // WorkOS user ID
+  projectId         Int?
+
+  // Request metadata
+  inputSize         Int?      // chars, bytes, or count
+  outputSize        Int?
+  durationMs        Int?
+  success           Boolean   @default(true)
+  errorCode         String?
+
+  // Actual token usage (from provider API response)
+  inputTokens       Int?      // Actual input tokens (Gemini API)
+  outputTokens      Int?      // Actual output tokens (Gemini API)
+  totalTokens       Int?      // Total tokens used
+
+  // Cost estimation
+  estimatedCostUsd  Float?
+
+  createdAt         DateTime  @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([provider, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@index([provider, organizationId])
 }

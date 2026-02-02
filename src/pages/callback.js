@@ -130,6 +130,33 @@ export async function getServerSideProps(context) {
         }
       }
 
+      // Block inactive users from logging in
+      if (existingUser && existingUser.isActive === false) {
+        console.log(`⛔ Inactive user attempted login: ${user.email}`);
+
+        // Store the session ID in a cookie temporarily so logout API can use it
+        // Then redirect through logout API to properly clear WorkOS session
+        const cookiesToSet = [
+          'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+          'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+        ];
+
+        // Keep session ID temporarily for logout, it will be cleared by logout API
+        if (sessionId) {
+          cookiesToSet.push(`workos_session_id=${sessionId}; HttpOnly; Path=/; Max-Age=60; SameSite=Lax`);
+        }
+
+        context.res.setHeader('Set-Cookie', cookiesToSet);
+
+        // Redirect through our logout API which properly handles WorkOS logout
+        return {
+          redirect: {
+            destination: '/api/auth/logout?returnTo=/?error=account_inactive',
+            permanent: false,
+          },
+        };
+      }
+
       if (!existingUser) {
         isNewUser = true;
 
@@ -144,7 +171,7 @@ export async function getServerSideProps(context) {
             lastName: user.lastName || 'User',
             username: user.email.split('@')[0],
             password: 'workos_managed',
-            status: 'active',
+            isActive: true,
             info: {
               bio: '',
               phone: '',
@@ -179,9 +206,7 @@ export async function getServerSideProps(context) {
             email: user.email, // Sync email in case it changed
             name: updatedName, // Sync full name from WorkOS
             firstName: user.firstName || existingUser.firstName,
-            lastName: user.lastName || existingUser.lastName,
-            status: 'active', // Activate user if they were pending
-            isActive: true // Activate user
+            lastName: user.lastName || existingUser.lastName
           }
         });
 

@@ -52,7 +52,7 @@ export function requireFeature(featureKey) {
         }
 
         // Get organization's local ID
-        const prisma = (await import('../../../lib/prisma')).default;
+        const prisma = (await import('../prisma')).default;
         const org = await prisma.organizations.findUnique({
           where: { workos_org_id: organizationId },
           select: { id: true }
@@ -65,15 +65,20 @@ export function requireFeature(featureKey) {
           });
         }
 
-        // Get subscription
-        const subscription = await getOrgSubscription(org.id);
+        // Get subscription (default to essential plan if none exists)
+        let subscription = await getOrgSubscription(org.id);
 
         if (!subscription) {
-          return res.status(403).json({
-            error: 'No subscription',
-            message: 'No active subscription found',
-            upgradeUrl: '/upgrade'
-          });
+          // Default to essential plan limits for organizations without a subscription
+          const { PLAN_DEFINITIONS, PLAN_IDS } = await import('./featureAccess');
+          subscription = {
+            planId: PLAN_IDS.ESSENTIAL,
+            status: 'active',
+            plan: PLAN_DEFINITIONS[PLAN_IDS.ESSENTIAL],
+            customLimits: null,
+            customFeatures: null
+          };
+          console.log(`⚠️ No subscription found for org ${org.id}, defaulting to essential plan`);
         }
 
         // Check feature access
@@ -151,7 +156,7 @@ export async function checkFeatureAccess(req, res, featureKey) {
       };
     }
 
-    const prisma = (await import('../../../lib/prisma')).default;
+    const prisma = (await import('../prisma')).default;
     const org = await prisma.organizations.findUnique({
       where: { workos_org_id: organizationId },
       select: { id: true }
@@ -165,15 +170,20 @@ export async function checkFeatureAccess(req, res, featureKey) {
       };
     }
 
-    // Get subscription
-    const subscription = await getOrgSubscription(org.id);
+    // Get subscription (default to essential plan if none exists)
+    let subscription = await getOrgSubscription(org.id);
 
     if (!subscription) {
-      return {
-        canAccess: false,
-        reason: 'no_subscription',
-        message: 'No active subscription found'
+      // Default to essential plan for organizations without a subscription
+      const { PLAN_DEFINITIONS, PLAN_IDS } = await import('./featureAccess');
+      subscription = {
+        planId: PLAN_IDS.ESSENTIAL,
+        status: 'active',
+        plan: PLAN_DEFINITIONS[PLAN_IDS.ESSENTIAL],
+        customLimits: null,
+        customFeatures: null
       };
+      console.log(`⚠️ No subscription found for org ${org.id}, defaulting to essential plan`);
     }
 
     // Check access
@@ -230,7 +240,7 @@ export function requireResourceCapacity(resource, amount = 1) {
           });
         }
 
-        const prisma = (await import('../../../lib/prisma')).default;
+        const prisma = (await import('../prisma')).default;
         const org = await prisma.organizations.findUnique({
           where: { workos_org_id: organizationId },
           select: { id: true }
@@ -242,14 +252,20 @@ export function requireResourceCapacity(resource, amount = 1) {
           });
         }
 
-        // Get subscription
-        const subscription = await getOrgSubscription(org.id);
+        // Get subscription (default to essential plan if none exists)
+        let subscription = await getOrgSubscription(org.id);
 
         if (!subscription) {
-          return res.status(403).json({
-            error: 'No subscription',
-            message: 'No active subscription found'
-          });
+          // Default to essential plan limits for organizations without a subscription
+          const { PLAN_DEFINITIONS, PLAN_IDS } = await import('./featureAccess');
+          subscription = {
+            planId: PLAN_IDS.ESSENTIAL,
+            status: 'active',
+            plan: PLAN_DEFINITIONS[PLAN_IDS.ESSENTIAL],
+            customLimits: null,
+            customFeatures: null
+          };
+          console.log(`⚠️ No subscription found for org ${org.id}, defaulting to essential plan`);
         }
 
         // Get current usage
@@ -324,7 +340,7 @@ export async function checkResourceCapacity(req, resource, amount = 1) {
     }
 
     const organizationId = claims.organizations[0]?.workos_org_id;
-    const prisma = (await import('../../../lib/prisma')).default;
+    const prisma = (await import('../prisma')).default;
     const org = await prisma.organizations.findUnique({
       where: { workos_org_id: organizationId },
       select: { id: true }
@@ -337,7 +353,20 @@ export async function checkResourceCapacity(req, resource, amount = 1) {
       };
     }
 
-    const subscription = await getOrgSubscription(org.id);
+    let subscription = await getOrgSubscription(org.id);
+
+    if (!subscription) {
+      // Default to essential plan for organizations without a subscription
+      const { PLAN_DEFINITIONS, PLAN_IDS } = await import('./featureAccess');
+      subscription = {
+        planId: PLAN_IDS.ESSENTIAL,
+        status: 'active',
+        plan: PLAN_DEFINITIONS[PLAN_IDS.ESSENTIAL],
+        customLimits: null,
+        customFeatures: null
+      };
+    }
+
     const { getResourceUsage } = await import('./subscriptionService');
     const usage = await getResourceUsage(org.id);
     const currentUsage = usage[resource] || 0;
@@ -373,7 +402,7 @@ export async function getRequestSubscription(req) {
     }
 
     const organizationId = claims.organizations[0]?.workos_org_id;
-    const prisma = (await import('../../../lib/prisma')).default;
+    const prisma = (await import('../prisma')).default;
     const org = await prisma.organizations.findUnique({
       where: { workos_org_id: organizationId },
       select: { id: true }

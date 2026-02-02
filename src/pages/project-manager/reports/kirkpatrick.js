@@ -5,16 +5,11 @@ import {
   Box,
   Stack,
   Card,
-  CardContent,
-  LinearProgress,
   Chip,
   Alert,
   TextField,
   MenuItem,
   Button,
-  Divider,
-  Avatar,
-  IconButton,
   Tooltip,
   Paper,
   Table,
@@ -22,20 +17,11 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Divider,
+  IconButton
 } from '@mui/material';
-import {
-  SentimentSatisfiedAlt,
-  School,
-  TrendingUp,
-  Assessment,
-  FilterList,
-  Download,
-  Refresh,
-  Info,
-  ExpandMore,
-  ExpandLess
-} from '@mui/icons-material';
+import { Download, Refresh, FilterList } from '@mui/icons-material';
 
 // project import
 import Layout from 'layout';
@@ -47,38 +33,10 @@ import { useGetCurriculumsQuery } from 'store/api/projectApi';
 
 // Kirkpatrick Level definitions
 const kirkpatrickLevels = [
-  {
-    level: 1,
-    name: 'Reaction',
-    description: 'How participants felt about the training experience',
-    icon: SentimentSatisfiedAlt,
-    color: '#2196f3',
-    metrics: ['Satisfaction Score', 'Engagement Rate', 'Net Promoter Score']
-  },
-  {
-    level: 2,
-    name: 'Learning',
-    description: 'Knowledge and skills acquired during training',
-    icon: School,
-    color: '#4caf50',
-    metrics: ['Assessment Scores', 'Skill Proficiency', 'Knowledge Retention']
-  },
-  {
-    level: 3,
-    name: 'Behavior',
-    description: 'How behavior changed after returning to work',
-    icon: TrendingUp,
-    color: '#ff9800',
-    metrics: ['Application Rate', 'Behavior Change Index', 'Manager Feedback']
-  },
-  {
-    level: 4,
-    name: 'Results',
-    description: 'Business impact and return on investment',
-    icon: Assessment,
-    color: '#9c27b0',
-    metrics: ['ROI', 'Performance Improvement', 'Business KPIs']
-  }
+  { level: 1, name: 'Reaction', color: '#5c6bc0' },
+  { level: 2, name: 'Learning', color: '#66bb6a' },
+  { level: 3, name: 'Behavior', color: '#ffa726' },
+  { level: 4, name: 'Results', color: '#ab47bc' }
 ];
 
 // Sample data - in production this would come from API
@@ -90,10 +48,10 @@ const sampleData = {
     level4: 45
   },
   byProject: [
-    { id: 1, name: 'Sales Training Q1', level1: 92, level2: 85, level3: 70, level4: 55, participants: 45 },
-    { id: 2, name: 'Leadership Development', level1: 88, level2: 82, level3: 65, level4: 48, participants: 20 },
-    { id: 3, name: 'Technical Certification', level1: 78, level2: 90, level3: 72, level4: 60, participants: 35 },
-    { id: 4, name: 'Onboarding Program', level1: 95, level2: 75, level3: 55, level4: 40, participants: 60 }
+    { id: 1, name: 'Sales Training Q1', instructor: 'John Smith', recipient: 'Sales Team', startDate: '2025-01-15', endDate: '2025-03-15', level1: 92, level2: 85, level3: 70, level4: 55, participants: 45 },
+    { id: 2, name: 'Leadership Development', instructor: 'Sarah Johnson', recipient: 'Management', startDate: '2025-02-01', endDate: '2025-04-30', level1: 88, level2: 82, level3: 65, level4: 48, participants: 20 },
+    { id: 3, name: 'Technical Certification', instructor: 'Michael Chen', recipient: 'Engineering', startDate: '2025-01-10', endDate: '2025-02-28', level1: 78, level2: 90, level3: 72, level4: 60, participants: 35 },
+    { id: 4, name: 'Onboarding Program', instructor: 'John Smith', recipient: 'New Hires', startDate: '2025-03-01', endDate: '2025-03-31', level1: 95, level2: 75, level3: 55, level4: 40, participants: 60 }
   ],
   trends: {
     level1: [80, 82, 84, 85, 85],
@@ -103,119 +61,50 @@ const sampleData = {
   }
 };
 
-const KirkpatrickLevelCard = ({ levelData, score, expanded, onToggle }) => {
-  const Icon = levelData.icon;
-
-  const getScoreColor = (score) => {
-    if (score >= 80) return 'success';
-    if (score >= 60) return 'warning';
-    return 'error';
-  };
-
+const TrainingEffectivenessDashboard = ({ levels, scores, overallScore }) => {
   return (
-    <Card
-      sx={{
-        height: '100%',
-        border: '2px solid',
-        borderColor: levelData.color,
-        transition: 'all 0.3s ease',
-        '&:hover': {
-          boxShadow: 6,
-          transform: 'translateY(-4px)'
-        }
-      }}
-    >
-      <CardContent>
-        <Stack spacing={2}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar
-                sx={{
-                  bgcolor: levelData.color,
-                  width: 48,
-                  height: 48
-                }}
-              >
-                <Icon />
-              </Avatar>
-              <Box>
-                <Typography variant="overline" color="text.secondary">
-                  Level {levelData.level}
-                </Typography>
-                <Typography variant="h5" fontWeight="bold">
-                  {levelData.name}
-                </Typography>
-              </Box>
-            </Stack>
-            <Chip
-              label={`${score}%`}
-              color={getScoreColor(score)}
-              size="medium"
-              sx={{ fontWeight: 'bold', fontSize: '1rem' }}
-            />
-          </Stack>
-
-          <Typography variant="body2" color="text.secondary">
-            {levelData.description}
+    <Card sx={{ p: 3 }}>
+      <Stack spacing={3}>
+        {/* Header with overall score */}
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Typography variant="h2" fontWeight="bold" color="primary">
+            {overallScore}%
           </Typography>
-
           <Box>
-            <LinearProgress
-              variant="determinate"
-              value={score}
-              sx={{
-                height: 10,
-                borderRadius: 5,
-                bgcolor: `${levelData.color}20`,
-                '& .MuiLinearProgress-bar': {
-                  bgcolor: levelData.color,
-                  borderRadius: 5
-                }
-              }}
-            />
-          </Box>
-
-          <Box>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              sx={{ cursor: 'pointer' }}
-              onClick={onToggle}
-            >
-              <Typography variant="subtitle2" color="text.secondary">
-                Key Metrics
-              </Typography>
-              <IconButton size="small">
-                {expanded ? <ExpandLess /> : <ExpandMore />}
-              </IconButton>
-            </Stack>
-
-            {expanded && (
-              <Stack spacing={1} sx={{ mt: 1 }}>
-                {levelData.metrics.map((metric, idx) => (
-                  <Stack
-                    key={idx}
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    sx={{
-                      p: 1,
-                      bgcolor: 'background.default',
-                      borderRadius: 1
-                    }}
-                  >
-                    <Typography variant="body2">{metric}</Typography>
-                    <Typography variant="body2" fontWeight="medium" color={levelData.color}>
-                      {Math.round(score + (Math.random() * 10 - 5))}%
-                    </Typography>
-                  </Stack>
-                ))}
-              </Stack>
-            )}
+            <Typography variant="h6">Overall Training Effectiveness</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Weighted score across all Kirkpatrick levels
+            </Typography>
           </Box>
         </Stack>
-      </CardContent>
+
+        {/* Level scores in a row */}
+        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2 }}>
+          {levels.map((level) => {
+            const score = scores[`level${level.level}`];
+            return (
+              <Box
+                key={level.level}
+                sx={{
+                  flex: 1,
+                  minWidth: 160,
+                  p: 2,
+                  borderRadius: 1,
+                  bgcolor: 'action.hover',
+                  borderLeft: `3px solid ${level.color}`
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  L{level.level}: {level.name}
+                </Typography>
+                <Typography variant="h5" fontWeight="bold">
+                  {score}%
+                </Typography>
+              </Box>
+            );
+          })}
+        </Stack>
+      </Stack>
     </Card>
   );
 };
@@ -227,31 +116,38 @@ const ProjectComparisonTable = ({ projects }) => {
     return 'error.main';
   };
 
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   return (
     <TableContainer component={Paper} variant="outlined">
       <Table size="small">
         <TableHead>
           <TableRow sx={{ bgcolor: 'background.default' }}>
-            <TableCell><Typography fontWeight="bold">Project</Typography></TableCell>
-            <TableCell align="center"><Typography fontWeight="bold">Participants</Typography></TableCell>
+            <TableCell><Typography variant="caption" fontWeight="bold">Project</Typography></TableCell>
+            <TableCell><Typography variant="caption" fontWeight="bold">Instructor</Typography></TableCell>
+            <TableCell><Typography variant="caption" fontWeight="bold">Recipient</Typography></TableCell>
+            <TableCell><Typography variant="caption" fontWeight="bold">Dates</Typography></TableCell>
+            <TableCell align="center"><Typography variant="caption" fontWeight="bold">Participants</Typography></TableCell>
             <TableCell align="center">
               <Tooltip title="Reaction">
-                <Typography fontWeight="bold" color="#2196f3">L1</Typography>
+                <Typography variant="caption" fontWeight="bold" color="#5c6bc0">L1</Typography>
               </Tooltip>
             </TableCell>
             <TableCell align="center">
               <Tooltip title="Learning">
-                <Typography fontWeight="bold" color="#4caf50">L2</Typography>
+                <Typography variant="caption" fontWeight="bold" color="#66bb6a">L2</Typography>
               </Tooltip>
             </TableCell>
             <TableCell align="center">
               <Tooltip title="Behavior">
-                <Typography fontWeight="bold" color="#ff9800">L3</Typography>
+                <Typography variant="caption" fontWeight="bold" color="#ffa726">L3</Typography>
               </Tooltip>
             </TableCell>
             <TableCell align="center">
               <Tooltip title="Results">
-                <Typography fontWeight="bold" color="#9c27b0">L4</Typography>
+                <Typography variant="caption" fontWeight="bold" color="#ab47bc">L4</Typography>
               </Tooltip>
             </TableCell>
           </TableRow>
@@ -264,26 +160,37 @@ const ProjectComparisonTable = ({ projects }) => {
                   {project.name}
                 </Typography>
               </TableCell>
+              <TableCell>
+                <Typography variant="body2">{project.instructor}</Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2">{project.recipient}</Typography>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" color="text.secondary">
+                  {formatDate(project.startDate)} - {formatDate(project.endDate)}
+                </Typography>
+              </TableCell>
               <TableCell align="center">
                 <Chip label={project.participants} size="small" variant="outlined" />
               </TableCell>
               <TableCell align="center">
-                <Typography fontWeight="medium" color={getScoreColor(project.level1)}>
+                <Typography variant="body2" fontWeight="medium" color={getScoreColor(project.level1)}>
                   {project.level1}%
                 </Typography>
               </TableCell>
               <TableCell align="center">
-                <Typography fontWeight="medium" color={getScoreColor(project.level2)}>
+                <Typography variant="body2" fontWeight="medium" color={getScoreColor(project.level2)}>
                   {project.level2}%
                 </Typography>
               </TableCell>
               <TableCell align="center">
-                <Typography fontWeight="medium" color={getScoreColor(project.level3)}>
+                <Typography variant="body2" fontWeight="medium" color={getScoreColor(project.level3)}>
                   {project.level3}%
                 </Typography>
               </TableCell>
               <TableCell align="center">
-                <Typography fontWeight="medium" color={getScoreColor(project.level4)}>
+                <Typography variant="body2" fontWeight="medium" color={getScoreColor(project.level4)}>
                   {project.level4}%
                 </Typography>
               </TableCell>
@@ -298,17 +205,11 @@ const ProjectComparisonTable = ({ projects }) => {
 const Kirkpatrick = () => {
   const [timeRange, setTimeRange] = useState('quarter');
   const [curriculum, setCurriculum] = useState('all');
-  const [expandedLevels, setExpandedLevels] = useState({});
+  const [project, setProject] = useState('all');
+  const [instructor, setInstructor] = useState('all');
 
   // Fetch curriculums for the filter
   const { data: curriculums = [] } = useGetCurriculumsQuery();
-
-  const toggleLevel = (level) => {
-    setExpandedLevels(prev => ({
-      ...prev,
-      [level]: !prev[level]
-    }));
-  };
 
   // Calculate overall effectiveness score (weighted average of all levels)
   const overallScore = useMemo(() => {
@@ -324,31 +225,48 @@ const Kirkpatrick = () => {
   return (
     <Page title="Kirkpatrick Model Analytics">
       <Grid container spacing={3}>
-        {/* Header */}
+        {/* Training Effectiveness Dashboard */}
         <Grid item xs={12}>
-          <MainCard>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              justifyContent="space-between"
-              alignItems={{ xs: 'flex-start', md: 'center' }}
-              spacing={2}
-            >
-              <Box>
-                <Typography variant="h4" gutterBottom>
-                  Kirkpatrick Model Analytics
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Evaluate training effectiveness across all four levels of the Kirkpatrick Model
-                </Typography>
-              </Box>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TrainingEffectivenessDashboard
+            levels={kirkpatrickLevels}
+            scores={sampleData.overall}
+            overallScore={overallScore}
+          />
+        </Grid>
+
+        {/* Filters Section */}
+        <Grid item xs={12}>
+          <Card sx={{ p: 2 }}>
+            <Stack spacing={2}>
+              {/* Header Row */}
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <FilterList fontSize="small" color="action" />
+                  <Typography variant="subtitle2" fontWeight="medium">
+                    Filters
+                  </Typography>
+                </Stack>
+                <Stack direction="row" spacing={1}>
+                  <Button variant="outlined" startIcon={<Download />} size="small">
+                    Export
+                  </Button>
+                  <IconButton size="small" color="primary">
+                    <Refresh fontSize="small" />
+                  </IconButton>
+                </Stack>
+              </Stack>
+
+              <Divider />
+
+              {/* Filter Controls */}
+              <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                 <TextField
                   select
                   size="small"
                   label="Curriculum"
                   value={curriculum}
                   onChange={(e) => setCurriculum(e.target.value)}
-                  sx={{ minWidth: 200 }}
+                  sx={{ minWidth: 180 }}
                 >
                   <MenuItem value="all">All Curriculums</MenuItem>
                   {curriculums.map((curr) => (
@@ -356,6 +274,34 @@ const Kirkpatrick = () => {
                       {curr.name}
                     </MenuItem>
                   ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Project"
+                  value={project}
+                  onChange={(e) => setProject(e.target.value)}
+                  sx={{ minWidth: 180 }}
+                >
+                  <MenuItem value="all">All Projects</MenuItem>
+                  {sampleData.byProject.map((proj) => (
+                    <MenuItem key={proj.id} value={proj.id}>
+                      {proj.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Instructor"
+                  value={instructor}
+                  onChange={(e) => setInstructor(e.target.value)}
+                  sx={{ minWidth: 180 }}
+                >
+                  <MenuItem value="all">All Instructors</MenuItem>
+                  <MenuItem value="1">John Smith</MenuItem>
+                  <MenuItem value="2">Sarah Johnson</MenuItem>
+                  <MenuItem value="3">Michael Chen</MenuItem>
                 </TextField>
                 <TextField
                   select
@@ -370,114 +316,10 @@ const Kirkpatrick = () => {
                   <MenuItem value="year">This Year</MenuItem>
                   <MenuItem value="all">All Time</MenuItem>
                 </TextField>
-                <Button
-                  variant="outlined"
-                  startIcon={<Download />}
-                  size="small"
-                >
-                  Export
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<Refresh />}
-                  size="small"
-                >
-                  Refresh
-                </Button>
               </Stack>
             </Stack>
-          </MainCard>
-        </Grid>
-
-        {/* Overall Score Card */}
-        <Grid item xs={12}>
-          <Card
-            sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white'
-            }}
-          >
-            <CardContent>
-              <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                justifyContent="space-between"
-                alignItems="center"
-                spacing={2}
-              >
-                <Stack direction="row" spacing={3} alignItems="center">
-                  <Box
-                    sx={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: '50%',
-                      bgcolor: 'rgba(255,255,255,0.2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Typography variant="h2" fontWeight="bold">
-                      {overallScore}%
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="h5" fontWeight="bold">
-                      Overall Training Effectiveness
-                    </Typography>
-                    <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                      Weighted score across all Kirkpatrick levels
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Stack direction="row" spacing={4}>
-                  {kirkpatrickLevels.map((level) => (
-                    <Box key={level.level} sx={{ textAlign: 'center' }}>
-                      <Typography variant="h4" fontWeight="bold">
-                        {sampleData.overall[`level${level.level}`]}%
-                      </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                        L{level.level}: {level.name}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              </Stack>
-            </CardContent>
           </Card>
         </Grid>
-
-        {/* Info Alert */}
-        <Grid item xs={12}>
-          <Alert
-            severity="info"
-            icon={<Info />}
-            sx={{ '& .MuiAlert-message': { width: '100%' } }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Box>
-                <Typography variant="subtitle2" fontWeight="bold">
-                  About the Kirkpatrick Model
-                </Typography>
-                <Typography variant="body2">
-                  The Kirkpatrick Model evaluates training effectiveness at four levels: Reaction (satisfaction),
-                  Learning (knowledge gained), Behavior (on-job application), and Results (business impact).
-                </Typography>
-              </Box>
-            </Stack>
-          </Alert>
-        </Grid>
-
-        {/* Level Cards */}
-        {kirkpatrickLevels.map((levelData) => (
-          <Grid item xs={12} sm={6} md={3} key={levelData.level}>
-            <KirkpatrickLevelCard
-              levelData={levelData}
-              score={sampleData.overall[`level${levelData.level}`]}
-              expanded={expandedLevels[levelData.level]}
-              onToggle={() => toggleLevel(levelData.level)}
-            />
-          </Grid>
-        ))}
 
         {/* Project Comparison */}
         <Grid item xs={12}>

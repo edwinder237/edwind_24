@@ -48,7 +48,10 @@ import {
   TableOutlined,
   UnorderedListOutlined,
   AppstoreOutlined,
-  LockOutlined
+  LockOutlined,
+  FlagOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined
 } from '@ant-design/icons';
 import { format, differenceInDays, addDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 
@@ -58,7 +61,7 @@ import Page from 'components/Page';
 import MainCard from 'components/MainCard';
 import useUser from 'hooks/useUser';
 import ReportCard from 'components/cards/statistics/ReportCard';
-import { mockProjects, mockInstructors } from 'data/mockData';
+import { mockProjects, mockInstructors, mockRooms, projectionTypes } from 'data/mockData';
 import GanttChart from 'components/GanttChart/GanttChart';
 import ProjectDetailsDialog from './ProjectDetailsDialog';
 import CreateProjectDialog from './CreateProjectDialog';
@@ -71,14 +74,22 @@ const REQUIRED_PERMISSION = 'access-timeline';
 const ProjectsTimeline = ({ googleMapsApiKey }) => {
   // Permission check
   const { user, isLoading: userLoading } = useUser();
-  const hasPermission = user?.permissions?.includes(REQUIRED_PERMISSION);
+
+  // Admin roles that have access to ALL features (Level 0-1)
+  const adminRoles = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
+  const userRole = user?.role?.toLowerCase() || '';
+  const isAdminTier = adminRoles.includes(userRole);
+
+  // Admin-tier users have access to everything, others need specific permission
+  const hasPermission = isAdminTier || user?.permissions?.includes(REQUIRED_PERMISSION);
 
   // State management
   const [projects, setProjects] = useState([]);
   const [instructors, setInstructors] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('month');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
   const [openProjectDialog, setOpenProjectDialog] = useState(false);
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
@@ -98,11 +109,15 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
   // Zoom control for Gantt chart
   const [zoomLevel, setZoomLevel] = useState(100);
 
+  // Projection display toggle
+  const [showProjections, setShowProjections] = useState(true);
+
   // Load mock data on mount
   useEffect(() => {
     const loadData = () => {
       setProjects(mockProjects);
       setInstructors(mockInstructors);
+      setRooms(mockRooms);
       setLoading(false);
       // Auto-scroll to today on initial load
       setTimeout(() => {
@@ -161,21 +176,158 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
 
   // Get available instructors for a date range
   const getAvailableInstructors = useCallback((startDate, endDate, excludeProjectId = null) => {
+    // Ensure we have valid dates
+    if (!startDate || !endDate) {
+      return instructors;
+    }
+
+    // Convert to timestamps for reliable comparison
+    const checkStart = new Date(startDate).getTime();
+    const checkEnd = new Date(endDate).getTime();
+
     const busyInstructorIds = projects
       .filter(p => p.id !== excludeProjectId)
       .filter(p => {
-        const pStart = parseISO(p.startDate);
-        const pEnd = parseISO(p.endDate);
-        return (
-          isWithinInterval(pStart, { start: startDate, end: endDate }) ||
-          isWithinInterval(pEnd, { start: startDate, end: endDate }) ||
-          (pStart <= startDate && pEnd >= endDate)
-        );
+        const pStart = new Date(p.startDate).getTime();
+        const pEnd = new Date(p.endDate).getTime();
+        // Check for any overlap between date ranges
+        return pStart <= checkEnd && pEnd >= checkStart;
       })
-      .map(p => p.instructorId);
+      .flatMap(p => [p.instructorId, p.instructor2Id].filter(Boolean));
 
     return instructors.filter(inst => !busyInstructorIds.includes(inst.id));
   }, [projects, instructors]);
+
+  // Get all instructors with availability info for a date range
+  const getInstructorsWithAvailability = useCallback((startDate, endDate, excludeProjectId = null) => {
+    // Ensure we have valid dates
+    if (!startDate || !endDate) {
+      return instructors.map(inst => ({ ...inst, isAvailable: true, conflictingProjects: [] }));
+    }
+
+    // Convert to timestamps for reliable comparison
+    const checkStart = new Date(startDate).getTime();
+    const checkEnd = new Date(endDate).getTime();
+
+    return instructors.map(instructor => {
+      // Find conflicting projects for this instructor
+      const conflictingProjects = projects
+        .filter(p => p.id !== excludeProjectId)
+        .filter(p => p.instructorId === instructor.id || p.instructor2Id === instructor.id)
+        .filter(p => {
+          const pStart = new Date(p.startDate).getTime();
+          const pEnd = new Date(p.endDate).getTime();
+          // Check for any overlap between date ranges
+          return pStart <= checkEnd && pEnd >= checkStart;
+        });
+
+      return {
+        ...instructor,
+        isAvailable: conflictingProjects.length === 0,
+        conflictingProjects: conflictingProjects.map(p => ({
+          id: p.id,
+          name: p.name,
+          startDate: p.startDate,
+          endDate: p.endDate
+        }))
+      };
+    });
+  }, [projects, instructors]);
+
+  // Get all rooms with availability info for a date range
+  const getRoomsWithAvailability = useCallback((startDate, endDate, excludeProjectId = null) => {
+    // Ensure we have valid dates
+    if (!startDate || !endDate) {
+      return rooms.map(room => ({ ...room, isAvailable: true, conflictingProjects: [] }));
+    }
+
+    // Convert to timestamps for reliable comparison
+    const checkStart = new Date(startDate).getTime();
+    const checkEnd = new Date(endDate).getTime();
+
+    return rooms.map(room => {
+      // Find conflicting projects for this room
+      const conflictingProjects = projects
+        .filter(p => p.id !== excludeProjectId)
+        .filter(p => p.roomId === room.id)
+        .filter(p => {
+          const pStart = new Date(p.startDate).getTime();
+          const pEnd = new Date(p.endDate).getTime();
+          // Check for any overlap between date ranges
+          return pStart <= checkEnd && pEnd >= checkStart;
+        });
+
+      return {
+        ...room,
+        isAvailable: conflictingProjects.length === 0,
+        conflictingProjects: conflictingProjects.map(p => ({
+          id: p.id,
+          name: p.name,
+          startDate: p.startDate,
+          endDate: p.endDate
+        }))
+      };
+    });
+  }, [projects, rooms]);
+
+  // Get availability status for a specific date
+  // Returns: { availableInstructors, availableRooms, totalInstructors, totalRooms, status }
+  // status: 'available' | 'limited' | 'busy' | 'blocked'
+  const getDateAvailability = useCallback((date) => {
+    if (!date) return { status: 'available', availableInstructors: instructors.length, availableRooms: rooms.length, totalInstructors: instructors.length, totalRooms: rooms.length };
+
+    const checkDate = new Date(date).getTime();
+
+    // Count available instructors on this date
+    const availableInstructorCount = instructors.filter(instructor => {
+      const isBusy = projects.some(p => {
+        if (p.instructorId !== instructor.id && p.instructor2Id !== instructor.id) {
+          return false;
+        }
+        const pStart = new Date(p.startDate).getTime();
+        const pEnd = new Date(p.endDate).getTime();
+        return checkDate >= pStart && checkDate <= pEnd;
+      });
+      return !isBusy;
+    }).length;
+
+    // Count available rooms on this date
+    const availableRoomCount = rooms.filter(room => {
+      const isBusy = projects.some(p => {
+        if (p.roomId !== room.id) {
+          return false;
+        }
+        const pStart = new Date(p.startDate).getTime();
+        const pEnd = new Date(p.endDate).getTime();
+        return checkDate >= pStart && checkDate <= pEnd;
+      });
+      return !isBusy;
+    }).length;
+
+    // Determine status
+    let status = 'available';
+    if (availableInstructorCount === 0 && availableRoomCount === 0) {
+      status = 'blocked';
+    } else if (availableInstructorCount === 0 || availableRoomCount === 0) {
+      status = 'busy';
+    } else if (availableInstructorCount < instructors.length || availableRoomCount < rooms.length) {
+      status = 'limited';
+    }
+
+    return {
+      availableInstructors: availableInstructorCount,
+      availableRooms: availableRoomCount,
+      totalInstructors: instructors.length,
+      totalRooms: rooms.length,
+      status
+    };
+  }, [projects, instructors, rooms]);
+
+  // Check if a specific date is fully blocked (no instructors AND no rooms available)
+  const isDateBlocked = useCallback((date) => {
+    const availability = getDateAvailability(date);
+    return availability.status === 'blocked';
+  }, [getDateAvailability]);
 
   // Handle view mode change
   const handleViewModeChange = (event, newMode) => {
@@ -408,6 +560,17 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
               </Stack>
 
               <Stack direction="row" spacing={2}>
+                <Tooltip title={showProjections ? 'Hide milestone markers' : 'Show milestone markers'}>
+                  <Button
+                    startIcon={showProjections ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                    onClick={() => setShowProjections(!showProjections)}
+                    variant={showProjections ? 'contained' : 'outlined'}
+                    color={showProjections ? 'secondary' : 'inherit'}
+                  >
+                    <FlagOutlined style={{ marginRight: 4 }} />
+                    Milestones
+                  </Button>
+                </Tooltip>
                 <Button
                   startIcon={showFilters ? <CompressOutlined /> : <FilterOutlined />}
                   onClick={() => setShowFilters(!showFilters)}
@@ -542,9 +705,34 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
         <MainCard>
           <Box sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h5">
-                Timeline View
-              </Typography>
+              <Stack direction="row" spacing={3} alignItems="center">
+                <Typography variant="h5">
+                  Timeline View
+                </Typography>
+                {/* Milestone Legend */}
+                {showProjections && (
+                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                      Milestones:
+                    </Typography>
+                    {projectionTypes.map((type) => (
+                      <Stack key={type.id} direction="row" spacing={0.5} alignItems="center">
+                        <Box
+                          sx={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: '2px',
+                            bgcolor: type.color
+                          }}
+                        />
+                        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                          {type.label}
+                        </Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                )}
+              </Stack>
               <Button
                 variant="outlined"
                 size="small"
@@ -563,6 +751,7 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
               onProjectClick={handleProjectClick}
               instructors={instructors}
               scrollToToday={scrollToToday}
+              showProjections={showProjections}
             />
           </Box>
         </MainCard>
@@ -687,7 +876,12 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
         <CreateProjectDialog
           open={openCreateDialog}
           instructors={instructors}
+          rooms={rooms}
           getAvailableInstructors={getAvailableInstructors}
+          getInstructorsWithAvailability={getInstructorsWithAvailability}
+          getRoomsWithAvailability={getRoomsWithAvailability}
+          getDateAvailability={getDateAvailability}
+          isDateBlocked={isDateBlocked}
           onClose={() => setOpenCreateDialog(false)}
           onCreate={handleCreateProject}
         />

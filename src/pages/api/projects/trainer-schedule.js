@@ -1,10 +1,12 @@
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Resend } from 'resend';
 import prisma from '../../../lib/prisma';
 import puppeteer from 'puppeteer';
-
-const resend = new Resend(process.env.RESEND_API_KEY || 're_FuWEsP4t_57FGZEkUyxct65xaqCYXvQGG');
+import {
+  isValidEmail,
+  sendWithRetry,
+  EMAIL_SENDERS
+} from '../../../lib/email';
 
 // Rate limiting: 2 requests per second = 500ms delay between requests
 const RATE_LIMIT_DELAY = 600; // 600ms to be safe
@@ -294,10 +296,9 @@ async function handleSend(req, res) {
       return res.status(400).json({ message: 'No events to send schedule for' });
     }
 
-    // Validate email addresses
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Validate email addresses using centralized validator
     const allEmails = [...trainerEmails, ...ccEmails, ...bccEmails];
-    const invalidEmails = allEmails.filter(email => !emailRegex.test(email));
+    const invalidEmails = allEmails.filter(email => !isValidEmail(email));
     if (invalidEmails.length > 0) {
       return res.status(400).json({
         message: `Invalid email addresses: ${invalidEmails.join(', ')}`
@@ -428,12 +429,12 @@ async function handleSend(req, res) {
       }
     }
 
-    // Send single email with all recipients
+    // Send single email with all recipients using centralized service
     const emailResults = [];
 
     try {
       const emailConfig = {
-        from: 'Training Schedule <admin@edwind.ca>',
+        from: EMAIL_SENDERS.training,
         to: trainerEmails,
         subject: customSubject || `Training Schedule - ${projectTitle}`,
         html: emailHtml
@@ -454,7 +455,7 @@ async function handleSend(req, res) {
         emailConfig.bcc = bccEmails;
       }
 
-      const emailData = await resend.emails.send(emailConfig);
+      const emailData = await sendWithRetry(emailConfig);
 
       if (emailData.error) {
         emailResults.push({

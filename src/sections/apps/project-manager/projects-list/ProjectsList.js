@@ -86,6 +86,13 @@ const ProjectsList = () => {
   const { user } = useUser();
   const isAdmin = user?.role?.toLowerCase() === 'admin';
 
+  // Check if user can create projects (has projects:create permission or is admin)
+  const canCreateProjects = useMemo(() => {
+    if (isAdmin) return true;
+    const permissions = user?.permissions || [];
+    return permissions.includes('projects:create') || permissions.includes('*:*') || permissions.includes('projects:*');
+  }, [user?.permissions, isAdmin]);
+
   // Organization users for admin filter
   const [orgUsers, setOrgUsers] = useState([]);
 
@@ -151,8 +158,8 @@ const ProjectsList = () => {
   const [userCard, setUserCard] = useState([]);
   const [page, setPage] = useState(1);
 
-  // Filter states - collapsed by default on tablet/iPad (< 1200px), expanded on large desktop
-  const [showFilters, setShowFilters] = useState(!matchDownLG);
+  // Filter states - collapsed by default on all screen sizes
+  const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState([]);
   const [typeFilter, setTypeFilter] = useState([]);
   const [trainingRecipientFilter, setTrainingRecipientFilter] = useState([]);
@@ -619,31 +626,33 @@ const ProjectsList = () => {
                     </Select>
                   </FormControl>
 
-                  <AddButton
-                    variant="contained"
-                    startIcon={<PlusOutlined />}
-                    onClick={handleAdd}
-                    sx={{
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      px: 2.5,
-                      py: 1,
-                      whiteSpace: 'nowrap',
-                      minWidth: 'fit-content',
-                      background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
-                      }
-                    }}
-                  >
-                    Add Project
-                  </AddButton>
+                  {canCreateProjects && (
+                    <AddButton
+                      variant="contained"
+                      startIcon={<PlusOutlined />}
+                      onClick={handleAdd}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        px: 2.5,
+                        py: 1,
+                        whiteSpace: 'nowrap',
+                        minWidth: 'fit-content',
+                        background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
+                        }
+                      }}
+                    >
+                      Add Project
+                    </AddButton>
+                  )}
                 </Stack>
               )}
             </Stack>
 
-            {/* Mobile: Add Project Button (prominent CTA) */}
-            {matchDownSM && (
+            {/* Mobile: Add Project Button (prominent CTA) - only show if user can create */}
+            {matchDownSM && canCreateProjects && (
               <AddButton
                 variant="contained"
                 startIcon={<PlusOutlined />}
@@ -964,29 +973,33 @@ const ProjectsList = () => {
           }}
         >
           <Typography variant="h4" color="text.primary" gutterBottom>
-            Create Your First Project
+            {canCreateProjects ? 'Create Your First Project' : 'No Projects Available'}
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: 400 }}>
-            Get started by creating a new training project. You can add curriculums, participants, and schedule events.
+            {canCreateProjects
+              ? 'Get started by creating a new training project. You can add curriculums, participants, and schedule events.'
+              : 'There are no projects to display. Contact your administrator if you believe you should have access to projects.'}
           </Typography>
-          <AddButton
-            variant="contained"
-            startIcon={<PlusOutlined />}
-            onClick={handleAdd}
-            size="large"
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              px: 4,
-              py: 1.5,
-              background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
-              }
-            }}
-          >
-            Create Project
-          </AddButton>
+          {canCreateProjects && (
+            <AddButton
+              variant="contained"
+              startIcon={<PlusOutlined />}
+              onClick={handleAdd}
+              size="large"
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 4,
+                py: 1.5,
+                background: 'linear-gradient(135deg, #00BCD4 0%, #2196F3 50%, #1A237E 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #00ACC1 0%, #1976D2 50%, #0D47A1 100%)',
+                }
+              }}
+            >
+              Create Project
+            </AddButton>
+          )}
         </Box>
       )}
       {!hasError && !loading && initialLoadComplete && userCard.length > 0 && (

@@ -8,7 +8,7 @@ import { Box, CircularProgress } from '@mui/material';
 // ================================|| AUTH GUARD ||================================ //
 
 const AuthGuard = ({ children }) => {
-  const { user, isLoading, isAuthenticated } = useUser();
+  const { user, isLoading, isAuthenticated, error } = useUser();
   const router = useRouter();
   const [redirecting, setRedirecting] = useState(false);
   const [sessionInitialized, setSessionInitialized] = useState(false);
@@ -82,6 +82,13 @@ const AuthGuard = ({ children }) => {
     // Only redirect if loading is complete and user is not authenticated
     if (!isLoading && !isAuthenticated && !redirecting) {
       setRedirecting(true);
+
+      // If account is inactive, logout from WorkOS and redirect to landing page with error
+      if (error === 'ACCOUNT_INACTIVE') {
+        window.location.href = '/api/auth/logout?returnTo=/?error=account_inactive';
+        return;
+      }
+
       // Redirect directly to WorkOS sign-in instead of login page
       const redirectToSignIn = async () => {
         try {
@@ -90,13 +97,13 @@ const AuthGuard = ({ children }) => {
           if (data.url) {
             window.location.href = data.url;
           }
-        } catch (error) {
-          console.error('Error redirecting to sign-in:', error);
+        } catch (fetchError) {
+          console.error('Error redirecting to sign-in:', fetchError);
         }
       };
       redirectToSignIn();
     }
-  }, [isLoading, isAuthenticated, router, redirecting]);
+  }, [isLoading, isAuthenticated, router, redirecting, error]);
 
   // Still loading, initializing session, checking onboarding, or redirecting to sign-in
   if (isLoading || !isAuthenticated || checkingOnboarding || (isAuthenticated && !sessionInitialized)) {

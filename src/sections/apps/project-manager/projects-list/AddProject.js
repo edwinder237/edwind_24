@@ -60,7 +60,7 @@ import Date_Picker from "./datePicker";
 import TagsPicker from "./tagsPicker";
 import TrainingRecipientPicker from "./TrainingRecipientPicker";
 import InstructorPicker from "./InstructorPicker";
-import GoogleMapAutocomplete from "./google-map-autocomplete";
+import GoogleMaps from "./google-map-autocomplete/GoogleMap";
 import CurriculumPicker from "./CurriculumPicker";
 import { TIMEZONE_OPTIONS, getTimezoneOffset } from "utils/timezone";
 
@@ -412,7 +412,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
             console.error('Error creating training recipient:', error);
             dispatch(openSnackbar({
               open: true,
-              message: 'Failed to create training recipient. Please try again.',
+              message: error.response?.data?.error || 'Failed to create training recipient. Please try again.',
               variant: 'alert',
               alert: { color: 'error' }
             }));
@@ -1101,9 +1101,8 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                       <Typography variant="subtitle2" gutterBottom sx={{ mt: 0.5 }}>
                         Address
                       </Typography>
-                      <GoogleMapAutocomplete
+                      <GoogleMaps
                         handleLocationChange={handleNewRecipientLocationChange}
-                        placeholder="Search your company address"
                       />
                       <FormHelperText>
                         Search to auto-fill address details and retrieve business information including logo and images

@@ -1,15 +1,40 @@
 import { uploadImageToR2, uploadMultipleImagesToR2 } from '../../../lib/r2-client-cloudflare';
 
+// Helper to convert relative URLs to absolute URLs
+function resolveUrl(url, req) {
+  if (!url) return url;
+
+  // If it's already an absolute URL, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  // For relative URLs (starting with /), construct absolute URL
+  if (url.startsWith('/')) {
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host || 'localhost:8081';
+    return `${protocol}://${host}${url}`;
+  }
+
+  return url;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
+    return res.status(405).json({
       error: 'Method not allowed',
       message: 'This endpoint only accepts POST requests'
     });
   }
 
   try {
-    const { imageUrl, imageUrls, prefix = 'places' } = req.body;
+    let { imageUrl, imageUrls, prefix = 'places' } = req.body;
+
+    // Resolve relative URLs to absolute URLs
+    imageUrl = resolveUrl(imageUrl, req);
+    if (imageUrls && Array.isArray(imageUrls)) {
+      imageUrls = imageUrls.map(url => resolveUrl(url, req));
+    }
 
     // Validate input
     if (!imageUrl && (!imageUrls || !Array.isArray(imageUrls))) {

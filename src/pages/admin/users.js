@@ -5,12 +5,11 @@ import { useRouter } from 'next/router';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
   Container,
   FormControl,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
@@ -44,7 +43,8 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   LinkOutlined,
-  DisconnectOutlined
+  DisconnectOutlined,
+  LockOutlined
 } from '@ant-design/icons';
 
 // project imports
@@ -73,8 +73,10 @@ const AdminUsersPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
-  const [filterActive, setFilterActive] = useState('all');
+  const [showInactive, setShowInactive] = useState(false);
   const [filterRole, setFilterRole] = useState('all');
+  const [filterAppRole, setFilterAppRole] = useState('all');
+  const [systemRoles, setSystemRoles] = useState([]);
 
   // Dialogs
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -101,12 +103,16 @@ const AdminUsersPage = () => {
         search
       });
 
-      if (filterActive !== 'all') {
-        params.append('isActive', filterActive);
+      if (!showInactive) {
+        params.append('isActive', 'true');
       }
 
       if (filterRole !== 'all') {
         params.append('role', filterRole);
+      }
+
+      if (filterAppRole !== 'all') {
+        params.append('appRole', filterAppRole);
       }
 
       const response = await axios.get(`/api/admin/users?${params.toString()}`);
@@ -118,7 +124,17 @@ const AdminUsersPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, filterActive, filterRole]);
+  }, [page, rowsPerPage, search, showInactive, filterRole, filterAppRole]);
+
+  // Fetch system roles
+  const fetchSystemRoles = async () => {
+    try {
+      const response = await axios.get('/api/admin/roles');
+      setSystemRoles(response.data.roles || []);
+    } catch (err) {
+      console.error('Error fetching system roles:', err);
+    }
+  };
 
   // Fetch sub-organizations
   const fetchSubOrganizations = async () => {
@@ -134,6 +150,7 @@ const AdminUsersPage = () => {
     if (isAuthenticated && isAdmin) {
       fetchUsers();
       fetchSubOrganizations();
+      fetchSystemRoles();
     }
   }, [isAuthenticated, isAdmin, fetchUsers]);
 
@@ -221,6 +238,13 @@ const AdminUsersPage = () => {
           <Stack direction="row" spacing={2}>
             <Button
               variant="outlined"
+              startIcon={<LockOutlined />}
+              onClick={() => router.push('/admin/roles')}
+            >
+              Roles & Permissions
+            </Button>
+            <Button
+              variant="outlined"
               startIcon={<ReloadOutlined />}
               onClick={fetchUsers}
               disabled={loading}
@@ -254,29 +278,27 @@ const AdminUsersPage = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={3} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={filterActive}
-                label="Status"
-                onChange={(e) => {
-                  setFilterActive(e.target.value);
-                  setPage(0);
-                }}
-              >
-                <MenuItem value="all">All</MenuItem>
-                <MenuItem value="true">Active</MenuItem>
-                <MenuItem value="false">Inactive</MenuItem>
-              </Select>
-            </FormControl>
+          <Grid item xs={12} sm={3} md={2} sx={{ display: 'flex', alignItems: 'center' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showInactive}
+                  onChange={(e) => {
+                    setShowInactive(e.target.checked);
+                    setPage(0);
+                  }}
+                  size="small"
+                />
+              }
+              label="Show inactive"
+            />
           </Grid>
           <Grid item xs={12} sm={3} md={2}>
             <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
+              <InputLabel>WorkOS Role</InputLabel>
               <Select
                 value={filterRole}
-                label="Role"
+                label="WorkOS Role"
                 onChange={(e) => {
                   setFilterRole(e.target.value);
                   setPage(0);
@@ -286,6 +308,26 @@ const AdminUsersPage = () => {
                 <MenuItem value="admin">Admin</MenuItem>
                 <MenuItem value="member">Member</MenuItem>
                 <MenuItem value="owner">Owner</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={3} md={2}>
+            <FormControl fullWidth>
+              <InputLabel>App Role</InputLabel>
+              <Select
+                value={filterAppRole}
+                label="App Role"
+                onChange={(e) => {
+                  setFilterAppRole(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <MenuItem value="all">All App Roles</MenuItem>
+                {systemRoles.map((role) => (
+                  <MenuItem key={role.slug} value={role.slug}>
+                    {role.name}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Grid>
@@ -305,7 +347,8 @@ const AdminUsersPage = () => {
               <TableRow>
                 <TableCell>User</TableCell>
                 <TableCell>Email</TableCell>
-                <TableCell>Role</TableCell>
+                <TableCell>WorkOS Role</TableCell>
+                <TableCell>App Role</TableCell>
                 <TableCell>Sub-Organization</TableCell>
                 <TableCell align="center">Status</TableCell>
                 <TableCell align="center">WorkOS</TableCell>
@@ -316,13 +359,13 @@ const AdminUsersPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
                       No users found
                     </Typography>
@@ -340,29 +383,17 @@ const AdminUsersPage = () => {
                     }}
                   >
                     <TableCell>
-                      <Stack direction="row" spacing={1.5} alignItems="center">
-                        <Box
-                          sx={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '50%',
-                            backgroundColor: theme.palette.primary.lighter,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <UserOutlined style={{ color: theme.palette.primary.main }} />
-                        </Box>
-                        <Box>
-                          <Typography variant="subtitle2">
-                            {userRow.name || `${userRow.firstName} ${userRow.lastName}`.trim() || 'Unnamed'}
-                          </Typography>
-                          {userRow.status === 'pending' && (
-                            <Chip label="Pending" size="small" color="warning" sx={{ mt: 0.5 }} />
-                          )}
-                        </Box>
-                      </Stack>
+                      <Typography variant="subtitle2">
+                        {userRow.name || `${userRow.firstName} ${userRow.lastName}`.trim() || 'Unnamed'}
+                      </Typography>
+                      {!userRow.isActive && (
+                        <Chip
+                          label={userRow.workos_user_id ? 'Inactive' : 'Pending'}
+                          size="small"
+                          color={userRow.workos_user_id ? 'default' : 'warning'}
+                          sx={{ mt: 0.5 }}
+                        />
+                      )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{userRow.email}</Typography>
@@ -378,6 +409,23 @@ const AdminUsersPage = () => {
                         }
                         variant={userRow.role === 'owner' ? 'filled' : 'outlined'}
                       />
+                    </TableCell>
+                    <TableCell>
+                      {userRow.appRole ? (
+                        <Chip
+                          label={userRow.appRole.name}
+                          size="small"
+                          color={
+                            userRow.appRole.hierarchyLevel === 2 ? 'primary' :
+                            userRow.appRole.hierarchyLevel === 3 ? 'secondary' : 'default'
+                          }
+                          variant="outlined"
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          Not assigned
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
@@ -442,6 +490,7 @@ const AdminUsersPage = () => {
         open={inviteDialogOpen}
         onClose={handleInviteClose}
         subOrganizations={subOrganizations}
+        systemRoles={systemRoles}
       />
 
       {/* Edit User Dialog */}
@@ -450,6 +499,7 @@ const AdminUsersPage = () => {
         onClose={handleEditClose}
         user={selectedUser}
         subOrganizations={subOrganizations}
+        systemRoles={systemRoles}
       />
     </Container>
   );

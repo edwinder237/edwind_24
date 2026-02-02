@@ -609,15 +609,32 @@ export const summarizeWithAI = createAsyncThunk(
       dispatch(errorOccurred(error.message));
       dispatch(loadingCompleted());
 
+      // Get the error message from the API response or use a default
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to generate AI summary';
+      const errorType = error.response?.data?.errorType || 'unknown';
+
+      // Determine snackbar color and auto-hide duration based on error type
+      let alertColor = 'error';
+      let autoHideDuration = 6000;
+
+      if (errorType === 'rate_limit') {
+        alertColor = 'warning';
+        autoHideDuration = 8000;
+      } else if (errorType === 'service_unavailable' || errorType === 'connection_error') {
+        alertColor = 'warning';
+        autoHideDuration = 8000;
+      }
+
       dispatch(openSnackbar({
         open: true,
-        message: error.response?.data?.error || error.message || 'Failed to generate AI summary',
+        message: errorMessage,
         variant: 'alert',
-        alert: { color: 'error' },
-        close: false
+        alert: { color: alertColor },
+        close: false,
+        autoHideDuration
       }));
 
-      return rejectWithValue(error.message);
+      return rejectWithValue(errorMessage);
     }
   }
 );

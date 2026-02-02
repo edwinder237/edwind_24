@@ -4,6 +4,7 @@ import getConfig from "next/config";
 import NextLink from "next/link";
 import { format } from "date-fns";
 import axios from "utils/axios";
+import useUser from "hooks/useUser";
 
 // Redux
 import { useDispatch } from "store";
@@ -444,6 +445,16 @@ const TopicsDisplay = ({ topics }) => {
 
 const ProjectCard = ({ Project, projectId }) => {
   const dispatch = useDispatch();
+  const { user } = useUser();
+
+  // Check if user can open projects
+  const canOpenProject = useMemo(() => {
+    const permissions = user?.permissions || [];
+    const isAdmin = user?.role?.toLowerCase() === 'admin';
+    if (isAdmin) return true;
+    return permissions.includes('projects:open') || permissions.includes('*:*') || permissions.includes('projects:*');
+  }, [user?.permissions, user?.role]);
+
   // Local state
   const [openAlert, setOpenAlert] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -814,13 +825,15 @@ const ProjectCard = ({ Project, projectId }) => {
               Created: {formattedDates.creation}  by: {Project?.user?.name}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={1}>
-            <NextLink href={`/projects/${projectId}`} passHref>
-              <Button variant="contained" size="small">
-                Open
-              </Button>
-            </NextLink>
-          </Stack>
+          {canOpenProject && (
+            <Stack direction="row" spacing={1}>
+              <NextLink href={`/projects/${projectId}`} passHref>
+                <Button variant="contained" size="small">
+                  Open
+                </Button>
+              </NextLink>
+            </Stack>
+          )}
         </Stack>
       </MainCard>
 

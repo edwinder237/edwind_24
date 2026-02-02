@@ -7,8 +7,8 @@
  * FIXED: Previously leaked projects across organizations even with accessallprojects check.
  *
  * Permissions:
- * - Users with "accessallprojects": See all projects in their organization
- * - Regular users: See only projects they created
+ * - Admins or users with "projects:read": See all projects in their organization
+ * - Regular users: See only projects they created or are assigned to
  *
  * Response:
  * {
@@ -20,6 +20,7 @@ import prisma from "../../../lib/prisma";
 import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
 import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
 import { asyncHandler } from '../../../lib/errors/index.js';
+import { canViewAll } from '../../../lib/auth/permissionService.js';
 
 async function handler(req, res) {
   const { orgContext } = req;
@@ -27,7 +28,9 @@ async function handler(req, res) {
   console.log('📋 orgContext:', {
     organizationId: orgContext.organizationId,
     subOrganizationIds: orgContext.subOrganizationIds,
-    userId: orgContext.userId
+    userId: orgContext.userId,
+    permissions: orgContext.permissions,
+    appRole: orgContext.appRole
   });
 
   // Get user from database
@@ -40,10 +43,12 @@ async function handler(req, res) {
     return res.status(401).json({ error: 'User not found in database' });
   }
 
-  // Check if user has "accessallprojects" permission OR is an admin
-  const hasAccessAllProjects = orgContext.permissions.includes('accessallprojects') || orgContext.isAdmin;
+  // Check if user can view all projects:
+  // - isAdmin (WorkOS admin)
+  // - canViewAll checks for 'projects:read' or legacy 'accessallprojects' permission
+  const hasAccessAllProjects = orgContext.isAdmin || canViewAll(orgContext.permissions, 'projects');
 
-  console.log(`🔐 User ${orgContext.userId} - accessallprojects: ${hasAccessAllProjects}, isAdmin: ${orgContext.isAdmin}`);
+  console.log(`🔐 User ${orgContext.userId} - accessAllProjects: ${hasAccessAllProjects}, isAdmin: ${orgContext.isAdmin}, permissions: ${orgContext.permissions?.join(', ')}`);
 
   // Build where clause based on permissions
   // Note: scopedFindMany will automatically add sub_organizationId filter

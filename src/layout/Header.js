@@ -5,6 +5,9 @@ import { useState } from 'react';
 // next
 import NextLink from 'next/link';
 
+// third-party
+import { FormattedMessage } from 'react-intl';
+
 // material-ui
 import AppBar from '@mui/material/AppBar';
 import { useTheme } from '@mui/material/styles';
@@ -29,9 +32,9 @@ import {
 // project import
 import { APP_DEFAULT_PATH, ThemeMode, HEADER_HEIGHT } from 'config';
 import IconButton from 'components/@extended/IconButton';
-
 import AnimateButton from 'components/@extended/AnimateButton';
 import Logo from 'components/logo';
+import LanguageSelector from 'components/LanguageSelector';
 
 // assets
 import { MenuOutlined, LineOutlined } from '@ant-design/icons';
@@ -75,15 +78,15 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
 
   return (
     <ElevationScroll layout={layout} {...others}>
-      <AppBar sx={{ 
-        bgcolor: '#1a1a1a', 
-        color: 'white', 
-        boxShadow: 'none', 
-        position: 'fixed', 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        zIndex: 1000, 
+      <AppBar sx={{
+        bgcolor: '#1a1a1a',
+        color: 'white',
+        boxShadow: 'none',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
         borderBottom: '1px solid rgba(255,255,255,0.1)',
         margin: 0,
         padding: 0,
@@ -93,9 +96,9 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
           <Toolbar sx={{ px: 0, py: 0, minHeight: HEADER_HEIGHT, width: '100%' }}>
             {/* Logo - Always visible */}
             <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, pl: { xs: 1, md: 2 } }}>
-              <img 
-                src="/assets/images/logos/edwind-color-logo.png" 
-                alt="EDWIND" 
+              <img
+                src="/assets/images/logos/edwind-color-logo.png"
+                alt="EDWIND"
                 style={{ height: '40px', width: 'auto' }}
               />
             </Box>
@@ -106,8 +109,8 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                 direction="row"
                 alignItems="center"
                 sx={{
-                  '& .header-link': { 
-                    px: 2, 
+                  '& .header-link': {
+                    px: 2,
                     py: 1,
                     fontSize: '0.95rem',
                     fontWeight: 500,
@@ -115,55 +118,59 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                     textDecoration: 'none',
                     borderRadius: 1,
                     transition: 'all 0.2s',
-                    '&:hover': { 
+                    '&:hover': {
                       color: 'white',
                       bgcolor: 'rgba(255,255,255,0.1)'
-                    } 
+                    }
                   }
                 }}
                 spacing={0.5}
               >
-                <Link 
-                  href="#features" 
+                <Link
+                  href="#features"
                   className="header-link"
                   onClick={(e) => {
                     e.preventDefault();
                     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
                   }}
                 >
-                  Features
+                  <FormattedMessage id="landing.nav.features" />
                 </Link>
-                <Link 
-                  href="#pricing" 
+                <Link
+                  href="#pricing"
                   className="header-link"
                   onClick={(e) => {
                     e.preventDefault();
                     document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
                   }}
                 >
-                  Pricing
+                  <FormattedMessage id="landing.nav.pricing" />
                 </Link>
-                <Link 
-                  href="#demo" 
+                <Link
+                  href="#demo"
                   className="header-link"
                   onClick={(e) => {
                     e.preventDefault();
                     document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
                   }}
                 >
-                  Demo
+                  <FormattedMessage id="landing.nav.demo" />
                 </Link>
-                <Link 
-                  href="#contact" 
+                <Link
+                  href="#contact"
                   className="header-link"
                   onClick={(e) => {
                     e.preventDefault();
                     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
                   }}
                 >
-                  Contact
+                  <FormattedMessage id="landing.nav.contact" />
                 </Link>
-                <Box sx={{ ml: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+
+                {/* Language Selector */}
+                <LanguageSelector variant="landing" />
+
+                <Box sx={{ ml: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
                   <AnimateButton>
                     <Button
                       variant="outlined"
@@ -179,7 +186,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                           console.error('Error redirecting to sign-in:', error);
                         }
                       }}
-                      sx={{ 
+                      sx={{
                         borderColor: '#1976d2',
                         color: '#1976d2',
                         fontWeight: 500,
@@ -193,7 +200,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                         }
                       }}
                     >
-                      Login
+                      <FormattedMessage id="landing.nav.login" />
                     </Button>
                   </AnimateButton>
                   <AnimateButton>
@@ -212,7 +219,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                           console.error('Error redirecting to sign-up:', error);
                         }
                       }}
-                      sx={{ 
+                      sx={{
                         backgroundColor: '#1976d2',
                         color: 'white',
                         fontWeight: 500,
@@ -225,7 +232,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                         }
                       }}
                     >
-                      Get Started
+                      <FormattedMessage id="landing.nav.getStarted" />
                     </Button>
                   </AnimateButton>
                 </Box>
@@ -234,9 +241,12 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
 
             {/* Mobile Navigation */}
             <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', ml: 'auto', gap: 0.5, pr: 1 }}>
-              <Button 
-                variant="outlined" 
-                size="small" 
+              {/* Language Selector for Mobile */}
+              <LanguageSelector variant="landing" />
+
+              <Button
+                variant="outlined"
+                size="small"
                 onClick={async () => {
                   try {
                     const response = await fetch('/api/auth/signin-url');
@@ -248,20 +258,20 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                     console.error('Error redirecting to sign-in:', error);
                   }
                 }}
-                sx={{ 
-                  height: 32, 
+                sx={{
+                  height: 32,
                   minWidth: '55px',
                   fontSize: '0.75rem',
-                  borderColor: '#1976d2', 
+                  borderColor: '#1976d2',
                   color: '#1976d2',
                   px: 1
                 }}
               >
-                Login
+                <FormattedMessage id="landing.nav.login" />
               </Button>
-              <Button 
-                variant="contained" 
-                size="small" 
+              <Button
+                variant="contained"
+                size="small"
                 onClick={async () => {
                   try {
                     const response = await fetch('/api/auth/signin-url');
@@ -273,27 +283,27 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                     console.error('Error redirecting to sign-up:', error);
                   }
                 }}
-                sx={{ 
-                  height: 32, 
+                sx={{
+                  height: 32,
                   minWidth: '55px',
                   fontSize: '0.75rem',
-                  backgroundColor: '#1976d2', 
-                  color: 'white', 
+                  backgroundColor: '#1976d2',
+                  color: 'white',
                   px: 1,
-                  '&:hover': { backgroundColor: '#1565c0' } 
+                  '&:hover': { backgroundColor: '#1565c0' }
                 }}
               >
-                Get Started
+                <FormattedMessage id="landing.nav.getStarted" />
               </Button>
 
               <IconButton
                 {...(layout === 'component' ? { onClick: handleDrawerOpen } : { onClick: drawerToggler(true) })}
-                sx={{ 
+                sx={{
                   color: 'white',
                   ml: 0.25,
-                  '&:hover': { 
-                    bgcolor: 'rgba(255,255,255,0.1)' 
-                  } 
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
                 }}
               >
                 <MenuOutlined />
@@ -317,7 +327,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                   onKeyDown={drawerToggler(false)}
                 >
                   <List>
-                    <ListItemButton 
+                    <ListItemButton
                       component="span"
                       onClick={() => {
                         document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
@@ -327,9 +337,12 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       <ListItemIcon>
                         <LineOutlined />
                       </ListItemIcon>
-                      <ListItemText primary="Features" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                      <ListItemText
+                        primary={<FormattedMessage id="landing.nav.features" />}
+                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                      />
                     </ListItemButton>
-                    <ListItemButton 
+                    <ListItemButton
                       component="span"
                       onClick={() => {
                         document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
@@ -339,9 +352,12 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       <ListItemIcon>
                         <LineOutlined />
                       </ListItemIcon>
-                      <ListItemText primary="Pricing" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                      <ListItemText
+                        primary={<FormattedMessage id="landing.nav.pricing" />}
+                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                      />
                     </ListItemButton>
-                    <ListItemButton 
+                    <ListItemButton
                       component="span"
                       onClick={() => {
                         document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
@@ -351,9 +367,12 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       <ListItemIcon>
                         <LineOutlined />
                       </ListItemIcon>
-                      <ListItemText primary="Demo" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                      <ListItemText
+                        primary={<FormattedMessage id="landing.nav.demo" />}
+                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                      />
                     </ListItemButton>
-                    <ListItemButton 
+                    <ListItemButton
                       component="span"
                       onClick={() => {
                         document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -363,9 +382,12 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       <ListItemIcon>
                         <LineOutlined />
                       </ListItemIcon>
-                      <ListItemText primary="Contact" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                      <ListItemText
+                        primary={<FormattedMessage id="landing.nav.contact" />}
+                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                      />
                     </ListItemButton>
-                    <ListItemButton 
+                    <ListItemButton
                       component="span"
                       onClick={async () => {
                         try {
@@ -383,9 +405,12 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       <ListItemIcon>
                         <LineOutlined />
                       </ListItemIcon>
-                      <ListItemText primary="Login" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                      <ListItemText
+                        primary={<FormattedMessage id="landing.nav.login" />}
+                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                      />
                     </ListItemButton>
-                    <ListItemButton 
+                    <ListItemButton
                       component="span"
                       onClick={async () => {
                         try {
@@ -403,7 +428,10 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       <ListItemIcon>
                         <LineOutlined />
                       </ListItemIcon>
-                      <ListItemText primary="Get Started" primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }} />
+                      <ListItemText
+                        primary={<FormattedMessage id="landing.nav.getStarted" />}
+                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                      />
                     </ListItemButton>
                   </List>
                 </Box>

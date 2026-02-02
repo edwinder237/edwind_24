@@ -6,7 +6,8 @@ import {
   SettingOutlined,
   UserOutlined,
   TeamOutlined,
-  SafetyOutlined
+  SafetyOutlined,
+  LockOutlined
 } from '@ant-design/icons';
 
 // icons
@@ -14,7 +15,8 @@ const icons = {
   SettingOutlined,
   UserOutlined,
   TeamOutlined,
-  SafetyOutlined
+  SafetyOutlined,
+  LockOutlined
 };
 
 // ==============================|| MENU ITEMS - ADMIN ||============================== //
@@ -31,6 +33,14 @@ const Admin = {
       type: 'item',
       url: '/admin/users',
       icon: icons.UserOutlined,
+      breadcrumbs: true
+    },
+    {
+      id: 'admin-roles',
+      title: <FormattedMessage id="Roles & Permissions" />,
+      type: 'item',
+      url: '/admin/roles',
+      icon: icons.LockOutlined,
       breadcrumbs: true
     }
   ]

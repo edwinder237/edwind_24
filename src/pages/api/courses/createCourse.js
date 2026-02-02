@@ -1,6 +1,8 @@
 import prisma from '../../../lib/prisma';
 import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { asyncHandler, ValidationError, ForbiddenError } from '../../../lib/errors/index.js';
+import { getOrgSubscription, getResourceUsage } from '../../../lib/features/subscriptionService';
+import { hasResourceCapacity, RESOURCES } from '../../../lib/features/featureAccess';
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -42,10 +44,33 @@ async function handler(req, res) {
     }
 
     if (!title) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Course title is required' 
+        message: 'Course title is required'
       });
+    }
+
+    // Check course limit
+    const subscription = await getOrgSubscription(orgContext.organizationId);
+    if (subscription) {
+      const usage = await getResourceUsage(orgContext.organizationId);
+      const capacityCheck = hasResourceCapacity({
+        subscription,
+        resource: RESOURCES.COURSES,
+        currentUsage: usage.courses || 0,
+        requestedAmount: 1
+      });
+
+      if (!capacityCheck.hasCapacity) {
+        return res.status(403).json({
+          error: 'Course limit exceeded',
+          message: `You have reached your limit of ${capacityCheck.limit} courses`,
+          current: capacityCheck.current,
+          limit: capacityCheck.limit,
+          available: capacityCheck.available,
+          upgradeUrl: '/upgrade'
+        });
+      }
     }
 
     // Create the course

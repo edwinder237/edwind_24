@@ -564,10 +564,20 @@ const ProjectsMap = ({ projects = [], height = 500, showDirections = false, goog
   const mapCenter = useMapBounds(projectsWithLocation, map);
   const directionsResponse = useDirections(projectsWithLocation, showDirections);
 
+  // Track map load for usage tracking (fire-and-forget)
+  const trackMapLoad = useCallback(() => {
+    fetch('/api/maps/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 'timeline' })
+    }).catch(err => console.warn('[ProjectsMap] Failed to track map load:', err));
+  }, []);
+
   // Memoized callbacks
   const onMapLoad = useCallback((map) => {
     setMap(map);
-  }, []);
+    trackMapLoad();
+  }, [trackMapLoad]);
 
   const onMarkerClick = useCallback((project) => {
     setSelectedProject(project);

@@ -34,11 +34,14 @@ import { WorkOS } from '@workos-inc/node';
 import { getCachedClaims } from '../auth/claimsCache.js';
 import { getCurrentOrganization, getOrganizationContext } from '../session/organizationSession.js';
 import { normalizeRole, isAdmin } from '../auth/roleNormalization.js';
+import { getUserPermissions } from '../auth/permissionService.js';
+import prisma from '../prisma.js';
 import {
   NoOrganizationError,
   OrganizationAccessDeniedError,
   AdminRequiredError,
   UnauthorizedError,
+  AccountInactiveError,
   errorHandler
 } from '../errors/index.js';
 
@@ -80,6 +83,24 @@ export function withOrgScope(handler, options = {}) {
       if (allowPublic && !workosUserId) {
         // Public route, no org context needed
         return await handler(req, res);
+      }
+
+      // ============================================
+      // 1.5 Check if User is Active
+      // ============================================
+      const dbUser = await prisma.user.findUnique({
+        where: { workos_user_id: workosUserId },
+        select: { isActive: true }
+      });
+
+      if (dbUser && dbUser.isActive === false) {
+        // Clear auth cookies
+        res.setHeader('Set-Cookie', [
+          'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+          'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+          'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+        ]);
+        throw new AccountInactiveError('Your account has been deactivated');
       }
 
       // ============================================
@@ -134,6 +155,21 @@ export function withOrgScope(handler, options = {}) {
       const normalizedUserRole = normalizeRole(userOrg.role);
       const isUserAdmin = isAdmin(userOrg.role);
 
+      // ============================================
+      // 5.1 Load Permissions from Database
+      // ============================================
+      // Get app role permissions (Level 2-4) with organization overrides
+      const permissionData = await getUserPermissions(
+        claims.workos_user_id,
+        orgContext.organizationId,
+        userOrg.role
+      );
+
+      // Merge WorkOS JWT permissions with database permissions
+      const jwtPermissions = claims.permissions || [];
+      const dbPermissions = permissionData.permissions || [];
+      const allPermissions = [...new Set([...jwtPermissions, ...dbPermissions])];
+
       req.orgContext = {
         // Organization IDs
         organizationId: orgContext.organizationId,
@@ -141,13 +177,19 @@ export function withOrgScope(handler, options = {}) {
         title: orgContext.title,
         subOrganizationIds: orgContext.subOrganizationIds || [],
 
-        // User role
+        // User role (WorkOS)
         role: userOrg.role, // Original WorkOS role
         normalizedRole: normalizedUserRole, // 'admin' or 'user'
         isAdmin: isUserAdmin,
 
-        // Permissions
-        permissions: claims.permissions || [],
+        // App role (Database - Level 2-4)
+        appRole: permissionData.appRole,
+        hierarchyLevel: permissionData.hierarchyLevel,
+        isAppAdmin: permissionData.isAppAdmin,
+        isClientAdmin: permissionData.isClientAdmin,
+
+        // Permissions (merged WorkOS + Database)
+        permissions: allPermissions,
 
         // User info
         userId: claims.workos_user_id,

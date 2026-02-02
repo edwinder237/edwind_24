@@ -1,7 +1,7 @@
 /**
  * Google Gemini AI Service
  *
- * Service for integrating with Google Gemini 1.5 Flash API
+ * Service for integrating with Google Gemini 2.5 Flash Lite API
  * Used for AI-powered summarization and content generation
  */
 
@@ -41,7 +41,7 @@ const initGemini = () => {
 export const summarizeSessionNotes = async (sessionNotes, attendanceData = null, parkingLotItems = null) => {
   try {
     const genAI = initGemini();
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     // Build attendance context if available
     let attendanceContext = '';
@@ -109,6 +109,14 @@ ${hasParkingLot ? '- Include parking lot insights when relevant (e.g., "Several 
     const response = await result.response;
     const text = response.text();
 
+    // Extract token usage metadata from response
+    const usageMetadata = response.usageMetadata || {};
+    const tokenUsage = {
+      inputTokens: usageMetadata.promptTokenCount || null,
+      outputTokens: usageMetadata.candidatesTokenCount || null,
+      totalTokens: usageMetadata.totalTokenCount || null
+    };
+
     // Parse JSON response, handling potential markdown formatting
     let jsonText = text.trim();
 
@@ -144,21 +152,41 @@ ${hasParkingLot ? '- Include parking lot insights when relevant (e.g., "Several 
 
     return {
       keyHighlights: parsed.keyHighlights,
-      challenges: parsed.challenges
+      challenges: parsed.challenges,
+      tokenUsage
     };
 
   } catch (error) {
     console.error('[Gemini AI] Summarization error:', error);
 
-    // Provide helpful error messages
-    if (error.message?.includes('API key')) {
-      throw new Error('AI service is not configured. Please contact administrator.');
+    // Provide helpful user-friendly error messages
+    if (error.message?.includes('API key') || error.message?.includes('API_KEY')) {
+      throw new Error('AI service is not configured. Please contact your administrator.');
     }
-    if (error.message?.includes('quota')) {
+    if (error.message?.includes('quota') || error.message?.includes('QUOTA')) {
       throw new Error('AI service quota exceeded. Please try again later.');
     }
+    if (error.message?.includes('404') || error.message?.includes('not found')) {
+      throw new Error('AI service is temporarily unavailable. The AI model may be updating. Please try again in a few minutes.');
+    }
+    if (error.message?.includes('403') || error.message?.includes('permission') || error.message?.includes('Permission')) {
+      throw new Error('AI service access denied. Please contact your administrator to verify API configuration.');
+    }
+    if (error.message?.includes('429') || error.message?.includes('rate limit') || error.message?.includes('Rate limit')) {
+      throw new Error('Too many requests. Please wait a moment and try again.');
+    }
+    if (error.message?.includes('500') || error.message?.includes('503') || error.message?.includes('Internal')) {
+      throw new Error('AI service is experiencing issues. Please try again in a few minutes.');
+    }
+    if (error.message?.includes('timeout') || error.message?.includes('Timeout') || error.message?.includes('TIMEOUT')) {
+      throw new Error('AI request timed out. Please try again with shorter session notes.');
+    }
+    if (error.message?.includes('network') || error.message?.includes('Network') || error.message?.includes('ECONNREFUSED')) {
+      throw new Error('Unable to connect to AI service. Please check your internet connection.');
+    }
 
-    throw new Error(`AI summarization failed: ${error.message}`);
+    // Generic fallback - don't expose technical details
+    throw new Error('Unable to generate summary. Please try again or contact support if the issue persists.');
   }
 };
 
@@ -170,7 +198,7 @@ ${hasParkingLot ? '- Include parking lot insights when relevant (e.g., "Several 
 export const testGeminiConnection = async () => {
   try {
     const genAI = initGemini();
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     const result = await model.generateContent('Hello, respond with "OK"');
     const response = await result.response;

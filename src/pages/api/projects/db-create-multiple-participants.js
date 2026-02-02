@@ -1,6 +1,13 @@
 import prisma from '../../../lib/prisma';
+import { checkResourceCapacity } from '../../../lib/features/featureMiddleware';
+import { RESOURCES } from '../../../lib/features/featureAccess';
+import { getOrgSubscription, getResourceUsage } from '../../../lib/features/subscriptionService';
 
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
     // Extract participant data from the request body
     const { projectId, newParticipants } = req.body;
@@ -32,6 +39,49 @@ export default async function handler(req, res) {
     const existingParticipantIds = existingEnrollments.map(e => e.participantId);
     const toReactivate = existingEnrollments.filter(e => e.status !== 'active');
     const toCreate = newParticipants.filter(p => !existingParticipantIds.includes(p.id));
+
+    // Check participant limit before creating new enrollments
+    if (toCreate.length > 0) {
+      // Get organization from project's sub-organization
+      const projectWithOrg = await prisma.projects.findUnique({
+        where: { id: projectId },
+        select: {
+          sub_organization: {
+            select: {
+              organizationId: true
+            }
+          }
+        }
+      });
+
+      if (projectWithOrg?.sub_organization?.organizationId) {
+        const organizationId = projectWithOrg.sub_organization.organizationId;
+        const subscription = await getOrgSubscription(organizationId);
+
+        if (subscription) {
+          const usage = await getResourceUsage(organizationId);
+          const currentParticipants = usage.participants || 0;
+
+          // Get the limit from plan
+          const planLimits = subscription.plan?.resourceLimits || subscription.customLimits || {};
+          const limit = subscription.customLimits?.maxParticipants ?? planLimits.maxParticipants ?? -1;
+
+          // -1 means unlimited
+          if (limit !== -1 && (currentParticipants + toCreate.length) > limit) {
+            const available = Math.max(0, limit - currentParticipants);
+            return res.status(403).json({
+              error: 'Participant limit exceeded',
+              message: `Adding ${toCreate.length} participants would exceed your limit of ${limit}. You have ${available} spots available.`,
+              current: currentParticipants,
+              limit: limit,
+              requested: toCreate.length,
+              available: available,
+              upgradeUrl: '/upgrade'
+            });
+          }
+        }
+      }
+    }
 
     let reactivatedCount = 0;
     let createdCount = 0;

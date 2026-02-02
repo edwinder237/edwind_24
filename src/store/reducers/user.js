@@ -117,7 +117,8 @@ const userSlice = createSlice({
         state.isLoading = false;
         state.user = null;
         state.isAuthenticated = false;
-        state.error = action.payload?.error || 'Authentication failed';
+        // Store error code if available (e.g., ACCOUNT_INACTIVE), otherwise store error message
+        state.error = action.payload?.code || action.payload?.error || 'Authentication failed';
         state.initialized = true;
       })
       // Logout user

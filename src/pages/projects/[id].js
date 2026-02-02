@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import NextLink from 'next/link';
@@ -6,6 +6,9 @@ import NextLink from 'next/link';
 // material-ui
 import { Box, Button, Stack, Typography, useTheme, alpha } from '@mui/material';
 import { LockOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+
+// hooks
+import useUser from "hooks/useUser";
 
 //REDUX
 import { useDispatch } from "store";
@@ -68,7 +71,7 @@ function ProjectAccessDenied({ projectId }) {
         color="textSecondary"
         sx={{ maxWidth: 400, mb: 1 }}
       >
-        You don't have permission to view this project. This project may belong to a different organization.
+        You don't have permission to view this project. Contact your administrator if you believe you should have access.
       </Typography>
 
       <Typography
@@ -105,6 +108,15 @@ function ProjectDefault() {
   const { id } = router.query;
   const projectId = parseInt(id);
   const dispatch = useDispatch();
+  const { user } = useUser();
+
+  // Check if user has permission to open projects
+  const canOpenProject = useMemo(() => {
+    const permissions = user?.permissions || [];
+    const isAdmin = user?.role?.toLowerCase() === 'admin';
+    if (isAdmin) return true;
+    return permissions.includes('projects:open') || permissions.includes('*:*') || permissions.includes('projects:*');
+  }, [user?.permissions, user?.role]);
 
   // Use RTK Query for all project data (CQRS pattern)
   // Participants query is PRIMARY - fetched first and normalized to entities store
@@ -140,6 +152,11 @@ function ProjectDefault() {
   // Show loader while any query is loading
   const isLoading = participantsLoading || settingsLoading || agendaLoading;
   if (isLoading) return <Loader />;
+
+  // Check permission to open projects
+  if (!canOpenProject) {
+    return <ProjectAccessDenied projectId={projectId} />;
+  }
 
   // Show error if any query failed
   const error = participantsError || settingsError || agendaError;

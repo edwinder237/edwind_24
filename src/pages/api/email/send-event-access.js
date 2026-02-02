@@ -1,9 +1,18 @@
-import { Resend } from 'resend';
 import prisma from '../../../lib/prisma';
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
+import { logUsage, PROVIDERS } from '../../../lib/usage/usageLogger';
+import {
+  isValidEmail,
+  cleanEmail,
+  sendWithRetry,
+  delay,
+  createAntiCollapseHeaders,
+  EMAIL_SENDERS
+} from '../../../lib/email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Rate limiting configuration
+const RATE_LIMIT_DELAY = 600;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -25,6 +34,15 @@ export default async function handler(req, res) {
           select: {
             id: true,
             title: true
+          }
+        },
+        project: {
+          include: {
+            sub_organization: {
+              include: {
+                organization: true
+              }
+            }
           }
         },
         event_attendees: {
@@ -70,10 +88,18 @@ export default async function handler(req, res) {
 
     // Collect all unique participants from event attendees
     const participantsMap = new Map();
+    const invalidEmailRecipients = [];
 
     for (const attendee of event.event_attendees) {
       const participant = attendee.enrollee?.participant;
-      if (participant && participant.email && !participantsMap.has(participant.id)) {
+      if (participant && !participantsMap.has(participant.id)) {
+        if (!participant.email || !isValidEmail(participant.email)) {
+          invalidEmailRecipients.push({
+            name: `${participant.firstName || ''} ${participant.lastName || ''}`.trim(),
+            email: participant.email || '(no email)'
+          });
+          continue;
+        }
         participantsMap.set(participant.id, participant);
       }
     }
@@ -84,7 +110,12 @@ export default async function handler(req, res) {
     const groupNames = event.event_groups?.map(eg => eg.groups?.groupName).filter(Boolean) || [];
 
     if (participants.length === 0) {
-      return res.status(400).json({ message: 'No participants with email addresses found' });
+      return res.status(400).json({
+        message: invalidEmailRecipients.length > 0
+          ? `No valid email addresses found. Invalid emails: ${invalidEmailRecipients.map(r => r.email).join(', ')}`
+          : 'No participants with email addresses found',
+        invalidEmails: invalidEmailRecipients
+      });
     }
 
     // Format event details
@@ -127,7 +158,7 @@ export default async function handler(req, res) {
     // Send plain text emails to all participants
     for (const participant of participants) {
       try {
-        const uniqueMessageId = `event-access-${participant.id}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}@edwind.ca`;
+        const headers = createAntiCollapseHeaders('event-access', participant.id);
 
         // Build plain text email content
         const textContent = buildPlainTextEmail({
@@ -144,23 +175,23 @@ export default async function handler(req, res) {
           projectTitle: projectTitle || 'Training Project'
         });
 
-        const emailData = await resend.emails.send({
-          from: 'EDWIND Training <admin@edwind.ca>',
-          to: [participant.email],
+        const emailResponse = await sendWithRetry({
+          from: EMAIL_SENDERS.training,
+          to: [cleanEmail(participant.email)],
           subject: `Training Session: ${event.title} - ${formattedDate}`,
-          headers: {
-            'Message-ID': uniqueMessageId,
-            'X-Entity-Ref-ID': uniqueMessageId
-          },
+          headers,
           text: textContent
         });
 
-        if (emailData.error) {
+        // Rate limiting delay
+        await delay(RATE_LIMIT_DELAY);
+
+        if (emailResponse.error) {
           emailResults.push({
             participantId: participant.id,
             participantEmail: participant.email,
             participantName: `${participant.firstName} ${participant.lastName}`,
-            error: emailData.error.message || 'Email service error',
+            error: emailResponse.error.message || 'Email service error',
             status: 'failed'
           });
         } else {
@@ -168,7 +199,7 @@ export default async function handler(req, res) {
             participantId: participant.id,
             participantEmail: participant.email,
             participantName: `${participant.firstName} ${participant.lastName}`,
-            emailId: emailData.data?.id || emailData.id,
+            emailId: emailResponse.data?.id || emailResponse.id,
             status: 'sent'
           });
         }
@@ -186,15 +217,31 @@ export default async function handler(req, res) {
     const successCount = emailResults.filter(result => result.status === 'sent').length;
     const failureCount = emailResults.filter(result => result.status === 'failed').length;
 
+    // Log email usage (fire-and-forget)
+    const orgId = event?.project?.sub_organization?.organizationId;
+    const userId = req.cookies?.workos_user_id;
+    logUsage({
+      provider: PROVIDERS.RESEND,
+      action: 'send_event_access',
+      organizationId: orgId,
+      userId,
+      projectId: projectId ? parseInt(projectId) : null,
+      inputSize: successCount,
+      success: successCount > 0,
+      errorCode: failureCount > 0 ? 'PARTIAL_FAILURE' : null
+    });
+
     res.status(200).json({
-      success: true,
+      success: successCount > 0,
       message: `Event access sent to ${successCount} participant(s)`,
       results: emailResults,
       summary: {
         totalParticipants: participants.length,
         emailsSent: successCount,
         emailsFailed: failureCount,
-        groupsNotified: groupNames
+        groupsNotified: groupNames,
+        skippedInvalidEmails: invalidEmailRecipients.length,
+        invalidEmailRecipients: invalidEmailRecipients.length > 0 ? invalidEmailRecipients : undefined
       }
     });
 

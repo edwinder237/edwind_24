@@ -1,13 +1,20 @@
 import prisma from '../../../lib/prisma';
 import { format, parseISO } from 'date-fns';
-import { formatInTimeZone } from 'date-fns-tz';
 import { enUS } from 'date-fns/locale';
-import { Resend } from 'resend';
+import { logUsage, getOrgIdFromProject, PROVIDERS } from '../../../lib/usage/usageLogger';
+import {
+  isValidEmail,
+  cleanEmail,
+  sendWithRetry,
+  delay,
+  generateSingleEventICS,
+  createICSAttachment,
+  createEventDescription,
+  generateEventInviteTemplate,
+  EMAIL_SENDERS
+} from '../../../lib/email';
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_FuWEsP4t_57FGZEkUyxct65xaqCYXvQGG');
-
-// Rate limiting: 2 requests per second = 500ms delay between requests
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// Rate limiting configuration
 const RATE_LIMIT_DELAY = 600; // 600ms to be safe (slightly more than 500ms)
 
 export default async function handler(req, res) {
@@ -67,6 +74,7 @@ export default async function handler(req, res) {
 
     // Get all participants from selected groups
     const allParticipants = [];
+    const invalidEmailRecipients = []; // Track recipients with invalid emails
 
     // Add participants from groups
     if (project.groups && Array.isArray(project.groups)) {
@@ -80,11 +88,25 @@ export default async function handler(req, res) {
             participant = groupParticipant.participant;
           }
 
-          if (participant && participant.email && participant.firstName && participant.lastName) {
+          if (participant && participant.firstName && participant.lastName) {
+            const recipientName = `${participant.firstName} ${participant.lastName}`.trim();
+
+            // Validate email format
+            if (!isValidEmail(participant.email)) {
+              invalidEmailRecipients.push({
+                name: recipientName,
+                email: participant.email || '(no email)',
+                groupName: group.groupName,
+                type: 'participant'
+              });
+              return;
+            }
+
+            const cleanedEmail = cleanEmail(participant.email);
             // Avoid duplicates
-            if (!allParticipants.find(p => p.email === participant.email)) {
+            if (!allParticipants.find(p => p.email === cleanedEmail)) {
               allParticipants.push({
-                email: participant.email,
+                email: cleanedEmail,
                 firstName: participant.firstName,
                 lastName: participant.lastName,
                 groupName: group.groupName,
@@ -100,11 +122,25 @@ export default async function handler(req, res) {
     if (instructorEmails.length > 0 && project.project_instructors) {
       project.project_instructors.forEach(pi => {
         const instructor = pi.instructor;
-        if (instructor && instructor.email && instructorEmails.includes(instructor.email)) {
+        if (instructor && instructorEmails.includes(instructor.email)) {
+          const recipientName = `${instructor.firstName || 'Instructor'} ${instructor.lastName || ''}`.trim();
+
+          // Validate email format
+          if (!isValidEmail(instructor.email)) {
+            invalidEmailRecipients.push({
+              name: recipientName,
+              email: instructor.email || '(no email)',
+              groupName: null,
+              type: 'instructor'
+            });
+            return;
+          }
+
+          const cleanedEmail = cleanEmail(instructor.email);
           // Avoid duplicates (instructor might also be a participant)
-          if (!allParticipants.find(p => p.email === instructor.email)) {
+          if (!allParticipants.find(p => p.email === cleanedEmail)) {
             allParticipants.push({
-              email: instructor.email,
+              email: cleanedEmail,
               firstName: instructor.firstName || 'Instructor',
               lastName: instructor.lastName || '',
               groupName: null,
@@ -115,8 +151,20 @@ export default async function handler(req, res) {
       });
     }
 
+    // Log invalid emails for debugging
+    if (invalidEmailRecipients.length > 0) {
+      console.warn('[send-calendar-invites] Skipped recipients with invalid emails:', invalidEmailRecipients);
+    }
+
     if (allParticipants.length === 0) {
-      return res.status(400).json({ message: 'No recipients with valid email addresses found' });
+      const invalidList = invalidEmailRecipients.map(r => `${r.name} (${r.email})`).join(', ');
+      return res.status(400).json({
+        success: false,
+        message: invalidEmailRecipients.length > 0
+          ? `No valid email addresses found. The following recipients have invalid emails: ${invalidList}`
+          : 'No recipients with valid email addresses found',
+        invalidEmails: invalidEmailRecipients
+      });
     }
 
     // Create calendar events data
@@ -158,7 +206,10 @@ export default async function handler(req, res) {
 
       return {
         title: event.title || 'Training Event',
-        description: createEventDescription(event, dailyFocus, groupNames, meetingLink, includeMeetingLink, room),
+        description: createEventDescription(
+          { ...event, room },
+          { dailyFocus, groupNames, meetingLink, includeMeetingLink }
+        ),
         startTime: startDate,
         endTime: endDate || new Date(startDate.getTime() + 60 * 60 * 1000), // Default 1 hour if no end time
         location: eventLocation,
@@ -182,11 +233,11 @@ export default async function handler(req, res) {
       for (const event of calendarEvents) {
         try {
           const organizerName = event.instructorName || project.sub_organization?.title || 'EDWIND Training';
-          const eventIcal = generateSingleEventInvitation(event, participant, organizerName);
-          
-          // Send individual event invitation with rate limiting
-          const emailData = await resend.emails.send({
-            from: 'Training Schedule <admin@edwind.ca>',
+          const eventIcal = generateSingleEventICS(event, participant, organizerName);
+
+          // Send individual event invitation with retry logic for rate limits
+          const emailResponse = await sendWithRetry({
+            from: EMAIL_SENDERS.training,
             to: [participant.email],
             subject: `Training Session: ${event.title} | ${projectTitle}`,
             html: customTemplate ? generateCustomTemplate({
@@ -204,31 +255,27 @@ export default async function handler(req, res) {
               projectTitle,
               groupName: participant.groupName
             }),
-            attachments: [
-              {
-                filename: `${event.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_invite.ics`,
-                content: Buffer.from(eventIcal).toString('base64'),
-                type: 'text/calendar; method=REQUEST',
-                disposition: 'attachment'
-              }
-            ]
+            attachments: [createICSAttachment(eventIcal, event.title)]
           });
 
           // Rate limiting delay - wait before next email
           await delay(RATE_LIMIT_DELAY);
 
           // Check if Resend returned an error
-          if (emailData.error) {
+          if (emailResponse.error) {
+            const errorInfo = emailResponse.error;
             participantResults.push({
               eventTitle: event.title,
               status: 'failed',
-              error: emailData.error.message || 'Email service error'
+              error: errorInfo.message || 'Email service error',
+              errorCode: errorInfo.code || errorInfo.statusCode || null,
+              isRateLimited: errorInfo.code === 'RATE_LIMIT_EXCEEDED' || errorInfo.statusCode === 429
             });
           } else {
             participantResults.push({
               eventTitle: event.title,
               status: 'sent',
-              emailId: emailData.data?.id || emailData.id
+              emailId: emailResponse.data?.id || emailResponse.id
             });
           }
           
@@ -259,204 +306,94 @@ export default async function handler(req, res) {
 
     const successCount = inviteResults.filter(r => r.status === 'sent').length;
     const failureCount = inviteResults.filter(r => r.status === 'failed').length;
+    const partialCount = inviteResults.filter(r => r.status === 'partial').length;
+
+    // Check for rate limit errors across all results
+    const rateLimitErrors = inviteResults.flatMap(r =>
+      r.eventResults?.filter(er => er.isRateLimited) || []
+    );
+    const hasRateLimitErrors = rateLimitErrors.length > 0;
+
+    // Build detailed error summary for the frontend
+    const errorSummary = {};
+    inviteResults.forEach(r => {
+      r.eventResults?.forEach(er => {
+        if (er.status === 'failed' && er.error) {
+          const errorKey = er.errorCode || 'UNKNOWN';
+          if (!errorSummary[errorKey]) {
+            errorSummary[errorKey] = { count: 0, message: er.error };
+          }
+          errorSummary[errorKey].count++;
+        }
+      });
+    });
+
+    // Log email usage (fire-and-forget)
+    const orgId = await getOrgIdFromProject(parseInt(projectId));
+    const totalEmailsSent = inviteResults.reduce((sum, r) => sum + (r.successfulInvites || 0), 0);
+    const userId = req.cookies?.workos_user_id;
+
+    logUsage({
+      provider: PROVIDERS.RESEND,
+      action: 'send_calendar_invites',
+      organizationId: orgId,
+      userId,
+      projectId: parseInt(projectId),
+      inputSize: totalEmailsSent,
+      success: successCount > 0,
+      errorCode: failureCount > 0 ? 'PARTIAL_FAILURE' : null
+    });
+
+    // Build response message
+    let responseMessage = `Calendar invites processed: ${successCount} sent, ${failureCount} failed`;
+    if (hasRateLimitErrors) {
+      responseMessage += ' (rate limit reached - please wait and retry failed invites)';
+    }
+    if (invalidEmailRecipients.length > 0) {
+      responseMessage += `. ${invalidEmailRecipients.length} recipient(s) skipped due to invalid email addresses.`;
+    }
 
     res.status(200).json({
       success: successCount > 0,
-      message: `Calendar invites processed: ${successCount} sent, ${failureCount} failed`,
+      message: responseMessage,
       results: inviteResults,
       summary: {
         totalParticipants: allParticipants.length,
         totalEvents: calendarEvents.length,
         successCount,
-        failureCount
+        failureCount,
+        partialCount,
+        hasRateLimitErrors,
+        rateLimitedCount: rateLimitErrors.length,
+        skippedInvalidEmails: invalidEmailRecipients.length,
+        invalidEmailRecipients: invalidEmailRecipients,
+        errorSummary
       }
     });
 
   } catch (error) {
     console.error('Error sending calendar invites:', error);
-    res.status(500).json({ 
+
+    // Provide more specific error messages
+    let message = 'An unexpected error occurred while sending calendar invites.';
+
+    if (error.message?.includes('email')) {
+      message = 'There was an issue with one or more email addresses. Please verify all recipients have valid emails.';
+    } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      message = 'Network error. Please check your connection and try again.';
+    } else if (error.message?.includes('rate')) {
+      message = 'Too many requests. Please wait a moment and try again.';
+    }
+
+    res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message 
+      message,
+      error: error.message
     });
   }
 }
 
-function createEventDescription(event, dailyFocus, groupNames, meetingLink, includeMeetingLink = true, room = null) {
-  let description = '';
-
-  if (event.course) {
-    description += `Course: ${event.course.title}\n\n`;
-  }
-
-  if (event.description) {
-    description += `Description: ${event.description}\n\n`;
-  }
-
-  if (room) {
-    description += `Room: ${room.name}`;
-    if (room.location) {
-      description += ` (${room.location})`;
-    }
-    if (room.capacity) {
-      description += ` - Capacity: ${room.capacity}`;
-    }
-    description += '\n\n';
-  }
-
-  if (groupNames.length > 0) {
-    description += `Groups: ${groupNames.join(', ')}\n\n`;
-  }
-
-  if (dailyFocus) {
-    description += `Daily Focus: ${dailyFocus}\n\n`;
-  }
-
-  if (includeMeetingLink && meetingLink) {
-    description += `Join Meeting: ${meetingLink}\n\n`;
-  }
-
-  return description;
-}
-
-function generateSingleEventInvitation(event, participant, organizationName = 'EDWIND Training') {
-  const now = new Date();
-  const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const uid = `${timestamp}-${Math.random().toString(36).substring(7)}@edwind.training`;
-
-  // Format times with timezone support
-  // If event has a timezone, use TZID format; otherwise use UTC
-  const eventTimezone = event.timezone || 'UTC';
-  let dtstart, dtend, vtimezone = '';
-
-  if (eventTimezone && eventTimezone !== 'UTC') {
-    // Convert UTC time to the target timezone and format for ICS
-    // Use formatInTimeZone to get the correct local time in the specified timezone
-    const formatForICS = (date, tz) => {
-      return formatInTimeZone(date, tz, "yyyyMMdd'T'HHmmss");
-    };
-
-    dtstart = `DTSTART;TZID=${eventTimezone}:${formatForICS(event.startTime, eventTimezone)}`;
-    dtend = `DTEND;TZID=${eventTimezone}:${formatForICS(event.endTime, eventTimezone)}`;
-
-    // Add VTIMEZONE component for better compatibility
-    vtimezone = `BEGIN:VTIMEZONE
-TZID:${eventTimezone}
-X-LIC-LOCATION:${eventTimezone}
-END:VTIMEZONE
-`;
-  } else {
-    // Use UTC format
-    const startTime = event.startTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const endTime = event.endTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    dtstart = `DTSTART:${startTime}`;
-    dtend = `DTEND:${endTime}`;
-  }
-
-  // Escape special characters in description and location
-  const escapeIcal = (str) => {
-    if (!str) return '';
-    return str
-      .replace(/\\/g, '\\\\')
-      .replace(/;/g, '\\;')
-      .replace(/,/g, '\\,')
-      .replace(/\n/g, '\\n');
-  };
-
-  const ical = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//EDWIND//Training Event Invitation//EN
-CALSCALE:GREGORIAN
-METHOD:REQUEST
-${vtimezone}BEGIN:VEVENT
-UID:${uid}
-DTSTAMP:${timestamp}
-${dtstart}
-${dtend}
-SUMMARY:${escapeIcal(event.title)}
-DESCRIPTION:${escapeIcal(event.description)}
-LOCATION:${escapeIcal(event.location)}
-STATUS:CONFIRMED
-SEQUENCE:0
-ATTENDEE;CN=${participant.firstName} ${participant.lastName};RSVP=TRUE;ROLE=REQ-PARTICIPANT:mailto:${participant.email}
-ORGANIZER;CN=${organizationName}:mailto:admin@edwind.ca
-REQUEST-STATUS:2.0;Success
-END:VEVENT
-END:VCALENDAR`;
-
-  return ical;
-}
-
-function generateEventInviteTemplate({ participantName, event, projectTitle, groupName }) {
-  const startTime = format(event.startTime, 'EEEE, MMMM d, yyyy', { locale: enUS });
-  const timeRange = `${format(event.startTime, 'HH:mm')} - ${format(event.endTime, 'HH:mm')}`;
-
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Training Session - ${event.title}</title>
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-
-      <div style="background: #ffffff; border-radius: 12px; padding: 30px; border: 1px solid #e1e5e9; margin-bottom: 20px;">
-        <p style="font-size: 18px; margin-bottom: 20px;">
-          Hello <strong>${participantName}</strong>,
-        </p>
-
-        <p style="color: #6c757d; margin-bottom: 25px;">
-          You are invited to attend the following training session${groupName ? ` as part of the <strong>${groupName}</strong> group` : ''}:
-        </p>
-
-        <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; border-left: 4px solid #1976d2;">
-          <h2 style="margin: 0 0 15px 0; color: #1976d2; font-size: 24px;">${event.title}</h2>
-          ${event.course && event.course !== event.title ? `<p style="margin: 0 0 10px 0; color: #6c757d; font-weight: 500;">Course: ${event.course}</p>` : ''}
-
-          <div style="margin: 15px 0;">
-            <p style="margin: 5px 0;"><strong>Date:</strong> ${startTime}</p>
-            <p style="margin: 5px 0;"><strong>Time:</strong> ${timeRange}</p>
-            <p style="margin: 5px 0;"><strong>Time Zone:</strong> ${event.timezone || 'UTC'}</p>
-            ${event.room ? `<p style="margin: 5px 0;"><strong>Room:</strong> ${event.room.name}${event.room.location ? ` (${event.room.location})` : ''}</p>` : ''}
-            ${event.location && !event.room ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${event.location}</p>` : ''}
-            ${event.meetingLink ? `
-              <p style="margin: 5px 0;"><strong>Join Meeting:</strong>
-                <a href="${event.meetingLink}" target="_blank" style="color: #1976d2; text-decoration: none; font-weight: 500;">
-                  Click to Join
-                </a>
-              </p>
-            ` : ''}
-          </div>
-
-          ${event.description ? `
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
-              <p style="margin: 0; color: #6c757d;">${event.description.replace(/\n/g, '<br>')}</p>
-            </div>
-          ` : ''}
-        </div>
-
-        <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 16px; margin: 25px 0;">
-          <h3 style="margin: 0 0 8px 0; color: #155724; font-size: 16px;">Calendar Invitation Attached</h3>
-          <p style="margin: 8px 0; color: #155724;">
-            A calendar invitation (.ics file) is attached to this email. Click on it to add this event to your calendar and respond with Accept/Decline.
-          </p>
-        </div>
-
-              </div>
-
-      <div style="text-align: center; color: #6c757d; font-size: 14px; border-top: 1px solid #e1e5e9; padding-top: 20px;">
-        <p style="margin: 0;">
-          EDWIND Training Management System<br>
-          <a href="mailto:support@edwind.ca" style="color: #1976d2;">support@edwind.ca</a>
-        </p>
-      </div>
-
-    </body>
-    </html>
-  `;
-}
-
+// Custom template function for advanced email customization (kept local as it's specific to this route)
 function generateCustomTemplate({ template, participantName, event, events, projectTitle, groupName, templateType, project }) {
   let processedTemplate = template;
   
@@ -699,107 +636,4 @@ function generateCustomTemplate({ template, participantName, event, events, proj
   }
 
   return processedTemplate;
-}
-
-function generateEmailTemplate({ participantName, projectTitle, calendarEvents, groupName }) {
-  const eventsHtml = calendarEvents.map(event => {
-    const startTime = format(event.startTime, 'EEEE, MMMM d, yyyy', { locale: enUS });
-    const timeRange = `${format(event.startTime, 'HH:mm')} - ${format(event.endTime, 'HH:mm')}`;
-
-    return `
-      <tr style="border-bottom: 1px solid #e1e5e9;">
-        <td style="padding: 12px 8px; background-color: #f8f9fa;">
-          <strong>${event.title}</strong>
-          ${event.course ? `<br><span style="color: #6c757d; font-size: 0.875rem;">${event.course}</span>` : ''}
-        </td>
-        <td style="padding: 12px 8px;">
-          <div style="margin-bottom: 4px;">
-            <strong>Date:</strong> ${startTime}
-          </div>
-          <div style="margin-bottom: 4px;">
-            <strong>Time:</strong> ${timeRange}
-          </div>
-          ${event.location ? `
-            <div style="margin-bottom: 4px;">
-              <strong>Location:</strong> ${event.location}
-            </div>
-          ` : ''}
-          ${event.description ? `
-            <div style="margin-top: 8px; color: #6c757d; font-size: 0.875rem;">
-              ${event.description.replace(/\n/g, '<br>')}
-            </div>
-          ` : ''}
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Training Schedule</title>
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-
-      <div style="background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; text-align: center;">
-        <h1 style="margin: 0; font-size: 28px; font-weight: 700;">Training Schedule</h1>
-        <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 16px;">${projectTitle}</p>
-      </div>
-
-      <div style="background: #ffffff; border-radius: 12px; padding: 30px; border: 1px solid #e1e5e9; margin-bottom: 20px;">
-        <p style="font-size: 18px; margin-bottom: 20px;">
-          Hello <strong>${participantName}</strong>,
-        </p>
-
-        <p style="color: #6c757d; margin-bottom: 25px;">
-          You have been invited to participate in the <strong>${projectTitle}</strong> training program${groupName ? ` as part of the <strong>${groupName}</strong> group` : ''}. Please find your training schedule below:
-        </p>
-
-        <table style="width: 100%; border-collapse: collapse; margin: 25px 0; border: 1px solid #e1e5e9; border-radius: 8px; overflow: hidden;">
-          <thead>
-            <tr style="background-color: #f8f9fa;">
-              <th style="padding: 15px 8px; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6;">Event</th>
-              <th style="padding: 15px 8px; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6;">Schedule Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${eventsHtml}
-          </tbody>
-        </table>
-
-        <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 16px; margin: 25px 0;">
-          <h3 style="margin: 0 0 8px 0; color: #155724; font-size: 16px;">Calendar File Attached</h3>
-          <p style="margin: 8px 0; color: #155724;">
-            A calendar file (.ics) is attached to this email. You can import it directly into your calendar application (Outlook, Google Calendar, Apple Calendar, etc.) to add all training events at once.
-          </p>
-        </div>
-
-        <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 16px; margin: 25px 0;">
-          <h3 style="margin: 0 0 8px 0; color: #0c5460; font-size: 16px;">Important Notes</h3>
-          <ul style="margin: 8px 0; padding-left: 20px; color: #0c5460;">
-            <li>Please arrive 15 minutes before each session</li>
-            <li>Bring any required materials as specified in your course documentation</li>
-            <li>Contact your instructor if you need to reschedule or have questions</li>
-            <li>All training sessions are mandatory unless otherwise noted</li>
-          </ul>
-        </div>
-
-        <p style="color: #6c757d; margin-top: 25px;">
-          If you have any questions about your training schedule, please contact your training coordinator.
-        </p>
-      </div>
-
-      <div style="text-align: center; color: #6c757d; font-size: 14px; border-top: 1px solid #e1e5e9; padding-top: 20px;">
-        <p style="margin: 0;">
-          EDWIND Training Management System<br>
-          <a href="mailto:support@edwind.ca" style="color: #1976d2;">support@edwind.ca</a>
-        </p>
-      </div>
-
-    </body>
-    </html>
-  `;
 }

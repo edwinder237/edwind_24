@@ -2,7 +2,7 @@ import React, { useCallback, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useSelector, useDispatch } from 'store';
 import { Box, Button, Typography, Dialog, Alert } from '@mui/material';
-import { useGetProjectParticipantsQuery, useGetAvailableRolesQuery } from 'store/api/projectApi';
+import { useGetProjectParticipantsQuery, useGetAvailableRolesQuery, projectApi } from 'store/api/projectApi';
 
 // Project imports
 import MainCard from 'components/MainCard';
@@ -68,11 +68,16 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
   const refreshing = refreshingParticipants;
   const error = participantsError;
 
-  // Stable refresh function placeholder
+  // Refresh function that invalidates RTK Query cache to trigger refetch
   const refreshData = useCallback(() => {
-    // Refresh is triggered by parent component
-    console.log('[ParticipantsTable] Refresh requested');
-  }, []);
+    if (projectId) {
+      console.log('[ParticipantsTable] Refresh requested, invalidating cache for projectId:', projectId);
+      dispatch(projectApi.util.invalidateTags([
+        { type: 'ProjectParticipants', id: parseInt(projectId) },
+        'Participant'
+      ]));
+    }
+  }, [dispatch, projectId]);
 
   // Table UI state management (inlined from useTableState hook)
   const [emailAccessDialog, setEmailAccessDialog] = useState(false);

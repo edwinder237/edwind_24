@@ -26,7 +26,7 @@ import axios from 'utils/axios';
 
 // ==============================|| INVITE USER DIALOG ||============================== //
 
-const InviteUserDialog = ({ open, onClose, subOrganizations }) => {
+const InviteUserDialog = ({ open, onClose, subOrganizations, systemRoles }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -37,7 +37,8 @@ const InviteUserDialog = ({ open, onClose, subOrganizations }) => {
     firstName: '',
     lastName: '',
     role: 'member',
-    sub_organizationId: ''
+    sub_organizationId: '',
+    appRoleId: ''
   });
 
   const handleChange = (field) => (event) => {
@@ -67,7 +68,8 @@ const InviteUserDialog = ({ open, onClose, subOrganizations }) => {
     try {
       const response = await axios.post('/api/admin/users/invite', {
         ...formData,
-        sub_organizationId: formData.sub_organizationId || null
+        sub_organizationId: formData.sub_organizationId || null,
+        appRoleId: formData.appRoleId || null
       });
 
       if (response.data.success) {
@@ -79,7 +81,8 @@ const InviteUserDialog = ({ open, onClose, subOrganizations }) => {
             firstName: '',
             lastName: '',
             role: 'member',
-            sub_organizationId: ''
+            sub_organizationId: '',
+            appRoleId: ''
           });
           onClose(true);
         }, 1500);
@@ -99,7 +102,8 @@ const InviteUserDialog = ({ open, onClose, subOrganizations }) => {
         firstName: '',
         lastName: '',
         role: 'member',
-        sub_organizationId: ''
+        sub_organizationId: '',
+        appRoleId: ''
       });
       setError('');
       setSuccess('');
@@ -200,6 +204,28 @@ const InviteUserDialog = ({ open, onClose, subOrganizations }) => {
               </Select>
             </FormControl>
           </Grid>
+
+          {/* Application Role */}
+          <Grid item xs={12}>
+            <FormControl fullWidth>
+              <InputLabel>Application Role</InputLabel>
+              <Select
+                value={formData.appRoleId}
+                label="Application Role"
+                onChange={handleChange('appRoleId')}
+                disabled={loading || formData.role === 'admin'}
+              >
+                <MenuItem value="">
+                  <em>Viewer (default)</em>
+                </MenuItem>
+                {systemRoles.map((role) => (
+                  <MenuItem key={role.id} value={role.id}>
+                    {role.name} - {role.description}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
         </Grid>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -222,11 +248,13 @@ const InviteUserDialog = ({ open, onClose, subOrganizations }) => {
 InviteUserDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  subOrganizations: PropTypes.array
+  subOrganizations: PropTypes.array,
+  systemRoles: PropTypes.array
 };
 
 InviteUserDialog.defaultProps = {
-  subOrganizations: []
+  subOrganizations: [],
+  systemRoles: []
 };
 
 export default InviteUserDialog;

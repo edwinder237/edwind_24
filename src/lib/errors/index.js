@@ -156,6 +156,16 @@ export class AdminRequiredError extends ForbiddenError {
 }
 
 /**
+ * User account is inactive/deactivated
+ */
+export class AccountInactiveError extends UnauthorizedError {
+  constructor(message = 'Your account has been deactivated') {
+    super(message);
+    this.code = 'ACCOUNT_INACTIVE';
+  }
+}
+
+/**
  * Error Handler Middleware
  * Converts errors to consistent API responses
  */
@@ -262,6 +272,7 @@ export default {
   ResourceNotInOrganizationError,
   InvalidSubOrganizationError,
   AdminRequiredError,
+  AccountInactiveError,
   errorHandler,
   asyncHandler,
   assertOrganizationSelected,

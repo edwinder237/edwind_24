@@ -1,9 +1,30 @@
 import { ConsoleSqlOutlined } from "@ant-design/icons";
 import prisma from "../../../lib/prisma";
+import { requireResourceCapacity, checkResourceCapacity } from "../../../lib/features/featureMiddleware";
+import { RESOURCES } from "../../../lib/features/featureAccess";
 
-export default async function handler(req, res) {
+async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   const { newProject } = req.body;
   //delete newProject.id;
+
+  // Check monthly project quota if subscription context is available
+  if (req.subscription && req.resourceUsage) {
+    const monthlyCapacity = await checkResourceCapacity(req, RESOURCES.PROJECTS_PER_MONTH, 1);
+    if (!monthlyCapacity.hasCapacity) {
+      return res.status(403).json({
+        error: 'Monthly project limit exceeded',
+        message: `You have reached your monthly project creation limit`,
+        current: monthlyCapacity.current,
+        limit: monthlyCapacity.limit,
+        available: monthlyCapacity.available,
+        upgradeUrl: '/upgrade'
+      });
+    }
+  }
 
   // First, check if the user exists, if not create a default user or use system user
   let userExists = await prisma.user.findUnique({
@@ -109,3 +130,6 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
+
+// Wrap with resource capacity check for projects
+export default requireResourceCapacity(RESOURCES.PROJECTS, 1)(handler);

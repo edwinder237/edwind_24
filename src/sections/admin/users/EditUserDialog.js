@@ -17,6 +17,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Stack,
   Switch,
   TextField,
   Typography
@@ -28,13 +29,20 @@ import { EditOutlined, SaveOutlined } from '@ant-design/icons';
 // project imports
 import axios from 'utils/axios';
 
+// Admin roles that are determined by WorkOS (Level 0-1)
+const ADMIN_WORKOS_ROLES = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
+
 // ==============================|| EDIT USER DIALOG ||============================== //
 
-const EditUserDialog = ({ open, onClose, user, subOrganizations }) => {
+const EditUserDialog = ({ open, onClose, user, subOrganizations, systemRoles }) => {
   const [loading, setLoading] = useState(false);
   const [roleLoading, setRoleLoading] = useState(false);
+  const [appRoleLoading, setAppRoleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Check if user has admin WorkOS role (Level 0-1)
+  const isAdminUser = user?.role && ADMIN_WORKOS_ROLES.includes(user.role.toLowerCase());
 
   // Form state
   const [formData, setFormData] = useState({
@@ -42,7 +50,8 @@ const EditUserDialog = ({ open, onClose, user, subOrganizations }) => {
     lastName: '',
     role: 'member',
     sub_organizationId: '',
-    isActive: true
+    isActive: true,
+    appRoleId: ''
   });
 
   // Initialize form when user changes
@@ -53,7 +62,8 @@ const EditUserDialog = ({ open, onClose, user, subOrganizations }) => {
         lastName: user.lastName || '',
         role: user.role || 'member',
         sub_organizationId: user.sub_organization?.id || '',
-        isActive: user.isActive !== false
+        isActive: user.isActive !== false,
+        appRoleId: user.appRole?.id || ''
       });
       setError('');
       setSuccess('');
@@ -122,8 +132,30 @@ const EditUserDialog = ({ open, onClose, user, subOrganizations }) => {
     }
   };
 
+  // Update application role (Level 2-4)
+  const handleSaveAppRole = async () => {
+    setAppRoleLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await axios.put(`/api/admin/users/${user.id}/app-role`, {
+        roleId: formData.appRoleId || null
+      });
+
+      if (response.data.success) {
+        setSuccess(response.data.message || 'Application role updated successfully');
+      }
+    } catch (err) {
+      console.error('App role update error:', err);
+      setError(err.response?.data?.error || 'Failed to update application role');
+    } finally {
+      setAppRoleLoading(false);
+    }
+  };
+
   const handleDialogClose = () => {
-    if (!loading && !roleLoading) {
+    if (!loading && !roleLoading && !appRoleLoading) {
       onClose(success !== '');
     }
   };
@@ -271,10 +303,69 @@ const EditUserDialog = ({ open, onClose, user, subOrganizations }) => {
               {roleLoading ? 'Updating...' : 'Update Role'}
             </Button>
           </Grid>
+
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1 }} />
+          </Grid>
+
+          {/* App Role Section (Level 2-4) */}
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Application Role (Permissions)
+            </Typography>
+            {isAdminUser ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                This user has Admin/Owner access via WorkOS. Application roles are not applicable for admin-tier users.
+              </Alert>
+            ) : (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                App roles control what features the user can access within the platform.
+              </Alert>
+            )}
+          </Grid>
+
+          <Grid item xs={12} sm={8}>
+            <FormControl fullWidth>
+              <InputLabel>Application Role</InputLabel>
+              <Select
+                value={formData.appRoleId || ''}
+                label="Application Role"
+                onChange={handleChange('appRoleId')}
+                disabled={appRoleLoading || isAdminUser}
+              >
+                <MenuItem value="">
+                  <em>Not assigned (defaults to Viewer)</em>
+                </MenuItem>
+                {systemRoles.map((role) => (
+                  <MenuItem key={role.id} value={role.id}>
+                    <Stack>
+                      <Typography variant="body2">{role.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {role.description}
+                      </Typography>
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} sm={4}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={handleSaveAppRole}
+              disabled={loading || appRoleLoading || isAdminUser}
+              startIcon={appRoleLoading ? <CircularProgress size={16} /> : null}
+              sx={{ height: '56px' }}
+            >
+              {appRoleLoading ? 'Updating...' : 'Update App Role'}
+            </Button>
+          </Grid>
         </Grid>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleDialogClose} disabled={loading || roleLoading}>
+        <Button onClick={handleDialogClose} disabled={loading || roleLoading || appRoleLoading}>
           Close
         </Button>
       </DialogActions>
@@ -286,12 +377,14 @@ EditUserDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   user: PropTypes.object,
-  subOrganizations: PropTypes.array
+  subOrganizations: PropTypes.array,
+  systemRoles: PropTypes.array
 };
 
 EditUserDialog.defaultProps = {
   user: null,
-  subOrganizations: []
+  subOrganizations: [],
+  systemRoles: []
 };
 
 export default EditUserDialog;

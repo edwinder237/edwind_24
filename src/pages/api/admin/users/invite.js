@@ -160,7 +160,6 @@ export default async function handler(req, res) {
         name: `${firstName || ''} ${lastName || ''}`.trim() || email.split('@')[0],
         username: email.split('@')[0],
         password: 'pending_invitation', // Placeholder - user will set via WorkOS
-        status: 'pending',
         isActive: false, // Will be activated when invitation is accepted
         sub_organizationId: finalSubOrgId,
         info: {
@@ -187,7 +186,7 @@ export default async function handler(req, res) {
       user: {
         id: pendingUser.id,
         email: pendingUser.email,
-        status: pendingUser.status
+        isActive: pendingUser.isActive
       }
     });
 

@@ -545,6 +545,191 @@ export async function disconnectPrisma() {
   await prisma.$disconnect();
 }
 
+// ============================================
+// STRIPE INTEGRATION FUNCTIONS
+// ============================================
+
+/**
+ * Get subscription by Stripe subscription ID
+ *
+ * @param {string} stripeSubscriptionId - Stripe subscription ID
+ * @returns {Promise<Object|null>} Subscription object or null
+ */
+export async function getSubscriptionByStripeId(stripeSubscriptionId) {
+  try {
+    return await prisma.subscriptions.findFirst({
+      where: { stripeSubscriptionId },
+      include: {
+        plan: true,
+        organization: {
+          select: {
+            id: true,
+            title: true,
+            workos_org_id: true
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching subscription by Stripe ID:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update Stripe data on a subscription
+ *
+ * @param {Object} params - Parameters
+ * @param {string} params.organizationId - Organization ID
+ * @param {Object} params.stripeData - Stripe data to update
+ * @returns {Promise<Object>} Updated subscription
+ */
+export async function updateStripeData({ organizationId, stripeData }) {
+  try {
+    const subscription = await prisma.subscriptions.update({
+      where: { organizationId },
+      data: {
+        stripeCustomerId: stripeData.customerId,
+        stripeSubscriptionId: stripeData.subscriptionId,
+        stripeProductId: stripeData.productId,
+        stripePriceId: stripeData.priceId,
+        ...(stripeData.status && { status: stripeData.status }),
+        ...(stripeData.currentPeriodStart && { currentPeriodStart: stripeData.currentPeriodStart }),
+        ...(stripeData.currentPeriodEnd && { currentPeriodEnd: stripeData.currentPeriodEnd })
+      },
+      include: {
+        plan: true
+      }
+    });
+
+    // Invalidate cache
+    subscriptionCache.delete(organizationId);
+
+    console.log(`✅ Updated Stripe data for org ${organizationId}`);
+
+    return subscription;
+  } catch (error) {
+    console.error('Error updating Stripe data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Handle payment failure - update subscription status
+ *
+ * @param {Object} params - Parameters
+ * @param {string} params.organizationId - Organization ID
+ * @param {string} params.reason - Failure reason
+ * @returns {Promise<Object>} Updated subscription
+ */
+export async function handlePaymentFailure({ organizationId, reason }) {
+  try {
+    const currentSub = await prisma.subscriptions.findUnique({
+      where: { organizationId }
+    });
+
+    if (!currentSub) {
+      throw new Error(`Subscription not found for org ${organizationId}`);
+    }
+
+    const subscription = await prisma.subscriptions.update({
+      where: { organizationId },
+      data: {
+        status: 'past_due',
+        history: {
+          create: {
+            eventType: 'payment_failed',
+            fromStatus: currentSub.status,
+            toStatus: 'past_due',
+            reason: reason || 'Payment failed',
+            changedBy: 'system',
+            changedByRole: 'stripe'
+          }
+        }
+      }
+    });
+
+    // Invalidate cache
+    subscriptionCache.delete(organizationId);
+
+    console.log(`⚠️ Payment failure recorded for org ${organizationId}`);
+
+    return subscription;
+  } catch (error) {
+    console.error('Error handling payment failure:', error);
+    throw error;
+  }
+}
+
+/**
+ * Handle payment success - reactivate subscription if past_due
+ *
+ * @param {Object} params - Parameters
+ * @param {string} params.organizationId - Organization ID
+ * @returns {Promise<Object>} Updated subscription
+ */
+export async function handlePaymentSuccess({ organizationId }) {
+  try {
+    const currentSub = await prisma.subscriptions.findUnique({
+      where: { organizationId }
+    });
+
+    if (!currentSub) {
+      throw new Error(`Subscription not found for org ${organizationId}`);
+    }
+
+    // Only update if status was past_due
+    if (currentSub.status !== 'past_due') {
+      return currentSub;
+    }
+
+    const subscription = await prisma.subscriptions.update({
+      where: { organizationId },
+      data: {
+        status: 'active',
+        history: {
+          create: {
+            eventType: 'payment_succeeded',
+            fromStatus: currentSub.status,
+            toStatus: 'active',
+            reason: 'Payment successful - subscription reactivated',
+            changedBy: 'system',
+            changedByRole: 'stripe'
+          }
+        }
+      }
+    });
+
+    // Invalidate cache
+    subscriptionCache.delete(organizationId);
+
+    console.log(`✅ Payment success - org ${organizationId} reactivated`);
+
+    return subscription;
+  } catch (error) {
+    console.error('Error handling payment success:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if subscription is in good standing (can access paid features)
+ *
+ * @param {string} organizationId - Organization ID
+ * @returns {Promise<boolean>} True if subscription is active
+ */
+export async function isSubscriptionActive(organizationId) {
+  const subscription = await getOrgSubscription(organizationId);
+
+  if (!subscription) {
+    return false;
+  }
+
+  // Active statuses
+  const activeStatuses = ['active', 'trialing'];
+  return activeStatuses.includes(subscription.status);
+}
+
 export default {
   getOrgSubscription,
   createSubscription,
@@ -559,5 +744,11 @@ export default {
   getAllSubscriptions,
   invalidateSubscriptionCache,
   clearAllSubscriptionCaches,
-  disconnectPrisma
+  disconnectPrisma,
+  // Stripe integration
+  getSubscriptionByStripeId,
+  updateStripeData,
+  handlePaymentFailure,
+  handlePaymentSuccess,
+  isSubscriptionActive
 };

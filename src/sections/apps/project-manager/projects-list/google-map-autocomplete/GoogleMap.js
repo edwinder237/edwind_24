@@ -1,123 +1,30 @@
 import PropTypes from "prop-types";
 import * as React from "react";
-
-// material-ui
-import { Autocomplete, Box, Grid, TextField, Typography, Alert } from "@mui/material";
-
-// third-party
-import { getGeocode } from "use-places-autocomplete";
+import { Autocomplete, Box, Grid, TextField, Typography, Alert, CircularProgress } from "@mui/material";
 import parse from "autosuggest-highlight/parse";
-// Native throttle implementation
-const throttle = (func, delay) => {
-  let timeoutId;
-  let lastExecTime = 0;
-  return function (...args) {
-    const currentTime = Date.now();
-    
-    if (currentTime - lastExecTime > delay) {
-      func.apply(this, args);
-      lastExecTime = currentTime;
-    } else {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        func.apply(this, args);
-        lastExecTime = Date.now();
-      }, delay - (currentTime - lastExecTime));
-    }
-  };
-};
-
-// project import
 import { EnvironmentOutlined } from "@ant-design/icons";
 import axios from "utils/axios";
 
-function loadScript(src, position, id) {
-  if (!position) {
-    return;
-  }
+const debounce = (func, delay) => {
+  let timeoutId;
+  return function (...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(this, args), delay);
+  };
+};
 
-  const script = document.createElement("script");
-  script.setAttribute("async", "");
-  script.setAttribute("id", id);
-  script.src = src;
-  position.appendChild(script);
-}
-
-const autocompleteService = { current: null };
-const placesService = { current: null };
-
-// Function to save image to R2 bucket
 const saveImageToR2 = async (imageUrl, placeName) => {
-  if (!imageUrl) {
-    console.warn('⚠️ No image URL provided for R2 upload');
-    return null;
-  }
-  
+  if (!imageUrl) return null;
   try {
-    console.log(`🔄 Uploading image to R2: ${placeName}`);
-    
     const response = await axios.post('/api/images/save-from-url', {
-      imageUrl: imageUrl,
+      imageUrl,
       prefix: 'places'
     });
-
-    if (response.data.success) {
-      console.log(`✅ Image uploaded to R2: ${response.data.data.r2Key}`);
-      return response.data.data.r2Url;
-    } else {
-      console.error(`❌ R2 upload failed: ${response.data.message}`);
-      return imageUrl; // Fallback to original URL
-    }
-  } catch (error) {
-    console.error(`❌ R2 upload error for ${placeName}:`, error.message);
-    return imageUrl; // Fallback to original URL
+    return response.data.success ? response.data.data.r2Url : imageUrl;
+  } catch {
+    return imageUrl;
   }
 };
-
-// Function to get place details including photos - fallback to old API for compatibility
-const getPlaceDetails = (placeId) => {
-  return new Promise((resolve, reject) => {
-    if (!placesService.current || !window.google) {
-      resolve({ imageUrl: null, photos: [] });
-      return;
-    }
-    
-    const request = {
-      placeId: placeId,
-      fields: ['photos', 'name', 'formatted_address', 'geometry']
-    };
-    
-    placesService.current.getDetails(request, (place, status) => {
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-        let imageUrl = null;
-        const photos = [];
-        
-        if (place.photos && place.photos.length > 0) {
-          // Get the first photo URL with high resolution
-          imageUrl = place.photos[0].getUrl({
-            maxWidth: 1200,
-            maxHeight: 800
-          });
-          
-          // Get multiple photos if available
-          place.photos.slice(0, 5).forEach(photo => {
-            photos.push({
-              url: photo.getUrl({ maxWidth: 800, maxHeight: 600 }),
-              htmlAttributions: photo.html_attributions
-            });
-          });
-        }
-        
-        resolve({ imageUrl, photos, place });
-      } else {
-        console.warn('Place details request failed:', status);
-        resolve({ imageUrl: null, photos: [] });
-      }
-    });
-  });
-};
-
-// ==============================|| GOOGLE MAP - AUTOCOMPLETE ||============================== //
 
 const GoogleMaps = React.memo(({ formik, disabled, handleLocationChange }) => {
   const [value, setValue] = React.useState(null);
@@ -125,138 +32,117 @@ const GoogleMaps = React.memo(({ formik, disabled, handleLocationChange }) => {
   const [options, setOptions] = React.useState([]);
   const [error, setError] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(false);
-  const loaded = React.useRef(false);
-  
-  if (typeof window !== "undefined" && !loaded.current) {
-    if (!process.env.GOOGLE_MAPS_API_KEY) {
-      setError("Google Maps API key is not configured. Please add GOOGLE_MAPS_API_KEY to your environment variables.");
-      loaded.current = true;
-      return;
-    }
-    
-    if (!document.querySelector("#google-maps")) {
-      loadScript(
-        `https://maps.googleapis.com/maps/api/js?key=${process.env.GOOGLE_MAPS_API_KEY}&libraries=places&loading=async`,
-        document.querySelector("head"),
-        "google-maps"
-      );
-    }
+  const [sessionToken, setSessionToken] = React.useState('');
 
-    loaded.current = true;
-  }
+  React.useEffect(() => {
+    setSessionToken(crypto.randomUUID());
+  }, []);
 
-  const fetch = React.useMemo(
+  const searchLocations = React.useMemo(
     () =>
-      throttle((request, callback) => {
-        if (!autocompleteService.current) {
-          callback(null, null);
+      debounce(async (query) => {
+        if (!query || query.length < 3) {
+          setOptions(value ? [value] : []);
+          setIsLoading(false);
           return;
         }
+
+        setIsLoading(true);
         try {
-          autocompleteService.current.getPlacePredictions(
-            { ...request, types: ['establishment', 'geocode'] },
-            (predictions, status) => {
-              if (status === window.google.maps.places.PlacesServiceStatus.OK) {
-                callback(predictions, null);
-              } else {
-                callback(null, status);
-              }
-            }
-          );
-        } catch (error) {
-          console.error('Error fetching place predictions:', error);
-          callback(null, error);
+          const params = new URLSearchParams({
+            input: query,
+            sessionToken,
+            types: 'establishment|geocode',
+            components: 'country:us|country:ca'
+          });
+
+          const response = await fetch(`/api/maps/autocomplete?${params}`);
+          const data = await response.json();
+
+          if (data.status === 'OK' && data.predictions) {
+            let newOptions = value ? [value] : [];
+            newOptions = [...newOptions, ...data.predictions.map(prediction => ({
+              place_id: prediction.place_id,
+              description: prediction.description,
+              structured_formatting: prediction.structured_formatting,
+              types: prediction.types
+            }))];
+            setOptions(newOptions);
+            setError(null);
+          } else if (data.status === 'ZERO_RESULTS') {
+            setOptions(value ? [value] : []);
+            setError(null);
+          } else if (data.status === 'OVER_QUERY_LIMIT') {
+            setError('Search limit reached. Please try again in a moment.');
+          } else if (data.status === 'REQUEST_DENIED') {
+            setError('Location search is not available.');
+          } else {
+            setOptions(value ? [value] : []);
+          }
+        } catch {
+          setError('Failed to search locations.');
+        } finally {
+          setIsLoading(false);
         }
-      }, 200),
-    []
+      }, 300),
+    [sessionToken, value]
   );
 
   React.useEffect(() => {
-    let active = true;
-
-    if (!autocompleteService.current && window.google) {
-      autocompleteService.current =
-        new window.google.maps.places.AutocompleteService();
-    }
-    
-    // Initialize Places Service for getting place details and photos
-    if (!placesService.current && window.google) {
-      // Create a hidden div for the PlacesService
-      const div = document.createElement('div');
-      placesService.current = new window.google.maps.places.PlacesService(div);
-    }
-    
-    if (!autocompleteService.current) {
-      return undefined;
-    }
-
-    if (inputValue === "") {
+    if (inputValue) {
+      searchLocations(inputValue);
+    } else {
       setOptions(value ? [value] : []);
-      return undefined;
     }
+  }, [inputValue, searchLocations]);
 
-    setIsLoading(true);
-    fetch({ input: inputValue }, (results, error) => {
-      if (active) {
-        setIsLoading(false);
-        if (error) {
-          // Handle specific Google Maps API statuses
-          if (error === 'ZERO_RESULTS') {
-            // Don't show error for no results, just clear options
-            let newOptions = [];
-            if (value) {
-              newOptions = [value];
-            }
-            setOptions(newOptions);
-            setError(null);
-            return;
-          } else if (error === 'OVER_QUERY_LIMIT') {
-            setError('Search limit reached. Please try again in a moment.');
-            return;
-          } else if (error === 'REQUEST_DENIED') {
-            setError('Location search is not available. Please check API configuration.');
-            return;
-          } else {
-            setError(`Location search error: ${error}`);
-            return;
+  const getPlaceDetails = async (placeId) => {
+    try {
+      const params = new URLSearchParams({
+        placeId,
+        sessionToken,
+        fields: 'place_id,formatted_address,name,geometry,address_components,types,photos'
+      });
+
+      const response = await fetch(`/api/maps/place-details?${params}`);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.result) {
+        const place = data.result;
+        let imageUrl = null;
+        const photos = [];
+
+        if (place.photos?.length > 0) {
+          const photoRef = place.photos[0].photo_reference;
+          if (photoRef) {
+            imageUrl = `/api/maps/photo?photoReference=${photoRef}&maxWidth=1200`;
           }
-        }
-        
-        let newOptions = [];
-
-        if (value) {
-          newOptions = [value];
-        }
-
-        if (results) {
-          newOptions = [...newOptions, ...results];
+          place.photos.slice(0, 5).forEach(photo => {
+            if (photo.photo_reference) {
+              photos.push({
+                url: `/api/maps/photo?photoReference=${photo.photo_reference}&maxWidth=800`,
+                htmlAttributions: photo.html_attributions
+              });
+            }
+          });
         }
 
-        setOptions(newOptions);
-        setError(null);
+        return { imageUrl, photos, place, address_components: place.address_components, geometry: place.geometry };
       }
-    });
+      return { imageUrl: null, photos: [], place: null };
+    } catch {
+      return { imageUrl: null, photos: [], place: null };
+    }
+  };
 
-    return () => {
-      active = false;
-    };
-  }, [value, inputValue, fetch]);
-
-  // Show error alert if there's an issue
   if (error) {
-    return (
-      <Alert severity="warning" sx={{ mb: 2 }}>
-        {error}
-      </Alert>
-    );
+    return <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>;
   }
 
   return (
     <Autocomplete
       id="google-map-demo"
-      getOptionLabel={(option) =>
-        typeof option === "string" ? option : option.description
-      }
+      getOptionLabel={(option) => typeof option === "string" ? option : option.description}
       filterOptions={(x) => x}
       options={options}
       autoComplete
@@ -265,139 +151,108 @@ const GoogleMaps = React.memo(({ formik, disabled, handleLocationChange }) => {
       includeInputInList
       filterSelectedOptions
       disabled={disabled}
+      loading={isLoading}
       value={value}
       onChange={async (event, newValue) => {
         setOptions(newValue ? [newValue, ...options] : options);
         setValue(newValue);
-        
+
         if (newValue) {
-          try {
-            console.log(`🌍 Location selected: ${newValue.description}`);
-            
-            // Get place details including photos
-            const placeDetails = await getPlaceDetails(newValue.place_id);
-            
-            // Save the main image to R2 if it exists
-            let r2ImageUrl = null;
-            if (placeDetails.imageUrl) {
-              r2ImageUrl = await saveImageToR2(placeDetails.imageUrl, newValue.description);
-            }
-            
-            const locationWithImage = {
-              ...newValue,
-              imageUrl: r2ImageUrl || placeDetails.imageUrl || null,
-              originalGoogleImageUrl: placeDetails.imageUrl || null,
-              photos: placeDetails.photos || []
-            };
-            
-            handleLocationChange(locationWithImage);
-            
+          const placeDetails = await getPlaceDetails(newValue.place_id);
+          setSessionToken(crypto.randomUUID());
+
+          let r2ImageUrl = null;
+          if (placeDetails.imageUrl) {
+            r2ImageUrl = await saveImageToR2(placeDetails.imageUrl, newValue.description);
+          }
+
+          const locationWithImage = {
+            ...newValue,
+            imageUrl: r2ImageUrl || placeDetails.imageUrl || null,
+            originalGoogleImageUrl: placeDetails.imageUrl || null,
+            photos: placeDetails.photos || [],
+            geometry: placeDetails.geometry,
+            address_components: placeDetails.address_components
+          };
+
+          handleLocationChange(locationWithImage);
+
+          if (placeDetails.address_components && formik) {
             let address1 = "";
-            const results = await getGeocode({ address: newValue.description });
-            
-            if (results && results[0]) {
-              results[0].address_components.forEach((locData) => {
-                if (locData.types[0] === "route") {
-                  if (locData.long_name !== undefined)
-                    address1 =
-                      address1 !== ""
-                        ? `${locData.long_name} ${address1}`
-                        : locData.long_name;
-                }
-
-                if (locData.types[0] === "street_number") {
-                  if (locData.long_name !== undefined)
-                    address1 =
-                      address1 !== ""
-                        ? `${address1} ${locData.long_name}`
-                        : locData.long_name;
-                }
-
-                if (
-                  locData.types[0] === "locality" ||
-                  locData.types[0] === "postal_town"
-                ) {
-                  locData.long_name !== undefined &&
-                    formik?.setFieldValue("city", locData.long_name);
-                }
-
-                if (locData.types[0] === "administrative_area_level_1") {
-                  locData.long_name !== undefined &&
-                    formik?.setFieldValue("county", locData.long_name);
-                }
-
-                if (locData.types[0] === "country") {
-                  formik?.setFieldValue("country", locData.long_name);
-                }
-                if (locData.types[0] === "postal_code") {
-                  locData.long_name !== undefined &&
-                    formik?.setFieldValue("postCode", locData.long_name);
-                }
-              });
-              formik?.setFieldValue("address1", address1);
-            }
-          } catch (error) {
-            console.error('Error processing location:', error);
-            handleLocationChange(newValue);
+            placeDetails.address_components.forEach((locData) => {
+              if (locData.types[0] === "route") {
+                address1 = address1 ? `${locData.long_name} ${address1}` : locData.long_name;
+              }
+              if (locData.types[0] === "street_number") {
+                address1 = address1 ? `${address1} ${locData.long_name}` : locData.long_name;
+              }
+              if (locData.types[0] === "locality" || locData.types[0] === "postal_town") {
+                formik.setFieldValue("city", locData.long_name);
+              }
+              if (locData.types[0] === "administrative_area_level_1") {
+                formik.setFieldValue("county", locData.long_name);
+              }
+              if (locData.types[0] === "country") {
+                formik.setFieldValue("country", locData.long_name);
+              }
+              if (locData.types[0] === "postal_code") {
+                formik.setFieldValue("postCode", locData.long_name);
+              }
+            });
+            formik.setFieldValue("address1", address1);
           }
         } else {
           handleLocationChange(null);
         }
       }}
-      onInputChange={(event, newInputValue) => {
-        setInputValue(newInputValue);
-      }}
+      onInputChange={(event, newInputValue) => setInputValue(newInputValue)}
       renderInput={(params) => (
         <TextField
           {...params}
           placeholder="Search your company address"
           fullWidth
-          helperText={
-            isLoading 
-              ? "Searching locations..." 
-              : inputValue && options.length === 0 && !error 
-                ? "No locations found. Try a different search term."
-                : ""
-          }
+          InputProps={{
+            ...params.InputProps,
+            endAdornment: (
+              <>
+                {isLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                {params.InputProps.endAdornment}
+              </>
+            ),
+          }}
         />
       )}
       renderOption={(props, option) => {
         const { key, ...otherProps } = props;
-        const matches =
-          option.structured_formatting.main_text_matched_substrings;
-        const parts = parse(
-          option.structured_formatting.main_text,
-          matches.map((match) => [match.offset, match.offset + match.length])
-        );
+        if (!option.structured_formatting) {
+          return (
+            <li key={key} {...otherProps}>
+              <Grid container alignItems="center">
+                <Grid item><Box component={EnvironmentOutlined} sx={{ color: "text.secondary", mr: 2 }} /></Grid>
+                <Grid item xs><Typography variant="body2">{option.description}</Typography></Grid>
+              </Grid>
+            </li>
+          );
+        }
+
+        const matches = option.structured_formatting.main_text_matched_substrings || [];
+        const parts = parse(option.structured_formatting.main_text, matches.map((match) => [match.offset, match.offset + match.length]));
 
         return (
           <li key={key} {...otherProps}>
             <Grid container alignItems="center">
-              <Grid item>
-                <Box
-                  component={EnvironmentOutlined}
-                  sx={{ color: "text.secondary", mr: 2 }}
-                />
-              </Grid>
+              <Grid item><Box component={EnvironmentOutlined} sx={{ color: "text.secondary", mr: 2 }} /></Grid>
               <Grid item xs>
                 {parts.map((part, index) => (
-                  <span
-                    key={index}
-                    style={{
-                      fontWeight: part.highlight ? 700 : 400,
-                    }}
-                  >
-                    {part.text}
-                  </span>
+                  <span key={index} style={{ fontWeight: part.highlight ? 700 : 400 }}>{part.text}</span>
                 ))}
-                <Typography variant="body2" color="text.secondary">
-                  {option.structured_formatting.secondary_text}
-                </Typography>
+                <Typography variant="body2" color="text.secondary">{option.structured_formatting.secondary_text}</Typography>
               </Grid>
             </Grid>
           </li>
         );
       }}
+      noOptionsText={inputValue.length < 3 ? "Type at least 3 characters" : "No locations found"}
     />
   );
 });

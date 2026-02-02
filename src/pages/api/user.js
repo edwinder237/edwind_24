@@ -2,6 +2,7 @@ import { WorkOS } from '@workos-inc/node';
 import prisma from '../../lib/prisma';
 import { getCurrentOrganization } from '../../lib/session/organizationSession';
 import { getOrgSubscription } from '../../lib/features/subscriptionService';
+import { getUserPermissions } from '../../lib/auth/permissionService';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
@@ -71,6 +72,20 @@ export default async function handler(req, res) {
       });
     } catch (dbError) {
       console.error('Error fetching user from database:', dbError);
+    }
+
+    // Check if user is inactive - block access and clear session cookies
+    if (dbUser && dbUser.isActive === false) {
+      // Clear auth cookies so user can login with a different account
+      res.setHeader('Set-Cookie', [
+        'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+        'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+        'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+      ]);
+      return res.status(401).json({
+        error: 'Your account has been deactivated',
+        code: 'ACCOUNT_INACTIVE'
+      });
     }
 
     // Get current organization from session cookie (if set)
@@ -155,6 +170,22 @@ export default async function handler(req, res) {
       }
     }
 
+    // Get app role permissions from database (Level 2-4 roles with org overrides)
+    let dbPermissions = [];
+    let appRole = null;
+    if (currentOrgId) {
+      try {
+        const permissionData = await getUserPermissions(userId, currentOrgId, primaryRole);
+        dbPermissions = permissionData.permissions || [];
+        appRole = permissionData.appRole;
+      } catch (permError) {
+        console.error('Error fetching user permissions:', permError);
+      }
+    }
+
+    // Merge JWT permissions with database permissions
+    const allPermissions = [...new Set([...jwtPermissions, ...dbPermissions])];
+
     // Construct full user object with WorkOS attributes
     const fullUser = {
       // Core identity
@@ -175,7 +206,8 @@ export default async function handler(req, res) {
 
       // Role and organization (from WorkOS memberships)
       role: primaryRole,
-      permissions: jwtPermissions, // WorkOS JWT permissions for menu/feature gating
+      permissions: allPermissions, // Merged WorkOS JWT + database permissions
+      appRole: appRole, // App role from database (Level 2-4)
       organizationName: currentOrgName, // Use current organization name from session
       memberships: memberships,
 

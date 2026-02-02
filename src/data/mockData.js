@@ -1,5 +1,44 @@
 import { addDays, subDays } from 'date-fns';
 
+// Mock Rooms Data
+export const mockRooms = [
+  {
+    id: '1',
+    name: 'Training Room A',
+    location: 'New York, NY',
+    capacity: 20,
+    equipment: ['Projector', 'Whiteboard', 'Video Conferencing']
+  },
+  {
+    id: '2',
+    name: 'Conference Room B',
+    location: 'San Francisco, CA',
+    capacity: 15,
+    equipment: ['Projector', 'Whiteboard']
+  },
+  {
+    id: '3',
+    name: 'Tech Center 3',
+    location: 'Chicago, IL',
+    capacity: 25,
+    equipment: ['Projector', 'Whiteboard', 'Lab Computers']
+  },
+  {
+    id: '4',
+    name: 'Design Lab 101',
+    location: 'Boston, MA',
+    capacity: 12,
+    equipment: ['Projector', 'Drawing Tablets', 'iMacs']
+  },
+  {
+    id: '5',
+    name: 'Virtual Room',
+    location: 'Remote',
+    capacity: 100,
+    equipment: ['Zoom', 'Online Whiteboard']
+  }
+];
+
 // Mock Instructors Data
 export const mockInstructors = [
   {
@@ -44,6 +83,18 @@ export const mockInstructors = [
   }
 ];
 
+// Projection/Milestone Types
+// training_start is auto-generated from project dates (not manually addable)
+export const projectionTypes = [
+  { id: 'hiring_deadline', label: 'Hiring Deadline', color: '#e74c3c', icon: 'TeamOutlined' },        // Red
+  { id: 'training_start', label: 'Training Start', color: '#f1c40f', icon: 'PlayCircleOutlined', system: true },   // Yellow - auto from project dates
+  { id: 'go_live', label: 'Go-Live Date', color: '#27ae60', icon: 'ThunderboltOutlined' },           // Green
+  { id: 'production', label: 'Production Date', color: '#3498db', icon: 'RocketOutlined' },          // Blue
+  { id: 'review', label: 'Review Deadline', color: '#e67e22', icon: 'FileSearchOutlined' },          // Orange
+  { id: 'certification', label: 'Certification Deadline', color: '#9b59b6', icon: 'SafetyCertificateOutlined' }, // Purple
+  { id: 'custom', label: 'Custom Milestone', color: '#95a5a6', icon: 'FlagOutlined' }                // Gray
+];
+
 // Mock Projects Data - Updated for October 31, 2025
 export const mockProjects = [
   {
@@ -56,6 +107,9 @@ export const mockProjects = [
     projectStatus: 'ongoing',
     title: 'Advanced React Development',
     instructorId: '1',
+    instructor2Id: '3',
+    recipient: 'Acme Corp',
+    roomId: '1',
     color: '#3498db',
     participants: ['Alice Brown', 'Bob Green', 'Charlie White', 'Diana Black'],
     progress: 65,
@@ -63,10 +117,16 @@ export const mockProjects = [
       lat: 40.7128,
       lng: -74.0060,
       address: 'New York, NY, USA',
-      description: 'New York, NY'
+      description: 'New York, NY',
+      room: 'Training Room A'
     }),
     budget: 25000,
-    tags: ['React', 'JavaScript', 'Frontend']
+    tags: ['React', 'JavaScript', 'Frontend'],
+    projections: [
+      { id: 'p1', type: 'hiring_deadline', date: new Date(2025, 9, 10).toISOString(), endDate: new Date(2025, 9, 14).toISOString(), label: 'Hiring Deadline', notes: 'Finalize instructor assignments' },
+      { id: 'p2', type: 'production', date: new Date(2025, 11, 20).toISOString(), endDate: new Date(2025, 11, 27).toISOString(), label: 'Production Ready', notes: 'All modules completed' },
+      { id: 'p3', type: 'go_live', date: new Date(2025, 11, 28).toISOString(), label: 'Go-Live', notes: 'Course available to all participants' }
+    ]
   },
   {
     id: '2',
@@ -78,6 +138,9 @@ export const mockProjects = [
     projectStatus: 'pending',
     title: 'Python for Data Science',
     instructorId: '2',
+    instructor2Id: '4',
+    recipient: 'TechStart Inc',
+    roomId: '2',
     color: '#2ecc71',
     participants: ['Eva Martinez', 'Frank Lee', 'Grace Kim'],
     progress: 0,
@@ -85,10 +148,16 @@ export const mockProjects = [
       lat: 37.7749,
       lng: -122.4194,
       address: 'San Francisco, CA, USA',
-      description: 'San Francisco, CA'
+      description: 'San Francisco, CA',
+      room: 'Conference Room B'
     }),
     budget: 30000,
-    tags: ['Python', 'Data Science', 'ML']
+    tags: ['Python', 'Data Science', 'ML'],
+    projections: [
+      { id: 'p1', type: 'hiring_deadline', date: new Date(2025, 9, 25).toISOString(), label: 'Hiring Deadline', notes: 'Instructor hiring complete' },
+      { id: 'p2', type: 'review', date: new Date(2025, 10, 28).toISOString(), label: 'Mid-Course Review', notes: 'Review participant progress' },
+      { id: 'p3', type: 'production', date: new Date(2025, 11, 10).toISOString(), label: 'Production Date', notes: 'Final materials ready' }
+    ]
   },
   {
     id: '3',
@@ -100,6 +169,8 @@ export const mockProjects = [
     projectStatus: 'completed',
     title: 'AWS Cloud Architecture',
     instructorId: '3',
+    recipient: 'Global Solutions Ltd',
+    roomId: '5',
     color: '#e74c3c',
     participants: ['Henry Wilson', 'Isabel Garcia', 'Jack Thompson'],
     progress: 100,
@@ -107,10 +178,13 @@ export const mockProjects = [
       lat: 47.6062,
       lng: -122.3321,
       address: 'Seattle, WA, USA',
-      description: 'Remote - Seattle, WA'
+      description: 'Remote'
     }),
     budget: 35000,
-    tags: ['AWS', 'Cloud', 'DevOps']
+    tags: ['AWS', 'Cloud', 'DevOps'],
+    projections: [
+      { id: 'p1', type: 'certification', date: new Date(2025, 9, 28).toISOString(), label: 'Certification Exam', notes: 'AWS certification test' }
+    ]
   },
   {
     id: '4',
@@ -122,6 +196,8 @@ export const mockProjects = [
     projectStatus: 'pending',
     title: 'UI/UX Design Fundamentals',
     instructorId: '4',
+    recipient: 'Creative Studios',
+    roomId: '4',
     color: '#9b59b6',
     participants: ['Kelly Adams', 'Leo Rodriguez', 'Maya Patel', 'Nathan Scott'],
     progress: 0,
@@ -129,10 +205,16 @@ export const mockProjects = [
       lat: 42.3601,
       lng: -71.0589,
       address: 'Boston, MA, USA',
-      description: 'Boston, MA'
+      description: 'Boston, MA',
+      room: 'Design Lab 101'
     }),
     budget: 20000,
-    tags: ['Design', 'UX', 'Figma']
+    tags: ['Design', 'UX', 'Figma'],
+    projections: [
+      { id: 'p1', type: 'hiring_deadline', date: new Date(2025, 10, 20).toISOString(), endDate: new Date(2025, 10, 30).toISOString(), label: 'Hiring Deadline', notes: 'Finalize design instructors' },
+      { id: 'p3', type: 'review', date: new Date(2025, 11, 20).toISOString(), endDate: new Date(2026, 0, 20).toISOString(), label: 'Portfolio Review', notes: 'First portfolio submissions due' },
+      { id: 'p4', type: 'production', date: new Date(2026, 0, 25).toISOString(), label: 'Final Portfolio Due', notes: 'Final project submissions' }
+    ]
   },
   {
     id: '5',
@@ -144,6 +226,8 @@ export const mockProjects = [
     projectStatus: 'ongoing',
     title: 'DevOps Pipeline Implementation',
     instructorId: '5',
+    recipient: 'Enterprise Systems Co',
+    roomId: '3',
     color: '#f39c12',
     participants: ['Olivia Brown', 'Peter Zhang'],
     progress: 45,
@@ -151,10 +235,15 @@ export const mockProjects = [
       lat: 41.8781,
       lng: -87.6298,
       address: 'Chicago, IL, USA',
-      description: 'Chicago, IL'
+      description: 'Chicago, IL',
+      room: 'Tech Center 3'
     }),
     budget: 28000,
-    tags: ['DevOps', 'CI/CD', 'Docker']
+    tags: ['DevOps', 'CI/CD', 'Docker'],
+    projections: [
+      { id: 'p1', type: 'production', date: new Date(2025, 11, 5).toISOString(), label: 'Pipeline Demo', notes: 'Live CI/CD demonstration' },
+      { id: 'p2', type: 'go_live', date: new Date(2025, 11, 10).toISOString(), label: 'Go-Live', notes: 'Production deployment' }
+    ]
   },
   {
     id: '6',
@@ -169,7 +258,13 @@ export const mockProjects = [
     progress: 0,
     location: 'Seattle, WA',
     budget: 32000,
-    tags: ['React Native', 'Mobile', 'JavaScript']
+    tags: ['React Native', 'Mobile', 'JavaScript'],
+    projections: [
+      { id: 'p1', type: 'hiring_deadline', date: new Date(2026, 0, 5).toISOString(), label: 'Hiring Deadline', notes: 'Mobile dev instructor needed' },
+      { id: 'p2', type: 'review', date: new Date(2026, 1, 15).toISOString(), label: 'Mid-Project Review', notes: 'App prototype review' },
+      { id: 'p3', type: 'production', date: new Date(2026, 2, 20).toISOString(), label: 'App Store Submission', notes: 'Submit to app stores' },
+      { id: 'p4', type: 'go_live', date: new Date(2026, 2, 30).toISOString(), label: 'App Launch', notes: 'Public release' }
+    ]
   },
   {
     id: '7',
@@ -184,7 +279,10 @@ export const mockProjects = [
     progress: 100,
     location: 'Austin, TX',
     budget: 40000,
-    tags: ['ML', 'AI', 'Python']
+    tags: ['ML', 'AI', 'Python'],
+    projections: [
+      { id: 'p1', type: 'production', date: new Date(2025, 8, 25).toISOString(), label: 'Model Deployment', notes: 'ML model ready for production' }
+    ]
   },
   {
     id: '8',
@@ -199,7 +297,12 @@ export const mockProjects = [
     progress: 30,
     location: 'Denver, CO',
     budget: 27000,
-    tags: ['Kubernetes', 'Docker', 'Cloud']
+    tags: ['Kubernetes', 'Docker', 'Cloud'],
+    projections: [
+      { id: 'p1', type: 'review', date: new Date(2025, 11, 1).toISOString(), label: 'Cluster Review', notes: 'Review cluster configurations' },
+      { id: 'p2', type: 'production', date: new Date(2025, 11, 28).toISOString(), label: 'Production Cluster', notes: 'Production-ready cluster' },
+      { id: 'p3', type: 'certification', date: new Date(2026, 0, 3).toISOString(), label: 'K8s Certification', notes: 'CKA exam date' }
+    ]
   },
   {
     id: '9',
@@ -214,7 +317,10 @@ export const mockProjects = [
     progress: 100,
     location: 'Miami, FL',
     budget: 15000,
-    tags: ['Agile', 'Scrum', 'Management']
+    tags: ['Agile', 'Scrum', 'Management'],
+    projections: [
+      { id: 'p1', type: 'certification', date: new Date(2025, 9, 23).toISOString(), label: 'Scrum Certification', notes: 'PSM I certification exam' }
+    ]
   },
   {
     id: '10',
@@ -229,7 +335,11 @@ export const mockProjects = [
     progress: 0,
     location: 'Portland, OR',
     budget: 22000,
-    tags: ['SQL', 'Database', 'PostgreSQL']
+    tags: ['SQL', 'Database', 'PostgreSQL'],
+    projections: [
+      { id: 'p1', type: 'hiring_deadline', date: new Date(2025, 11, 10).toISOString(), label: 'Instructor Finalized', notes: 'DB instructor confirmed' },
+      { id: 'p3', type: 'production', date: new Date(2026, 1, 5).toISOString(), label: 'Database Project Due', notes: 'Final database projects' }
+    ]
   },
   {
     id: '11',
@@ -244,7 +354,12 @@ export const mockProjects = [
     progress: 40,
     location: 'Remote',
     budget: 26000,
-    tags: ['Security', 'Network', 'Ethical Hacking']
+    tags: ['Security', 'Network', 'Ethical Hacking'],
+    projections: [
+      { id: 'p1', type: 'hiring_deadline', date: new Date(2025, 10, 1).toISOString(), label: 'Hiring Deadline', notes: 'URGENT: Need security instructor' },
+      { id: 'p2', type: 'review', date: new Date(2025, 11, 10).toISOString(), label: 'Security Audit', notes: 'Lab environment review' },
+      { id: 'p3', type: 'certification', date: new Date(2025, 11, 22).toISOString(), label: 'CompTIA Security+', notes: 'Certification exam' }
+    ]
   },
   {
     id: '12',
@@ -259,7 +374,8 @@ export const mockProjects = [
     progress: 0,
     location: 'Los Angeles, CA',
     budget: 35000,
-    tags: ['Blockchain', 'Solidity', 'Web3']
+    tags: ['Blockchain', 'Solidity', 'Web3'],
+    projections: []
   }
 ];
 
