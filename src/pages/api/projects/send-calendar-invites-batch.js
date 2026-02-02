@@ -140,10 +140,13 @@ export default async function handler(req, res) {
     const invalidEmailRecipients = [];
 
     if (participantIds && participantIds.length > 0) {
-      const participantIdSet = new Set(participantIds.map(id => parseInt(id)));
+      // Use strings directly - participant IDs can be UUIDs or integers
+      const participantIdSet = new Set(participantIds.map(id => String(id)));
+
       attendeesToSend = event.event_attendees.filter(attendee => {
         const participantId = attendee.enrollee?.participant?.id;
-        return participantId && participantIdSet.has(participantId);
+        // Compare as strings to handle both UUID and integer IDs
+        return participantId && participantIdSet.has(String(participantId));
       });
     }
 
