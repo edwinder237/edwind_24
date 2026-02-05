@@ -125,6 +125,7 @@ async function handler(req, res) {
                     participantType: participantData.participantType || 'student',
                     participantStatus: participantData.participantStatus || 'active',
                     notes: participantData.notes || null,
+                    externalId: participantData.externalId || null,
                     profilePrefs: participantData.profilePrefs || {},
                     credentials: participantData.credentials || {},
                     trainingRecipientId: project.trainingRecipientId,

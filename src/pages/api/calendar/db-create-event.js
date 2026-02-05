@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         timezone: newEvent.timezone || null,
         deliveryMode: newEvent.deliveryMode || "in_person",
         meetingLink: newEvent.meetingLink || null,
-        extendedProps: { location: "Conference Room A", priority: "High" },
+        extendedProps: {},
         project: {connect: {id: parseInt(projectId)}},
         ...(newEvent.courseId && { course: {connect: {id: parseInt(newEvent.courseId)}} }),
         ...(newEvent.supportActivityId && { supportActivity: {connect: {id: parseInt(newEvent.supportActivityId)}} }),

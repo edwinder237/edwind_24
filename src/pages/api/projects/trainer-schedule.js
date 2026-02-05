@@ -20,6 +20,7 @@ const TRANSLATIONS = {
     schedule: 'Schedule',
     focusOfTheDay: 'Focus of the day',
     availableOnTrainingDay: 'Available on training day',
+    individualParticipants: 'Individual',
     // Day names
     monday: 'MONDAY',
     tuesday: 'TUESDAY',
@@ -39,6 +40,7 @@ const TRANSLATIONS = {
     schedule: 'Horaire',
     focusOfTheDay: 'Focus du jour',
     availableOnTrainingDay: 'Disponible le jour de la formation',
+    individualParticipants: 'Individuel',
     // Day names
     monday: 'LUNDI',
     tuesday: 'MARDI',
@@ -332,7 +334,7 @@ export default async function handler(req, res) {
  */
 async function handlePreview(req, res) {
   try {
-    const { projectId, projectTitle, events, dailyFocusData, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton', language = 'en' } = req.body;
+    const { projectId, projectTitle, events, dailyFocusData, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, showTimezone = true, timezone = 'America/Edmonton', language = 'en' } = req.body;
 
     if (!projectId) {
       return res.status(400).json({ message: 'Missing required field: projectId' });
@@ -353,6 +355,7 @@ async function handlePreview(req, res) {
       includeEventSummaries,
       showLogo,
       showFocusOfDay,
+      showTimezone,
       timezone,
       language
     });
@@ -377,7 +380,7 @@ async function handlePreview(req, res) {
  */
 async function handleSend(req, res) {
   try {
-    const { projectId, projectTitle, events, dailyFocusData, trainerEmails, ccEmails = [], bccEmails = [], customSubject, customTemplate, templateType, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton', language = 'en', includePdf = false } = req.body;
+    const { projectId, projectTitle, events, dailyFocusData, trainerEmails, ccEmails = [], bccEmails = [], customSubject, customTemplate, templateType, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, showTimezone = true, timezone = 'America/Edmonton', language = 'en', includePdf = false } = req.body;
 
     if (!projectId || !trainerEmails || !Array.isArray(trainerEmails) || trainerEmails.length === 0) {
       return res.status(400).json({ message: 'Missing required fields: projectId and trainerEmails' });
@@ -407,6 +410,7 @@ async function handleSend(req, res) {
       includeEventSummaries,
       showLogo,
       showFocusOfDay,
+      showTimezone,
       timezone,
       language
     });
@@ -597,7 +601,7 @@ async function handleSend(req, res) {
  * Generate trainer email HTML from template
  * Shared by both preview and send actions
  */
-async function generateTrainerEmailFromTemplate({ template, projectTitle, projectId, events, trainerEmail, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton', language = 'en' }) {
+async function generateTrainerEmailFromTemplate({ template, projectTitle, projectId, events, trainerEmail, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, showTimezone = true, timezone = 'America/Edmonton', language = 'en' }) {
   let processedTemplate = template;
   const t = getTranslations(language);
 
@@ -750,13 +754,22 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
                                                     <p style="margin: 0; font-size: 14px; line-height: 1.5; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #2d2d2d;">${dayName}</p>
                                                 </td>
                                                 <td width="${scheduleColumnWidth}" style="font-weight: 400; text-align: left; background-color: #ffffff; padding: 10px 10px 10px 15px; vertical-align: top;" valign="top">
-                                                    <p style="margin: 0 0 5px 0; font-size: 14px; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif;"><span style="font-weight: bold; color: #cc0a0a;">${t.schedule}</span> <span style="color: #888; font-size: 12px;">(${timezone.replace(/_/g, ' ')} ${getUtcOffsetString(timezone)})</span></p>
+                                                    <p style="margin: 0 0 5px 0; font-size: 14px; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif;"><span style="font-weight: bold; color: #cc0a0a;">${t.schedule}</span>${showTimezone ? ` <span style="color: #888; font-size: 12px;">(${timezone.replace(/_/g, ' ')} ${getUtcOffsetString(timezone)})</span>` : ''}</p>
                                                     ${sortedDayEvents.map(evt => {
                                                       const startTime = formatInTimeZone(new Date(evt.start), timezone, 'HH:mm');
                                                       const endTime = evt.end ? formatInTimeZone(new Date(evt.end), timezone, 'HH:mm') : null;
                                                       const timeRange = endTime ? `${startTime}–${endTime}` : startTime;
-                                                      const groups = evt.event_groups?.map(eg => eg.groups?.groupName).filter(Boolean).join(', ');
-                                                      return `<p style="margin: 0 0 3px 0; font-size: 14px; line-height: 1.4; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;"><span style="color: #666; font-size: 13px;">${timeRange}</span> ${evt.title}${groups ? ` <span style="color: #cc0a0a;">${groups}</span>` : ''}</p>`;
+                                                      const groupNames = (evt.event_groups || []).map(eg => eg.groups?.groupName).filter(Boolean);
+                                                      const individualNames = (evt.event_attendees || [])
+                                                        .filter(a => a.attendanceType === 'individual')
+                                                        .map(a => {
+                                                          const p = a.enrollee?.participant;
+                                                          return p?.firstName && p?.lastName ? `${p.firstName} ${p.lastName}` : p?.email || null;
+                                                        })
+                                                        .filter(Boolean);
+                                                      const withNames = [...groupNames, ...individualNames];
+                                                      const withLabel = withNames.length > 0 ? ` <span style="color: #999; font-size: 12px;">with: ${withNames.join(', ')}</span>` : '';
+                                                      return `<p style="margin: 0 0 3px 0; font-size: 14px; line-height: 1.4; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;"><span style="color: #666; font-size: 13px;">${timeRange}</span> ${evt.title}${withLabel}</p>`;
                                                     }).join('')}
                                                 </td>
                                                 ${showFocusOfDay ? `<td width="25%" style="font-weight: 400; text-align: center; background-color: #ffffff; padding: 10px; vertical-align: top;" valign="top">
@@ -778,41 +791,7 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
   // Generate groups HTML with real project data - supports multiple rows (4 groups per row)
   const generateGroupsSection = () => {
     if (projectGroups.length === 0) {
-      return `
-                    <table class="row row-4" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
-                        <tbody>
-                            <tr>
-                                <td>
-                                    <table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #ffffff; color: #000000; width: 900px;" width="900">
-                                        <tbody>
-                                            <tr>
-                                                <td class="column column-1" width="100%" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; font-weight: 400; text-align: left; vertical-align: top; border-top: 0px; border-right: 0px; border-bottom: 0px; border-left: 0px;">
-                                                    <table class="paragraph_block block-2" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
-                                                        <tr>
-                                                            <td class="pad" style="padding-bottom:5px;padding-left:5px;padding-right:5px;padding-top:10px;">
-                                                                <div style="color:#000000;direction:ltr;font-family:'Ubuntu', Tahoma, Verdana, Segoe, sans-serif;font-size:20px;font-weight:400;letter-spacing:0px;line-height:120%;text-align:center;mso-line-height-alt:24px;">
-                                                                    <p style="margin: 0;"><strong>${t.trainingGroups}</strong></p>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                    <table class="list_block block-3" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
-                                                        <tr>
-                                                            <td class="pad" style="padding-bottom:15px;padding-left:60px;padding-right:10px;">
-                                                                <ul start="1" style="margin: 0; padding: 0; margin-left: 20px; list-style-type: revert; color: #000000; direction: ltr; font-family: 'Ubuntu', Tahoma, Verdana, Segoe, sans-serif; font-size: 14px; font-weight: 400; letter-spacing: 0px; line-height: 120%; text-align: left;">
-                                                                    <li style="margin-bottom: 0px;">${t.noGroupsConfigured}</li>
-                                                                </ul>
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>`;
+      return '';
     }
 
     // Helper function to generate a single group column

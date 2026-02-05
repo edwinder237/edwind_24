@@ -49,6 +49,7 @@ async function handler(req, res) {
     if (updates.notes !== undefined) validFields.notes = updates.notes;
     if (updates.participantStatus !== undefined) validFields.participantStatus = updates.participantStatus;
     if (updates.participantType !== undefined) validFields.participantType = updates.participantType;
+    if (updates.externalId !== undefined) validFields.externalId = updates.externalId || null;
 
     // Handle role relationship
     if (updates.role !== undefined) {

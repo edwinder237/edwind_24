@@ -59,6 +59,8 @@ async function handler(req, res) {
             eventStatus: true,
             extendedProps: true,
             timezone: true,
+            deliveryMode: true,
+            meetingLink: true,
 
             // Course information for each event
             course: {

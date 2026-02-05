@@ -108,6 +108,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   // Preview customization options
   const [showLogo, setShowLogo] = useState(true);
   const [showFocusOfDay, setShowFocusOfDay] = useState(false);
+  const [showTimezone, setShowTimezone] = useState(true);
   const [selectedTimezone, setSelectedTimezone] = useState(projectTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [selectedLanguage, setSelectedLanguage] = useState('en');
 
@@ -232,7 +233,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   };
 
   // Preview functions
-  const handleOpenPreview = async (customShowLogo, customShowFocus, customTimezone, customLanguage) => {
+  const handleOpenPreview = async (customShowLogo, customShowFocus, customTimezone, customLanguage, customShowTimezone) => {
     if (!projectId) {
       return;
     }
@@ -240,6 +241,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
     // Use passed values or current state
     const logoVisible = customShowLogo !== undefined ? customShowLogo : showLogo;
     const focusVisible = customShowFocus !== undefined ? customShowFocus : showFocusOfDay;
+    const timezoneVisible = customShowTimezone !== undefined ? customShowTimezone : showTimezone;
     const timezone = customTimezone !== undefined ? customTimezone : selectedTimezone;
     const language = customLanguage !== undefined ? customLanguage : selectedLanguage;
 
@@ -259,6 +261,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
           includeEventSummaries: true,
           showLogo: logoVisible,
           showFocusOfDay: focusVisible,
+          showTimezone: timezoneVisible,
           timezone,
           language
         }),
@@ -300,6 +303,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
             includeEventSummaries: true,
             showLogo,
             showFocusOfDay,
+            showTimezone,
             timezone: selectedTimezone,
             language: selectedLanguage
           }),
@@ -559,6 +563,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
           includeEventSummaries: true,
           showLogo,
           showFocusOfDay,
+          showTimezone,
           timezone: selectedTimezone,
           language: selectedLanguage,
           includePdf
@@ -907,7 +912,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
                     onChange={(e) => {
                       setShowLogo(e.target.checked);
                       if (previewHtml) {
-                        handleOpenPreview(e.target.checked, showFocusOfDay, selectedTimezone, selectedLanguage);
+                        handleOpenPreview(e.target.checked, showFocusOfDay, selectedTimezone, selectedLanguage, showTimezone);
                       }
                     }}
                     size="small"
@@ -922,13 +927,28 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
                     onChange={(e) => {
                       setShowFocusOfDay(e.target.checked);
                       if (previewHtml) {
-                        handleOpenPreview(showLogo, e.target.checked, selectedTimezone, selectedLanguage);
+                        handleOpenPreview(showLogo, e.target.checked, selectedTimezone, selectedLanguage, showTimezone);
                       }
                     }}
                     size="small"
                   />
                 }
                 label={<Typography variant="body2">Show Focus of the Day</Typography>}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showTimezone}
+                    onChange={(e) => {
+                      setShowTimezone(e.target.checked);
+                      if (previewHtml) {
+                        handleOpenPreview(showLogo, showFocusOfDay, selectedTimezone, selectedLanguage, e.target.checked);
+                      }
+                    }}
+                    size="small"
+                  />
+                }
+                label={<Typography variant="body2">Show Timezones</Typography>}
               />
               <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
               <Box sx={{ minWidth: 240 }}>
@@ -937,7 +957,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
                   onChange={(newValue) => {
                     setSelectedTimezone(newValue);
                     if (previewHtml) {
-                      handleOpenPreview(showLogo, showFocusOfDay, newValue, selectedLanguage);
+                      handleOpenPreview(showLogo, showFocusOfDay, newValue, selectedLanguage, showTimezone);
                     }
                   }}
                   label="Time Zone"
@@ -954,7 +974,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
                   onChange={(e) => {
                     setSelectedLanguage(e.target.value);
                     if (previewHtml) {
-                      handleOpenPreview(showLogo, showFocusOfDay, selectedTimezone, e.target.value);
+                      handleOpenPreview(showLogo, showFocusOfDay, selectedTimezone, e.target.value, showTimezone);
                     }
                   }}
                 >

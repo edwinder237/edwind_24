@@ -43,7 +43,7 @@ const CSVImport = ({ open, onClose, onImport, loading = false }) => {
   const fileInputRef = useRef(null);
 
   const requiredFields = ['firstName', 'lastName', 'email'];
-  const optionalFields = ['middleName', 'derpartement', 'roleId', 'participantType', 'participantStatus', 'notes', 'toolAccess_tool', 'toolAccess_username', 'toolAccess_accessCode', 'toolAccess_toolType', 'toolAccess_toolUrl', 'toolAccess_toolDescription'];
+  const optionalFields = ['middleName', 'externalId', 'derpartement', 'roleId', 'participantType', 'participantStatus', 'notes', 'toolAccess_tool', 'toolAccess_username', 'toolAccess_accessCode', 'toolAccess_toolType', 'toolAccess_toolUrl', 'toolAccess_toolDescription'];
 
   const resetState = () => {
     setCsvData([]);
@@ -152,6 +152,7 @@ const CSVImport = ({ open, onClose, onImport, loading = false }) => {
         lastName: row.lastName,
         email: row.email,
         middleName: row.middleName || '',
+        externalId: row.externalId || '',
         derpartement: row.derpartement || '',
         roleId: row.roleId || 'participant',
         participantType: row.participantType || 'student',
@@ -202,8 +203,8 @@ const CSVImport = ({ open, onClose, onImport, loading = false }) => {
   };
 
   const getSampleCSV = () => {
-    const headers = ['firstName', 'lastName', 'email', 'middleName', 'derpartement', 'roleId', 'participantType', 'participantStatus', 'notes', 'toolAccess_tool', 'toolAccess_username', 'toolAccess_accessCode', 'toolAccess_toolType', 'toolAccess_toolUrl', 'toolAccess_toolDescription'];
-    const sampleRow = ['John', 'Doe', 'john.doe@example.com', 'Michael', 'Engineering', 'participant', 'student', 'active', 'Sample participant', 'CRM', 'johndoe123', 'pass123abc', 'crm', 'https://crm.example.com', 'Customer Relationship Management System'];
+    const headers = ['firstName', 'lastName', 'email', 'middleName', 'externalId', 'derpartement', 'roleId', 'participantType', 'participantStatus', 'notes', 'toolAccess_tool', 'toolAccess_username', 'toolAccess_accessCode', 'toolAccess_toolType', 'toolAccess_toolUrl', 'toolAccess_toolDescription'];
+    const sampleRow = ['John', 'Doe', 'john.doe@example.com', 'Michael', 'EMP-001', 'Engineering', 'participant', 'student', 'active', 'Sample participant', 'CRM', 'johndoe123', 'pass123abc', 'crm', 'https://crm.example.com', 'Customer Relationship Management System'];
     return [headers.join(','), sampleRow.join(',')].join('\n');
   };
 
@@ -236,7 +237,7 @@ const CSVImport = ({ open, onClose, onImport, loading = false }) => {
             </Typography>
             <Typography variant="body2" component="div">
               • Required columns: firstName, lastName, email<br/>
-              • Optional columns: middleName, derpartement, roleId, participantType, participantStatus, notes<br/>
+              • Optional columns: middleName, externalId, derpartement, roleId, participantType, participantStatus, notes<br/>
               • Tool access columns: toolAccess_tool, toolAccess_username, toolAccess_accessCode, toolAccess_toolType, toolAccess_toolUrl, toolAccess_toolDescription<br/>
               • Make sure each participant has a unique email address<br/>
               • Download the template below for the correct format

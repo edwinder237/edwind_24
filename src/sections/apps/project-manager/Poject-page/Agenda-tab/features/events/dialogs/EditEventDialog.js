@@ -222,10 +222,19 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   }, [event, open, theme.palette.primary.main, defaultInstructor, _setStartRaw, _setEndRaw]);
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      // Clear irrelevant fields when switching delivery mode
+      if (field === 'deliveryMode') {
+        if (value === 'remote') {
+          updated.location = '';
+          updated.roomId = null;
+        } else if (value === 'in_person') {
+          updated.meetingLink = '';
+        }
+      }
+      return updated;
+    });
   };
 
   const handleColorChange = (newColor) => {

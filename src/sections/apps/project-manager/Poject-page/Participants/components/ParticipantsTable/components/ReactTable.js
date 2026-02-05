@@ -285,6 +285,24 @@ const ReactTable = ({
       ),
     },
     {
+      Header: "External ID",
+      Footer: "External ID",
+      accessor: "participant.externalId",
+      dataType: "text",
+      disableFilters: true,
+      disableGroupBy: true,
+      Cell: ({ value, row, column }) => (
+        <EditableCell
+          value={value || ''}
+          row={row}
+          column={column}
+          updateMyData={updateField}
+          editableRowIndex={editableRowIndex}
+          onSave={handleSubmit}
+        />
+      ),
+    },
+    {
       Header: "Tag",
       Footer: "Tag",
       accessor: "participant.tag",

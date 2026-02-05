@@ -47,6 +47,7 @@ import {
   Remove,
   Info,
   MeetingRoom,
+  Videocam,
   Share,
   ChevronRight,
   Email,
@@ -1052,27 +1053,49 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
             </Stack>
 
             <Stack spacing={0.5}>
-              {event.location && (
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <LocationOn sx={{ fontSize: 16, color: 'text.secondary' }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {event.location}
-                  </Typography>
-                </Stack>
-              )}
-
-              {event.room && (
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <MeetingRoom sx={{ fontSize: 16, color: 'text.secondary' }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {event.room.name}
-                    {event.room.location && (
-                      <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: 0.5 }}>
-                        ({event.room.location})
+              {event.deliveryMode === 'remote' ? (
+                event.meetingLink && (
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    <Videocam sx={{ fontSize: 16, color: theme.palette.info.main }} />
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        maxWidth: 200,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {event.meetingLink}
+                    </Typography>
+                  </Stack>
+                )
+              ) : (
+                <>
+                  {event.location && (
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <LocationOn sx={{ fontSize: 16, color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {event.location}
                       </Typography>
-                    )}
-                  </Typography>
-                </Stack>
+                    </Stack>
+                  )}
+
+                  {event.room && (
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <MeetingRoom sx={{ fontSize: 16, color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {event.room.name}
+                        {event.room.location && (
+                          <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: 0.5 }}>
+                            ({event.room.location})
+                          </Typography>
+                        )}
+                      </Typography>
+                    </Stack>
+                  )}
+                </>
               )}
 
               {event.instructor && (
@@ -1289,6 +1312,30 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
                 backgroundColor: alpha(getEventTypeColor(event), 0.1),
                 color: getEventTypeColor(event),
                 fontWeight: 500
+              }}
+            />
+            <Chip
+              icon={event.deliveryMode === 'remote'
+                ? <Videocam sx={{ fontSize: 13 }} />
+                : <MeetingRoom sx={{ fontSize: 13 }} />
+              }
+              label={event.deliveryMode === 'remote' ? 'Remote' : 'In Person'}
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: '0.65rem',
+                fontWeight: 500,
+                color: event.deliveryMode === 'remote'
+                  ? theme.palette.info.main
+                  : theme.palette.success.main,
+                backgroundColor: event.deliveryMode === 'remote'
+                  ? alpha(theme.palette.info.main, 0.1)
+                  : alpha(theme.palette.success.main, 0.1),
+                '& .MuiChip-icon': {
+                  color: 'inherit',
+                  ml: 0.5,
+                  mr: -0.5
+                }
               }}
             />
             <Stack

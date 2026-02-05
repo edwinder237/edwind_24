@@ -11,6 +11,11 @@ export default async function handler(req, res) {
       ...(event.location !== undefined && { location: event.location })
     };
 
+    // Clear physical location from extendedProps when switching to remote
+    if (event.deliveryMode === 'remote') {
+      delete extendedProps.location;
+    }
+
     const updateData = {
       title: event.title,
       description: event.description,

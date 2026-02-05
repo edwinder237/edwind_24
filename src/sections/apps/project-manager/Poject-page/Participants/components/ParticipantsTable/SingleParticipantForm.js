@@ -139,6 +139,7 @@ const SingleParticipantForm = ({
       firstName: '',
       lastName: '',
       email: '',
+      externalId: '',
       roleId: '',
       group: '',
     },
@@ -153,6 +154,7 @@ const SingleParticipantForm = ({
             firstName: values.firstName.trim(),
             lastName: values.lastName.trim(),
             email: values.email.toLowerCase().trim(),
+            externalId: values.externalId.trim() || null,
             participantStatus: "Active",
             roleId: values.roleId,
             profilePrefs: {},
@@ -290,7 +292,19 @@ const SingleParticipantForm = ({
                   placeholder="Enter email address"
                 />
               </Grid>
-              
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="External ID (Optional)"
+                  name="externalId"
+                  value={formik.values.externalId}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="Employee number, student ID, etc."
+                />
+              </Grid>
+
               <Grid item xs={12}>
                 <FormControl fullWidth error={formik.touched.roleId && Boolean(formik.errors.roleId)}>
                   <InputLabel>Role</InputLabel>
@@ -481,7 +495,14 @@ const SingleParticipantForm = ({
                     {participantRoles.find(r => r.id === formik.values.roleId)?.title || 'Unknown Role'}
                   </Typography>
                 </Grid>
-                
+
+                {formik.values.externalId && (
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">External ID</Typography>
+                    <Typography variant="body1">{formik.values.externalId}</Typography>
+                  </Grid>
+                )}
+
                 <Grid item xs={6}>
                   <Typography variant="body2" color="text.secondary">Group</Typography>
                   <Chip

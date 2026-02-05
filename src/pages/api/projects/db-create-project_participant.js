@@ -118,6 +118,7 @@ async function handler(req, res) {
         email: email,
         participantStatus: newParticipant.participant.participantStatus || "active",
         trainingRecipientId: project.trainingRecipientId,
+        externalId: newParticipant.participant.externalId || null,
         roleId: roleId,
         sub_organization: project.sub_organizationId, // Use the project's sub-organization
         profilePrefs: newParticipant.participant.profilePrefs || {},

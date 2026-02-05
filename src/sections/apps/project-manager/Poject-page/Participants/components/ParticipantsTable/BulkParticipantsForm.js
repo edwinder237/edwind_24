@@ -63,6 +63,7 @@ const getInitialValues = (customer) => {
     firstName: "",
     lastName: "",
     email: "",
+    externalId: "",
     group: "",
     role: "", // Keep as string initially, will be converted to number on submit
   };
@@ -311,6 +312,7 @@ const BulkParticipantsForm = ({
             lastName: LastName,
             participantStatus: "active", // Fix: lowercase "active" to match API
             email: values.email,
+            externalId: values.externalId?.trim() || null,
             roleId: values.role ? parseInt(values.role) : null, // Fix: ensure numeric roleId
             profilePrefs: { key1: "value1" },
             credentials: { username: "bob" },
@@ -530,6 +532,19 @@ const BulkParticipantsForm = ({
                             {...getFieldProps("email")}
                             error={Boolean(touched.email && errors.email)}
                             helperText={touched.email && errors.email}
+                          />
+                        </Stack>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Stack spacing={1.25}>
+                          <InputLabel htmlFor="employee-externalId">
+                            External ID (Optional)
+                          </InputLabel>
+                          <TextField
+                            fullWidth
+                            id="employee-externalId"
+                            placeholder="Employee number, student ID, etc."
+                            {...getFieldProps("externalId")}
                           />
                         </Stack>
                       </Grid>

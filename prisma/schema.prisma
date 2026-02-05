@@ -277,6 +277,7 @@ model participants {
   participantType     String?
   sub_organization    Int
   trainingRecipientId Int?
+  externalId          String?
   derpartement        String?
   tag                 String?                            @default("")
   roleId              Int?
@@ -294,6 +295,7 @@ model participants {
   toolAccesses        toolAccesses[]
 
   @@unique([email, sub_organization])
+  @@unique([externalId, trainingRecipientId])
   @@index([trainingRecipientId])
   @@index([roleId])
   @@index([sub_organization])

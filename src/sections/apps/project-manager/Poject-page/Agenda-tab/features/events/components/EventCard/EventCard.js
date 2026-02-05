@@ -10,7 +10,8 @@ import {
   Menu,
   MenuItem,
   useTheme,
-  alpha
+  alpha,
+  Tooltip
 } from '@mui/material';
 import {
   MoreVert,
@@ -21,7 +22,8 @@ import {
   Edit,
   Delete,
   ColorLens,
-  Videocam
+  Videocam,
+  MeetingRoom
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
 
@@ -289,6 +291,30 @@ const EventCard = React.memo(({
                   />
                 </Box>
               )}
+              <Chip
+                icon={event.deliveryMode === 'remote'
+                  ? <Videocam sx={{ fontSize: 13 }} />
+                  : <MeetingRoom sx={{ fontSize: 13 }} />
+                }
+                label={event.deliveryMode === 'remote' ? 'Remote' : 'In Person'}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.65rem',
+                  fontWeight: 500,
+                  color: event.deliveryMode === 'remote'
+                    ? theme.palette.info.main
+                    : theme.palette.success.main,
+                  backgroundColor: event.deliveryMode === 'remote'
+                    ? alpha(theme.palette.info.main, 0.1)
+                    : alpha(theme.palette.success.main, 0.1),
+                  '& .MuiChip-icon': {
+                    color: 'inherit',
+                    ml: 0.5,
+                    mr: -0.5
+                  }
+                }}
+              />
             </Stack>
           )}
         </CardContent>
