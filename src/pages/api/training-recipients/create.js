@@ -10,6 +10,8 @@
 import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
 import { scopedCreate, scopedFindFirst } from '../../../lib/prisma/scopedQueries.js';
 import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { getOrgSubscription } from '../../../lib/features/subscriptionService';
+import { canAccessFeature } from '../../../lib/features/featureAccess';
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -34,6 +36,37 @@ async function handler(req, res) {
 
   if (!name) {
     throw new ValidationError('Name is required');
+  }
+
+  // Check training_recipients feature access
+  const subscription = await getOrgSubscription(orgContext.organizationId);
+  if (subscription) {
+    const featureCheck = canAccessFeature({
+      subscription,
+      userClaims: orgContext,
+      featureKey: 'training_recipients'
+    });
+    console.log('🔍 training_recipients feature check:', {
+      planId: subscription.planId,
+      canAccess: featureCheck.canAccess,
+      reason: featureCheck.reason,
+      hierarchyLevel: orgContext.hierarchyLevel,
+      appRole: orgContext.appRole,
+      isClientAdmin: orgContext.isClientAdmin,
+      permissionsCount: orgContext.permissions?.length,
+      hasCreatePerm: orgContext.permissions?.includes('training_recipients:create'),
+      hasWildcard: orgContext.permissions?.includes('*:*')
+    });
+    if (!featureCheck.canAccess) {
+      return res.status(403).json({
+        error: 'Feature not available',
+        message: featureCheck.message || 'Training recipients management is not available on your current plan',
+        reason: featureCheck.reason,
+        requiredPlan: featureCheck.requiredPlan,
+        currentPlan: featureCheck.currentPlan,
+        upgradeUrl: '/upgrade'
+      });
+    }
   }
 
   // Check if training recipient already exists in this organization

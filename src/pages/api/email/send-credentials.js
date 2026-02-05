@@ -5,6 +5,8 @@ import {
   fetchOrganizationLogo,
   isValidEmail
 } from '../../../lib/email';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -25,6 +27,13 @@ export default async function handler(req, res) {
     // Get user's organization for usage tracking and logo
     const userId = req.cookies?.workos_user_id;
     const organizationId = await getOrgIdFromUser(userId);
+
+    // Check email limit
+    if (organizationId) {
+      const limitCheck = await enforceResourceLimit(organizationId, RESOURCES.EMAILS_PER_MONTH, participants.length);
+      if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
+    }
+
     const organizationLogoUrl = await fetchOrganizationLogo(organizationId);
 
     const emailResults = [];

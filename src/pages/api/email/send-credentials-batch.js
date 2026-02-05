@@ -1,10 +1,12 @@
 import prisma from '../../../lib/prisma';
-import { logUsage, PROVIDERS } from '../../../lib/usage/usageLogger';
+import { logUsage, PROVIDERS, getOrgIdFromUser } from '../../../lib/usage/usageLogger';
 import {
   sendCredentials,
   isValidEmail,
   delay
 } from '../../../lib/email';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 // Rate limiting configuration
 const RATE_LIMIT_DELAY = 600;
@@ -23,6 +25,14 @@ export default async function handler(req, res) {
 
     if (!credentials || !Array.isArray(credentials) || credentials.length === 0) {
       return res.status(400).json({ message: 'Credentials array is required' });
+    }
+
+    // Check email limit
+    const userId = req.cookies?.workos_user_id;
+    const organizationId = await getOrgIdFromUser(userId);
+    if (organizationId) {
+      const limitCheck = await enforceResourceLimit(organizationId, RESOURCES.EMAILS_PER_MONTH, participants.length);
+      if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
     }
 
     // Fetch organization logo

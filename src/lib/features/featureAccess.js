@@ -55,7 +55,9 @@ export const PLAN_DEFINITIONS = {
       maxCourses: 15,
       maxCurriculums: 5,
       maxStorageGB: 5,
-      maxProjectsPerMonth: 5
+      maxProjectsPerMonth: 5,
+      maxEmailsPerMonth: 100,
+      maxAiSummarizationsPerMonth: 10
     }
   },
 
@@ -98,7 +100,9 @@ export const PLAN_DEFINITIONS = {
       maxCurriculums: 25,
       maxStorageGB: 50,
       maxProjectsPerMonth: 50,
-      maxCustomRoles: 10
+      maxCustomRoles: 10,
+      maxEmailsPerMonth: 1000,
+      maxAiSummarizationsPerMonth: 100
     }
   },
 
@@ -157,7 +161,9 @@ export const PLAN_DEFINITIONS = {
       maxCurriculums: -1,
       maxStorageGB: 500,
       maxProjectsPerMonth: -1,
-      maxCustomRoles: -1
+      maxCustomRoles: -1,
+      maxEmailsPerMonth: -1,
+      maxAiSummarizationsPerMonth: -1
     }
   }
 };
@@ -187,7 +193,7 @@ export const FEATURES = {
     name: 'Basic Project Management',
     description: 'Create and manage training projects',
     category: FEATURE_CATEGORIES.PROJECTS,
-    plans: ['free', 'pro', 'enterprise'],
+    plans: ['essential', 'professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['projects:create', 'projects:read', 'projects:update']
   },
@@ -197,7 +203,7 @@ export const FEATURES = {
     name: 'Basic Participant Management',
     description: 'Add and manage participants',
     category: FEATURE_CATEGORIES.PARTICIPANTS,
-    plans: ['free', 'pro', 'enterprise'],
+    plans: ['essential', 'professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['participants:read', 'participants:create']
   },
@@ -207,7 +213,7 @@ export const FEATURES = {
     name: 'Basic Courses',
     description: 'Create and manage courses',
     category: FEATURE_CATEGORIES.COURSES,
-    plans: ['free', 'pro', 'enterprise'],
+    plans: ['essential', 'professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager', 'Instructor'],
     permissions: ['courses:read', 'courses:create']
   },
@@ -217,7 +223,7 @@ export const FEATURES = {
     name: 'Basic Reporting',
     description: 'View basic project reports',
     category: FEATURE_CATEGORIES.ANALYTICS,
-    plans: ['free', 'pro', 'enterprise'],
+    plans: ['essential', 'professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['reports:read']
   },
@@ -227,7 +233,7 @@ export const FEATURES = {
     name: 'Single Sub-Organization',
     description: 'One sub-organization for your team',
     category: FEATURE_CATEGORIES.ADMIN,
-    plans: ['free', 'pro', 'enterprise'],
+    plans: ['essential', 'professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin'],
     permissions: ['sub_organizations:read']
   },
@@ -241,7 +247,7 @@ export const FEATURES = {
     name: 'Advanced Analytics',
     description: 'Detailed dashboards and insights',
     category: FEATURE_CATEGORIES.ANALYTICS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['reports:read', 'analytics:read']
   },
@@ -251,7 +257,7 @@ export const FEATURES = {
     name: 'Bulk Participant Import',
     description: 'Import participants via CSV',
     category: FEATURE_CATEGORIES.PARTICIPANTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['participants:create', 'participants:bulk']
   },
@@ -261,7 +267,7 @@ export const FEATURES = {
     name: 'Multiple Instructors',
     description: 'Assign multiple instructors per project',
     category: FEATURE_CATEGORIES.PROJECTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['instructors:assign']
   },
@@ -271,7 +277,7 @@ export const FEATURES = {
     name: 'Custom Assessments',
     description: 'Create custom assessments and grading',
     category: FEATURE_CATEGORIES.COURSES,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Instructor'],
     permissions: ['assessments:create', 'assessments:grade']
   },
@@ -281,9 +287,9 @@ export const FEATURES = {
     name: 'Training Recipients',
     description: 'Manage training recipient organizations',
     category: FEATURE_CATEGORIES.PARTICIPANTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
-    permissions: ['training_recipients:manage']
+    permissions: ['training_recipients:create']
   },
 
   training_plans: {
@@ -291,7 +297,7 @@ export const FEATURES = {
     name: 'Training Plans',
     description: 'Create structured training plans',
     category: FEATURE_CATEGORIES.PROJECTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager', 'Instructor'],
     permissions: ['training_plans:create']
   },
@@ -301,7 +307,7 @@ export const FEATURES = {
     name: 'Participant Roles',
     description: 'Assign roles to participants',
     category: FEATURE_CATEGORIES.PARTICIPANTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['participants:manage']
   },
@@ -311,7 +317,7 @@ export const FEATURES = {
     name: 'Topics & Tagging',
     description: 'Organize content with topics',
     category: FEATURE_CATEGORIES.COURSES,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['topics:manage']
   },
@@ -321,7 +327,7 @@ export const FEATURES = {
     name: 'Advanced Reporting',
     description: 'Custom reports and exports',
     category: FEATURE_CATEGORIES.ANALYTICS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['reports:advanced']
   },
@@ -331,7 +337,7 @@ export const FEATURES = {
     name: 'Course Curriculums',
     description: 'Build structured curriculums',
     category: FEATURE_CATEGORIES.COURSES,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Instructor'],
     permissions: ['curriculums:create']
   },
@@ -341,7 +347,7 @@ export const FEATURES = {
     name: 'Event Management',
     description: 'Schedule and manage training events',
     category: FEATURE_CATEGORIES.PROJECTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager', 'Instructor'],
     permissions: ['events:create']
   },
@@ -351,7 +357,7 @@ export const FEATURES = {
     name: 'Attendance Tracking',
     description: 'Track participant attendance',
     category: FEATURE_CATEGORIES.PARTICIPANTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager', 'Instructor'],
     permissions: ['attendance:track']
   },
@@ -361,7 +367,7 @@ export const FEATURES = {
     name: 'Group Management',
     description: 'Organize participants into groups',
     category: FEATURE_CATEGORIES.PARTICIPANTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['groups:manage']
   },
@@ -371,7 +377,7 @@ export const FEATURES = {
     name: 'Custom Participant Roles',
     description: 'Define custom participant roles',
     category: FEATURE_CATEGORIES.PARTICIPANTS,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin'],
     permissions: ['participant_roles:create']
   },
@@ -381,7 +387,7 @@ export const FEATURES = {
     name: 'Multiple Sub-Organizations',
     description: 'Create multiple sub-organizations',
     category: FEATURE_CATEGORIES.ADMIN,
-    plans: ['pro', 'enterprise'],
+    plans: ['professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin'],
     permissions: ['sub_organizations:create']
   },
@@ -565,7 +571,9 @@ export const RESOURCES = {
   CURRICULUMS: 'curriculums',
   STORAGE: 'storage',
   PROJECTS_PER_MONTH: 'projects_per_month',
-  CUSTOM_ROLES: 'custom_roles'
+  CUSTOM_ROLES: 'custom_roles',
+  EMAILS_PER_MONTH: 'emails_per_month',
+  AI_SUMMARIZATIONS_PER_MONTH: 'ai_summarizations_per_month'
 };
 
 // Map resource names to their limit keys in plan definitions
@@ -578,7 +586,24 @@ export const RESOURCE_LIMIT_KEYS = {
   [RESOURCES.CURRICULUMS]: 'maxCurriculums',
   [RESOURCES.STORAGE]: 'maxStorageGB',
   [RESOURCES.PROJECTS_PER_MONTH]: 'maxProjectsPerMonth',
-  [RESOURCES.CUSTOM_ROLES]: 'maxCustomRoles'
+  [RESOURCES.CUSTOM_ROLES]: 'maxCustomRoles',
+  [RESOURCES.EMAILS_PER_MONTH]: 'maxEmailsPerMonth',
+  [RESOURCES.AI_SUMMARIZATIONS_PER_MONTH]: 'maxAiSummarizationsPerMonth'
+};
+
+// Human-readable metadata for resource limits (used by admin UI)
+export const RESOURCE_DISPLAY_INFO = {
+  maxProjects: { label: 'Max Projects', description: 'Total active projects allowed' },
+  maxProjectsPerMonth: { label: 'Max Projects Per Month', description: 'Projects that can be created per month' },
+  maxParticipants: { label: 'Max Participants (Users)', description: 'Total unique participants across all projects' },
+  maxInstructors: { label: 'Max Instructors', description: 'Total instructors in the organization' },
+  maxSubOrganizations: { label: 'Max Sub-Organizations', description: 'Number of sub-organizations allowed' },
+  maxCourses: { label: 'Max Courses', description: 'Total courses that can be created' },
+  maxCurriculums: { label: 'Max Curriculums', description: 'Total curriculums that can be created' },
+  maxCustomRoles: { label: 'Max Custom Roles', description: 'Custom participant roles per organization' },
+  maxStorageGB: { label: 'Max Storage (GB)', description: 'File storage quota in gigabytes' },
+  maxEmailsPerMonth: { label: 'Max Emails Per Month', description: 'Outbound emails sent per month' },
+  maxAiSummarizationsPerMonth: { label: 'Max AI Summarizations / Month', description: 'AI summarization calls per month' }
 };
 
 // ============================================
@@ -641,7 +666,7 @@ export function canAccessFeature({ subscription, userClaims, featureKey, organiz
   if (!isFeatureInPlan) {
     // Find the minimum plan that has this feature
     const requiredPlan = feature.plans.find(p =>
-      ['free', 'pro', 'enterprise'].includes(p)
+      ['essential', 'professional', 'enterprise'].includes(p)
     );
 
     return {
@@ -653,47 +678,68 @@ export function canAccessFeature({ subscription, userClaims, featureKey, organiz
     };
   }
 
-  // Feature is in plan, now check role and permissions
+  // Feature is in plan — if no userClaims provided, skip role/permission check (plan-only gating)
+  if (!userClaims) {
+    return {
+      canAccess: true,
+      reason: 'plan_authorized',
+      message: 'Feature available in current plan'
+    };
+  }
+
+  // Check role and permissions
   return checkRoleAndPermissions(userClaims, feature);
 }
 
 /**
- * Check if user has required role and permissions for a feature
+ * Check if user has required role and permissions for a feature.
+ *
+ * Logic:
+ * 1. If the user has ALL required permissions (configured via the internal admin tool / DB),
+ *    access is granted regardless of the hardcoded roles array. DB permissions are authoritative.
+ * 2. If the user's role matches the hardcoded roles array, also check permissions.
+ * 3. If neither permissions nor role match, deny access.
  */
 function checkRoleAndPermissions(userClaims, feature) {
-  // Check role requirement
-  if (feature.roles && feature.roles.length > 0) {
-    const userRole = getUserRole(userClaims);
-    const hasRequiredRole = feature.roles.includes(userRole);
-
-    if (!hasRequiredRole) {
-      return {
-        canAccess: false,
-        reason: 'insufficient_role',
-        message: `This feature requires one of these roles: ${feature.roles.join(', ')}`,
-        requiredRoles: feature.roles,
-        currentRole: userRole
-      };
-    }
-  }
-
-  // Check permissions
+  // First: check if user has all required permissions from DB/admin tool.
+  // If they do, grant access — DB-configured permissions are authoritative.
   if (feature.permissions && feature.permissions.length > 0) {
     const hasAllPermissions = feature.permissions.every(permission =>
       userHasPermission(userClaims, permission)
     );
 
-    if (!hasAllPermissions) {
+    if (hasAllPermissions) {
       return {
-        canAccess: false,
-        reason: 'insufficient_permissions',
-        message: 'You do not have the required permissions for this feature',
-        requiredPermissions: feature.permissions
+        canAccess: true,
+        reason: 'authorized',
+        message: 'Access granted'
       };
     }
   }
 
-  // All checks passed
+  // If no specific permissions required, fall back to role check
+  if (feature.roles && feature.roles.length > 0) {
+    const userRole = getUserRole(userClaims);
+    const hasRequiredRole = feature.roles.includes(userRole);
+
+    if (hasRequiredRole) {
+      return {
+        canAccess: true,
+        reason: 'authorized',
+        message: 'Access granted'
+      };
+    }
+
+    return {
+      canAccess: false,
+      reason: 'insufficient_role',
+      message: `This feature requires one of these roles: ${feature.roles.join(', ')}`,
+      requiredRoles: feature.roles,
+      currentRole: userRole
+    };
+  }
+
+  // No role or permission requirements — allow
   return {
     canAccess: true,
     reason: 'authorized',
@@ -702,29 +748,84 @@ function checkRoleAndPermissions(userClaims, feature) {
 }
 
 /**
+ * Map hierarchy level to standard role name used in FEATURES catalog.
+ * DB roles may have custom names (e.g., "Training Manager") but their hierarchy
+ * level is the canonical measure of access: 0=Admin, 1=Org Admin, 2=PM, etc.
+ */
+const HIERARCHY_TO_STANDARD_ROLE = {
+  0: 'Admin',
+  1: 'Organization Admin',
+  2: 'Project Manager',
+  3: 'Instructor',
+  4: 'Participant',
+  5: 'Viewer',
+  6: 'Member'
+};
+
+/**
  * Get user's primary role from claims
+ * Supports both orgContext format (from withOrgScope middleware) and WorkOS claims format.
+ * Returns a standard role name that matches FEATURES catalog role arrays.
  */
 function getUserRole(userClaims) {
-  if (!userClaims || !userClaims.organizations || userClaims.organizations.length === 0) {
-    return 'Member';
+  if (!userClaims) return 'Member';
+
+  // Check if admin via orgContext isAdmin/isClientAdmin flags (Level 0-1)
+  if (userClaims.isClientAdmin || userClaims.isAdmin) return 'Admin';
+
+  // Use hierarchy level for reliable mapping to standard role names.
+  // DB roles can have custom names (e.g., "Training Manager" at level 2)
+  // but FEATURES catalog uses standard names (e.g., "Project Manager").
+  const hierarchyLevel = userClaims.hierarchyLevel ?? userClaims.appRole?.hierarchyLevel;
+  if (hierarchyLevel !== undefined) {
+    return HIERARCHY_TO_STANDARD_ROLE[hierarchyLevel] || 'Member';
   }
 
-  // Get role from first organization (or primary org in the future)
-  return userClaims.organizations[0].role || 'Member';
+  // Fallback: try appRole name directly (string or object)
+  if (userClaims.appRole) {
+    if (typeof userClaims.appRole === 'string') return userClaims.appRole;
+    if (userClaims.appRole.name) return userClaims.appRole.name;
+  }
+
+  // Support WorkOS claims format
+  if (userClaims.organizations && userClaims.organizations.length > 0) {
+    return userClaims.organizations[0].role || 'Member';
+  }
+
+  return 'Member';
 }
 
 /**
  * Check if user has a specific permission
+ * Supports both orgContext format (flat permissions array) and WorkOS claims format
  */
 function userHasPermission(userClaims, permission) {
-  if (!userClaims || !userClaims.organizations) {
-    return false;
+  if (!userClaims) return false;
+
+  // Helper to check if a permission list grants the required permission (with wildcard support)
+  const permissionGranted = (permList) => {
+    if (!permList || !Array.isArray(permList)) return false;
+    const [resource, action] = permission.split(':');
+    return permList.some(p => {
+      if (p === permission) return true;       // Exact match
+      if (p === '*:*') return true;            // Full wildcard
+      const [pResource, pAction] = p.split(':');
+      if (pResource === resource && pAction === '*') return true; // Resource wildcard
+      return false;
+    });
+  };
+
+  // Support orgContext format (flat permissions array from withOrgScope)
+  if (Array.isArray(userClaims.permissions)) {
+    return permissionGranted(userClaims.permissions);
   }
 
-  // Check if any organization membership has this permission
-  return userClaims.organizations.some(org =>
-    org.permissions && org.permissions.includes(permission)
-  );
+  // Support WorkOS claims format
+  if (userClaims.organizations) {
+    return userClaims.organizations.some(org => permissionGranted(org.permissions));
+  }
+
+  return false;
 }
 
 /**
@@ -761,14 +862,17 @@ export function hasResourceCapacity({ subscription, resource, currentUsage, requ
     };
   }
 
-  // Check for custom limits first
+  // Priority: customLimits (per-org) > DB plan resourceLimits > code PLAN_DEFINITIONS
   let limit;
   if (subscription.customLimits && subscription.customLimits[limitKey] !== undefined) {
     limit = subscription.customLimits[limitKey];
+  } else if (subscription.plan?.resourceLimits && subscription.plan.resourceLimits[limitKey] !== undefined) {
+    // Check database plan limits (set via admin UI)
+    limit = subscription.plan.resourceLimits[limitKey];
   } else {
-    // Get limit from plan definition
-    const plan = PLAN_DEFINITIONS[subscription.planId];
-    limit = plan ? plan.limits[limitKey] : 0;
+    // Fall back to hardcoded plan definitions
+    const codePlan = PLAN_DEFINITIONS[subscription.planId];
+    limit = codePlan ? codePlan.limits[limitKey] : 0;
   }
 
   // -1 means unlimited
@@ -860,7 +964,7 @@ export function getUpgradeRequirements(featureKey, currentPlanId) {
   }
 
   // Find minimum plan that has this feature
-  const planOrder = ['free', 'pro', 'enterprise'];
+  const planOrder = ['essential', 'professional', 'enterprise'];
   const currentPlanIndex = planOrder.indexOf(currentPlanId);
 
   const requiredPlan = feature.plans

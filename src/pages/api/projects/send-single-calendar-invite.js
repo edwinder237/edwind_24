@@ -6,6 +6,8 @@ import {
   sendCalendarInvite,
   formatRecipientName
 } from '../../../lib/email';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -66,18 +68,24 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Fetch project for organization name
+    // Fetch project for organization name and org ID
     const project = await prisma.projects.findUnique({
       where: { id: parseInt(projectId) },
       include: {
         sub_organization: {
-          select: { title: true }
+          select: { title: true, organizationId: true }
         }
       }
     });
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check email limit
+    if (project.sub_organization?.organizationId) {
+      const limitCheck = await enforceResourceLimit(project.sub_organization.organizationId, RESOURCES.EMAILS_PER_MONTH, 1);
+      if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
     }
 
     // Prepare event data

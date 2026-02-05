@@ -13,6 +13,8 @@ import {
   generateEventInviteTemplate,
   EMAIL_SENDERS
 } from '../../../lib/email';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 // Rate limiting configuration
 const RATE_LIMIT_DELAY = 600; // 600ms to be safe (slightly more than 500ms)
@@ -165,6 +167,14 @@ export default async function handler(req, res) {
           : 'No recipients with valid email addresses found',
         invalidEmails: invalidEmailRecipients
       });
+    }
+
+    // Check email limit (one email per participant per event)
+    const totalEmailsToSend = allParticipants.length * events.length;
+    const orgIdForLimit = await getOrgIdFromProject(parseInt(projectId));
+    if (orgIdForLimit) {
+      const limitCheck = await enforceResourceLimit(orgIdForLimit, RESOURCES.EMAILS_PER_MONTH, totalEmailsToSend);
+      if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
     }
 
     // Create calendar events data

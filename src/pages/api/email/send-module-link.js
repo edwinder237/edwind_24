@@ -1,6 +1,8 @@
 import prisma from '../../../lib/prisma';
 import { logUsage, PROVIDERS } from '../../../lib/usage/usageLogger';
 import { sendModuleLink, isValidEmail } from '../../../lib/email';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -73,6 +75,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'No valid participants found to send to' });
     }
 
+    // Check email limit
+    const orgId = event?.project?.sub_organization?.organizationId;
+    if (orgId) {
+      const limitCheck = await enforceResourceLimit(orgId, RESOURCES.EMAILS_PER_MONTH, attendeesToSend.length);
+      if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
+    }
+
     const emailResults = [];
 
     // Send emails to selected participants using centralized email service
@@ -128,7 +137,6 @@ export default async function handler(req, res) {
     const skippedCount = emailResults.filter(result => result.status === 'skipped').length;
 
     // Log email usage (fire-and-forget)
-    const orgId = event?.project?.sub_organization?.organizationId;
     const userId = req.cookies?.workos_user_id;
     logUsage({
       provider: PROVIDERS.RESEND,

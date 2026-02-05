@@ -23,6 +23,8 @@ import prisma from '../../../../lib/prisma';
 import { withOrgScope } from '../../../../lib/middleware/withOrgScope.js';
 import { asyncHandler, ValidationError } from '../../../../lib/errors/index.js';
 import { invalidateClaimsCache, warmClaimsCache } from '../../../../lib/auth/claimsCache.js';
+import { enforceResourceLimit } from '../../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../../lib/features/featureAccess';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
@@ -40,39 +42,9 @@ async function handler(req, res) {
     throw new ValidationError('Title is required');
   }
 
-  // Check subscription limits
-  const currentCount = await prisma.sub_organizations.count({
-    where: { organizationId: orgContext.organizationId }
-  });
-
-  let maxSubOrganizations = 1;
-  try {
-    const subscription = await prisma.subscriptions.findUnique({
-      where: { organizationId: orgContext.organizationId },
-      include: { plan: true }
-    });
-
-    if (subscription?.plan?.resourceLimits) {
-      const limits = typeof subscription.plan.resourceLimits === 'string'
-        ? JSON.parse(subscription.plan.resourceLimits)
-        : subscription.plan.resourceLimits;
-      maxSubOrganizations = limits.maxSubOrganizations || 1;
-    }
-  } catch (error) {
-    console.error('Error fetching subscription limits:', error);
-  }
-
-  // Check if limit reached (-1 means unlimited)
-  if (maxSubOrganizations !== -1 && currentCount >= maxSubOrganizations) {
-    return res.status(403).json({
-      error: 'Sub-organization limit reached',
-      message: `Your plan allows a maximum of ${maxSubOrganizations} sub-organization(s). Please upgrade your plan to add more.`,
-      limits: {
-        current: currentCount,
-        max: maxSubOrganizations
-      }
-    });
-  }
+  // Check sub-organization limit
+  const limitCheck = await enforceResourceLimit(orgContext.organizationId, RESOURCES.SUB_ORGANIZATIONS);
+  if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
 
   // Create the sub-organization
   const subOrganization = await prisma.sub_organizations.create({
@@ -116,11 +88,7 @@ async function handler(req, res) {
 
   return res.status(201).json({
     success: true,
-    subOrganization,
-    limits: {
-      current: currentCount + 1,
-      max: maxSubOrganizations
-    }
+    subOrganization
   });
 }
 

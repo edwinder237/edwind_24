@@ -170,24 +170,24 @@ export default async function handler(req, res) {
       }
     }
 
-    // 7. Create a default subscription (free tier)
+    // 7. Create a default subscription (essential tier)
     try {
-      // Check if free plan exists
-      const freePlan = await prisma.subscription_plans.findUnique({
-        where: { planId: 'free' }
+      // Check if essential plan exists
+      const essentialPlan = await prisma.subscription_plans.findUnique({
+        where: { planId: 'essential' }
       });
 
-      if (freePlan) {
+      if (essentialPlan) {
         await prisma.subscriptions.create({
           data: {
             organizationId: organization.id,
-            planId: 'free',
+            planId: 'essential',
             status: 'active',
             currentPeriodStart: new Date(),
             currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year
           }
         });
-        console.log(`✅ Created free subscription`);
+        console.log(`✅ Created essential subscription`);
       }
     } catch (subscriptionError) {
       console.error('Subscription creation error:', subscriptionError);

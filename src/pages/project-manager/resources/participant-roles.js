@@ -31,6 +31,7 @@ import Page from 'components/Page';
 import AppTable, { SelectionCell, SelectionHeader } from 'components/AppTable';
 import MainCard from 'components/MainCard';
 import { openSnackbar } from 'store/reducers/snackbar';
+import { ResourceLimitDialog, isResourceLimitError } from 'components/subscription';
 
 // assets
 import { PlusOutlined } from '@ant-design/icons';
@@ -52,6 +53,7 @@ function ParticipantRolesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, role: null });
+  const [limitError, setLimitError] = useState(null);
   
   // Optimistic updates cache
   const [optimisticRoles, setOptimisticRoles] = useState([]);
@@ -261,6 +263,15 @@ function ParticipantRolesPage() {
         );
       } else {
         const errorData = await response.json();
+
+        // Check if this is a resource limit error
+        const limitErr = isResourceLimitError(response.status, errorData);
+        if (limitErr) {
+          setOpen(false);
+          setLimitError(limitErr);
+          return;
+        }
+
         const message = errorData.error || 'Failed to save role';
         setErrorMessage(message);
         dispatch(
@@ -597,6 +608,13 @@ function ParticipantRolesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Resource Limit Dialog */}
+      <ResourceLimitDialog
+        open={!!limitError}
+        onClose={() => setLimitError(null)}
+        limitError={limitError}
+      />
     </Page>
   );
 }

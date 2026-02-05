@@ -7,9 +7,6 @@ import {
   TextField,
   Divider,
   InputLabel,
-  FormControl,
-  Select,
-  MenuItem,
   Box,
   Chip
 } from '@mui/material';
@@ -17,7 +14,8 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { timeStringToDate, dateToTimeString } from '../utils/timeHelpers';
-import { WORKING_DAY_OPTIONS, TIMEZONE_OPTIONS } from '../utils/constants';
+import { WORKING_DAY_OPTIONS } from '../utils/constants';
+import TimezoneSelect from 'components/TimezoneSelect';
 
 const ProjectScheduleCard = React.memo(({ 
   settings,
@@ -48,19 +46,6 @@ const ProjectScheduleCard = React.memo(({
       />
     )), 
     [settings.workingDays, onToggleWorkingDay]
-  );
-
-  // Memoized timezone options - supports both old string format and new object format
-  const timezoneMenuItems = useMemo(() =>
-    TIMEZONE_OPTIONS.map((tz) => {
-      // Handle both object format { value, label } and legacy string format
-      const value = typeof tz === 'string' ? tz : tz.value;
-      const label = typeof tz === 'string' ? tz : tz.label;
-      return (
-        <MenuItem key={value} value={value}>{label}</MenuItem>
-      );
-    }),
-    []
   );
 
   return (
@@ -156,17 +141,11 @@ const ProjectScheduleCard = React.memo(({
         </Grid>
 
         {/* Timezone Selector */}
-        <Stack spacing={0.5}>
-          <InputLabel>Timezone</InputLabel>
-          <FormControl fullWidth>
-            <Select
-              value={settings.timezone}
-              onChange={(e) => onUpdateField('timezone', e.target.value)}
-            >
-              {timezoneMenuItems}
-            </Select>
-          </FormControl>
-        </Stack>
+        <TimezoneSelect
+          value={settings.timezone}
+          onChange={(value) => onUpdateField('timezone', value)}
+          label="Timezone"
+        />
 
         {/* Working Days */}
         <Stack spacing={0.5}>

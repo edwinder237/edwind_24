@@ -169,8 +169,8 @@ async function handleGet(req, res, userId) {
         resourceLimits: subscription.customLimits || subscription.plan?.resourceLimits || {},
         features: subscription.customFeatures || subscription.plan?.features || []
       } : {
-        planId: 'free',
-        planName: 'Free',
+        planId: 'essential',
+        planName: 'Essential',
         status: 'active',
         resourceLimits: { maxProjects: 5, maxParticipants: 10, maxCourses: 3, maxCurriculums: 2 },
         features: []

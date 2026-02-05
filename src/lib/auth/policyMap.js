@@ -65,6 +65,7 @@ export const ROLE_PERMISSIONS = {
     'curriculums:*',
     'participants:*',
     'instructors:*',
+    'training_recipients:create',
     'reports:read',
     'reports:export',
     'settings:read',
@@ -87,6 +88,7 @@ export const ROLE_PERMISSIONS = {
     'participants:manage',
     'instructors:read',
     'instructors:assign',
+    'training_recipients:create',
     'courses:read',
     'curriculums:read',
     'reports:read',
@@ -197,14 +199,23 @@ export const ROLE_HIERARCHY = {
  * @returns {string[]} Array of permission strings
  */
 export function mapRoleToPermissions(workosRole) {
-  const permissions = ROLE_PERMISSIONS[workosRole];
-
-  if (!permissions) {
-    console.warn(`Unknown WorkOS role: ${workosRole}, defaulting to Member permissions`);
-    return ROLE_PERMISSIONS['Member'] || [];
+  // Try exact match first
+  if (ROLE_PERMISSIONS[workosRole]) {
+    return ROLE_PERMISSIONS[workosRole];
   }
 
-  return permissions;
+  // Case-insensitive fallback
+  const lowerRole = (workosRole || '').toLowerCase().trim();
+  const matchKey = Object.keys(ROLE_PERMISSIONS).find(
+    key => key.toLowerCase() === lowerRole
+  );
+
+  if (matchKey) {
+    return ROLE_PERMISSIONS[matchKey];
+  }
+
+  console.warn(`Unknown WorkOS role: ${workosRole}, defaulting to Member permissions`);
+  return ROLE_PERMISSIONS['Member'] || [];
 }
 
 /**
@@ -236,6 +247,22 @@ export function hasPermission(permissions, requiredPermission) {
 
     return false;
   });
+}
+
+/**
+ * Gets hierarchy level for a role (case-insensitive)
+ * @param {string} role - Role name
+ * @returns {number} Hierarchy level (lower = higher privilege), defaults to 6
+ */
+export function getRoleHierarchyLevel(role) {
+  if (ROLE_HIERARCHY[role] !== undefined) {
+    return ROLE_HIERARCHY[role];
+  }
+  const lowerRole = (role || '').toLowerCase().trim();
+  const matchKey = Object.keys(ROLE_HIERARCHY).find(
+    key => key.toLowerCase() === lowerRole
+  );
+  return matchKey ? ROLE_HIERARCHY[matchKey] : 6;
 }
 
 /**
@@ -284,6 +311,7 @@ export default {
   ROLE_PERMISSIONS,
   ROLE_HIERARCHY,
   mapRoleToPermissions,
+  getRoleHierarchyLevel,
   hasPermission,
   isRoleHigherThan,
   getAllPermissionsForRoles,

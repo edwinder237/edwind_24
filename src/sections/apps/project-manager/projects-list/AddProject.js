@@ -62,7 +62,8 @@ import TrainingRecipientPicker from "./TrainingRecipientPicker";
 import InstructorPicker from "./InstructorPicker";
 import GoogleMaps from "./google-map-autocomplete/GoogleMap";
 import CurriculumPicker from "./CurriculumPicker";
-import { TIMEZONE_OPTIONS, getTimezoneOffset } from "utils/timezone";
+import TimezoneSelect from "components/TimezoneSelect";
+import { getTimezoneLabel } from "utils/timezone";
 
 // assets
 import {
@@ -269,7 +270,8 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
   const [selectedTrainingRecipient, setSelectedTrainingRecipient] = useState(null);
   const [selectedInstructor, setSelectedInstructor] = useState(null);
   const [selectedCurriculum, setSelectedCurriculum] = useState(null);
-  const [projectTimezone, setProjectTimezone] = useState(project?.project_settings?.timezone || "UTC");
+  // For new projects, use empty string to trigger browser timezone auto-detection
+  const [projectTimezone, setProjectTimezone] = useState(project?.project_settings?.timezone || "");
 
   // Set initial training recipient for editing
   useEffect(() => {
@@ -316,6 +318,38 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
       fetchInstructor();
     }
   }, [project]);
+
+  // Auto-select instructor when user has instructor role (creating new project)
+  useEffect(() => {
+    if (isCreating && currentUser?.email) {
+      // Check if user is an instructor by role or appRole
+      const userRole = currentUser.role?.toLowerCase() || '';
+      const appRoleSlug = currentUser.appRole?.slug?.toLowerCase() || '';
+      const isInstructorUser = userRole === 'instructor' || appRoleSlug === 'instructor';
+
+      if (isInstructorUser) {
+        const findMatchingInstructor = async () => {
+          try {
+            const response = await axios.get('/api/instructors/fetchInstructors', {
+              params: {
+                status: 'active'
+              }
+            });
+            const matchingInstructor = response.data.find(
+              i => i.email?.toLowerCase() === currentUser.email.toLowerCase()
+            );
+            if (matchingInstructor) {
+              setSelectedInstructor(matchingInstructor);
+              setFieldValue("instructor", matchingInstructor.id.toString());
+            }
+          } catch (error) {
+            console.error('Error auto-selecting instructor:', error);
+          }
+        };
+        findMatchingInstructor();
+      }
+    }
+  }, [isCreating, currentUser]);
 
   // Set initial curriculum for editing
   useEffect(() => {
@@ -410,9 +444,11 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
             }
           } catch (error) {
             console.error('Error creating training recipient:', error);
+            const errData = error.response?.data;
+            const errMsg = errData?.message || errData?.error || 'Failed to create training recipient. Please try again.';
             dispatch(openSnackbar({
               open: true,
-              message: error.response?.data?.error || 'Failed to create training recipient. Please try again.',
+              message: errMsg,
               variant: 'alert',
               alert: { color: 'error' }
             }));
@@ -627,14 +663,16 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
 
   // Auto-generate project title when training recipient and project type are selected (only for new projects)
   useEffect(() => {
-    if (!project && selectedTrainingRecipient && values.type && !values.title) {
-      const recipientName = selectedTrainingRecipient.name || '';
+    // Get recipient name from either selected recipient or new recipient being created
+    const recipientName = selectedTrainingRecipient?.name || (showCreateRecipient ? newRecipientData.name : '');
+
+    if (!project && recipientName && values.type && !values.title) {
       const projectType = values.type || '';
       const generatedTitle = `${recipientName} | ${projectType}`;
       setFieldValue("title", generatedTitle);
       setProjectTitle(generatedTitle);
     }
-  }, [selectedTrainingRecipient, values.type, values.title, project, setFieldValue]);
+  }, [selectedTrainingRecipient, showCreateRecipient, newRecipientData.name, values.type, values.title, project, setFieldValue]);
 
   // Check if form has unsaved changes
   const hasUnsavedChanges = () => {
@@ -871,9 +909,11 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
         });
       }
     } catch (error) {
+      const errData = error.response?.data;
+      const errMsg = errData?.message || errData?.error || 'Failed to create training recipient.';
       dispatch(openSnackbar({
         open: true,
-        message: error.response?.data?.error || 'Failed to create training recipient.',
+        message: errMsg,
         variant: 'alert',
         alert: { color: 'error' }
       }));
@@ -1385,25 +1425,12 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
             />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <Typography variant="subtitle1" gutterBottom>
-              Project Timezone
-            </Typography>
-            <FormControl fullWidth>
-              <Select
-                value={projectTimezone}
-                onChange={(e) => setProjectTimezone(e.target.value)}
-                displayEmpty
-              >
-                {TIMEZONE_OPTIONS.map((tz) => (
-                  <MenuItem key={tz.value} value={tz.value}>
-                    {tz.label} ({getTimezoneOffset(tz.value)})
-                  </MenuItem>
-                ))}
-              </Select>
-              <FormHelperText>
-                All event times will be displayed in this timezone
-              </FormHelperText>
-            </FormControl>
+            <TimezoneSelect
+              value={projectTimezone}
+              onChange={(value) => setProjectTimezone(value)}
+              label="Project Timezone"
+              helperText="All event times will be displayed in this timezone"
+            />
           </Grid>
         </Grid>
       </Box>
@@ -1438,7 +1465,9 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Training Recipient:</Typography>
-                  <Typography variant="body1">{selectedTrainingRecipient?.name}</Typography>
+                  <Typography variant="body1">
+                    {selectedTrainingRecipient?.name || (showCreateRecipient ? newRecipientData.name : 'Not selected')}
+                  </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Curriculum:</Typography>
@@ -1453,7 +1482,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Timezone:</Typography>
                   <Typography variant="body1">
-                    {TIMEZONE_OPTIONS.find(tz => tz.value === projectTimezone)?.label || projectTimezone}
+                    {getTimezoneLabel(projectTimezone)}
                   </Typography>
                 </Grid>
               </Grid>

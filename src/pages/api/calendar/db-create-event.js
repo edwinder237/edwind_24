@@ -1,15 +1,38 @@
 import prisma from "../../../lib/prisma";
-import { connect } from "net";
+import { getOrgSubscription } from "../../../lib/features/subscriptionService";
+import { canAccessFeature } from "../../../lib/features/featureAccess";
 
 export default async function handler(req, res) {
     try {
 
       const { newEvent, events, projectId } = req.body;
-      
+
       if (!projectId) {
         return res.status(400).json({ error: "Project ID is required" });
       }
-      
+
+      // Check event_management feature access
+      const projectWithOrg = await prisma.projects.findUnique({
+        where: { id: parseInt(projectId) },
+        select: { sub_organization: { select: { organizationId: true } } }
+      });
+      if (projectWithOrg?.sub_organization?.organizationId) {
+        const subscription = await getOrgSubscription(projectWithOrg.sub_organization.organizationId);
+        if (subscription) {
+          const featureCheck = canAccessFeature({
+            subscription,
+            featureKey: 'event_management'
+          });
+          if (!featureCheck.canAccess) {
+            return res.status(403).json({
+              error: 'Feature not available',
+              message: 'Event management is not available on your current plan',
+              upgradeUrl: '/upgrade'
+            });
+          }
+        }
+      }
+
       const event = {
         title: newEvent.title,
         description: newEvent.description,
@@ -24,6 +47,8 @@ export default async function handler(req, res) {
         editable: true,
         eventStatus: "Active",
         timezone: newEvent.timezone || null,
+        deliveryMode: newEvent.deliveryMode || "in_person",
+        meetingLink: newEvent.meetingLink || null,
         extendedProps: { location: "Conference Room A", priority: "High" },
         project: {connect: {id: parseInt(projectId)}},
         ...(newEvent.courseId && { course: {connect: {id: parseInt(newEvent.courseId)}} }),

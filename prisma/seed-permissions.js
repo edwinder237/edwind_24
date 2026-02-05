@@ -195,7 +195,7 @@ const ROLE_PERMISSIONS = {
     'reports:read', 'reports:export',
     // Resources
     'instructors:read', 'instructors:assign',
-    'training_recipients:read',
+    'training_recipients:create', 'training_recipients:read', 'training_recipients:update',
     'rooms:read', 'rooms:book',
     'topics:read',
     'participant_roles:read', 'participant_roles:assign',
@@ -236,8 +236,8 @@ const ROLE_PERMISSIONS = {
   ],
 
   instructor: [
-    // Projects (assigned only)
-    'projects:read:assigned', 'projects:open',
+    // Projects
+    'projects:create', 'projects:read:assigned', 'projects:open', 'projects:update:assigned',
     // Courses
     'courses:read:assigned', 'courses:update:assigned',
     // Curriculums

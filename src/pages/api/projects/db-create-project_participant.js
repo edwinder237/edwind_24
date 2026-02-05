@@ -1,5 +1,7 @@
 import prisma from "../../../lib/prisma";
 import { withOrgScope } from "../../../lib/middleware/withOrgScope";
+import { enforceResourceLimit } from "../../../lib/features/subscriptionService";
+import { RESOURCES } from "../../../lib/features/featureAccess";
 
 async function handler(req, res) {
   try {
@@ -81,6 +83,12 @@ async function handler(req, res) {
           participantExists: true
         });
       }
+    }
+
+    // Check participant limit before creating a new participant
+    if (!participant) {
+      const limitCheck = await enforceResourceLimit(orgContext.organizationId, RESOURCES.PARTICIPANTS);
+      if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
     }
 
     // If participant doesn't exist in this sub-organization, create them

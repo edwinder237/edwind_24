@@ -9,7 +9,9 @@ import {
   DollarOutlined,
   ApartmentOutlined,
   ApiOutlined,
-  DashboardOutlined
+  DashboardOutlined,
+  ControlOutlined,
+  SafetyCertificateOutlined
 } from '@ant-design/icons';
 
 // icons
@@ -20,7 +22,9 @@ const icons = {
   DollarOutlined,
   ApartmentOutlined,
   ApiOutlined,
-  DashboardOutlined
+  DashboardOutlined,
+  ControlOutlined,
+  SafetyCertificateOutlined
 };
 
 // ==============================|| MENU ITEMS - INTERNAL (Owner Only) ||============================== //
@@ -48,11 +52,27 @@ const Internal = {
       breadcrumbs: true
     },
     {
+      id: 'internal-subscription-limits',
+      title: <FormattedMessage id="Subscription Limits" />,
+      type: 'item',
+      url: '/internal/subscription-limits',
+      icon: icons.ControlOutlined,
+      breadcrumbs: true
+    },
+    {
       id: 'internal-usage',
       title: <FormattedMessage id="Provider Usage" />,
       type: 'item',
       url: '/internal/usage',
       icon: icons.ApiOutlined,
+      breadcrumbs: true
+    },
+    {
+      id: 'internal-role-permissions',
+      title: <FormattedMessage id="Role Permissions" />,
+      type: 'item',
+      url: '/internal/role-permissions',
+      icon: icons.SafetyCertificateOutlined,
       breadcrumbs: true
     },
     {

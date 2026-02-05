@@ -11,6 +11,96 @@ import {
 // Rate limiting: 2 requests per second = 500ms delay between requests
 const RATE_LIMIT_DELAY = 600; // 600ms to be safe
 
+// Translations for schedule labels
+const TRANSLATIONS = {
+  en: {
+    trainingGroups: 'Training Groups',
+    noGroupsConfigured: 'No groups configured',
+    noParticipants: 'No participants',
+    schedule: 'Schedule',
+    focusOfTheDay: 'Focus of the day',
+    availableOnTrainingDay: 'Available on training day',
+    // Day names
+    monday: 'MONDAY',
+    tuesday: 'TUESDAY',
+    wednesday: 'WEDNESDAY',
+    thursday: 'THURSDAY',
+    friday: 'FRIDAY',
+    saturday: 'SATURDAY',
+    sunday: 'SUNDAY',
+    // Month abbreviations
+    jan: 'JAN', feb: 'FEB', mar: 'MAR', apr: 'APR', may: 'MAY', jun: 'JUN',
+    jul: 'JUL', aug: 'AUG', sep: 'SEP', oct: 'OCT', nov: 'NOV', dec: 'DEC'
+  },
+  fr: {
+    trainingGroups: 'Groupes de formation',
+    noGroupsConfigured: 'Aucun groupe configuré',
+    noParticipants: 'Aucun participant',
+    schedule: 'Horaire',
+    focusOfTheDay: 'Focus du jour',
+    availableOnTrainingDay: 'Disponible le jour de la formation',
+    // Day names
+    monday: 'LUNDI',
+    tuesday: 'MARDI',
+    wednesday: 'MERCREDI',
+    thursday: 'JEUDI',
+    friday: 'VENDREDI',
+    saturday: 'SAMEDI',
+    sunday: 'DIMANCHE',
+    // Month abbreviations
+    jan: 'JAN', feb: 'FÉV', mar: 'MAR', apr: 'AVR', may: 'MAI', jun: 'JUIN',
+    jul: 'JUIL', aug: 'AOÛT', sep: 'SEP', oct: 'OCT', nov: 'NOV', dec: 'DÉC'
+  }
+};
+
+// Helper to get translations for a language
+function getTranslations(language = 'en') {
+  return TRANSLATIONS[language] || TRANSLATIONS.en;
+}
+
+// Helper to translate day name
+function translateDayName(englishDayName, language = 'en') {
+  const dayMap = {
+    'SUNDAY': 'sunday',
+    'MONDAY': 'monday',
+    'TUESDAY': 'tuesday',
+    'WEDNESDAY': 'wednesday',
+    'THURSDAY': 'thursday',
+    'FRIDAY': 'friday',
+    'SATURDAY': 'saturday'
+  };
+  const key = dayMap[englishDayName.toUpperCase()];
+  const t = getTranslations(language);
+  return key ? t[key] : englishDayName;
+}
+
+// Helper to translate month abbreviation
+function translateMonth(englishMonth, language = 'en') {
+  const monthMap = {
+    'JAN': 'jan', 'FEB': 'feb', 'MAR': 'mar', 'APR': 'apr', 'MAY': 'may', 'JUN': 'jun',
+    'JUL': 'jul', 'AUG': 'aug', 'SEP': 'sep', 'OCT': 'oct', 'NOV': 'nov', 'DEC': 'dec'
+  };
+  const key = monthMap[englishMonth.toUpperCase()];
+  const t = getTranslations(language);
+  return key ? t[key] : englishMonth;
+}
+
+// Helper to get UTC offset string for a timezone (e.g., "GMT-4", "GMT+5:30")
+function getUtcOffsetString(timezone) {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'shortOffset'
+    });
+    const parts = formatter.formatToParts(now);
+    const offsetPart = parts.find(p => p.type === 'timeZoneName');
+    return offsetPart ? offsetPart.value : '';
+  } catch {
+    return '';
+  }
+}
+
 function getDefaultProfessionalTemplate() {
   return `<!DOCTYPE html>
 <html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
@@ -242,7 +332,7 @@ export default async function handler(req, res) {
  */
 async function handlePreview(req, res) {
   try {
-    const { projectId, projectTitle, events, dailyFocusData, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton' } = req.body;
+    const { projectId, projectTitle, events, dailyFocusData, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton', language = 'en' } = req.body;
 
     if (!projectId) {
       return res.status(400).json({ message: 'Missing required field: projectId' });
@@ -263,7 +353,8 @@ async function handlePreview(req, res) {
       includeEventSummaries,
       showLogo,
       showFocusOfDay,
-      timezone
+      timezone,
+      language
     });
 
     res.status(200).json({
@@ -286,7 +377,7 @@ async function handlePreview(req, res) {
  */
 async function handleSend(req, res) {
   try {
-    const { projectId, projectTitle, events, dailyFocusData, trainerEmails, ccEmails = [], bccEmails = [], customSubject, customTemplate, templateType, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton', includePdf = false } = req.body;
+    const { projectId, projectTitle, events, dailyFocusData, trainerEmails, ccEmails = [], bccEmails = [], customSubject, customTemplate, templateType, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton', language = 'en', includePdf = false } = req.body;
 
     if (!projectId || !trainerEmails || !Array.isArray(trainerEmails) || trainerEmails.length === 0) {
       return res.status(400).json({ message: 'Missing required fields: projectId and trainerEmails' });
@@ -316,7 +407,8 @@ async function handleSend(req, res) {
       includeEventSummaries,
       showLogo,
       showFocusOfDay,
-      timezone
+      timezone,
+      language
     });
 
     // Generate PDF attachment if requested
@@ -505,8 +597,9 @@ async function handleSend(req, res) {
  * Generate trainer email HTML from template
  * Shared by both preview and send actions
  */
-async function generateTrainerEmailFromTemplate({ template, projectTitle, projectId, events, trainerEmail, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton' }) {
+async function generateTrainerEmailFromTemplate({ template, projectTitle, projectId, events, trainerEmail, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, timezone = 'America/Edmonton', language = 'en' }) {
   let processedTemplate = template;
+  const t = getTranslations(language);
 
   // Fetch project groups, participants, and organization logo
   let projectGroups = [];
@@ -596,9 +689,11 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
     const scheduleDaysHtml = sortedDates.map(dateKey => {
       const dayEvents = eventsByDate[dateKey];
       const date = new Date(dateKey + 'T12:00:00');
-      const month = formatInTimeZone(date, timezone, 'MMM').toUpperCase();
+      const monthEn = formatInTimeZone(date, timezone, 'MMM').toUpperCase();
+      const month = translateMonth(monthEn, language);
       const day = formatInTimeZone(date, timezone, 'dd');
-      const dayName = formatInTimeZone(date, timezone, 'EEEE').toUpperCase();
+      const dayNameEn = formatInTimeZone(date, timezone, 'EEEE').toUpperCase();
+      const dayName = translateDayName(dayNameEn, language);
 
       // Sort events by start time
       const sortedDayEvents = dayEvents.sort((a, b) => {
@@ -655,16 +750,18 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
                                                     <p style="margin: 0; font-size: 14px; line-height: 1.5; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #2d2d2d;">${dayName}</p>
                                                 </td>
                                                 <td width="${scheduleColumnWidth}" style="font-weight: 400; text-align: left; background-color: #ffffff; padding: 10px 10px 10px 15px; vertical-align: top;" valign="top">
-                                                    <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold; color: #cc0a0a; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif;">Schedule</p>
+                                                    <p style="margin: 0 0 5px 0; font-size: 14px; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif;"><span style="font-weight: bold; color: #cc0a0a;">${t.schedule}</span> <span style="color: #888; font-size: 12px;">(${timezone.replace(/_/g, ' ')} ${getUtcOffsetString(timezone)})</span></p>
                                                     ${sortedDayEvents.map(evt => {
-                                                      const timeRange = formatInTimeZone(new Date(evt.start), timezone, 'HH:mm');
+                                                      const startTime = formatInTimeZone(new Date(evt.start), timezone, 'HH:mm');
+                                                      const endTime = evt.end ? formatInTimeZone(new Date(evt.end), timezone, 'HH:mm') : null;
+                                                      const timeRange = endTime ? `${startTime}–${endTime}` : startTime;
                                                       const groups = evt.event_groups?.map(eg => eg.groups?.groupName).filter(Boolean).join(', ');
-                                                      return `<p style="margin: 0 0 3px 0; font-size: 14px; line-height: 1.4; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;"><strong>${timeRange}</strong> ${evt.title}${groups ? ` <strong>${groups}</strong>` : ''}</p>`;
+                                                      return `<p style="margin: 0 0 3px 0; font-size: 14px; line-height: 1.4; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;"><span style="color: #666; font-size: 13px;">${timeRange}</span> ${evt.title}${groups ? ` <span style="color: #cc0a0a;">${groups}</span>` : ''}</p>`;
                                                     }).join('')}
                                                 </td>
                                                 ${showFocusOfDay ? `<td width="25%" style="font-weight: 400; text-align: center; background-color: #ffffff; padding: 10px; vertical-align: top;" valign="top">
-                                                    <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;">Focus of the day</p>
-                                                    <p style="margin: 0; font-size: 14px; line-height: 1.4; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;">Available on training day</p>
+                                                    <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;">${t.focusOfTheDay}</p>
+                                                    <p style="margin: 0; font-size: 14px; line-height: 1.4; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;">${t.availableOnTrainingDay}</p>
                                                 </td>` : ''}
                                             </tr>
                                         </tbody>
@@ -694,7 +791,7 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
                                                         <tr>
                                                             <td class="pad" style="padding-bottom:5px;padding-left:5px;padding-right:5px;padding-top:10px;">
                                                                 <div style="color:#000000;direction:ltr;font-family:'Ubuntu', Tahoma, Verdana, Segoe, sans-serif;font-size:20px;font-weight:400;letter-spacing:0px;line-height:120%;text-align:center;mso-line-height-alt:24px;">
-                                                                    <p style="margin: 0;"><strong>Training Groups</strong></p>
+                                                                    <p style="margin: 0;"><strong>${t.trainingGroups}</strong></p>
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -703,7 +800,7 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
                                                         <tr>
                                                             <td class="pad" style="padding-bottom:15px;padding-left:60px;padding-right:10px;">
                                                                 <ul start="1" style="margin: 0; padding: 0; margin-left: 20px; list-style-type: revert; color: #000000; direction: ltr; font-family: 'Ubuntu', Tahoma, Verdana, Segoe, sans-serif; font-size: 14px; font-weight: 400; letter-spacing: 0px; line-height: 120%; text-align: left;">
-                                                                    <li style="margin-bottom: 0px;">No groups configured</li>
+                                                                    <li style="margin-bottom: 0px;">${t.noGroupsConfigured}</li>
                                                                 </ul>
                                                             </td>
                                                         </tr>
@@ -746,7 +843,7 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
                                                     <table class="list_block block-3" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace: 0pt; mso-table-rspace: 0pt; word-break: break-word;">
                                                         <tr>
                                                             <td class="pad" style="padding-bottom:15px;padding-left:60px;padding-right:10px;">
-                                                                ${participantsList || '<ul start="1" style="margin: 0; padding: 0; margin-left: 20px; list-style-type: revert; color: #000000; direction: ltr; font-family: \'Ubuntu\', Tahoma, Verdana, Segoe, sans-serif; font-size: 14px; font-weight: 400; letter-spacing: 0px; line-height: 120%; text-align: left;"><li style="margin-bottom: 0px;">No participants</li></ul>'}
+                                                                ${participantsList || `<ul start="1" style="margin: 0; padding: 0; margin-left: 20px; list-style-type: revert; color: #000000; direction: ltr; font-family: 'Ubuntu', Tahoma, Verdana, Segoe, sans-serif; font-size: 14px; font-weight: 400; letter-spacing: 0px; line-height: 120%; text-align: left;"><li style="margin-bottom: 0px;">${t.noParticipants}</li></ul>`}
                                                             </td>
                                                         </tr>
                                                     </table>

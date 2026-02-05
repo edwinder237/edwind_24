@@ -45,6 +45,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { useSelector } from 'store';
 import useUser from 'hooks/useUser';
+import TimezoneSelect from 'components/TimezoneSelect';
 
 const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "Project Schedule" }) => {
   // Get current user for pre-filling email
@@ -108,6 +109,13 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   const [showLogo, setShowLogo] = useState(true);
   const [showFocusOfDay, setShowFocusOfDay] = useState(false);
   const [selectedTimezone, setSelectedTimezone] = useState(projectTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+
+  // Language options
+  const languages = [
+    { value: 'en', label: 'English' },
+    { value: 'fr', label: 'Français' }
+  ];
 
   // Update timezone when project timezone loads
   useEffect(() => {
@@ -119,28 +127,6 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   // PDF download state
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
-  // Common timezones for selection
-  const timezones = [
-    { value: 'America/Edmonton', label: 'Mountain Time (Edmonton)' },
-    { value: 'America/Vancouver', label: 'Pacific Time (Vancouver)' },
-    { value: 'America/Toronto', label: 'Eastern Time (Toronto)' },
-    { value: 'America/Winnipeg', label: 'Central Time (Winnipeg)' },
-    { value: 'America/Halifax', label: 'Atlantic Time (Halifax)' },
-    { value: 'America/St_Johns', label: 'Newfoundland Time (St. John\'s)' },
-    { value: 'America/New_York', label: 'Eastern Time (New York)' },
-    { value: 'America/Chicago', label: 'Central Time (Chicago)' },
-    { value: 'America/Denver', label: 'Mountain Time (Denver)' },
-    { value: 'America/Los_Angeles', label: 'Pacific Time (Los Angeles)' },
-    { value: 'America/Phoenix', label: 'Arizona Time (Phoenix)' },
-    { value: 'Europe/London', label: 'GMT (London)' },
-    { value: 'Europe/Paris', label: 'Central European Time (Paris)' },
-    { value: 'Europe/Berlin', label: 'Central European Time (Berlin)' },
-    { value: 'Asia/Dubai', label: 'Gulf Time (Dubai)' },
-    { value: 'Asia/Singapore', label: 'Singapore Time' },
-    { value: 'Asia/Tokyo', label: 'Japan Time (Tokyo)' },
-    { value: 'Australia/Sydney', label: 'Australian Eastern Time (Sydney)' },
-    { value: 'UTC', label: 'UTC (Coordinated Universal Time)' }
-  ];
 
   // Fetch daily focus data
   useEffect(() => {
@@ -246,7 +232,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
   };
 
   // Preview functions
-  const handleOpenPreview = async (customShowLogo, customShowFocus, customTimezone) => {
+  const handleOpenPreview = async (customShowLogo, customShowFocus, customTimezone, customLanguage) => {
     if (!projectId) {
       return;
     }
@@ -255,6 +241,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
     const logoVisible = customShowLogo !== undefined ? customShowLogo : showLogo;
     const focusVisible = customShowFocus !== undefined ? customShowFocus : showFocusOfDay;
     const timezone = customTimezone !== undefined ? customTimezone : selectedTimezone;
+    const language = customLanguage !== undefined ? customLanguage : selectedLanguage;
 
     setLoadingPreview(true);
     try {
@@ -272,7 +259,8 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
           includeEventSummaries: true,
           showLogo: logoVisible,
           showFocusOfDay: focusVisible,
-          timezone
+          timezone,
+          language
         }),
       });
 
@@ -312,7 +300,8 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
             includeEventSummaries: true,
             showLogo,
             showFocusOfDay,
-            timezone: selectedTimezone
+            timezone: selectedTimezone,
+            language: selectedLanguage
           }),
         });
 
@@ -571,6 +560,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
           showLogo,
           showFocusOfDay,
           timezone: selectedTimezone,
+          language: selectedLanguage,
           includePdf
         }),
       });
@@ -917,7 +907,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
                     onChange={(e) => {
                       setShowLogo(e.target.checked);
                       if (previewHtml) {
-                        handleOpenPreview(e.target.checked, showFocusOfDay, selectedTimezone);
+                        handleOpenPreview(e.target.checked, showFocusOfDay, selectedTimezone, selectedLanguage);
                       }
                     }}
                     size="small"
@@ -932,7 +922,7 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
                     onChange={(e) => {
                       setShowFocusOfDay(e.target.checked);
                       if (previewHtml) {
-                        handleOpenPreview(showLogo, e.target.checked, selectedTimezone);
+                        handleOpenPreview(showLogo, e.target.checked, selectedTimezone, selectedLanguage);
                       }
                     }}
                     size="small"
@@ -941,22 +931,36 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
                 label={<Typography variant="body2">Show Focus of the Day</Typography>}
               />
               <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-              <FormControl size="small" sx={{ minWidth: 220 }}>
-                <InputLabel id="timezone-select-label">Time Zone</InputLabel>
-                <Select
-                  labelId="timezone-select-label"
+              <Box sx={{ minWidth: 240 }}>
+                <TimezoneSelect
                   value={selectedTimezone}
-                  label="Time Zone"
-                  onChange={(e) => {
-                    setSelectedTimezone(e.target.value);
+                  onChange={(newValue) => {
+                    setSelectedTimezone(newValue);
                     if (previewHtml) {
-                      handleOpenPreview(showLogo, showFocusOfDay, e.target.value);
+                      handleOpenPreview(showLogo, showFocusOfDay, newValue, selectedLanguage);
+                    }
+                  }}
+                  label="Time Zone"
+                  size="small"
+                  defaultToBrowser={false}
+                />
+              </Box>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel id="language-select-label">Language</InputLabel>
+                <Select
+                  labelId="language-select-label"
+                  value={selectedLanguage}
+                  label="Language"
+                  onChange={(e) => {
+                    setSelectedLanguage(e.target.value);
+                    if (previewHtml) {
+                      handleOpenPreview(showLogo, showFocusOfDay, selectedTimezone, e.target.value);
                     }
                   }}
                 >
-                  {timezones.map((tz) => (
-                    <MenuItem key={tz.value} value={tz.value}>
-                      {tz.label}
+                  {languages.map((lang) => (
+                    <MenuItem key={lang.value} value={lang.value}>
+                      {lang.label}
                     </MenuItem>
                   ))}
                 </Select>

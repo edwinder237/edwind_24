@@ -1,7 +1,6 @@
 import prisma from '../../../lib/prisma';
-import { checkResourceCapacity } from '../../../lib/features/featureMiddleware';
 import { RESOURCES } from '../../../lib/features/featureAccess';
-import { getOrgSubscription, getResourceUsage } from '../../../lib/features/subscriptionService';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -55,31 +54,12 @@ export default async function handler(req, res) {
       });
 
       if (projectWithOrg?.sub_organization?.organizationId) {
-        const organizationId = projectWithOrg.sub_organization.organizationId;
-        const subscription = await getOrgSubscription(organizationId);
-
-        if (subscription) {
-          const usage = await getResourceUsage(organizationId);
-          const currentParticipants = usage.participants || 0;
-
-          // Get the limit from plan
-          const planLimits = subscription.plan?.resourceLimits || subscription.customLimits || {};
-          const limit = subscription.customLimits?.maxParticipants ?? planLimits.maxParticipants ?? -1;
-
-          // -1 means unlimited
-          if (limit !== -1 && (currentParticipants + toCreate.length) > limit) {
-            const available = Math.max(0, limit - currentParticipants);
-            return res.status(403).json({
-              error: 'Participant limit exceeded',
-              message: `Adding ${toCreate.length} participants would exceed your limit of ${limit}. You have ${available} spots available.`,
-              current: currentParticipants,
-              limit: limit,
-              requested: toCreate.length,
-              available: available,
-              upgradeUrl: '/upgrade'
-            });
-          }
-        }
+        const limitCheck = await enforceResourceLimit(
+          projectWithOrg.sub_organization.organizationId,
+          RESOURCES.PARTICIPANTS,
+          toCreate.length
+        );
+        if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
       }
     }
 

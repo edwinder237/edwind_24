@@ -23,6 +23,8 @@ import prisma from '../../../lib/prisma';
 import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
 import { scopedCreate } from '../../../lib/prisma/scopedQueries.js';
 import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -52,6 +54,10 @@ async function handler(req, res) {
     if (!firstName || !lastName || !email) {
       throw new ValidationError('First name, last name, and email are required');
     }
+
+    // Check instructor limit
+    const limitCheck = await enforceResourceLimit(orgContext.organizationId, RESOURCES.INSTRUCTORS);
+    if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
 
     // Check if instructor with email already exists
     const existingInstructor = await prisma.instructors.findUnique({

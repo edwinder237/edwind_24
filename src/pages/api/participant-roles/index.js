@@ -5,6 +5,8 @@ import {
   scopedCreate
 } from '../../../lib/prisma/scopedQueries.js';
 import { errorHandler, ValidationError } from '../../../lib/errors/index.js';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 async function handler(req, res) {
   const { method } = req;
@@ -77,6 +79,10 @@ async function handlePost(req, res, orgContext) {
   if (!title || !title.trim()) {
     throw new ValidationError('Role title is required');
   }
+
+  // Check custom roles limit
+  const limitCheck = await enforceResourceLimit(orgContext.organizationId, RESOURCES.CUSTOM_ROLES);
+  if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
 
   // Use provided sub_organizationId or default to first accessible sub-org
   const targetSubOrgId = sub_organizationId

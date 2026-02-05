@@ -20,7 +20,8 @@ import {
   Group,
   Edit,
   Delete,
-  ColorLens
+  ColorLens,
+  Videocam
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
 
@@ -230,15 +231,31 @@ const EventCard = React.memo(({
                 </Typography>
               </Stack>
 
-              {/* Location */}
-              {event.location && (
+              {/* Location / Meeting Link */}
+              {event.deliveryMode === 'remote' && event.meetingLink ? (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Videocam sx={{ fontSize: '1rem', color: theme.palette.info.main }} />
+                  <Typography
+                    variant="body2"
+                    color="info.main"
+                    noWrap
+                    component="a"
+                    href={event.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                  >
+                    Meeting Link
+                  </Typography>
+                </Stack>
+              ) : event.location ? (
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <LocationOn sx={{ fontSize: '1rem', color: theme.palette.text.secondary }} />
                   <Typography variant="body2" color="text.secondary" noWrap>
                     {event.location}
                   </Typography>
                 </Stack>
-              )}
+              ) : null}
 
               {/* Participants/Groups info */}
               {(totalParticipantCount > 0 || event.groups?.length > 0) && (

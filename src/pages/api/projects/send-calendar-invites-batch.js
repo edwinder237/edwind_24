@@ -12,6 +12,8 @@ import {
   generateEventInviteTemplate,
   EMAIL_SENDERS
 } from '../../../lib/email';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 // Rate limiting configuration
 const RATE_LIMIT_DELAY = 600;
@@ -152,6 +154,15 @@ export default async function handler(req, res) {
 
     if (attendeesToSend.length === 0) {
       return res.status(400).json({ success: false, message: 'No valid participants found to send invites to' });
+    }
+
+    // Check email limit
+    if (projectId) {
+      const orgIdForLimit = await getOrgIdFromProject(parseInt(projectId));
+      if (orgIdForLimit) {
+        const limitCheck = await enforceResourceLimit(orgIdForLimit, RESOURCES.EMAILS_PER_MONTH, attendeesToSend.length);
+        if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
+      }
     }
 
     // Send emails to selected participants

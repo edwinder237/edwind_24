@@ -437,8 +437,8 @@ const Profile = () => {
                             sx={{
                               height: 22,
                               fontSize: '0.75rem',
-                              bgcolor: user.subscription.planId === 'free' ? '#e0e0e0' : '#e3f2fd',
-                              color: user.subscription.planId === 'free' ? '#666' : '#1565c0'
+                              bgcolor: user.subscription.planId === 'essential' ? '#e0e0e0' : '#e3f2fd',
+                              color: user.subscription.planId === 'essential' ? '#666' : '#1565c0'
                             }}
                           />
                         )}

@@ -8,7 +8,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { PLAN_IDS } from './featureAccess';
+import { PLAN_IDS, hasResourceCapacity } from './featureAccess';
 
 const prisma = new PrismaClient();
 
@@ -69,7 +69,7 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
  *
  * @param {Object} params - Parameters
  * @param {string} params.organizationId - Organization ID
- * @param {string} params.planId - Plan ID (free/pro/enterprise)
+ * @param {string} params.planId - Plan ID (essential/professional/enterprise)
  * @param {string} params.status - Subscription status
  * @param {Date} params.currentPeriodEnd - End of current billing period
  * @param {Object} params.stripeData - Stripe integration data (optional)
@@ -78,7 +78,7 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
  */
 export async function createSubscription({
   organizationId,
-  planId = PLAN_IDS.FREE,
+  planId = PLAN_IDS.ESSENTIAL,
   status = 'active',
   currentPeriodEnd = null,
   stripeData = {},
@@ -278,8 +278,8 @@ export async function changePlan({
       where: { id: subscriptionId }
     });
 
-    const isUpgrade = ['free', 'pro', 'enterprise'].indexOf(newPlanId) >
-                      ['free', 'pro', 'enterprise'].indexOf(currentSub.planId);
+    const isUpgrade = ['essential', 'professional', 'enterprise'].indexOf(newPlanId) >
+                      ['essential', 'professional', 'enterprise'].indexOf(currentSub.planId);
 
     const defaultReason = isUpgrade
       ? `Upgraded to ${newPlanId}`
@@ -335,6 +335,10 @@ export async function getResourceUsage(organizationId) {
 
     const subOrgIds = subOrgs.map(so => so.id);
 
+    // Start of current month for monthly usage counts
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
     // Run queries in parallel
     const [
       projectCount,
@@ -343,7 +347,11 @@ export async function getResourceUsage(organizationId) {
       curriculumCount,
       customRoleCount,
       // Get projects created in the last 30 days
-      recentProjects
+      recentProjects,
+      // Monthly email count
+      emailCount,
+      // Monthly AI summarization count
+      aiSummarizationCount
     ] = await Promise.all([
       // Total projects
       prisma.projects.count({
@@ -380,6 +388,27 @@ export async function getResourceUsage(organizationId) {
             gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
           }
         }
+      }),
+
+      // Emails sent this month (Resend provider, successful only)
+      prisma.usage_logs.count({
+        where: {
+          organizationId,
+          provider: 'resend',
+          success: true,
+          createdAt: { gte: monthStart }
+        }
+      }),
+
+      // AI summarizations this month (Gemini provider, summarize action, successful only)
+      prisma.usage_logs.count({
+        where: {
+          organizationId,
+          provider: 'gemini',
+          action: 'summarize_session_notes',
+          success: true,
+          createdAt: { gte: monthStart }
+        }
       })
     ]);
 
@@ -401,6 +430,8 @@ export async function getResourceUsage(organizationId) {
       curriculums: curriculumCount,
       projects_per_month: recentProjects,
       custom_roles: customRoleCount,
+      emails_per_month: emailCount,
+      ai_summarizations_per_month: aiSummarizationCount,
       storage: 0 // TODO: Calculate actual storage usage
     };
   } catch (error) {
@@ -438,6 +469,49 @@ export async function checkResourceLimit({ organizationId, resource, amount = 1 
     console.error('Error checking resource limit:', error);
     throw error;
   }
+}
+
+/**
+ * Enforce a resource limit for an organization.
+ * Use this in routes that already have withOrgScope (avoids redundant auth).
+ *
+ * @param {string} organizationId - Organization ID
+ * @param {string} resource - Resource type (from RESOURCES constant)
+ * @param {number} amount - Amount being created (default: 1)
+ * @returns {Promise<Object>} { allowed: true } or { allowed: false, status: 403, body: {...} }
+ *
+ * @example
+ * const limitCheck = await enforceResourceLimit(orgContext.organizationId, RESOURCES.INSTRUCTORS);
+ * if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
+ */
+export async function enforceResourceLimit(organizationId, resource, amount = 1) {
+  const subscription = await getOrgSubscription(organizationId);
+  if (!subscription) return { allowed: true };
+
+  const usage = await getResourceUsage(organizationId);
+  const check = hasResourceCapacity({
+    subscription,
+    resource,
+    currentUsage: usage[resource] || 0,
+    requestedAmount: amount
+  });
+
+  if (!check.hasCapacity) {
+    return {
+      allowed: false,
+      status: 403,
+      body: {
+        error: 'Resource limit exceeded',
+        message: `You have reached your ${resource} limit`,
+        current: check.current,
+        limit: check.limit,
+        available: check.available,
+        upgradeUrl: '/upgrade'
+      }
+    };
+  }
+
+  return { allowed: true, subscription, usage };
 }
 
 /**

@@ -18,7 +18,9 @@ import {
   IconButton,
   useTheme,
   alpha,
-  Avatar
+  Avatar,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import {
   Close,
@@ -26,7 +28,10 @@ import {
   School,
   Support,
   Event as EventIcon,
-  Delete
+  Delete,
+  LocationOn,
+  Videocam,
+  Link as LinkIcon
 } from '@mui/icons-material';
 import MainCard from 'components/MainCard';
 import DeleteCard from 'components/cards/DeleteCard';
@@ -35,7 +40,7 @@ import { useGetProjectAgendaQuery } from 'store/api/projectApi';
 import { eventCommands } from 'store/commands';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
 import { useDateTimeRangeInput, formatDateTimeLocal } from 'hooks/useTimeRangeInput';
-import { TIMEZONE_OPTIONS } from 'utils/timezone';
+import TimezoneSelect from 'components/TimezoneSelect';
 
 const EditEventDialog = ({ open, onClose, event, project }) => {
   const theme = useTheme();
@@ -134,7 +139,9 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     supportActivityId: null,
     selectedGroups: [],
     timezone: null,
-    roomId: null
+    roomId: null,
+    deliveryMode: 'in_person',
+    meetingLink: ''
   });
 
   // Use standard color options from constants
@@ -207,7 +214,9 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         supportActivityId: event.supportActivityId || null,
         selectedGroups: event.event_groups?.map(eg => eg.groupId || eg.groups?.id).filter(Boolean) || [],
         timezone: event.timezone || project?.project_settings?.timezone || 'UTC',
-        roomId: event.roomId || null
+        roomId: event.roomId || null,
+        deliveryMode: event.deliveryMode || 'in_person',
+        meetingLink: event.meetingLink || ''
       });
     }
   }, [event, open, theme.palette.primary.main, defaultInstructor, _setStartRaw, _setEndRaw]);
@@ -254,7 +263,9 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
       courseId: null,
       supportActivityId: null,
       timezone: null,
-      roomId: null
+      roomId: null,
+      deliveryMode: 'in_person',
+      meetingLink: ''
     });
     onClose();
   };
@@ -564,18 +575,94 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
               />
             </Grid>
 
-            {/* Location & Instructor on same row */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Location"
+            {/* Delivery Mode Toggle */}
+            <Grid item xs={12}>
+              <ToggleButtonGroup
+                value={formData.deliveryMode}
+                exclusive
+                onChange={(_, newMode) => {
+                  if (newMode !== null) {
+                    handleInputChange('deliveryMode', newMode);
+                  }
+                }}
                 size="small"
-                value={formData.location}
-                onChange={(e) => handleInputChange('location', e.target.value)}
-                placeholder="Optional"
-              />
+                fullWidth
+              >
+                <ToggleButton value="in_person" sx={{ textTransform: 'none', gap: 1 }}>
+                  <LocationOn fontSize="small" />
+                  In Person
+                </ToggleButton>
+                <ToggleButton value="remote" sx={{ textTransform: 'none', gap: 1 }}>
+                  <Videocam fontSize="small" />
+                  Remote
+                </ToggleButton>
+              </ToggleButtonGroup>
             </Grid>
 
+            {/* In Person: Location & Room */}
+            {formData.deliveryMode === 'in_person' && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Location"
+                    size="small"
+                    value={formData.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
+                    placeholder="Optional"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Autocomplete
+                    fullWidth
+                    size="small"
+                    options={availableRooms}
+                    getOptionLabel={(option) => option.name || ''}
+                    value={availableRooms.find(room => room.id === formData.roomId) || null}
+                    onChange={(_, newValue) => handleInputChange('roomId', newValue?.id || null)}
+                    noOptionsText="No rooms available for this project"
+                    renderOption={(props, option) => (
+                      <li {...props}>
+                        <Stack>
+                          <Typography variant="body2">{option.name}</Typography>
+                          {option.location && (
+                            <Typography variant="caption" color="text.secondary">
+                              {option.location}{option.capacity ? ` • Capacity: ${option.capacity}` : ''}
+                            </Typography>
+                          )}
+                        </Stack>
+                      </li>
+                    )}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Room"
+                        placeholder={availableRooms.length > 0 ? "Select room" : "No rooms available"}
+                      />
+                    )}
+                  />
+                </Grid>
+              </>
+            )}
+
+            {/* Remote: Meeting Link */}
+            {formData.deliveryMode === 'remote' && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Meeting Link"
+                  size="small"
+                  value={formData.meetingLink}
+                  onChange={(e) => handleInputChange('meetingLink', e.target.value)}
+                  placeholder="https://zoom.us/j/..."
+                  InputProps={{
+                    startAdornment: <LinkIcon sx={{ mr: 1, color: 'text.secondary', fontSize: '1.2rem' }} />
+                  }}
+                />
+              </Grid>
+            )}
+
+            {/* Instructor */}
             <Grid item xs={12} sm={6}>
               <Autocomplete
                 fullWidth
@@ -594,54 +681,14 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
               />
             </Grid>
 
-            {/* Room Selection */}
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                fullWidth
-                size="small"
-                options={availableRooms}
-                getOptionLabel={(option) => option.name || ''}
-                value={availableRooms.find(room => room.id === formData.roomId) || null}
-                onChange={(_, newValue) => handleInputChange('roomId', newValue?.id || null)}
-                noOptionsText="No rooms available for this project"
-                renderOption={(props, option) => (
-                  <li {...props}>
-                    <Stack>
-                      <Typography variant="body2">{option.name}</Typography>
-                      {option.location && (
-                        <Typography variant="caption" color="text.secondary">
-                          {option.location}{option.capacity ? ` • Capacity: ${option.capacity}` : ''}
-                        </Typography>
-                      )}
-                    </Stack>
-                  </li>
-                )}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Room"
-                    placeholder={availableRooms.length > 0 ? "Select room" : "No rooms available"}
-                  />
-                )}
-              />
-            </Grid>
-
             {/* Timezone */}
             <Grid item xs={12}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Timezone</InputLabel>
-                <Select
-                  value={formData.timezone || project?.project_settings?.timezone || 'UTC'}
-                  label="Timezone"
-                  onChange={(e) => handleInputChange('timezone', e.target.value)}
-                >
-                  {TIMEZONE_OPTIONS.map((tz) => (
-                    <MenuItem key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TimezoneSelect
+                value={formData.timezone || project?.project_settings?.timezone || 'UTC'}
+                onChange={(value) => handleInputChange('timezone', value)}
+                label="Timezone"
+                size="small"
+              />
             </Grid>
 
           </Grid>

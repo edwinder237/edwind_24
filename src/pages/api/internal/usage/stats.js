@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         _sum: { estimatedCostUsd: true }
       }),
 
-      // Top organizations by usage (with org names)
+      // Top organizations by usage (with org names, user counts, and subscription status)
       prisma.usage_logs
         .groupBy({
           by: ['organizationId'],
@@ -90,17 +90,42 @@ export default async function handler(req, res) {
           take: 10
         })
         .then(async (orgs) => {
-          // Fetch organization names
+          // Fetch organization names, user counts, and subscription status
           const orgIds = orgs.map((o) => o.organizationId).filter(Boolean);
           const organizations = await prisma.organizations.findMany({
             where: { id: { in: orgIds } },
-            select: { id: true, title: true }
+            select: {
+              id: true,
+              title: true,
+              _count: {
+                select: { organization_memberships: true }
+              },
+              subscription: {
+                select: {
+                  status: true,
+                  planId: true,
+                  plan: {
+                    select: { name: true }
+                  }
+                }
+              }
+            }
           });
-          const orgMap = new Map(organizations.map((o) => [o.id, o.title]));
+          const orgMap = new Map(organizations.map((o) => [o.id, {
+            title: o.title,
+            userCount: o._count.organization_memberships,
+            subscription: o.subscription ? {
+              status: o.subscription.status,
+              planId: o.subscription.planId,
+              planName: o.subscription.plan?.name
+            } : null
+          }]));
 
           return orgs.map((o) => ({
             organizationId: o.organizationId,
-            organizationName: orgMap.get(o.organizationId) || 'Unknown',
+            organizationName: orgMap.get(o.organizationId)?.title || 'Unknown',
+            userCount: orgMap.get(o.organizationId)?.userCount || 0,
+            subscription: orgMap.get(o.organizationId)?.subscription || null,
             count: o._count.id,
             cost: o._sum?.estimatedCostUsd || 0
           }));

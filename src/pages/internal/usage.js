@@ -482,6 +482,8 @@ const OrganizationsTable = ({ data, neonCost = 0, resendCost = 0, mapsCost = 0, 
               <TableRow>
                 <TableCell>#</TableCell>
                 <TableCell>Organization</TableCell>
+                <TableCell align="center">Plan</TableCell>
+                <TableCell align="right">Users</TableCell>
                 <TableCell align="right">API Calls</TableCell>
                 <TableCell align="right">API Cost</TableCell>
                 <TableCell align="right">DB Cost</TableCell>
@@ -493,7 +495,7 @@ const OrganizationsTable = ({ data, neonCost = 0, resendCost = 0, mapsCost = 0, 
             <TableBody>
               {data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={10} align="center">
                     <Typography color="text.secondary" sx={{ py: 3 }}>
                       No usage data available
                     </Typography>
@@ -516,6 +518,62 @@ const OrganizationsTable = ({ data, neonCost = 0, resendCost = 0, mapsCost = 0, 
                         <TableCell>
                           <Typography variant="body2" fontWeight={500}>
                             {org.organizationName || 'Unknown'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          {org.subscription?.status === 'active' ? (
+                            <Tooltip title={org.subscription?.planName || org.subscription?.planId || 'Active'}>
+                              <Chip
+                                icon={<CheckCircleOutlined />}
+                                label={org.subscription?.planName || 'Active'}
+                                size="small"
+                                sx={{
+                                  bgcolor: alpha('#10B981', 0.15),
+                                  color: '#10B981',
+                                  fontWeight: 600,
+                                  fontSize: '0.7rem',
+                                  height: 22,
+                                  '& .MuiChip-icon': { color: '#10B981', fontSize: 12 }
+                                }}
+                              />
+                            </Tooltip>
+                          ) : org.subscription?.status === 'trialing' ? (
+                            <Tooltip title="Trial Period">
+                              <Chip
+                                icon={<ClockCircleOutlined />}
+                                label="Trial"
+                                size="small"
+                                sx={{
+                                  bgcolor: alpha('#F59E0B', 0.15),
+                                  color: '#F59E0B',
+                                  fontWeight: 600,
+                                  fontSize: '0.7rem',
+                                  height: 22,
+                                  '& .MuiChip-icon': { color: '#F59E0B', fontSize: 12 }
+                                }}
+                              />
+                            </Tooltip>
+                          ) : (
+                            <Tooltip title="No active subscription">
+                              <Chip
+                                icon={<CloseCircleOutlined />}
+                                label="Free"
+                                size="small"
+                                sx={{
+                                  bgcolor: alpha('#6B7280', 0.15),
+                                  color: '#6B7280',
+                                  fontWeight: 600,
+                                  fontSize: '0.7rem',
+                                  height: 22,
+                                  '& .MuiChip-icon': { color: '#6B7280', fontSize: 12 }
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ color: '#6366F1' }}>
+                            {org.userCount || 0}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
@@ -554,6 +612,19 @@ const OrganizationsTable = ({ data, neonCost = 0, resendCost = 0, mapsCost = 0, 
                     <TableCell colSpan={2}>
                       <Typography variant="body2" fontWeight={700}>
                         Total
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#10B981' }}>
+                        {(() => {
+                          const count = data.filter(org => org.subscription?.status === 'active').length;
+                          return `${count} subscriber${count !== 1 ? 's' : ''}`;
+                        })()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#6366F1' }}>
+                        {data.reduce((sum, org) => sum + (org.userCount || 0), 0)}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
@@ -1487,6 +1558,991 @@ const MapsUsageCard = ({ data, loading, proportionalShare = 1, organizationName 
   );
 };
 
+// ==============================|| WORKOS AUTH USAGE ||============================== //
+
+const WorkosUsageCard = ({ data, loading }) => {
+  const theme = useTheme();
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent>
+          <Skeleton variant="text" width={200} sx={{ mb: 2 }} />
+          <Grid container spacing={2}>
+            {[1, 2, 3, 4].map((i) => (
+              <Grid item xs={6} md={3} key={i}>
+                <Skeleton variant="rectangular" height={120} />
+              </Grid>
+            ))}
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.error) {
+    return (
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <ApiOutlined style={{ fontSize: 24, color: '#6366F1' }} />
+            <Typography variant="h6">WorkOS Authentication</Typography>
+          </Stack>
+          <Typography color="text.secondary">
+            {data?.error || 'Failed to load WorkOS usage data.'}
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const metrics = data.metrics || {};
+  const mau = data.mau || {};
+  const costs = data.costs || {};
+
+  const formatCost = (cost) => {
+    if (!cost || cost === 0) return '$0.00';
+    if (cost < 0.01) return `$${cost.toFixed(4)}`;
+    return `$${cost.toFixed(2)}`;
+  };
+
+  const mauPercentage = mau.freeLimit > 0 ? ((mau.estimated || 0) / mau.freeLimit) * 100 : 0;
+
+  return (
+    <Card>
+      <CardContent>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <ApiOutlined style={{ fontSize: 24, color: '#6366F1' }} />
+            <Typography variant="h6">WorkOS Authentication</Typography>
+            <Chip label="User Management" size="small" variant="outlined" color="secondary" />
+            <Tooltip
+              title={
+                <Box sx={{ p: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                    WorkOS Pricing
+                  </Typography>
+                  <Table size="small" sx={{ '& td, & th': { border: 0, py: 0.5, px: 1, color: 'inherit' } }}>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>Free Tier</TableCell>
+                        <TableCell>1M MAU included</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Overage</TableCell>
+                        <TableCell>$2,500/1M MAU</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Custom Domain</TableCell>
+                        <TableCell>$99/month</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Audit Logs</TableCell>
+                        <TableCell>$5/org/month</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Box>
+              }
+              arrow
+              placement="right"
+            >
+              <IconButton size="small" sx={{ ml: 0.5 }}>
+                <InfoCircleOutlined style={{ fontSize: 16, color: theme.palette.text.secondary }} />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            {mau.withinFreeLimit ? (
+              <Chip label="Within Free Tier" size="small" color="success" />
+            ) : (
+              <Chip label={`Est. Cost: ${formatCost(costs.total)}`} size="small" color="warning" />
+            )}
+          </Stack>
+        </Stack>
+
+        <Grid container spacing={3}>
+          {/* Total Users */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#6366F1', 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <CrownOutlined style={{ color: '#6366F1' }} />
+                <Typography variant="body2" color="text.secondary">Total Users</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {(metrics.totalUsers || 0).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Registered accounts
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  All time
+                </Typography>
+                <Typography variant="caption" color="success.main" fontWeight="medium">
+                  +{metrics.newUsersThisMonth || 0} this month
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* MAU (Monthly Active Users) */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#6366F1', 0.08) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <ThunderboltOutlined style={{ color: '#6366F1' }} />
+                <Typography variant="body2" color="text.secondary">MAU (Est.)</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {(mau.estimated || 0).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Monthly Active Users
+              </Typography>
+              <Box sx={{ mt: 1 }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min(mauPercentage, 100)}
+                  sx={{
+                    height: 6,
+                    borderRadius: 1,
+                    bgcolor: alpha('#6366F1', 0.1),
+                    '& .MuiLinearProgress-bar': {
+                      bgcolor: mauPercentage > 80 ? theme.palette.warning.main : '#6366F1'
+                    }
+                  }}
+                />
+              </Box>
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {mauPercentage.toFixed(4)}% of free tier
+                </Typography>
+                <Typography variant="caption" fontWeight={500}>
+                  {(mau.freeLimit || 0).toLocaleString()} limit
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Organizations */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#6366F1', 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <BankOutlined style={{ color: '#6366F1' }} />
+                <Typography variant="body2" color="text.secondary">Organizations</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {(metrics.totalOrganizations || 0).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Active organizations
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Avg users/org
+                </Typography>
+                <Typography variant="caption" fontWeight={500}>
+                  {metrics.avgUsersPerOrg || 0}
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Active Users */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#6366F1', 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <CheckCircleOutlined style={{ color: theme.palette.success.main }} />
+                <Typography variant="body2" color="text.secondary">Active (30d)</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {(metrics.activeUsers || 0).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Logged in last 30 days
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Activity rate
+                </Typography>
+                <Typography variant="caption" fontWeight={500} color="success.main">
+                  {metrics.totalUsers > 0 ? ((metrics.activeUsers / metrics.totalUsers) * 100).toFixed(1) : 0}%
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Cost Breakdown */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha(costs.total > 0 ? theme.palette.warning.main : theme.palette.success.main, 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <DollarOutlined style={{ color: costs.total > 0 ? theme.palette.warning.main : theme.palette.success.main }} />
+                <Typography variant="body2" color="text.secondary">Est. Cost</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {formatCost(costs.total)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Monthly estimate
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {costs.mau > 0 ? `MAU: ${formatCost(costs.mau)}` : 'Within free tier'}
+                </Typography>
+                <Typography variant="caption" fontWeight={500} color={costs.total > 0 ? 'warning.main' : 'success.main'}>
+                  {costs.total > 0 ? 'Overage' : 'Free'}
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Additional Info */}
+        <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="caption" color="text.secondary">
+                <strong>Cost Breakdown:</strong> MAU: {formatCost(costs.mau)} | Custom Domain: {costs.breakdown?.customDomainRate} | Audit Logs: {costs.breakdown?.auditLogsRate}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="caption" color="text.secondary" sx={{ textAlign: { md: 'right' }, display: 'block' }}>
+                Data source: {data.dataSource || 'database'}
+              </Typography>
+            </Grid>
+          </Grid>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ==============================|| STRIPE BILLING ANALYTICS ||============================== //
+
+const StripeUsageCard = ({ data, loading }) => {
+  const theme = useTheme();
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent>
+          <Skeleton variant="text" width={200} sx={{ mb: 2 }} />
+          <Grid container spacing={2}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Grid item xs={6} md={2.4} key={i}>
+                <Skeleton variant="rectangular" height={120} />
+              </Grid>
+            ))}
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.error) {
+    return (
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <DollarOutlined style={{ fontSize: 24, color: '#635BFF' }} />
+            <Typography variant="h6">Stripe Billing</Typography>
+          </Stack>
+          <Typography color="text.secondary">
+            {data?.error || 'Failed to load Stripe analytics.'}
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const metrics = data.metrics || {};
+  const revenue = data.revenue || {};
+  const growth = data.growth || {};
+  const planDistribution = data.planDistribution || [];
+
+  const formatCurrency = (amount) => {
+    if (!amount || amount === 0) return '$0';
+    return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
+  return (
+    <Card>
+      <CardContent>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <DollarOutlined style={{ fontSize: 24, color: '#635BFF' }} />
+            <Typography variant="h6">Stripe Billing</Typography>
+            <Chip label="Subscriptions" size="small" variant="outlined" sx={{ borderColor: '#635BFF', color: '#635BFF' }} />
+            <Tooltip
+              title={
+                <Box sx={{ p: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                    Subscription Metrics
+                  </Typography>
+                  <Typography variant="caption" display="block">MRR = Monthly Recurring Revenue</Typography>
+                  <Typography variant="caption" display="block">ARR = Annual Recurring Revenue (MRR × 12)</Typography>
+                </Box>
+              }
+              arrow
+              placement="right"
+            >
+              <IconButton size="small" sx={{ ml: 0.5 }}>
+                <InfoCircleOutlined style={{ fontSize: 16, color: theme.palette.text.secondary }} />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            {data.stripeBalance && (
+              <Chip
+                label={`Balance: ${formatCurrency(data.stripeBalance.available)}`}
+                size="small"
+                color="success"
+              />
+            )}
+            <Chip
+              label={`${metrics.active || 0} Active`}
+              size="small"
+              sx={{ bgcolor: alpha('#635BFF', 0.1), color: '#635BFF' }}
+            />
+          </Stack>
+        </Stack>
+
+        <Grid container spacing={3}>
+          {/* MRR */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#635BFF', 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <DollarOutlined style={{ color: '#635BFF' }} />
+                <Typography variant="body2" color="text.secondary">MRR</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {formatCurrency(revenue.mrr)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Monthly Recurring Revenue
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {revenue.monthlySubscriptions || 0} monthly
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {revenue.annualSubscriptions || 0} annual
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* ARR */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#635BFF', 0.08) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <ArrowUpOutlined style={{ color: theme.palette.success.main }} />
+                <Typography variant="body2" color="text.secondary">ARR</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {formatCurrency(revenue.arr)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Annual Recurring Revenue
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Projected yearly
+                </Typography>
+                <Typography variant="caption" fontWeight={500} color="success.main">
+                  MRR × 12
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Active Subscribers */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.success.main, 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <CheckCircleOutlined style={{ color: theme.palette.success.main }} />
+                <Typography variant="body2" color="text.secondary">Active</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {metrics.active || 0}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Active subscriptions
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {metrics.trialing || 0} trialing
+                </Typography>
+                <Typography variant="caption" color="success.main" fontWeight={500}>
+                  {metrics.conversionRate}% conversion
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Growth This Month */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha(growth.netGrowth >= 0 ? theme.palette.success.main : theme.palette.error.main, 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                {growth.netGrowth >= 0 ? (
+                  <ArrowUpOutlined style={{ color: theme.palette.success.main }} />
+                ) : (
+                  <ArrowDownOutlined style={{ color: theme.palette.error.main }} />
+                )}
+                <Typography variant="body2" color="text.secondary">Growth</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5, color: growth.netGrowth >= 0 ? 'success.main' : 'error.main' }}>
+                {growth.netGrowth >= 0 ? '+' : ''}{growth.netGrowth || 0}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Net this month
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="success.main">
+                  +{growth.newThisMonth || 0} new
+                </Typography>
+                <Typography variant="caption" color="error.main">
+                  -{growth.churnedThisMonth || 0} churned
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Churn/Status */}
+          <Grid item xs={12} sm={6} md={2.4}>
+            <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.warning.main, 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <CloseCircleOutlined style={{ color: theme.palette.warning.main }} />
+                <Typography variant="body2" color="text.secondary">Status</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {metrics.total || 0}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Total subscriptions
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="warning.main">
+                  {metrics.pastDue || 0} past due
+                </Typography>
+                <Typography variant="caption" color="error.main">
+                  {metrics.canceled || 0} canceled
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Plan Distribution */}
+        {planDistribution.length > 0 && (
+          <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ mb: 2 }}>Plan Distribution</Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {planDistribution.map((plan) => (
+                <Chip
+                  key={plan.planId}
+                  label={`${plan.planName}: ${plan.count}`}
+                  size="small"
+                  sx={{ bgcolor: alpha('#635BFF', 0.1) }}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {/* Recent Activity */}
+        {data.recentSubscriptions?.length > 0 && (
+          <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary">
+              Recent: {data.recentSubscriptions.slice(0, 3).map(s => s.organizationName).join(', ')}
+              {data.recentSubscriptions.length > 3 && ` +${data.recentSubscriptions.length - 3} more`}
+            </Typography>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ==============================|| R2 STORAGE USAGE CARD ||============================== //
+
+// ==============================|| GEMINI AI USAGE CARD ||============================== //
+
+const GeminiUsageCard = ({ data, loading }) => {
+  const theme = useTheme();
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent>
+          <Skeleton variant="text" width={200} sx={{ mb: 2 }} />
+          <Grid container spacing={2}>
+            {[1, 2, 3, 4].map((i) => (
+              <Grid item xs={6} md={3} key={i}>
+                <Skeleton variant="rectangular" height={120} />
+              </Grid>
+            ))}
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.error) {
+    return (
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <RobotOutlined style={{ fontSize: 24, color: '#8B5CF6' }} />
+            <Typography variant="h6">Gemini AI</Typography>
+          </Stack>
+          <Typography color="text.secondary">
+            {data?.error || 'Failed to load Gemini AI analytics.'}
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const metrics = data.metrics || {};
+  const tokens = data.tokens || {};
+  const costs = data.costs || {};
+  const performance = data.performance || {};
+  const byAction = data.byAction || [];
+  const topUsers = data.topUsers || [];
+
+  const formatTokens = (num) => {
+    if (!num || num === 0) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toLocaleString();
+  };
+
+  return (
+    <Card>
+      <CardContent>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <RobotOutlined style={{ fontSize: 24, color: '#8B5CF6' }} />
+            <Typography variant="h6">Gemini AI</Typography>
+            <Chip label={data.model || 'gemini-2.5-flash-lite'} size="small" variant="outlined" sx={{ borderColor: '#8B5CF6', color: '#8B5CF6' }} />
+            <Tooltip
+              title={
+                <Box sx={{ p: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                    Gemini Pricing
+                  </Typography>
+                  <Typography variant="caption" display="block">Input: $0.075/1M tokens</Typography>
+                  <Typography variant="caption" display="block">Output: $0.30/1M tokens</Typography>
+                </Box>
+              }
+              arrow
+              placement="right"
+            >
+              <IconButton size="small" sx={{ ml: 0.5 }}>
+                <InfoCircleOutlined style={{ fontSize: 16, color: theme.palette.text.secondary }} />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            {data.configured && (
+              <Chip
+                icon={<CheckCircleOutlined style={{ fontSize: 14 }} />}
+                label="Connected"
+                size="small"
+                sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), color: theme.palette.success.main }}
+              />
+            )}
+            {metrics.successRate >= 95 && (
+              <Chip
+                label={`${metrics.successRate}% success`}
+                size="small"
+                sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), color: theme.palette.success.main }}
+              />
+            )}
+          </Stack>
+        </Stack>
+
+        <Grid container spacing={3}>
+          {/* Total Requests */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#8B5CF6', 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <ThunderboltOutlined style={{ color: '#8B5CF6' }} />
+                <Typography variant="body2" color="text.secondary">Requests</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {(metrics.requestsThisMonth || 0).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                This month
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {(metrics.totalRequests || 0).toLocaleString()} total
+                </Typography>
+                {metrics.momGrowth !== 0 && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: metrics.momGrowth > 0 ? theme.palette.success.main : theme.palette.error.main,
+                      fontWeight: 500
+                    }}
+                  >
+                    {metrics.momGrowth > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                    {Math.abs(metrics.momGrowth)}%
+                  </Typography>
+                )}
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Tokens Used */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#8B5CF6', 0.08) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <FireOutlined style={{ color: '#8B5CF6' }} />
+                <Typography variant="body2" color="text.secondary">Tokens</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {formatTokens(tokens.thisMonth?.total || 0)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                This month
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  In: {formatTokens(tokens.thisMonth?.input || 0)}
+                </Typography>
+                <Typography variant="caption" color="#8B5CF6" fontWeight={500}>
+                  Out: {formatTokens(tokens.thisMonth?.output || 0)}
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Average Response Time */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.info.main, 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <ClockCircleOutlined style={{ color: theme.palette.info.main }} />
+                <Typography variant="body2" color="text.secondary">Avg Response</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {performance.avgDurationMs ? `${(performance.avgDurationMs / 1000).toFixed(1)}s` : '—'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Response time
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {metrics.successfulRequests || 0} successful
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color={metrics.failedRequests > 0 ? 'error.main' : 'success.main'}
+                  fontWeight={500}
+                >
+                  {metrics.failedRequests || 0} failed
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Cost This Month */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.success.main, 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <DollarOutlined style={{ color: theme.palette.success.main }} />
+                <Typography variant="body2" color="text.secondary">Cost</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                ${(costs.thisMonth || 0).toFixed(4)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                This month
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  All time: ${(costs.allTime || 0).toFixed(4)}
+                </Typography>
+                <Typography variant="caption" color="success.main" fontWeight={500}>
+                  {formatTokens(tokens.allTime?.total || 0)} tokens
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Actions Breakdown */}
+        {byAction.length > 0 && (
+          <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ mb: 2 }}>Usage by Action (Last 30 days)</Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {byAction.map((action) => (
+                <Chip
+                  key={action.action}
+                  label={`${action.action}: ${action.count} (${formatTokens(action.tokens)} tokens)`}
+                  size="small"
+                  sx={{ bgcolor: alpha('#8B5CF6', 0.1) }}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {/* Top Users */}
+        {topUsers.length > 0 && (
+          <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ mb: 2 }}>Top Users (Last 30 days)</Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {topUsers.slice(0, 5).map((user) => (
+                <Chip
+                  key={user.userId}
+                  label={`${user.userName}: ${user.count} requests`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: alpha('#8B5CF6', 0.3) }}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ==============================|| R2 STORAGE USAGE CARD ||============================== //
+
+const R2UsageCard = ({ data, loading }) => {
+  const theme = useTheme();
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent>
+          <Skeleton variant="text" width={200} sx={{ mb: 2 }} />
+          <Grid container spacing={2}>
+            {[1, 2, 3, 4].map((i) => (
+              <Grid item xs={6} md={3} key={i}>
+                <Skeleton variant="rectangular" height={120} />
+              </Grid>
+            ))}
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.error) {
+    return (
+      <Card>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <CloudUploadOutlined style={{ fontSize: 24, color: '#F59E0B' }} />
+            <Typography variant="h6">Cloudflare R2 Storage</Typography>
+          </Stack>
+          <Typography color="text.secondary">
+            {data?.error || 'Failed to load R2 storage analytics.'}
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const usage = data.usage || {};
+  const costs = data.costs || {};
+  const bucket = data.bucket || {};
+  const byAction = data.byAction || [];
+
+  const formatBytes = (bytes) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  return (
+    <Card>
+      <CardContent>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <CloudUploadOutlined style={{ fontSize: 24, color: '#F59E0B' }} />
+            <Typography variant="h6">Cloudflare R2 Storage</Typography>
+            <Chip label="Object Storage" size="small" variant="outlined" sx={{ borderColor: '#F59E0B', color: '#F59E0B' }} />
+            <Tooltip
+              title={
+                <Box sx={{ p: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                    R2 Pricing
+                  </Typography>
+                  <Typography variant="caption" display="block">Storage: $0.015/GB/month</Typography>
+                  <Typography variant="caption" display="block">Class A ops (writes): $4.50/million</Typography>
+                  <Typography variant="caption" display="block">Class B ops (reads): $0.36/million</Typography>
+                  <Typography variant="caption" display="block">Egress: Free!</Typography>
+                </Box>
+              }
+              arrow
+              placement="right"
+            >
+              <IconButton size="small" sx={{ ml: 0.5 }}>
+                <InfoCircleOutlined style={{ fontSize: 16, color: theme.palette.text.secondary }} />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            {bucket.name && (
+              <Chip
+                label={bucket.name}
+                size="small"
+                sx={{ bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B' }}
+              />
+            )}
+          </Stack>
+        </Stack>
+
+        <Grid container spacing={3}>
+          {/* Storage Size */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#F59E0B', 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <DatabaseOutlined style={{ color: '#F59E0B' }} />
+                <Typography variant="body2" color="text.secondary">Storage</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {bucket.totalSizeMB
+                  ? (bucket.totalSizeMB >= 1024 ? `${bucket.totalSizeGB.toFixed(2)} GB` : `${bucket.totalSizeMB.toFixed(2)} MB`)
+                  : formatBytes(usage.totalBytesUploaded)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Total data stored
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {bucket.objectCount || bucket.uploadCount || 0} objects
+                </Typography>
+                <Typography variant="caption" color="success.main" fontWeight={500}>
+                  Free egress
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Operations This Month */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#F59E0B', 0.08) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <SwapOutlined style={{ color: '#F59E0B' }} />
+                <Typography variant="body2" color="text.secondary">Operations</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                {(usage.operationsThisMonth || 0).toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                This month
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {(usage.totalOperations || 0).toLocaleString()} total
+                </Typography>
+                <Typography variant="caption" color="#F59E0B" fontWeight={500}>
+                  Uploads/reads
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Storage Cost */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.success.main, 0.05) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <DollarOutlined style={{ color: theme.palette.success.main }} />
+                <Typography variant="body2" color="text.secondary">Storage Cost</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                ${(costs.storage || 0).toFixed(4)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Monthly estimate
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  $0.015/GB
+                </Typography>
+                <Typography variant="caption" color="success.main" fontWeight={500}>
+                  {bucket.totalSizeMB
+                    ? (bucket.totalSizeMB >= 1024 ? `${bucket.totalSizeGB.toFixed(2)} GB` : `${bucket.totalSizeMB.toFixed(2)} MB`)
+                    : `${usage.totalGBUploaded?.toFixed(3) || 0} GB`}
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Total Cost */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: alpha('#F59E0B', 0.1) }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <BankOutlined style={{ color: '#F59E0B' }} />
+                <Typography variant="body2" color="text.secondary">Total Cost</Typography>
+              </Stack>
+              <Typography variant="h4" sx={{ mb: 0.5 }}>
+                ${(costs.total || 0).toFixed(4)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                This month
+              </Typography>
+              <Box sx={{ mt: 1, height: 6 }} />
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Storage + ops
+                </Typography>
+                <Typography variant="caption" color="#F59E0B" fontWeight={500}>
+                  ${(costs.operations || 0).toFixed(4)} ops
+                </Typography>
+              </Stack>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Actions Breakdown */}
+        {byAction.length > 0 && (
+          <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ mb: 2 }}>Operations by Type (Last 30 days)</Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {byAction.map((action) => (
+                <Chip
+                  key={action.action}
+                  label={`${action.action}: ${action.count} (${formatBytes(action.totalBytes)})`}
+                  size="small"
+                  sx={{ bgcolor: alpha('#F59E0B', 0.1) }}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 // ==============================|| INTERNAL - USAGE PAGE ||============================== //
 
 const InternalUsagePage = () => {
@@ -1510,6 +2566,12 @@ const InternalUsagePage = () => {
   const [mapsLoading, setMapsLoading] = useState(true);
   const [workosData, setWorkosData] = useState(null);
   const [workosLoading, setWorkosLoading] = useState(true);
+  const [stripeData, setStripeData] = useState(null);
+  const [stripeLoading, setStripeLoading] = useState(true);
+  const [r2Data, setR2Data] = useState(null);
+  const [r2Loading, setR2Loading] = useState(true);
+  const [geminiData, setGeminiData] = useState(null);
+  const [geminiLoading, setGeminiLoading] = useState(true);
 
   // Check if current user is owner
   const isOwner = user?.role?.toLowerCase() === 'owner';
@@ -1581,6 +2643,48 @@ const InternalUsagePage = () => {
         })
         .catch((err) => console.error('Failed to fetch WorkOS usage:', err))
         .finally(() => setWorkosLoading(false));
+    }
+  }, [isOwner]);
+
+  // Fetch Stripe subscription analytics
+  useEffect(() => {
+    if (isOwner) {
+      setStripeLoading(true);
+      fetch('/api/internal/usage/stripe')
+        .then((res) => res.json())
+        .then((result) => {
+          setStripeData(result);
+        })
+        .catch((err) => console.error('Failed to fetch Stripe usage:', err))
+        .finally(() => setStripeLoading(false));
+    }
+  }, [isOwner]);
+
+  // Fetch R2 storage usage
+  useEffect(() => {
+    if (isOwner) {
+      setR2Loading(true);
+      fetch('/api/internal/usage/r2')
+        .then((res) => res.json())
+        .then((result) => {
+          setR2Data(result);
+        })
+        .catch((err) => console.error('Failed to fetch R2 usage:', err))
+        .finally(() => setR2Loading(false));
+    }
+  }, [isOwner]);
+
+  // Fetch Gemini AI usage
+  useEffect(() => {
+    if (isOwner) {
+      setGeminiLoading(true);
+      fetch('/api/internal/usage/gemini')
+        .then((res) => res.json())
+        .then((result) => {
+          setGeminiData(result);
+        })
+        .catch((err) => console.error('Failed to fetch Gemini usage:', err))
+        .finally(() => setGeminiLoading(false));
     }
   }, [isOwner]);
 
@@ -1700,6 +2804,7 @@ const InternalUsagePage = () => {
                       <MenuItem value="maps">Google Maps</MenuItem>
                       <MenuItem value="neon">Neon DB</MenuItem>
                       <MenuItem value="workos">WorkOS Auth</MenuItem>
+                      <MenuItem value="stripe">Stripe Billing</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1900,8 +3005,48 @@ const InternalUsagePage = () => {
           </Box>
         )}
 
-        {/* API Stats - Hide when "neon", "resend", or "maps" filter is selected */}
-        {providerFilter !== 'neon' && providerFilter !== 'resend' && providerFilter !== 'maps' && (
+        {/* WorkOS Auth Usage - Show when no filter or "workos" filter selected */}
+        {(!providerFilter || providerFilter === 'workos') && (
+          <Box sx={{ mb: 3 }}>
+            <WorkosUsageCard
+              data={workosData}
+              loading={workosLoading}
+            />
+          </Box>
+        )}
+
+        {/* Stripe Billing Analytics - Show when no filter or "stripe" filter selected */}
+        {(!providerFilter || providerFilter === 'stripe') && (
+          <Box sx={{ mb: 3 }}>
+            <StripeUsageCard
+              data={stripeData}
+              loading={stripeLoading}
+            />
+          </Box>
+        )}
+
+        {/* Gemini AI Usage - Show when no filter or "gemini" filter selected */}
+        {(!providerFilter || providerFilter === 'gemini') && (
+          <Box sx={{ mb: 3 }}>
+            <GeminiUsageCard
+              data={geminiData}
+              loading={geminiLoading}
+            />
+          </Box>
+        )}
+
+        {/* R2 Storage Usage - Show when no filter or "r2" filter selected */}
+        {(!providerFilter || providerFilter === 'r2') && (
+          <Box sx={{ mb: 3 }}>
+            <R2UsageCard
+              data={r2Data}
+              loading={r2Loading}
+            />
+          </Box>
+        )}
+
+        {/* API Stats - Hide when service-specific filter is selected */}
+        {providerFilter !== 'neon' && providerFilter !== 'resend' && providerFilter !== 'maps' && providerFilter !== 'workos' && providerFilter !== 'stripe' && providerFilter !== 'gemini' && providerFilter !== 'r2' && (
           <>
             {/* Charts Row */}
             <Grid container spacing={3} sx={{ mb: 3 }}>

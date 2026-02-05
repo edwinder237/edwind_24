@@ -10,6 +10,7 @@
  */
 
 import prisma from '../prisma.js';
+import { mapRoleToPermissions, getRoleHierarchyLevel } from './policyMap.js';
 
 // Admin roles from WorkOS (Level 0-1)
 const ADMIN_ROLES = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
@@ -46,13 +47,15 @@ export async function getUserPermissions(workosUserId, organizationId, workosRol
   });
 
   if (!dbUser) {
-    // User not in database, return default viewer permissions
+    // User not in database — fall back to policyMap based on WorkOS role
+    const policyPermissions = mapRoleToPermissions(workosRole);
+    const hierarchyLevel = getRoleHierarchyLevel(workosRole);
     return {
-      permissions: getDefaultPermissions(),
+      permissions: policyPermissions,
       appRole: null,
       isAppAdmin: false,
       isClientAdmin: false,
-      hierarchyLevel: 4
+      hierarchyLevel
     };
   }
 
@@ -78,13 +81,15 @@ export async function getUserPermissions(workosUserId, organizationId, workosRol
   });
 
   if (!roleAssignment || !roleAssignment.role) {
-    // No role assigned, return default viewer permissions
+    // No DB role assignment — fall back to policyMap (matches backend claimsBuilder behavior)
+    const policyPermissions = mapRoleToPermissions(workosRole);
+    const hierarchyLevel = getRoleHierarchyLevel(workosRole);
     return {
-      permissions: getDefaultPermissions(),
+      permissions: policyPermissions,
       appRole: null,
       isAppAdmin: false,
       isClientAdmin: false,
-      hierarchyLevel: 4
+      hierarchyLevel
     };
   }
 
@@ -130,18 +135,6 @@ export async function getUserPermissions(workosUserId, organizationId, workosRol
     isClientAdmin: false,
     hierarchyLevel: roleAssignment.role.hierarchyLevel
   };
-}
-
-/**
- * Get default permissions for users without a role assignment
- * @returns {string[]} Array of default permission keys
- */
-function getDefaultPermissions() {
-  return [
-    'projects:read:assigned',
-    'courses:read:published',
-    'events:read:assigned'
-  ];
 }
 
 /**

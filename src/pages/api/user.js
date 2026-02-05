@@ -228,7 +228,7 @@ export default async function handler(req, res) {
       },
 
       // Subscription info for current organization
-      subscription: subscription || { planId: 'free', planName: 'Free', status: 'active' },
+      subscription: subscription || { planId: 'essential', planName: 'Essential', status: 'active' },
 
       // User info from database (includes onboarding status)
       info: dbUser?.info || {}

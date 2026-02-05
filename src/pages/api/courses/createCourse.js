@@ -1,8 +1,8 @@
 import prisma from '../../../lib/prisma';
 import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
 import { asyncHandler, ValidationError, ForbiddenError } from '../../../lib/errors/index.js';
-import { getOrgSubscription, getResourceUsage } from '../../../lib/features/subscriptionService';
-import { hasResourceCapacity, RESOURCES } from '../../../lib/features/featureAccess';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -51,27 +51,8 @@ async function handler(req, res) {
     }
 
     // Check course limit
-    const subscription = await getOrgSubscription(orgContext.organizationId);
-    if (subscription) {
-      const usage = await getResourceUsage(orgContext.organizationId);
-      const capacityCheck = hasResourceCapacity({
-        subscription,
-        resource: RESOURCES.COURSES,
-        currentUsage: usage.courses || 0,
-        requestedAmount: 1
-      });
-
-      if (!capacityCheck.hasCapacity) {
-        return res.status(403).json({
-          error: 'Course limit exceeded',
-          message: `You have reached your limit of ${capacityCheck.limit} courses`,
-          current: capacityCheck.current,
-          limit: capacityCheck.limit,
-          available: capacityCheck.available,
-          upgradeUrl: '/upgrade'
-        });
-      }
-    }
+    const limitCheck = await enforceResourceLimit(orgContext.organizationId, RESOURCES.COURSES);
+    if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
 
     // Create the course
     const course = await prisma.courses.create({

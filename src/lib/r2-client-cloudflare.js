@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { logUsage, PROVIDERS } from './usage/usageLogger';
 
 // Cloudflare R2 Configuration
 const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '923f49e1995e9f5e3f85d8b7ea48047a';
@@ -78,7 +79,15 @@ export async function uploadImageToR2(imageUrl, prefix = 'images') {
 
     const publicUrl = `${PUBLIC_URL_BASE}/${key}`;
     console.log(`✅ Image uploaded successfully: ${key} (${Math.round(fileSize / 1024)}KB)`);
-    
+
+    // Log R2 usage (fire-and-forget)
+    logUsage({
+      provider: PROVIDERS.R2,
+      action: 'upload',
+      inputSize: fileSize,
+      success: true
+    });
+
     return {
       url: publicUrl,
       key: key,
@@ -89,6 +98,13 @@ export async function uploadImageToR2(imageUrl, prefix = 'images') {
 
   } catch (error) {
     console.error(`❌ R2 upload failed for ${imageUrl}:`, error.message);
+    // Log failed upload
+    logUsage({
+      provider: PROVIDERS.R2,
+      action: 'upload',
+      success: false,
+      errorCode: error.message?.substring(0, 100)
+    });
     throw new Error(`Failed to upload image to R2: ${error.message}`);
   }
 }
@@ -158,7 +174,15 @@ export async function uploadBase64ImageToR2(base64Data, prefix = 'images', fileN
 
     const publicUrl = `${PUBLIC_URL_BASE}/${key}`;
     console.log(`✅ Base64 image uploaded successfully: ${key} (${Math.round(fileSize / 1024)}KB)`);
-    
+
+    // Log R2 usage (fire-and-forget)
+    logUsage({
+      provider: PROVIDERS.R2,
+      action: 'upload_base64',
+      inputSize: fileSize,
+      success: true
+    });
+
     return {
       url: publicUrl,
       key: key,
@@ -169,6 +193,13 @@ export async function uploadBase64ImageToR2(base64Data, prefix = 'images', fileN
 
   } catch (error) {
     console.error(`❌ R2 base64 upload failed:`, error.message);
+    // Log failed upload
+    logUsage({
+      provider: PROVIDERS.R2,
+      action: 'upload_base64',
+      success: false,
+      errorCode: error.message?.substring(0, 100)
+    });
     throw new Error(`Failed to upload base64 image to R2: ${error.message}`);
   }
 }

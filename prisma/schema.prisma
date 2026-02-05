@@ -551,6 +551,8 @@ model events {
   editable          Boolean?
   eventStatus       String?
   timezone          String?
+  deliveryMode      String?             @default("in_person")
+  meetingLink       String?
   extendedProps     Json?
   event_activity_progress event_activity_progress[]
   event_attendees         event_attendees[]

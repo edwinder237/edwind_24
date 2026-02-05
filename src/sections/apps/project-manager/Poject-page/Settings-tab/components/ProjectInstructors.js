@@ -160,10 +160,7 @@ const ProjectInstructors = ({ projectId }) => {
 
   const instructorTypeOptions = [
     { value: 'main', label: 'Main Instructor', color: 'primary' },
-    { value: 'assistant', label: 'Assistant', color: 'info' },
-    { value: 'guest', label: 'Guest Instructor', color: 'warning' },
-    { value: 'consultant', label: 'Consultant', color: 'secondary' },
-    { value: 'mentor', label: 'Mentor', color: 'success' }
+    { value: 'assistant', label: 'Assistant', color: 'info' }
   ];
 
   // Check if there's already a main instructor

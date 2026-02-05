@@ -10,8 +10,8 @@
 import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
 import { scopedCreate } from '../../../lib/prisma/scopedQueries.js';
 import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
-import { getOrgSubscription, getResourceUsage } from '../../../lib/features/subscriptionService';
-import { hasResourceCapacity, RESOURCES } from '../../../lib/features/featureAccess';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -26,27 +26,8 @@ async function handler(req, res) {
   }
 
   // Check curriculum limit
-  const subscription = await getOrgSubscription(orgContext.organizationId);
-  if (subscription) {
-    const usage = await getResourceUsage(orgContext.organizationId);
-    const capacityCheck = hasResourceCapacity({
-      subscription,
-      resource: RESOURCES.CURRICULUMS,
-      currentUsage: usage.curriculums || 0,
-      requestedAmount: 1
-    });
-
-    if (!capacityCheck.hasCapacity) {
-      return res.status(403).json({
-        error: 'Curriculum limit exceeded',
-        message: `You have reached your limit of ${capacityCheck.limit} curriculums`,
-        current: capacityCheck.current,
-        limit: capacityCheck.limit,
-        available: capacityCheck.available,
-        upgradeUrl: '/upgrade'
-      });
-    }
-  }
+  const limitCheck = await enforceResourceLimit(orgContext.organizationId, RESOURCES.CURRICULUMS);
+  if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
 
   // Create curriculum with automatic org scoping
   const curriculum = await scopedCreate(orgContext, 'curriculums', {

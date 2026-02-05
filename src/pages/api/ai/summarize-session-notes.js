@@ -8,6 +8,8 @@
 import { summarizeSessionNotes } from '../../../lib/ai/gemini';
 import { WorkOS } from '@workos-inc/node';
 import { logUsage, PROVIDERS, getOrgIdFromUser } from '../../../lib/usage/usageLogger';
+import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { RESOURCES } from '../../../lib/features/featureAccess';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
@@ -34,6 +36,12 @@ export default async function handler(req, res) {
 
     // Get user's organization for usage tracking
     const organizationId = await getOrgIdFromUser(userId);
+
+    // Check AI summarization limit
+    if (organizationId) {
+      const limitCheck = await enforceResourceLimit(organizationId, RESOURCES.AI_SUMMARIZATIONS_PER_MONTH);
+      if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
+    }
 
     // Extract session notes, attendance data, and parking lot items from request body
     const { sessionNotes, attendanceData, parkingLotItems } = req.body;

@@ -26,6 +26,8 @@ export default async function handler(req, res) {
       eventStatus: event.eventStatus,
       extendedProps: Object.keys(extendedProps).length > 0 ? extendedProps : undefined,
       timezone: event.timezone,
+      deliveryMode: event.deliveryMode,
+      meetingLink: event.meetingLink,
       // Only include courseId/supportActivityId/roomId if explicitly provided in the update
       // This prevents accidentally unlinking courses/rooms when updating other fields
       ...(event.courseId !== undefined && { courseId: event.courseId }),

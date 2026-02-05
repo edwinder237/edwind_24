@@ -60,10 +60,10 @@ export default async function handler(req, res) {
       // Total users in system
       prisma.user.count(),
 
-      // Active users (logged in within last 30 days)
+      // Active users (updated within last 30 days - proxy for activity)
       prisma.user.count({
         where: {
-          last_login: {
+          updatedAt: {
             gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
           }
         }
@@ -75,10 +75,10 @@ export default async function handler(req, res) {
       // Total organization memberships
       prisma.organization_memberships.count(),
 
-      // Users active this calendar month (MAU approximation)
+      // Users updated this calendar month (MAU approximation)
       prisma.user.count({
         where: {
-          last_login: {
+          updatedAt: {
             gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
           }
         }
