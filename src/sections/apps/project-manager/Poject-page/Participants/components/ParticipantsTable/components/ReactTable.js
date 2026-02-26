@@ -132,7 +132,8 @@ const ReactTable = ({
   onAssignRole,
   groups = [],
   groupsLoading = false,
-  onAssignGroup
+  onAssignGroup,
+  onUploadCredentials
 }) => {
   const theme = useTheme();
   
@@ -722,6 +723,27 @@ const ReactTable = ({
                 </>
               )}
 
+              {!isEmpty && (
+                <Tooltip title="Bulk upload tool access credentials from CSV">
+                  <Button
+                    onClick={onUploadCredentials}
+                    variant="outlined"
+                    startIcon={<UploadOutlined />}
+                    size="small"
+                    aria-label="upload-credentials"
+                    sx={{
+                      '& .MuiButton-startIcon': {
+                        mr: { xs: 0, sm: 1 }
+                      }
+                    }}
+                  >
+                    <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                      Upload Credentials
+                    </Box>
+                  </Button>
+                </Tooltip>
+              )}
+
               <Button
                 onClick={onAdd}
                 variant="contained"
@@ -988,6 +1010,7 @@ ReactTable.propTypes = {
   onRefresh: PropTypes.func,
   onViewParticipant: PropTypes.func,
   hideToolbar: PropTypes.bool,
+  onUploadCredentials: PropTypes.func,
 };
 
 ReactTable.displayName = 'ReactTable';

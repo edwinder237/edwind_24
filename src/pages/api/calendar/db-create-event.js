@@ -1,11 +1,15 @@
 import prisma from "../../../lib/prisma";
 import { getOrgSubscription } from "../../../lib/features/subscriptionService";
 import { canAccessFeature } from "../../../lib/features/featureAccess";
+import { createAuditLog } from "../../../lib/utils/auditLog";
+import { attachUserClaims } from "../../../lib/auth/middleware";
 
 export default async function handler(req, res) {
-    try {
+    // Try to get user info (non-blocking)
+    await attachUserClaims(req, res);
 
-      const { newEvent, events, projectId } = req.body;
+    try {
+      const { newEvent, events, projectId, createdByName } = req.body;
 
       if (!projectId) {
         return res.status(400).json({ error: "Project ID is required" });
@@ -55,12 +59,39 @@ export default async function handler(req, res) {
         ...(newEvent.supportActivityId && { supportActivity: {connect: {id: parseInt(newEvent.supportActivityId)}} }),
         ...(newEvent.roomId && { room: {connect: {id: parseInt(newEvent.roomId)}} })
       };
-       await prisma.events.create({
+       const createdEvent = await prisma.events.create({
         data: event,
-
       });
-      
-  
+
+      // Log audit entry if event is linked to a course (delivery scheduled)
+      if (newEvent.courseId) {
+        // Get project title for the audit log
+        const project = await prisma.projects.findUnique({
+          where: { id: parseInt(projectId) },
+          select: { title: true }
+        });
+
+        // Determine who created the event
+        const scheduledByName = createdByName || req.userClaims?.name || 'Project Manager';
+
+        await createAuditLog(prisma, {
+          courseId: parseInt(newEvent.courseId),
+          entityType: 'event',
+          entityId: createdEvent.id,
+          actionType: 'create',
+          metadata: {
+            title: newEvent.title,
+            eventType: newEvent.eventType || 'other',
+            start: newEvent.start,
+            end: newEvent.end,
+            projectId: parseInt(projectId),
+            projectTitle: project?.title || 'Unknown Project',
+            deliveryMode: newEvent.deliveryMode || 'in_person',
+          },
+          changedByName: scheduledByName,
+        });
+      }
+
       res.status(200).json(`${newEvent.title} Event created and saved to database`);
     } catch (error) {
       console.error(error);

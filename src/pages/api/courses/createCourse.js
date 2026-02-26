@@ -1,13 +1,17 @@
 import prisma from '../../../lib/prisma';
 import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError, ForbiddenError } from '../../../lib/errors/index.js';
+import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
+import { attachUserClaims } from '../../../lib/auth/middleware';
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
+
+  // Get user info for author name
+  await attachUserClaims(req, res);
 
   const { orgContext } = req;
 
@@ -33,8 +37,12 @@ async function handler(req, res) {
       published = false,
       isMandatoryToAllRole = false,
       backgroundImg,
-      createdBy = 'system'
+      createdBy = 'system',
+      authorName
     } = req.body;
+
+    // Get author name from request, user claims, or default
+    const courseAuthorName = authorName || req.userClaims?.name || null;
 
     // Get sub_organizationId from org context (session-based)
     const sub_organizationId = orgContext?.subOrganizationIds?.[0];
@@ -78,7 +86,9 @@ async function handler(req, res) {
         isMandatoryToAllRole,
         backgroundImg: backgroundImg || null,
         createdBy,
-        sub_organizationId
+        authorName: courseAuthorName,
+        sub_organizationId,
+        version: '1.0.0'
       }
     });
 

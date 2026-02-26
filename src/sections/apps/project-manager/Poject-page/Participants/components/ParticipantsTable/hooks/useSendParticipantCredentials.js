@@ -12,6 +12,10 @@ export const useSendParticipantCredentials = () => {
   const dispatch = useDispatch();
   const projectId = useSelector(state => state.projectSettings?.projectId);
   const projectTitle = useSelector(state => state.projectSettings?.title);
+  const projectInstructors = useSelector(state => state.projectSettings?.projectInstructors || []);
+
+  // Get the primary instructor's email for reply-to (first active instructor)
+  const instructorEmail = projectInstructors[0]?.instructor?.email || null;
 
   const handleSendEmail = useCallback(async ({ participants: emailParticipants, credentials }) => {
     try {
@@ -32,7 +36,9 @@ export const useSendParticipantCredentials = () => {
         body: JSON.stringify({
           participants: emailParticipants,
           credentials: credentials,
-          projectName: projectTitle || 'Training Project'
+          projectName: projectTitle || 'Training Project',
+          projectId,
+          instructorEmail
         }),
       });
 
@@ -100,7 +106,7 @@ export const useSendParticipantCredentials = () => {
 
       throw error;
     }
-  }, [projectTitle, projectId, dispatch]);
+  }, [projectTitle, projectId, instructorEmail, dispatch]);
 
   return { handleSendEmail };
 };

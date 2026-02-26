@@ -289,6 +289,8 @@ async function handler(req, res) {
           participantTrainingRecipient: participant.training_recipient?.name || 'Unknown',
           courseId: event.courseId,
           courseName: event.course?.title || event.title,
+          courseVersion: event.course?.version || null,
+          participantExternalId: participant.externalId || null,
           courseTopics: event.course?.course_topics?.map(ct => ct.topic.title) || [],
           instructorId: event.event_instructors[0]?.instructorId || null,
           instructorName: event.event_instructors[0]?.instructor

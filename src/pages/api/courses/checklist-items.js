@@ -18,7 +18,6 @@ export default async function handler(req, res) {
     console.error('Error in checklist items API:', error);
     res.status(500).json({ error: 'Internal server error' });
   } finally {
-    await prisma.$disconnect();
   }
 }
 

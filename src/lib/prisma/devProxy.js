@@ -15,7 +15,7 @@
  * import prisma from '@/lib/prisma/devProxy'; // Instead of '@/lib/prisma'
  */
 
-import { PrismaClient } from '@prisma/client';
+import basePrisma from '../prisma.js';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -177,13 +177,10 @@ let prisma;
 
 if (isDevelopment) {
   console.log('🔍 Development mode: Prisma proxy enabled (will warn about unscoped queries)');
-  const basePrisma = new PrismaClient({
-    log: ['warn', 'error']
-  });
   prisma = createDevProxy(basePrisma);
 } else {
   // Production: use standard client
-  prisma = new PrismaClient();
+  prisma = basePrisma;
 }
 
 export default prisma;

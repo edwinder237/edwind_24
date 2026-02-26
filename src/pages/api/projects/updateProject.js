@@ -85,22 +85,27 @@ async function handler(req, res) {
       },
       data: updateData,
       include: {
+        user: true,
+        training_recipient: true,
+        project_settings: true,
+        sub_organization: {
+          include: {
+            organization: true
+          }
+        },
+        project_instructors: {
+          include: {
+            instructor: true
+          }
+        },
+        project_curriculums: {
+          include: {
+            curriculum: true
+          }
+        },
         participants: true,
         groups: true,
-        events: true,
-        training_recipient: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            contactPerson: true,
-            email: true,
-            phone: true,
-            address: true,
-            website: true,
-            industry: true,
-          }
-        }
+        events: true
       }
     });
 

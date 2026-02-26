@@ -10,6 +10,8 @@ const nextConfig = {
     // Disable ISR manifest during development to avoid HMR warnings
     isrMemoryCacheSize: 0,
   },
+  // Keep Prisma external to prevent HMR connection issues
+  serverExternalPackages: ['@prisma/client', 'prisma'],
   async headers() {
     return [
       {

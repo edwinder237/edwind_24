@@ -7,10 +7,8 @@
  * Handles all CRUD operations and caching.
  */
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../prisma.js';
 import { PLAN_IDS, hasResourceCapacity } from './featureAccess';
-
-const prisma = new PrismaClient();
 
 // Simple in-memory cache for subscriptions (15 minute TTL)
 const subscriptionCache = new Map();
@@ -616,7 +614,6 @@ export function clearAllSubscriptionCaches() {
  * Cleanup function for graceful shutdown
  */
 export async function disconnectPrisma() {
-  await prisma.$disconnect();
 }
 
 // ============================================

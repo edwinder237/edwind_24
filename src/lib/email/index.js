@@ -86,6 +86,7 @@ import {
  * @param {string} options.subject - Email subject
  * @param {string} options.html - HTML content
  * @param {string} [options.from] - Sender email (defaults to admin@edwind.ca)
+ * @param {string} [options.replyTo] - Reply-to email address
  * @param {Object} [options.headers] - Custom headers
  * @param {Array} [options.attachments] - Email attachments
  * @returns {Promise<Object>} Send result
@@ -98,6 +99,7 @@ export async function sendEmail(options) {
     to: Array.isArray(options.to) ? options.to : [options.to],
     subject: options.subject,
     html: options.html,
+    ...(options.replyTo && { replyTo: options.replyTo }),
     ...(options.headers && { headers: options.headers }),
     ...(options.attachments && { attachments: options.attachments })
   };
@@ -181,10 +183,11 @@ export async function sendCalendarInvite(options) {
  * @param {Array} options.credentials - Array of credential objects
  * @param {string} options.projectName - Project name
  * @param {string} [options.organizationLogoUrl] - Organization logo URL
+ * @param {string} [options.instructorEmail] - Instructor email for reply-to
  * @returns {Promise<Object>} Send result
  */
 export async function sendCredentials(options) {
-  const { participant, credentials, projectName, organizationLogoUrl } = options;
+  const { participant, credentials, projectName, organizationLogoUrl, instructorEmail } = options;
 
   if (!isValidEmail(participant.email)) {
     return {
@@ -208,6 +211,7 @@ export async function sendCredentials(options) {
     subject: `Your CRM 360 Access Credentials - ${projectName} - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
     html,
     from: EMAIL_SENDERS.credentials,
+    replyTo: instructorEmail,
     headers
   });
 

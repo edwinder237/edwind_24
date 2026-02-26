@@ -1,16 +1,22 @@
 import prisma from '../../../lib/prisma';
+import { createAuditLog } from '../../../lib/utils/auditLog';
+import { attachUserClaims } from '../../../lib/auth/middleware';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Try to get user info (non-blocking - we don't require auth for this endpoint)
+  await attachUserClaims(req, res);
+
   try {
     const {
       eventId,
       moduleId,
       activities = [], // Array of activity IDs that were completed
-      completed = true
+      completed = true,
+      markedByName = null // Optional: name of person marking progress
     } = req.body;
 
     // Validate required fields
@@ -86,6 +92,55 @@ export default async function handler(req, res) {
     });
 
     results.push({ type: 'module', data: moduleProgress });
+
+    // Log audit entry for "delivery started" when first progress is recorded for a course
+    if (moduleProgress.module?.courseId) {
+      const courseId = moduleProgress.module.courseId;
+
+      // Check if this is the first progress entry for this event/course combination
+      const existingProgressCount = await prisma.event_module_progress.count({
+        where: {
+          eventId: parseInt(eventId),
+          module: { courseId: courseId }
+        }
+      });
+
+      // If this is the first progress (count is 1 after we just created one)
+      if (existingProgressCount === 1) {
+        // Get event and course details for the audit log
+        const event = await prisma.events.findUnique({
+          where: { id: parseInt(eventId) },
+          select: {
+            title: true,
+            projectId: true,
+            project: {
+              select: { title: true }
+            },
+            course: {
+              select: { authorName: true }
+            }
+          }
+        });
+
+        // Determine the name of who triggered this action (use course author as fallback)
+        const triggeredByName = markedByName || req.userClaims?.name || event?.course?.authorName || 'Author';
+
+        await createAuditLog(prisma, {
+          courseId: courseId,
+          entityType: 'event',
+          entityId: parseInt(eventId),
+          actionType: 'delivery_started',
+          metadata: {
+            title: event?.title || 'Unknown Event',
+            moduleTitle: moduleProgress.module.title,
+            projectId: event?.projectId,
+            projectTitle: event?.project?.title || 'Unknown Project',
+            message: 'First participant started - course version is now locked',
+          },
+          changedByName: triggeredByName,
+        });
+      }
+    }
 
     // Sync course progress for participants in this event
     if (completed && moduleProgress.module?.courseId) {

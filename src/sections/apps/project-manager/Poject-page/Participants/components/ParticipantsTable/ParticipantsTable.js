@@ -20,6 +20,7 @@ import ReactTable from './components/ReactTable';
 import EmailAccessDialog from 'components/EmailAccessDialog';
 import ParticipantDetailsDrawer from '../../../Participant-Dialog/ParticipantDetailsDrawer';
 import AddParticipantOptionsDialog from './AddParticipantOptionsDialog';
+import BulkCredentialUploadDialog from './BulkCredentialUploadDialog';
 
 // Domain events integration
 import eventBus from 'store/events/EventBus';
@@ -123,6 +124,26 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
 
   // Email sending hook for participant credentials
   const { handleSendEmail } = useSendParticipantCredentials();
+
+  // Bulk credential upload state
+  const [credentialUploadOpen, setCredentialUploadOpen] = useState(false);
+
+  const handleOpenCredentialUpload = useCallback(() => {
+    setCredentialUploadOpen(true);
+  }, []);
+
+  const handleCloseCredentialUpload = useCallback(() => {
+    setCredentialUploadOpen(false);
+  }, []);
+
+  const handleCredentialUploadComplete = useCallback(() => {
+    if (projectId) {
+      dispatch(projectApi.util.invalidateTags([
+        { type: 'ProjectParticipants', id: parseInt(projectId) },
+        'Participant'
+      ]));
+    }
+  }, [dispatch, projectId]);
 
   // Participant drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -405,6 +426,7 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
             groups={groups}
             groupsLoading={false}
             onAssignGroup={handleBulkAssignGroup}
+            onUploadCredentials={handleOpenCredentialUpload}
           />
         </Box>
       </MainCard>
@@ -426,6 +448,15 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
         onClose={handleEmailAccessDialog}
         selectedParticipants={selectedParticipants}
         onSend={handleSendEmail}
+      />
+
+      {/* Bulk Credential Upload Dialog */}
+      <BulkCredentialUploadDialog
+        open={credentialUploadOpen}
+        onClose={handleCloseCredentialUpload}
+        participants={participants}
+        projectId={projectId}
+        onComplete={handleCredentialUploadComplete}
       />
 
       {/* Participant Drawer */}

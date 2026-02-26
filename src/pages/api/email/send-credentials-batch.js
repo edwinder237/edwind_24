@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { participants, credentials, projectName, projectId } = req.body;
+    const { participants, credentials, projectName, projectId, instructorEmail: providedInstructorEmail } = req.body;
 
     if (!participants || !Array.isArray(participants) || participants.length === 0) {
       return res.status(400).json({ message: 'Participants array is required' });
@@ -47,6 +47,32 @@ export default async function handler(req, res) {
       organizationLogoUrl = organization?.logo_url;
     } catch (error) {
       console.error('Error fetching organization logo:', error);
+    }
+
+    // Get instructor email for reply-to (use provided or fetch from project)
+    let instructorEmail = providedInstructorEmail || null;
+    if (!instructorEmail && projectId) {
+      try {
+        const projectInstructor = await prisma.project_instructors.findFirst({
+          where: {
+            projectId: parseInt(projectId),
+            status: 'active'
+          },
+          orderBy: {
+            assignedAt: 'asc'
+          },
+          include: {
+            instructor: {
+              select: {
+                email: true
+              }
+            }
+          }
+        });
+        instructorEmail = projectInstructor?.instructor?.email || null;
+      } catch (error) {
+        console.error('Error fetching instructor email:', error);
+      }
     }
 
     const emailResults = [];
@@ -105,7 +131,8 @@ export default async function handler(req, res) {
           },
           credentials: participantCredentials,
           projectName: projectName || 'Training Project',
-          organizationLogoUrl
+          organizationLogoUrl,
+          instructorEmail
         });
 
         // Rate limiting delay

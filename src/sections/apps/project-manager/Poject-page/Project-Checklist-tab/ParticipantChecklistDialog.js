@@ -120,7 +120,10 @@ const ParticipantChecklistDialog = ({
         '& .MuiDialog-paper': {
           borderRadius: 1,
           boxShadow: theme.customShadows.z24,
-          bgcolor: theme.palette.background.paper
+          bgcolor: theme.palette.background.paper,
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column'
         }
       }}
     >

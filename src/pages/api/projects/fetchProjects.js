@@ -84,9 +84,6 @@ async function handler(req, res) {
     }
   });
 
-  console.log(`📊 Returning ${projects.length} projects for user ${orgContext.userId} in org ${orgContext.organizationId}`);
-  console.log('📊 Project sub_organizationIds:', projects.map(p => ({ id: p.id, sub_org_id: p.sub_organizationId, title: p.title })));
-
   return res.status(200).json({ projects });
 }
 

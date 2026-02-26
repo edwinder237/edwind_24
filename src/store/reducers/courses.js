@@ -286,6 +286,17 @@ const slice = createSlice({
       }
     },
 
+    // UPDATE COURSE VERSION (for real-time version updates without reload)
+    updateCourseVersionSuccess(state, action) {
+      const { courseId, version } = action.payload;
+      const index = state.courses.findIndex(
+        course => course.id === courseId
+      );
+      if (index !== -1) {
+        state.courses[index] = { ...state.courses[index], version };
+      }
+    },
+
     deleteCourseSuccess(state, action) {
       state.courses = state.courses.filter(
         course => course.id !== action.payload
@@ -520,6 +531,14 @@ export function addModule(modules, module) {
       dispatch(slice.actions.addModuleSuccess({ modules: updatedModules }));
       dispatch(slice.actions.hasResponse(serverResponse.data));
 
+      // Update course version in state for real-time UI update
+      if (serverResponse.data.courseVersion) {
+        dispatch(slice.actions.updateCourseVersionSuccess({
+          courseId: parseInt(module.courseId),
+          version: serverResponse.data.courseVersion
+        }));
+      }
+
       // Show success snackbar
       dispatch(openSnackbar({
         open: true,
@@ -532,9 +551,12 @@ export function addModule(modules, module) {
       }));
 
     } catch (error) {
-      const errorMessage = getErrorMessage(error, 'Failed to create module');
+      const isVersionLocked = error?.response?.status === 403 && error?.response?.data?.error === 'Version locked';
+      const errorMessage = isVersionLocked
+        ? error.response.data.message
+        : getErrorMessage(error, 'Failed to create module');
       dispatch(slice.actions.hasError(errorMessage));
-      
+
       // Show error snackbar
       dispatch(openSnackbar({
         open: true,
@@ -654,6 +676,14 @@ export function editModule(editedModule, moduleId, modules) {
       });
       dispatch(slice.actions.hasResponse(serverResponse.data));
 
+      // Update course version in state for real-time UI update
+      if (serverResponse.data.courseVersion && editedModule.courseId) {
+        dispatch(slice.actions.updateCourseVersionSuccess({
+          courseId: parseInt(editedModule.courseId),
+          version: serverResponse.data.courseVersion
+        }));
+      }
+
       // Show success snackbar
       dispatch(openSnackbar({
         open: true,
@@ -666,9 +696,12 @@ export function editModule(editedModule, moduleId, modules) {
       }));
 
     } catch (error) {
-      const errorMessage = getErrorMessage(error, 'Failed to update module');
+      const isVersionLocked = error?.response?.status === 403 && error?.response?.data?.error === 'Version locked';
+      const errorMessage = isVersionLocked
+        ? error.response.data.message
+        : getErrorMessage(error, 'Failed to update module');
       dispatch(slice.actions.hasError(errorMessage));
-      
+
       // Show error snackbar
       dispatch(openSnackbar({
         open: true,
@@ -696,8 +729,37 @@ export function deleteItem(moduleId, modules) {
         moduleId,
       });
       await dispatch(slice.actions.hasResponse(serverResponse.data));
+
+      // Update course version in state for real-time UI update
+      if (serverResponse.data.courseVersion && serverResponse.data.courseId) {
+        dispatch(slice.actions.updateCourseVersionSuccess({
+          courseId: serverResponse.data.courseId,
+          version: serverResponse.data.courseVersion
+        }));
+      }
+
+      // Show success notification
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Module deleted successfully',
+        variant: 'alert',
+        alert: { color: 'success' },
+        close: true
+      }));
     } catch (error) {
       dispatch(slice.actions.hasError(getErrorMessage(error)));
+
+      // Show error notification with specific message for version lock
+      const isVersionLocked = error?.response?.status === 403 && error?.response?.data?.error === 'Version locked';
+      dispatch(openSnackbar({
+        open: true,
+        message: isVersionLocked
+          ? error.response.data.message
+          : getErrorMessage(error, 'Failed to delete module'),
+        variant: 'alert',
+        alert: { color: 'error' },
+        close: true
+      }));
     }
   };
 }
@@ -1111,8 +1173,34 @@ export function updateCourse(courseData) {
       const response = await axios.put("/api/courses/updateCourse", courseData);
       dispatch(slice.actions.updateCourseSuccess(response.data.course));
       dispatch(slice.actions.hasResponse(response.data));
+
+      // Show success snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Course updated successfully',
+        variant: 'alert',
+        alert: {
+          color: 'success',
+          variant: 'filled'
+        }
+      }));
     } catch (error) {
-      dispatch(slice.actions.hasError(getErrorMessage(error)));
+      const isVersionLocked = error?.response?.status === 403 && error?.response?.data?.error === 'Version locked';
+      const errorMessage = isVersionLocked
+        ? error.response.data.message
+        : getErrorMessage(error, 'Failed to update course');
+      dispatch(slice.actions.hasError(errorMessage));
+
+      // Show error snackbar
+      dispatch(openSnackbar({
+        open: true,
+        message: errorMessage,
+        variant: 'alert',
+        alert: {
+          color: 'error',
+          variant: 'filled'
+        }
+      }));
     }
   };
 }
@@ -1185,12 +1273,20 @@ export function createActivity(activityData) {
   return async () => {
     try {
       const response = await axios.post("/api/courses/createActivity", activityData);
-      
+
       dispatch(slice.actions.addActivitySuccess({
         moduleId: activityData.moduleId,
         activity: response.data.activity
       }));
       dispatch(slice.actions.hasResponse(response.data));
+
+      // Update course version in state for real-time UI update
+      if (response.data.courseVersion && response.data.courseId) {
+        dispatch(slice.actions.updateCourseVersionSuccess({
+          courseId: response.data.courseId,
+          version: response.data.courseVersion
+        }));
+      }
 
       // Show success snackbar
       dispatch(openSnackbar({
@@ -1204,9 +1300,12 @@ export function createActivity(activityData) {
       }));
 
     } catch (error) {
-      const errorMessage = getErrorMessage(error, 'Failed to create activity');
+      const isVersionLocked = error?.response?.status === 403 && error?.response?.data?.error === 'Version locked';
+      const errorMessage = isVersionLocked
+        ? error.response.data.message
+        : getErrorMessage(error, 'Failed to create activity');
       dispatch(slice.actions.hasError(errorMessage));
-      
+
       // Show error snackbar
       dispatch(openSnackbar({
         open: true,
@@ -1228,9 +1327,17 @@ export function updateActivity(activityId, activityData) {
         id: activityId,
         ...activityData
       });
-      
+
       dispatch(slice.actions.updateActivitySuccess(response.data.activity));
       dispatch(slice.actions.hasResponse(response.data));
+
+      // Update course version in state for real-time UI update
+      if (response.data.courseVersion && response.data.courseId) {
+        dispatch(slice.actions.updateCourseVersionSuccess({
+          courseId: response.data.courseId,
+          version: response.data.courseVersion
+        }));
+      }
 
       // Show success snackbar
       dispatch(openSnackbar({
@@ -1244,9 +1351,12 @@ export function updateActivity(activityId, activityData) {
       }));
 
     } catch (error) {
-      const errorMessage = getErrorMessage(error, 'Failed to update activity');
+      const isVersionLocked = error?.response?.status === 403 && error?.response?.data?.error === 'Version locked';
+      const errorMessage = isVersionLocked
+        ? error.response.data.message
+        : getErrorMessage(error, 'Failed to update activity');
       dispatch(slice.actions.hasError(errorMessage));
-      
+
       // Show error snackbar
       dispatch(openSnackbar({
         open: true,
@@ -1265,11 +1375,19 @@ export function deleteActivity(activityId) {
   return async (dispatch) => {
     try {
       const response = await axios.delete(`/api/courses/deleteActivity?id=${activityId}`);
-      
+
       dispatch(slice.actions.deleteActivitySuccess({
         activityId: activityId
       }));
       dispatch(slice.actions.hasResponse(response.data));
+
+      // Update course version in state for real-time UI update
+      if (response.data.courseVersion && response.data.courseId) {
+        dispatch(slice.actions.updateCourseVersionSuccess({
+          courseId: response.data.courseId,
+          version: response.data.courseVersion
+        }));
+      }
 
       // Show success snackbar
       dispatch(openSnackbar({
@@ -1283,9 +1401,12 @@ export function deleteActivity(activityId) {
       }));
 
     } catch (error) {
-      const errorMessage = getErrorMessage(error, 'Failed to delete activity');
+      const isVersionLocked = error?.response?.status === 403 && error?.response?.data?.error === 'Version locked';
+      const errorMessage = isVersionLocked
+        ? error.response.data.message
+        : getErrorMessage(error, 'Failed to delete activity');
       dispatch(slice.actions.hasError(errorMessage));
-      
+
       // Show error snackbar
       dispatch(openSnackbar({
         open: true,

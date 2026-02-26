@@ -687,6 +687,38 @@ const CoursesTable = () => {
         className: "cell-center",
       },
       {
+        Header: "Status",
+        accessor: "courseStatus",
+        className: "cell-center",
+        Cell: ({ value }) => {
+          const getStatusColor = (status) => {
+            switch (status?.toLowerCase()) {
+              case 'published':
+                return { color: theme.palette.success.main, bgcolor: alpha(theme.palette.success.main, 0.1) };
+              case 'draft':
+                return { color: theme.palette.warning.main, bgcolor: alpha(theme.palette.warning.main, 0.1) };
+              case 'archived':
+                return { color: theme.palette.grey[500], bgcolor: alpha(theme.palette.grey[500], 0.1) };
+              default:
+                return { color: theme.palette.text.secondary, bgcolor: alpha(theme.palette.text.secondary, 0.1) };
+            }
+          };
+          const colors = getStatusColor(value);
+          return (
+            <Chip
+              label={value ? value.charAt(0).toUpperCase() + value.slice(1) : 'N/A'}
+              size="small"
+              sx={{
+                color: colors.color,
+                bgcolor: colors.bgcolor,
+                fontWeight: 500,
+                minWidth: 70
+              }}
+            />
+          );
+        },
+      },
+      {
         Header: "Duration",
         accessor: "duration",
         className: "cell-center",

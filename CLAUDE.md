@@ -9,9 +9,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies (uses pnpm)
 pnpm install
 
-# Run development server (Turbopack enabled, port 8081)
-npm run dev
-
 # Build production bundle (includes Prisma generation)
 npm run build
 
@@ -36,6 +33,39 @@ npx prisma migrate reset
 # View database in Prisma Studio
 npx prisma studio
 ```
+
+## CRITICAL: Prisma Rules (MUST FOLLOW)
+
+**These rules are NON-NEGOTIABLE. Violating them WILL break the application.**
+
+### 1. ALWAYS use the shared Prisma instance
+```javascript
+// CORRECT - Always import from the shared module
+import prisma from '../../../lib/prisma';
+
+// WRONG - NEVER create new PrismaClient instances
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient(); // DO NOT DO THIS
+```
+
+### 2. NEVER call $disconnect()
+```javascript
+// WRONG - This breaks ALL other API routes using the shared instance
+await prisma.$disconnect(); // NEVER DO THIS
+
+// CORRECT - Let the connection pool manage connections automatically
+// Simply don't call $disconnect() at all
+```
+
+### 3. Why these rules matter
+- The app uses a **singleton Prisma client** stored in `globalThis` to survive Next.js HMR
+- Creating separate `PrismaClient` instances causes connection pool exhaustion
+- Calling `$disconnect()` on the shared instance closes connections for ALL routes
+- Both violations cause "Engine is not yet connected" errors
+
+### 4. The shared Prisma client location
+- **Main client**: `src/lib/prisma.js` - Import from here
+- **Scoped queries**: `src/lib/prisma/scopedQueries.js` - Uses the shared client internally
 
 ## Project Architecture
 

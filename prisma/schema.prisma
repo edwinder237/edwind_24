@@ -388,6 +388,7 @@ model courses {
   sub_organizationId        Int
   createdAt                 DateTime?                   @default(now())
   createdBy                 String
+  authorName                String?                     // Display name of course author
   lastUpdated               DateTime?                   @updatedAt
   published                 Boolean?
   title                     String
@@ -416,6 +417,8 @@ model courses {
   rating                    Float?
   code                      String?
   version                   String?
+  currentVersionId          Int?                        // Points to latest published version
+  draftVersionId            Int?                        // Points to current draft (if any)
   course_assessments        course_assessments[]
   course_checklist_items    course_checklist_items[]
   course_instructors        course_instructors[]
@@ -430,25 +433,31 @@ model courses {
   modules                   modules[]
   survey_triggers           curriculum_surveys[]        @relation("SurveyTriggerCourse")
   training_plan_modules     training_plan_modules[]
+  versions                  course_versions[]
+  audit_logs                course_audit_logs[]
 
   @@index([sub_organizationId])
   @@index([isActive])
+  @@index([currentVersionId])
 }
 
 model courses_enrollee_progress {
-  id          Int                  @id @default(autoincrement())
-  courseId    Int
-  enrolleeId  Int
-  completed   Boolean              @default(false)
-  createdAt   DateTime             @default(now())
-  lastUpdated DateTime             @default(now())
-  updatedby   String?
-  createdBy   String?
-  course      courses              @relation(fields: [courseId], references: [id])
-  enrollee    project_participants @relation(fields: [enrolleeId], references: [id])
+  id              Int                  @id @default(autoincrement())
+  courseId        Int
+  courseVersionId Int?                 // Which version the participant completed
+  enrolleeId      Int
+  completed       Boolean              @default(false)
+  createdAt       DateTime             @default(now())
+  lastUpdated     DateTime             @default(now())
+  updatedby       String?
+  createdBy       String?
+  course          courses              @relation(fields: [courseId], references: [id])
+  courseVersion   course_versions?     @relation("ProgressCourseVersion", fields: [courseVersionId], references: [id])
+  enrollee        project_participants @relation(fields: [enrolleeId], references: [id])
 
   @@unique([courseId, completed, enrolleeId])
   @@index([courseId])
+  @@index([courseVersionId])
   @@index([enrolleeId])
 }
 
@@ -475,6 +484,7 @@ model modules {
   event_module_progress    event_module_progress[]
   course                   courses                    @relation(fields: [courseId], references: [id])
   training_plan_modules    training_plan_modules[]
+  versions                 module_versions[]
 
   @@index([courseId])
 }
@@ -530,6 +540,7 @@ model activities {
   ActivityOrder     Int?
   module                    modules                     @relation(fields: [moduleId], references: [id])
   event_activity_progress   event_activity_progress[]
+  versions                  activity_versions[]
 
   @@index([moduleId])
 }
@@ -541,6 +552,7 @@ model events {
   eventType         String?
   projectId         Int
   courseId          Int?
+  courseVersionId   Int?                // Links to specific version delivered
   supportActivityId Int?
   roomId            Int?
   start             DateTime
@@ -561,6 +573,7 @@ model events {
   event_groups            event_groups[]
   event_instructors       event_instructors[]
   course                  courses?                    @relation(fields: [courseId], references: [id])
+  courseVersion           course_versions?            @relation("EventCourseVersion", fields: [courseVersionId], references: [id])
   project                 projects                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   supportActivity         supportActivities?          @relation(fields: [supportActivityId], references: [id])
   room                    rooms?                      @relation(fields: [roomId], references: [id])
@@ -568,6 +581,7 @@ model events {
 
   @@index([projectId])
   @@index([courseId])
+  @@index([courseVersionId])
   @@index([supportActivityId])
   @@index([roomId])
 }
@@ -1465,6 +1479,146 @@ model organization_role_overrides {
   @@index([organizationId])
   @@index([roleId])
   @@index([permissionId])
+}
+
+// ============================================
+// COURSE VERSION CONTROL
+// ============================================
+
+model course_versions {
+  id              Int       @id @default(autoincrement())
+  courseId        Int
+  version         String    // "1.0.0", "1.1.0", etc.
+  status          String    @default("draft") // draft, published, archived
+  title           String
+  summary         String?
+  duration        Int?
+  JSONSyllabus    Json?
+  snapshotData    Json?     // Full course data snapshot at this version
+
+  publishedAt     DateTime?
+  publishedBy     String?   // WorkOS user ID who published
+  createdAt       DateTime  @default(now())
+  createdBy       String?   // WorkOS user ID who created
+
+  course          courses           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  moduleVersions  module_versions[]
+  changelogs      version_changelogs[]
+  events          events[]          @relation("EventCourseVersion")
+  enrollee_progress courses_enrollee_progress[] @relation("ProgressCourseVersion")
+
+  @@unique([courseId, version])
+  @@index([courseId])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+model module_versions {
+  id                Int       @id @default(autoincrement())
+  moduleId          Int
+  courseVersionId   Int
+  version           String    // "1.0.0"
+  status            String    @default("draft")
+  title             String
+  summary           String?
+  content           String?
+  JSONContent       Json?
+  duration          Int?
+  customDuration    Int?
+  moduleOrder       Int?
+  snapshotData      Json?
+
+  publishedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  module            modules          @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  courseVersion     course_versions  @relation(fields: [courseVersionId], references: [id], onDelete: Cascade)
+  activityVersions  activity_versions[]
+
+  @@unique([moduleId, courseVersionId])
+  @@index([courseVersionId])
+  @@index([moduleId])
+  @@index([status])
+}
+
+model activity_versions {
+  id                Int       @id @default(autoincrement())
+  activityId        Int
+  moduleVersionId   Int
+  version           String
+  status            String    @default("draft")
+  title             String
+  summary           String?
+  content           String?
+  contentUrl        String?
+  activityType      String?
+  duration          Int?
+  ActivityOrder     Int?
+  snapshotData      Json?
+
+  publishedAt       DateTime?
+  createdAt         DateTime  @default(now())
+
+  activity          activities       @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  moduleVersion     module_versions  @relation(fields: [moduleVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, moduleVersionId])
+  @@index([moduleVersionId])
+  @@index([activityId])
+  @@index([status])
+}
+
+model version_changelogs {
+  id                Int       @id @default(autoincrement())
+  courseVersionId   Int
+  changeType        String    // "major", "minor", "patch"
+  changeCategory    String    // "module_added", "activity_updated", "objective_changed"
+  description       String
+  previousValue     Json?
+  newValue          Json?
+  entityType        String    // "course", "module", "activity"
+  entityId          Int
+  createdAt         DateTime  @default(now())
+  createdBy         String?
+
+  courseVersion     course_versions @relation(fields: [courseVersionId], references: [id], onDelete: Cascade)
+
+  @@index([courseVersionId])
+  @@index([changeType])
+  @@index([createdAt])
+}
+
+// ============================================
+// COURSE AUDIT LOGS
+// ============================================
+
+model course_audit_logs {
+  id                Int       @id @default(autoincrement())
+  courseId          Int
+  entityType        String    // "course", "module", "activity"
+  entityId          Int       // ID of the course/module/activity
+  actionType        String    // "create", "update", "delete", "publish"
+
+  // Change tracking
+  fieldChanges      Json?     // { fieldName: { old: value, new: value } }
+  previousVersion   String?   // Version before change
+  newVersion        String?   // Version after change
+  versionBumpType   String?   // "major", "minor", "patch"
+
+  // Metadata
+  metadata          Json?     // { title, deletedTitle, etc. }
+
+  // User tracking
+  changedBy         String?   // WorkOS user ID
+  changedByName     String?   // User display name (denormalized for display)
+  changedAt         DateTime  @default(now())
+
+  course            courses   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([entityType])
+  @@index([actionType])
+  @@index([changedAt])
 }
 
 // ============================================

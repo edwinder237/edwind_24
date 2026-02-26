@@ -5,11 +5,9 @@
  * This is the core function that maps WorkOS data to our application's permission model.
  */
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../prisma.js';
 import { mapRoleToPermissions } from './policyMap.js';
 import { createEmptyClaims, CLAIMS_CONFIG } from './claims.js';
-
-const prisma = new PrismaClient();
 
 /**
  * Builds complete user claims from WorkOS memberships
@@ -348,7 +346,6 @@ export async function getCachedMemberships(userId) {
  * Cleanup function to close Prisma connection
  */
 export async function disconnectPrisma() {
-  await prisma.$disconnect();
 }
 
 /**

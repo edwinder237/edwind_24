@@ -30,6 +30,7 @@ import {
   Divider,
   IconButton,
   Collapse,
+  Tooltip,
 } from "@mui/material";
 
 // project import
@@ -45,7 +46,7 @@ import usePagination from "hooks/usePagination";
 import { PROJECT_STATUS_CONFIG } from "constants/index";
 
 // assets
-import { PlusOutlined, ReloadOutlined, FilterOutlined, ClearOutlined, UpOutlined, DownOutlined } from "@ant-design/icons";
+import { PlusOutlined, ReloadOutlined, FilterOutlined, ClearOutlined, UpOutlined, DownOutlined, SortAscendingOutlined, SortDescendingOutlined } from "@ant-design/icons";
 import AddButton from "../../../../components/StyledButtons";
 
 // ==============================|| PROJECTS - CARDS ||============================== //
@@ -53,7 +54,7 @@ import AddButton from "../../../../components/StyledButtons";
 const allColumns = [
   {
     id: 1,
-    header: "Default",
+    header: "Creation Date",
   },
   {
     id: 2,
@@ -149,7 +150,8 @@ const ProjectsList = () => {
   const matchDownSM = useMediaQuery((theme) => theme.breakpoints.down("sm"));
   const matchDownLG = useMediaQuery((theme) => theme.breakpoints.down("lg"));
 
-  const [sortBy, setSortBy] = useState("Default");
+  const [sortBy, setSortBy] = useState("Creation Date");
+  const [sortOrder, setSortOrder] = useState("desc");
   const [globalFilter, setGlobalFilter] = useState("");
   const [add, setAdd] = useState(false);
   const [formHasChanges, setFormHasChanges] = useState(false);
@@ -387,51 +389,51 @@ const ProjectsList = () => {
     });
 
     // Apply sorting
+    const dir = sortOrder === 'asc' ? 1 : -1;
     const sortedData = [...filteredData].sort((a, b) => {
       switch (sortBy) {
         case 'Title':
-          return (a.title || '').localeCompare(b.title || '');
-        
-        case 'Start Date':
+          return dir * (a.title || '').localeCompare(b.title || '');
+
+        case 'Start Date': {
           const aStartDate = a.project_settings?.startDate || a.startDate;
           const bStartDate = b.project_settings?.startDate || b.startDate;
-          
+
           if (!aStartDate && !bStartDate) return 0;
-          if (!aStartDate) return 1; // Put items without dates at the end
+          if (!aStartDate) return 1;
           if (!bStartDate) return -1;
-          
+
           const dateA = new Date(aStartDate);
           const dateB = new Date(bStartDate);
-          
-          // Check for invalid dates
+
           if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
           if (isNaN(dateA.getTime())) return 1;
           if (isNaN(dateB.getTime())) return -1;
-          
-          return dateA - dateB;
-        
-        case 'End Date':
+
+          return dir * (dateA - dateB);
+        }
+
+        case 'End Date': {
           const aEndDate = a.project_settings?.endDate || a.endDate;
           const bEndDate = b.project_settings?.endDate || b.endDate;
-          
+
           if (!aEndDate && !bEndDate) return 0;
-          if (!aEndDate) return 1; // Put items without dates at the end
+          if (!aEndDate) return 1;
           if (!bEndDate) return -1;
-          
+
           const endDateA = new Date(aEndDate);
           const endDateB = new Date(bEndDate);
-          
-          // Check for invalid dates
+
           if (isNaN(endDateA.getTime()) && isNaN(endDateB.getTime())) return 0;
           if (isNaN(endDateA.getTime())) return 1;
           if (isNaN(endDateB.getTime())) return -1;
-          
-          return endDateA - endDateB;
-        
-        case 'Default':
+
+          return dir * (endDateA - endDateB);
+        }
+
+        case 'Creation Date':
         default:
-          // Sort by creation date (newest first)
-          return new Date(b.createdAt) - new Date(a.createdAt);
+          return dir * (new Date(a.createdAt) - new Date(b.createdAt));
       }
     });
 
@@ -449,6 +451,7 @@ const ProjectsList = () => {
     subOrganizationFilter,
     dateRange,
     sortBy,
+    sortOrder,
     projects,
     hasError,
     isValidProjectsArray
@@ -625,6 +628,21 @@ const ProjectsList = () => {
                       ))}
                     </Select>
                   </FormControl>
+
+                  <Tooltip title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}>
+                    <IconButton
+                      onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                      size="small"
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        p: 1
+                      }}
+                    >
+                      {sortOrder === 'asc' ? <SortAscendingOutlined /> : <SortDescendingOutlined />}
+                    </IconButton>
+                  </Tooltip>
 
                   {canCreateProjects && (
                     <AddButton

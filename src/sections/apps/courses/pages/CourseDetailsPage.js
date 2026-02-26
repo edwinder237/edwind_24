@@ -7,6 +7,7 @@ import {
   createChecklistItem,
   updateChecklistItem,
   deleteChecklistItem,
+  updateCourse,
 } from "store/reducers/courses";
 import { useDispatch, useSelector } from "store";
 
@@ -43,6 +44,7 @@ import {
   Fab,
   Tooltip,
   CircularProgress,
+  TextField,
 } from "@mui/material";
 import { useTheme } from '@mui/material/styles';
 
@@ -59,6 +61,7 @@ import CourseContent from "../components/content/CourseContent";
 import CourseSettings from "../components/settings/CourseSettings";
 import ChecklistItemForm from "components/ChecklistItemForm";
 import UnifiedRoleAssignmentManager from "components/UnifiedRoleAssignmentManager";
+import { AuditHistoryPanel } from "../components/AuditHistory";
 
 import { calculateCourseDurationFromModules } from 'utils/durationCalculations';
 
@@ -81,6 +84,7 @@ import {
   DeleteOutlined,
   PlusOutlined,
   UnorderedListOutlined,
+  HistoryOutlined,
 } from "@ant-design/icons";
 import { Person } from '@mui/icons-material';
 //import { getModules } from "utils/getModules";
@@ -171,6 +175,9 @@ const CourseEditPage = ({ courseId }) => {
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [authorDialogOpen, setAuthorDialogOpen] = useState(false);
+  const [newAuthorName, setNewAuthorName] = useState('');
+  const [savingAuthor, setSavingAuthor] = useState(false);
   const roleAssignmentRefreshRef = useRef(null);
   const lastRoleAssignmentTabVisit = useRef(0);
   const [itemToDelete, setItemToDelete] = useState(null);
@@ -290,6 +297,30 @@ const CourseEditPage = ({ courseId }) => {
     }
   };
 
+  // Author name dialog handlers
+  const handleOpenAuthorDialog = () => {
+    setNewAuthorName(course?.authorName || '');
+    setAuthorDialogOpen(true);
+  };
+
+  const handleSaveAuthorName = async () => {
+    if (!newAuthorName.trim()) return;
+
+    setSavingAuthor(true);
+    try {
+      await dispatch(updateCourse({
+        id: courseId,
+        title: course?.title,
+        authorName: newAuthorName.trim()
+      }));
+      setAuthorDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving author name:', error);
+    } finally {
+      setSavingAuthor(false);
+    }
+  };
+
   // Tab configuration
   const tabs = [
     { 
@@ -317,13 +348,18 @@ const CourseEditPage = ({ courseId }) => {
       icon: <TeamOutlined />,
       description: 'Assign course to participant roles'
     },
-    { 
-      label: 'Checklist', 
+    {
+      label: 'Checklist',
       icon: <CheckSquareOutlined />,
       description: 'Course checklist and tasks'
     },
-    { 
-      label: 'Settings', 
+    {
+      label: 'History',
+      icon: <HistoryOutlined />,
+      description: 'Version history and audit log'
+    },
+    {
+      label: 'Settings',
       icon: <SettingOutlined />,
       description: 'Course configuration and instructors'
     }
@@ -669,6 +705,56 @@ const CourseEditPage = ({ courseId }) => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Author Name Dialog */}
+        <Dialog
+          open={authorDialogOpen}
+          onClose={() => setAuthorDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <UserOutlined />
+              <Typography variant="h6">Set Course Author</Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ mb: 2 }}>
+              Enter the name of the course author. This will be displayed on the course details page.
+            </DialogContentText>
+            <TextField
+              autoFocus
+              fullWidth
+              label="Author Name"
+              value={newAuthorName}
+              onChange={(e) => setNewAuthorName(e.target.value)}
+              placeholder="e.g., John Smith"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && newAuthorName.trim()) {
+                  handleSaveAuthorName();
+                }
+              }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+              onClick={() => setAuthorDialogOpen(false)}
+              variant="outlined"
+              disabled={savingAuthor}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveAuthorName}
+              variant="contained"
+              disabled={!newAuthorName.trim() || savingAuthor}
+              startIcon={savingAuthor ? <CircularProgress size={16} /> : null}
+            >
+              {savingAuthor ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
   };
@@ -793,26 +879,68 @@ const CourseEditPage = ({ courseId }) => {
             <CardContent sx={{ p: 4 }}>
               <Grid container spacing={3} alignItems="center">
                 <Grid item xs={12} md={8}>
-                  <Typography variant="h3" fontWeight={700} gutterBottom>
-                    {course?.title || 'Course Details'}
-                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                    <Typography variant="h3" fontWeight={700}>
+                      {course?.title || 'Course Details'}
+                    </Typography>
+                    {course?.code && (
+                      <Chip
+                        label={course.code}
+                        size="small"
+                        sx={{
+                          bgcolor: 'rgba(255,255,255,0.2)',
+                          color: 'white',
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                        }}
+                      />
+                    )}
+                    {course?.version && (
+                      <Chip
+                        label={`v${course.version}`}
+                        size="small"
+                        sx={{
+                          bgcolor: 'rgba(255,255,255,0.15)',
+                          color: 'white',
+                          fontWeight: 500,
+                          fontSize: '0.75rem',
+                        }}
+                      />
+                    )}
+                    {course?.courseStatus && (
+                      <Chip
+                        label={course.courseStatus.charAt(0).toUpperCase() + course.courseStatus.slice(1)}
+                        size="small"
+                        sx={{
+                          bgcolor: course.courseStatus === 'published'
+                            ? 'success.main'
+                            : course.courseStatus === 'draft'
+                              ? 'warning.main'
+                              : 'rgba(255,255,255,0.15)',
+                          color: 'white',
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                        }}
+                      />
+                    )}
+                  </Stack>
                   <Typography variant="h6" sx={{ opacity: 0.9, mb: 2 }}>
                     {course?.summary || 'Comprehensive course overview and learning path'}
                   </Typography>
                   <Stack direction="row" spacing={2} flexWrap="wrap">
-                    <Chip 
+                    <Chip
                       icon={<ClockCircleOutlined />}
                       label={`${totalDuration} minutes`}
                       variant="outlined"
                       sx={{ color: 'white', borderColor: 'white' }}
                     />
-                    <Chip 
+                    <Chip
                       icon={<BookOutlined />}
                       label={`${modules?.length || 0} modules`}
                       variant="outlined"
                       sx={{ color: 'white', borderColor: 'white' }}
                     />
-                    <Chip 
+                    <Chip
                       icon={<PlayCircleOutlined />}
                       label={`${modules?.reduce((acc, module) => acc + (module.activities?.length || 0), 0) || 0} activities`}
                       variant="outlined"
@@ -822,12 +950,13 @@ const CourseEditPage = ({ courseId }) => {
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <Box sx={{
-                    textAlign: { xs: 'left', md: 'center' },
+                    display: 'flex',
+                    justifyContent: { xs: 'flex-start', md: 'flex-end' },
                     mt: { xs: 3, md: 0 },
                     pt: { xs: 3, md: 0 },
                     borderTop: { xs: `1px solid ${'rgba(255,255,255,0.2)'}`, md: 'none' }
                   }}>
-                    <Stack direction={{ xs: 'row', md: 'column' }} spacing={2} alignItems="center">
+                    <Stack direction={{ xs: 'row', md: 'column' }} spacing={2} alignItems="center" sx={{ textAlign: { xs: 'left', md: 'center' } }}>
                       <Avatar
                         sx={{
                           width: { xs: 60, md: 80 },
@@ -839,14 +968,39 @@ const CourseEditPage = ({ courseId }) => {
                       </Avatar>
                       <Box>
                         <Typography variant="caption" display="block" sx={{ opacity: 0.7, mb: { xs: 0, md: 1 } }}>
-                          Instructor
+                          Author
                         </Typography>
-                        <Typography variant="h6" fontWeight={600}>
-                          {course?.course_instructors?.[0]?.instructor?.firstName} {course?.course_instructors?.[0]?.instructor?.lastName}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                          {course?.course_instructors?.[0]?.instructor?.email}
-                        </Typography>
+                        {course?.authorName ? (
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography variant="h6" fontWeight={600}>
+                              {course.authorName}
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              onClick={handleOpenAuthorDialog}
+                              sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: 'white' } }}
+                            >
+                              <EditOutlined style={{ fontSize: '0.9rem' }} />
+                            </IconButton>
+                          </Stack>
+                        ) : (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<EditOutlined />}
+                            onClick={handleOpenAuthorDialog}
+                            sx={{
+                              color: 'white',
+                              borderColor: 'rgba(255,255,255,0.5)',
+                              '&:hover': {
+                                borderColor: 'white',
+                                bgcolor: 'rgba(255,255,255,0.1)'
+                              }
+                            }}
+                          >
+                            Set Author
+                          </Button>
+                        )}
                       </Box>
                     </Stack>
                   </Box>
@@ -911,6 +1065,10 @@ const CourseEditPage = ({ courseId }) => {
           </TabPanel>
 
           <TabPanel value={currentTab} index={6}>
+            <AuditHistoryPanel courseId={parseInt(courseId)} />
+          </TabPanel>
+
+          <TabPanel value={currentTab} index={7}>
             {renderSettings()}
           </TabPanel>
         </Box>

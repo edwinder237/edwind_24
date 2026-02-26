@@ -131,13 +131,12 @@ const slice = createSlice({
     updateProjectSuccess(state, action) {
       const updatedProject = action.payload;
       const index = state.projects.findIndex(p => p.id === updatedProject.id);
-      console.log("hheheh",updatedProject);
       if (index !== -1) {
-        state.projects[index] = updatedProject;
+        state.projects[index] = { ...state.projects[index], ...updatedProject };
       }
       // Also update singleProject if it matches
       if (state.singleProject && state.singleProject.id === updatedProject.id) {
-        state.singleProject = updatedProject;
+        state.singleProject = { ...state.singleProject, ...updatedProject };
       }
     },
     // REMOVE PROJECT
