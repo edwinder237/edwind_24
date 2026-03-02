@@ -17,7 +17,7 @@ import LegalModal from 'components/LegalModal';
 // assets
 import { SendOutlined } from '@ant-design/icons';
 
-const imgfooterlogo = 'assets/images/logos/edwind-white-logo.png';
+const imgfooterlogo = 'assets/images/logos/edbahn-white-logo.png';
 
 // link - custom style
 const FooterLink = styled(Link)(({ theme }) => ({
@@ -104,7 +104,7 @@ const FooterBlock = ({ isFull }) => {
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="body1" sx={{ color: theme.palette.common.white }}>
-                      Stay updated with the latest features and improvements coming to EDWIND platform.
+                      Stay updated with the latest features and improvements coming to edbahn platform.
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sx={{ my: 2 }}>
@@ -148,7 +148,7 @@ const FooterBlock = ({ isFull }) => {
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 400, color: theme.palette.common.white }}>
-                      EDWIND is a comprehensive training management platform designed to empower organizations with 
+                      edbahn is a comprehensive training management platform designed to empower organizations with
                       advanced educational development and participant tracking solutions.
                     </Typography>
                   </Grid>
@@ -287,7 +287,7 @@ const FooterBlock = ({ isFull }) => {
           <Grid container spacing={2}>
             <Grid item xs={12} sm={8}>
               <Typography variant="subtitle2" color="secondary">
-                © EDWIND by <Link href="https://www.lumeve.ca" target="_blank" color="inherit" underline="hover">Lumeve</Link> All rights reserved
+                © edbahn by <Link href="https://www.lumeve.ca" target="_blank" color="inherit" underline="hover">Lumeve</Link> All rights reserved
               </Typography>
             </Grid>
             <Grid item xs={12} sm={4}>

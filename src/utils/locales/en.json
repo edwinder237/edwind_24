@@ -153,13 +153,13 @@
   "landing.nav.getStarted": "Get Started",
 
   "landing.hero.welcome": "Welcome to ",
-  "landing.hero.edwind": "EDWIND ",
+  "landing.hero.edwind": "edbahn ",
   "landing.hero.platform": "Training Platform",
   "landing.hero.description": "Empower your organization with comprehensive training management and participant tracking solutions.",
   "landing.hero.seePricing": "See Pricing",
 
   "landing.features.subtitle": "Excellence in Training",
-  "landing.features.title": "Why Choose EDWIND?",
+  "landing.features.title": "Why Choose edbahn?",
   "landing.features.description": "Comprehensive training management system with powerful tools for course creation, participant tracking, and progress monitoring",
   "landing.features.courseManagement": "Course Management",
   "landing.features.courseManagementDesc": "Create and manage comprehensive training courses with modules, objectives, and customizable content.",
@@ -203,7 +203,7 @@
 
   "landing.demo.subtitle": "Complete Training Solution",
   "landing.demo.title": "Everything You Need",
-  "landing.demo.description": "From course creation to participant management, EDWIND provides all the tools you need for successful training programs",
+  "landing.demo.description": "From course creation to participant management, edbahn provides all the tools you need for successful training programs",
   "landing.demo.courseManagement": "Course Management",
   "landing.demo.courseManagementDesc": "Create comprehensive training courses with modules, objectives, and customizable content. Track completion and progress.",
   "landing.demo.courseCreationTools": "Course Creation Tools",
@@ -227,7 +227,7 @@
   "landing.demo.certificationStatus": "Certification status updates",
 
   "landing.contact.title": "Get in Touch",
-  "landing.contact.description": "Ready to transform your training programs? Contact our team to learn how EDWIND can help your organization achieve better learning outcomes.",
+  "landing.contact.description": "Ready to transform your training programs? Contact our team to learn how edbahn can help your organization achieve better learning outcomes.",
   "landing.contact.emailUs": "Email Us",
   "landing.contact.responseTime": "Response Time:",
   "landing.contact.responseTimeDesc": "We typically respond within 24 hours during business days.",
@@ -254,7 +254,7 @@
 
   "landing.cta.title1": "Start Your Training Journey",
   "landing.cta.title2": "Today",
-  "landing.cta.title3": "with EDWIND",
+  "landing.cta.title3": "with edbahn",
   "landing.cta.button": "Get Started Now",
 
   "landing.numbers.courses": "Training Courses",

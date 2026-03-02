@@ -26,17 +26,13 @@ const DrawerHeader = ({ open }) => {
       sx={{
 
 
-        background: '#02174C',
-        background: 'linear-gradient(180deg, #02174C 0%, #137DC5 100%)',
-        background: '-moz-linear-gradient(270deg, #02174C 0%, #137DC5 100%)',
-        background: '-webkit-linear-gradient(180deg, #02174C 0%, #137DC5 100%)',
-        filter: 'progid:DXImageTransform.Microsoft.gradient(startColorstr="#02174C", endColorstr="#137DC5", GradientType=1)',
+        background: `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`,
 
         minHeight: isHorizontal ? 'unset' : '60px',
         width: isHorizontal ? { xs: '100%', lg: '424px' } : 'inherit',
         paddingTop: isHorizontal ? { xs: '10px', lg: '0' } : '8px',
         paddingBottom: isHorizontal ? { xs: '18px', lg: '0' } : '8px',
-        paddingLeft: isHorizontal ? { xs: '24px', lg: '0' } : open ? '24px' : 0
+        paddingLeft: isHorizontal ? { xs: '24px', lg: '0' } : 0
       }}
     >
       <Logo isIcon={!open} sx={{ width: open ? 'auto' : 35, height: 35 }} />

@@ -96,11 +96,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
           <Toolbar sx={{ px: 0, py: 0, minHeight: HEADER_HEIGHT, width: '100%' }}>
             {/* Logo - Always visible */}
             <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, pl: { xs: 1, md: 2 } }}>
-              <img
-                src="/assets/images/logos/edwind-color-logo.png"
-                alt="EDWIND"
-                style={{ height: '40px', width: 'auto' }}
-              />
+              <Logo sx={{ width: 'auto', height: 35 }} />
             </Box>
 
             {/* Desktop Navigation */}

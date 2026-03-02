@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import getConfig from "next/config";
 import NextLink from "next/link";
 import { format } from "date-fns";
@@ -53,7 +53,7 @@ import { PROJECT_STATUS, PROJECT_STATUS_CONFIG } from "constants/index";
 const { publicRuntimeConfig } = getConfig();
 const basePath = publicRuntimeConfig?.basePath || '';
 
-const FALLBACK_IMAGE = `${basePath}/assets/images/logos/95983458_padded_logo.png`;
+const FALLBACK_IMAGE = `${basePath}/assets/images/logos/edbahn-color-logo-bg.png`;
 
 // ===================|| UTILITY FUNCTIONS ||=================== //
 
@@ -222,9 +222,10 @@ const useImageWithFallback = (imageUrl) => {
   }, []);
 
   const validUrl = cleanImageUrl(imageUrl);
-  const finalImageUrl = imageError || !validUrl ? FALLBACK_IMAGE : validUrl;
+  const isFallback = imageError || !validUrl;
+  const finalImageUrl = isFallback ? FALLBACK_IMAGE : validUrl;
 
-  return { finalImageUrl, handleImageError };
+  return { finalImageUrl, handleImageError, isFallback };
 };
 
 // ===================|| COMPONENTS ||=================== //
@@ -471,7 +472,7 @@ const ProjectCard = ({ Project, projectId }) => {
   
   // Use training recipient image if available, fallback to project background image
   const imageUrl = Project?.training_recipient?.img || Project?.backgroundImg;
-  const { finalImageUrl, handleImageError } = useImageWithFallback(imageUrl);
+  const { finalImageUrl, handleImageError, isFallback } = useImageWithFallback(imageUrl);
 
   // Parse project topics when tags change
   useEffect(() => {
@@ -673,7 +674,8 @@ const ProjectCard = ({ Project, projectId }) => {
                 height: 130,
                 textDecoration: "none",
                 opacity: 1,
-                objectFit: 'cover'
+                objectFit: isFallback ? 'contain' : 'cover',
+                bgcolor: isFallback ? '#0083fd' : 'transparent'
               }}
             />
           </Box>
@@ -885,20 +887,33 @@ const ProjectCard = ({ Project, projectId }) => {
                   size="small"
                 />
               )}
-              renderOption={(props, option) => (
-                <Box component="li" {...props}>
-                  <Stack direction="row" alignItems="center" spacing={1.5}>
-                    <Avatar sx={{ width: 28, height: 28, fontSize: '0.8rem' }}>
-                      {option.name?.charAt(0) || '?'}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2">{option.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.email}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Box>
+              renderOption={(props, option, { index }) => (
+                <React.Fragment key={option.id}>
+                  {index > 0 && <Divider />}
+                  <Box component="li" {...props}>
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                      <Avatar sx={{ width: 28, height: 28, fontSize: '0.8rem' }}>
+                        {option.name?.charAt(0) || '?'}
+                      </Avatar>
+                      <Box sx={{ flex: 1 }}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography variant="body2">{option.name}</Typography>
+                          {option.role && (
+                            <Chip label={option.role} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />
+                          )}
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.email}
+                        </Typography>
+                        {option.subOrganization && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {option.subOrganization}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                  </Box>
+                </React.Fragment>
               )}
             />
           </Stack>

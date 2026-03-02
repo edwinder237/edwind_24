@@ -153,13 +153,13 @@
   "landing.nav.getStarted": "Commencer",
 
   "landing.hero.welcome": "Bienvenue sur la ",
-  "landing.hero.edwind": "EDWIND ",
+  "landing.hero.edwind": "edbahn ",
   "landing.hero.platform": "Plateforme de Formation",
   "landing.hero.description": "Donnez a votre organisation les moyens de gerer la formation et le suivi des participants de maniere complete.",
   "landing.hero.seePricing": "Voir les Tarifs",
 
   "landing.features.subtitle": "Excellence en Formation",
-  "landing.features.title": "Pourquoi Choisir EDWIND ?",
+  "landing.features.title": "Pourquoi Choisir edbahn ?",
   "landing.features.description": "Systeme complet de gestion de la formation avec des outils puissants pour la creation de cours, le suivi des participants et le suivi des progres",
   "landing.features.courseManagement": "Gestion des Cours",
   "landing.features.courseManagementDesc": "Creez et gerez des cours de formation complets avec des modules, des objectifs et du contenu personnalisable.",
@@ -203,7 +203,7 @@
 
   "landing.demo.subtitle": "Solution de Formation Complete",
   "landing.demo.title": "Tout Ce Dont Vous Avez Besoin",
-  "landing.demo.description": "De la creation de cours a la gestion des participants, EDWIND fournit tous les outils necessaires pour des programmes de formation reussis",
+  "landing.demo.description": "De la creation de cours a la gestion des participants, edbahn fournit tous les outils necessaires pour des programmes de formation reussis",
   "landing.demo.courseManagement": "Gestion des Cours",
   "landing.demo.courseManagementDesc": "Creez des cours de formation complets avec des modules, des objectifs et du contenu personnalisable. Suivez l'achevement et les progres.",
   "landing.demo.courseCreationTools": "Outils de Creation de Cours",
@@ -227,7 +227,7 @@
   "landing.demo.certificationStatus": "Mises a jour du statut de certification",
 
   "landing.contact.title": "Nous Contacter",
-  "landing.contact.description": "Pret a transformer vos programmes de formation ? Contactez notre equipe pour decouvrir comment EDWIND peut aider votre organisation a obtenir de meilleurs resultats d'apprentissage.",
+  "landing.contact.description": "Pret a transformer vos programmes de formation ? Contactez notre equipe pour decouvrir comment edbahn peut aider votre organisation a obtenir de meilleurs resultats d'apprentissage.",
   "landing.contact.emailUs": "Nous Envoyer un Email",
   "landing.contact.responseTime": "Temps de Reponse :",
   "landing.contact.responseTimeDesc": "Nous repondons generalement sous 24 heures pendant les jours ouvrables.",
@@ -254,7 +254,7 @@
 
   "landing.cta.title1": "Commencez Votre Parcours de Formation",
   "landing.cta.title2": "Aujourd'hui",
-  "landing.cta.title3": "avec EDWIND",
+  "landing.cta.title3": "avec edbahn",
   "landing.cta.button": "Commencer Maintenant",
 
   "landing.numbers.courses": "Cours de Formation",

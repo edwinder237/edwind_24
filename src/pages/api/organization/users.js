@@ -31,13 +31,14 @@ async function handler(req, res) {
 
   const { orgContext } = req;
 
-  // Get all users who are members of this organization
+  // Get all active users who are members of this organization
   // via their sub_organization -> organization relationship
   const users = await prisma.user.findMany({
     where: {
       sub_organizationId: {
         in: orgContext.subOrganizationIds
-      }
+      },
+      isActive: true
     },
     select: {
       id: true,
@@ -45,12 +46,26 @@ async function handler(req, res) {
       email: true,
       firstName: true,
       lastName: true,
-      status: true,
+      isActive: true,
       sub_organization: {
         select: {
           id: true,
           title: true
         }
+      },
+      role_assignments: {
+        where: {
+          organizationId: orgContext.organizationId,
+          isActive: true
+        },
+        select: {
+          role: {
+            select: {
+              name: true
+            }
+          }
+        },
+        take: 1
       }
     },
     orderBy: {
@@ -58,40 +73,38 @@ async function handler(req, res) {
     }
   });
 
-  // Also fetch organization memberships to get role information
+  // Also fetch active organization memberships to get role information
   const memberships = await prisma.organization_memberships.findMany({
     where: {
       organizationId: orgContext.organizationId,
       status: 'active'
     },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          firstName: true,
-          lastName: true
-        }
-      }
+    select: {
+      userId: true,
+      workos_role: true,
+      status: true
     }
   });
 
-  // Create a map of user IDs to their roles
+  // Create maps of user IDs to their roles and membership status
   const userRoles = new Map();
+  const activeMemberIds = new Set();
   memberships.forEach(m => {
     userRoles.set(m.userId, m.workos_role);
+    activeMemberIds.add(m.userId);
   });
 
-  // Format users with their roles
-  const formattedUsers = users.map(user => ({
-    id: user.id,
-    name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-    email: user.email,
-    status: user.status,
-    role: userRoles.get(user.id) || 'member',
-    subOrganization: user.sub_organization?.title
-  }));
+  // Only include users with active memberships, format with their roles
+  const formattedUsers = users
+    .filter(user => activeMemberIds.has(user.id))
+    .map(user => ({
+      id: user.id,
+      name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+      email: user.email,
+      status: 'active',
+      role: user.role_assignments[0]?.role?.name || 'member',
+      subOrganization: user.sub_organization?.title
+    }));
 
   return res.status(200).json({
     success: true,

@@ -14,11 +14,10 @@ import { motion } from 'framer-motion';
 
 // project import
 import AnimateButton from 'components/@extended/AnimateButton';
+import Logo from 'components/logo';
 
 // assets
 import { EyeOutlined } from '@ant-design/icons';
-
-const headerlogo = '/assets/images/logos/edwind-color-logo.png';
 
 // ==============================|| LANDING - HEADER PAGE ||============================== //
 
@@ -163,7 +162,7 @@ const HeaderPage = () => {
               height: '100%',
               [theme.breakpoints.down('md')]: { mt: 4 }
             }}>
-              <Image src={headerlogo} alt="EDWIND" width={380} height={160} style={{ zIndex: 9 }} />
+              <Logo sx={{ width: 380, height: 'auto' }} />
             </Box>
           </motion.div>
         </Grid>

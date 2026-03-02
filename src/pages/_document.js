@@ -5,22 +5,22 @@ export default function Document() {
     <Html>
       <Head>
         <meta name="theme-color" content="#02174C" />
-        <meta name="title" content="EDWIND - Advanced Training Management Platform" />
-        <meta name="description" content="EDWIND empowers organizations with comprehensive training management solutions. Create courses, manage participants, track progress, and deliver exceptional educational experiences." />
-        <meta name="keywords" content="training management, learning platform, course creation, participant tracking, education technology, corporate training, learning management system, EDWIND" />
+        <meta name="title" content="edbahn - Advanced Training Management Platform" />
+        <meta name="description" content="edbahn empowers organizations with comprehensive training management solutions. Create courses, manage participants, track progress, and deliver exceptional educational experiences." />
+        <meta name="keywords" content="training management, learning platform, course creation, participant tracking, education technology, corporate training, learning management system, edbahn" />
         
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
-        <meta property="og:title" content="EDWIND - Advanced Training Management Platform" />
+        <meta property="og:title" content="edbahn - Advanced Training Management Platform" />
         <meta property="og:description" content="Comprehensive training management solutions for organizations. Create courses, manage participants, and track educational progress." />
-        <meta property="og:image" content="/assets/images/logos/edwind-color-logo.png" />
-        <meta property="og:site_name" content="EDWIND" />
+        <meta property="og:image" content="/assets/images/logos/edbahn-color-logo-bg.png" />
+        <meta property="og:site_name" content="edbahn" />
         
         {/* Twitter */}
         <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:title" content="EDWIND - Advanced Training Management Platform" />
+        <meta property="twitter:title" content="edbahn - Advanced Training Management Platform" />
         <meta property="twitter:description" content="Comprehensive training management solutions for organizations. Create courses, manage participants, and track educational progress." />
-        <meta property="twitter:image" content="/assets/images/logos/edwind-color-logo.png" />
+        <meta property="twitter:image" content="/assets/images/logos/edbahn-color-logo-bg.png" />
         
         {/* Additional SEO */}
         <meta name="robots" content="index, follow" />
