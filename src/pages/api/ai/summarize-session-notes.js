@@ -43,8 +43,8 @@ export default async function handler(req, res) {
       if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
     }
 
-    // Extract session notes, attendance data, and parking lot items from request body
-    const { sessionNotes, attendanceData, parkingLotItems } = req.body;
+    // Extract session notes, attendance data, parking lot items, and AI settings from request body
+    const { sessionNotes, attendanceData, parkingLotItems, tone, customTone, language } = req.body;
 
     // Validate input
     if (!sessionNotes || typeof sessionNotes !== 'string') {
@@ -68,9 +68,9 @@ export default async function handler(req, res) {
       console.log('[AI Summarization] Including parking lot items:', parkingLotItems.length);
     }
 
-    // Call Gemini AI to summarize with optional attendance and parking lot data
+    // Call Gemini AI to summarize with optional attendance, parking lot data, and AI settings
     const startTime = Date.now();
-    const summary = await summarizeSessionNotes(sessionNotes, attendanceData, parkingLotItems);
+    const summary = await summarizeSessionNotes(sessionNotes, attendanceData, parkingLotItems, { tone, customTone, language });
     const durationMs = Date.now() - startTime;
 
     // Calculate output size for cost estimation

@@ -351,6 +351,7 @@ async function handlePreview(req, res) {
       projectTitle,
       projectId,
       events,
+      dailyFocusData,
       trainerEmail: 'preview@example.com',
       includeEventSummaries,
       showLogo,
@@ -406,6 +407,7 @@ async function handleSend(req, res) {
       projectTitle,
       projectId,
       events,
+      dailyFocusData,
       trainerEmail: trainerEmails[0], // Use first email for template generation
       includeEventSummaries,
       showLogo,
@@ -601,7 +603,7 @@ async function handleSend(req, res) {
  * Generate trainer email HTML from template
  * Shared by both preview and send actions
  */
-async function generateTrainerEmailFromTemplate({ template, projectTitle, projectId, events, trainerEmail, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, showTimezone = true, timezone = 'America/Edmonton', language = 'en' }) {
+async function generateTrainerEmailFromTemplate({ template, projectTitle, projectId, events, dailyFocusData = {}, trainerEmail, includeEventSummaries = true, showLogo = true, showFocusOfDay = true, showTimezone = true, timezone = 'America/Edmonton', language = 'en' }) {
   let processedTemplate = template;
   const t = getTranslations(language);
 
@@ -774,7 +776,7 @@ async function generateTrainerEmailFromTemplate({ template, projectTitle, projec
                                                 </td>
                                                 ${showFocusOfDay ? `<td width="25%" style="font-weight: 400; text-align: center; background-color: #ffffff; padding: 10px; vertical-align: top;" valign="top">
                                                     <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;">${t.focusOfTheDay}</p>
-                                                    <p style="margin: 0; font-size: 14px; line-height: 1.4; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;">${t.availableOnTrainingDay}</p>
+                                                    <p style="margin: 0; font-size: 14px; line-height: 1.4; font-family: Ubuntu, Tahoma, Verdana, Segoe, sans-serif; color: #000000;">${dailyFocusData?.[dateKey] || t.availableOnTrainingDay}</p>
                                                 </td>` : ''}
                                             </tr>
                                         </tbody>

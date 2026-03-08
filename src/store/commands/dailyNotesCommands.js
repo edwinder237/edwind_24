@@ -535,10 +535,13 @@ export const fetchDailyNotes = createAsyncThunk(
  * @param {string} params.parkingLotItems[].title - Item title
  * @param {string} params.parkingLotItems[].priority - Item priority (low, medium, high)
  * @param {string} params.parkingLotItems[].status - Item status (open, in_progress, resolved)
+ * @param {string} params.tone - AI tone preset: 'natural', 'formal', 'executive', or 'custom'
+ * @param {string} params.customTone - Custom tone description (used when tone is 'custom')
+ * @param {string} params.language - Output language code: 'auto', 'en', 'fr', 'es', 'pt', 'de'
  */
 export const summarizeWithAI = createAsyncThunk(
   'dailyNotes/summarizeWithAI',
-  async ({ projectId, date, sessionNotes, attendanceData = null, parkingLotItems = null }, { dispatch, getState, rejectWithValue }) => {
+  async ({ projectId, date, sessionNotes, attendanceData = null, parkingLotItems = null, tone, customTone, language }, { dispatch, getState, rejectWithValue }) => {
     try {
       const command = {
         type: 'SUMMARIZE_WITH_AI',
@@ -553,11 +556,14 @@ export const summarizeWithAI = createAsyncThunk(
 
       dispatch(loadingStarted());
 
-      // Call AI summarization API with optional attendance and parking lot data
+      // Call AI summarization API with optional attendance, parking lot data, and AI settings
       const response = await axios.post('/api/ai/summarize-session-notes', {
         sessionNotes,
         attendanceData,
-        parkingLotItems
+        parkingLotItems,
+        tone,
+        customTone,
+        language
       });
 
       if (!response.data.success) {

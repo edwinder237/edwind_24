@@ -24,3 +24,6 @@ export {
   generateContactAdminTemplate,
   generateContactAutoReplyTemplate
 } from './contact';
+
+// Survey template
+export { generateSurveyTemplate } from './survey';

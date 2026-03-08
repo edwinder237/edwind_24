@@ -64,6 +64,7 @@ import { ColumnCell } from './ColumnCell';
 import ToolAccessCell from './ToolAccessCell';
 import RoleDropdownCell from './RoleDropdownCell';
 import GroupDropdownCell from './GroupDropdownCell';
+import TagSelectorCell from './TagSelectorCell';
 
 // Editable Cell Component - simple and self-contained
 const EditableCell = ({ value, row, column, updateMyData, editableRowIndex, onSave }) => {
@@ -133,7 +134,8 @@ const ReactTable = ({
   groups = [],
   groupsLoading = false,
   onAssignGroup,
-  onUploadCredentials
+  onUploadCredentials,
+  onSendSurvey
 }) => {
   const theme = useTheme();
   
@@ -310,33 +312,7 @@ const ReactTable = ({
       dataType: "text",
       disableFilters: true,
       disableGroupBy: true,
-      Cell: ({ value, row, column }) => {
-        const isEditing = row.index === editableRowIndex;
-        if (isEditing) {
-          return (
-            <EditableCell
-              value={value || ''}
-              row={row}
-              column={column}
-              updateMyData={updateField}
-              editableRowIndex={editableRowIndex}
-              onSave={handleSubmit}
-            />
-          );
-        }
-        return value ? (
-          <Chip
-            label={value}
-            size="small"
-            sx={{
-              bgcolor: 'primary.lighter',
-              color: 'primary.dark',
-              fontWeight: 500,
-              fontSize: '0.75rem'
-            }}
-          />
-        ) : null;
-      },
+      Cell: ({ value, row }) => <TagSelectorCell value={value} row={row} />,
     },
     {
       Header: "Training Recipient",
@@ -682,6 +658,7 @@ const ReactTable = ({
                     handleCRUD={{ handleRemoveMany: onRemoveMany }}
                     iDs={selectedIds}
                     onEmailAccess={onEmailAccess}
+                    onSendSurvey={onSendSurvey}
                     roles={roles}
                     rolesLoading={rolesLoading}
                     onAssignRole={onAssignRole}
@@ -1011,6 +988,7 @@ ReactTable.propTypes = {
   onViewParticipant: PropTypes.func,
   hideToolbar: PropTypes.bool,
   onUploadCredentials: PropTypes.func,
+  onSendSurvey: PropTypes.func,
 };
 
 ReactTable.displayName = 'ReactTable';

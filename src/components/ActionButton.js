@@ -3,7 +3,7 @@ import { styled, alpha } from "@mui/material/styles";
 import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import { Edit, Delete, Email, PersonOutline, ChevronRight, GroupOutlined } from "@mui/icons-material";
+import { Edit, Delete, Email, PersonOutline, ChevronRight, GroupOutlined, Assignment } from "@mui/icons-material";
 import Divider from "@mui/material/Divider";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { Box, Typography, CircularProgress } from "@mui/material";
@@ -77,7 +77,8 @@ export default function ActionButton({
   onAssignRole,
   groups = [],
   groupsLoading = false,
-  onAssignGroup
+  onAssignGroup,
+  onSendSurvey
 }) {
   const { handleRemoveMany } = handleCRUD;
   const [anchorEl, setAnchorEl] = React.useState(null);
@@ -105,6 +106,13 @@ export default function ActionButton({
   const handleEmailAccess = () => {
     if (onEmailAccess) {
       onEmailAccess();
+    }
+    handleClose();
+  };
+
+  const handleSendSurvey = () => {
+    if (onSendSurvey) {
+      onSendSurvey();
     }
     handleClose();
   };
@@ -167,6 +175,10 @@ export default function ActionButton({
         <MenuItem onClick={handleEmailAccess} disableRipple disabled={!hasSelections}>
           <Email sx={{ color: "#2196f3" }} />
           Email Access
+        </MenuItem>
+        <MenuItem onClick={handleSendSurvey} disableRipple disabled={!hasSelections}>
+          <Assignment sx={{ color: "#ff9800" }} />
+          Send Satisfaction Survey (L1)
         </MenuItem>
 
         {/* Assign Role submenu trigger */}

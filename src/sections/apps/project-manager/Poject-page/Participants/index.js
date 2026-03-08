@@ -1,8 +1,10 @@
 import React, { Suspense } from 'react';
 import PropTypes from 'prop-types';
 import dynamic from 'next/dynamic';
+import { useSelector } from 'react-redux';
 import {
   Box,
+  Chip,
   Drawer,
   IconButton,
   Typography,
@@ -11,6 +13,7 @@ import {
 } from '@mui/material';
 import MainCard from 'components/MainCard';
 import { CloseOutlined } from '@ant-design/icons';
+import { selectCourseParticipantRoleDistribution } from 'store/selectors/courseCompletionSelectors';
 
 // Lazy load the Participants table for better performance
 const ParticipantTable = dynamic(() => import('./components/ParticipantsTable').catch(
@@ -41,6 +44,7 @@ const LoadingFallback = () => (
 const ParticipantsDrawer = ({ open, onClose, initialAction = null }) => {
   // No data fetching needed - participants already in normalized entities store
   // Fetched by projects/[id].js using useGetProjectParticipantsQuery
+  const roleDistribution = useSelector(selectCourseParticipantRoleDistribution);
 
   return (
     <Drawer
@@ -59,9 +63,43 @@ const ParticipantsDrawer = ({ open, onClose, initialAction = null }) => {
       <MainCard
         title={
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
-            <Typography variant="h5" fontWeight="600">
-              Manage Participants
-            </Typography>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Typography variant="h5" fontWeight="600">
+                Manage Participants
+              </Typography>
+              {roleDistribution.length > 0 && (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {roleDistribution.map((roleStat, index) => (
+                    <Chip
+                      key={index}
+                      size="small"
+                      label={
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          <Box
+                            sx={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              bgcolor: roleStat.color
+                            }}
+                          />
+                          <span>{roleStat.role}</span>
+                          <Typography component="span" sx={{ fontWeight: 700 }}>
+                            {roleStat.count}
+                          </Typography>
+                        </Stack>
+                      }
+                      variant="outlined"
+                      sx={{
+                        borderColor: 'divider',
+                        height: 26,
+                        '& .MuiChip-label': { px: 1 }
+                      }}
+                    />
+                  ))}
+                </Stack>
+              )}
+            </Stack>
             <IconButton onClick={onClose} size="large">
               <CloseOutlined />
             </IconButton>

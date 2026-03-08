@@ -31,6 +31,8 @@ import {
   IconButton,
   Collapse,
   Tooltip,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 
 // project import
@@ -170,6 +172,7 @@ const ProjectsList = () => {
   const [organizationFilter, setOrganizationFilter] = useState([]);
   const [subOrganizationFilter, setSubOrganizationFilter] = useState([]);
   const [dateRange, setDateRange] = useState({ start: null, end: null });
+  const [hideCompleted, setHideCompleted] = useState(true);
   const handleChange = (event) => {
     setSortBy(event.target.value);
   };
@@ -213,6 +216,7 @@ const ProjectsList = () => {
     setOrganizationFilter([]);
     setSubOrganizationFilter([]);
     setDateRange({ start: null, end: null });
+    setHideCompleted(true);
     setGlobalFilter("");
   };
 
@@ -303,6 +307,11 @@ const ProjectsList = () => {
 
       // Status filter
       if (statusFilter.length > 0 && !statusFilter.includes(project.projectStatus)) {
+        return false;
+      }
+
+      // Hide completed projects
+      if (hideCompleted && project.projectStatus === 'completed') {
         return false;
       }
 
@@ -450,6 +459,7 @@ const ProjectsList = () => {
     organizationFilter,
     subOrganizationFilter,
     dateRange,
+    hideCompleted,
     sortBy,
     sortOrder,
     projects,
@@ -716,6 +726,21 @@ const ProjectsList = () => {
                 </Typography>
 
                 <Stack direction="row" spacing={1} alignItems="center">
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={hideCompleted}
+                        onChange={(e) => setHideCompleted(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                        Hide Completed
+                      </Typography>
+                    }
+                    sx={{ mr: 1 }}
+                  />
                   {getActiveFilterCount() > 0 && (
                     <Button
                       onClick={clearAllFilters}

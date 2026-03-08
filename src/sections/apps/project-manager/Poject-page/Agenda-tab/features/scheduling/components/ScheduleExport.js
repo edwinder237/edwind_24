@@ -145,39 +145,25 @@ const ScheduleExport = ({ projectEvents = [], projectTitle: propProjectTitle = "
 
   const fetchAllDailyFocus = async () => {
     if (!projectId) return;
-    
-    const uniqueDates = [...new Set(projectEvents.map(event => {
-      const eventDate = typeof event.start === 'string' ? parseISO(event.start) : new Date(event.start);
-      return format(eventDate, 'yyyy-MM-dd');
-    }))];
 
-    const focusData = {};
-    
-    for (const dateKey of uniqueDates) {
-      const cacheKey = `${projectId}_${dateKey}`;
-      if (focusCache.current.has(cacheKey)) {
-        const cachedData = focusCache.current.get(cacheKey);
-        if (cachedData?.focus) {
-          focusData[dateKey] = cachedData.focus;
-        }
-      } else {
-        try {
-          const response = await fetch(`/api/projects/daily-focus?projectId=${projectId}&date=${dateKey}`);
-          if (response.ok) {
-            const data = await response.json();
-            const focusText = data?.focus || '';
-            focusCache.current.set(cacheKey, { focus: focusText });
-            if (focusText) {
-              focusData[dateKey] = focusText;
+    try {
+      const response = await fetch(`/api/projects/daily-focus?projectId=${projectId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const focusData = {};
+        if (Array.isArray(data)) {
+          data.forEach(entry => {
+            const dateKey = new Date(entry.date).toISOString().split('T')[0];
+            if (entry.focus) {
+              focusData[dateKey] = entry.focus;
             }
-          }
-        } catch (error) {
-          console.error('Error fetching daily focus:', error);
+          });
         }
+        setDailyFocusData(focusData);
       }
+    } catch (error) {
+      console.error('Error fetching daily focus:', error);
     }
-
-    setDailyFocusData(focusData);
   };
 
   // Group events by date

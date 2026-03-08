@@ -36,9 +36,13 @@ const initGemini = () => {
  * @param {string} parkingLotItems[].title - Item title
  * @param {string} parkingLotItems[].priority - Item priority (low, medium, high)
  * @param {string} parkingLotItems[].status - Item status (open, in_progress, resolved)
+ * @param {object} options - Optional AI settings
+ * @param {string} options.tone - Tone preset: 'natural', 'formal', 'executive', or 'custom'
+ * @param {string} options.customTone - Custom tone description (used when tone is 'custom')
+ * @param {string} options.language - Output language code: 'auto', 'en', 'fr', 'es', 'pt', 'de'
  * @returns {Promise<{keyHighlights: string[], challenges: string[]}>}
  */
-export const summarizeSessionNotes = async (sessionNotes, attendanceData = null, parkingLotItems = null) => {
+export const summarizeSessionNotes = async (sessionNotes, attendanceData = null, parkingLotItems = null, options = {}) => {
   try {
     const genAI = initGemini();
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
@@ -80,7 +84,35 @@ ${questions.length > 0 ? `\nOpen Questions:\n${questions.map(i => `  - [${i.prio
     const hasParkingLot = parkingLotItems && parkingLotItems.length > 0;
     const hasAttendance = attendanceData && attendanceData.total > 0;
 
-    const prompt = `You are an expert training analyst. Analyze the following training session notes${hasAttendance ? ', attendance data' : ''}${hasParkingLot ? ', and parking lot items' : ''} and extract:
+    // Build tone instruction
+    const { tone = 'natural', customTone = '', language = 'auto' } = options;
+    let toneInstruction = '';
+    switch (tone) {
+      case 'executive':
+        toneInstruction = '\nTone: Use an executive briefing tone — concise, high-level, action-oriented, suitable for C-suite stakeholders.';
+        break;
+      case 'formal':
+        toneInstruction = '\nTone: Use a formal, professional tone suitable for official reports and documentation.';
+        break;
+      case 'custom':
+        if (customTone.trim()) {
+          toneInstruction = `\nTone: Use the following tone: ${customTone.trim()}`;
+        }
+        break;
+      case 'natural':
+      default:
+        toneInstruction = '\nTone: Use a natural, conversational yet professional tone.';
+        break;
+    }
+
+    // Build language instruction
+    const languageNames = { fr: 'French', es: 'Spanish', pt: 'Portuguese', de: 'German' };
+    let languageInstruction = '';
+    if (language && language !== 'auto' && language !== 'en' && languageNames[language]) {
+      languageInstruction = `\nIMPORTANT: Write your entire response in ${languageNames[language]}. All highlights and challenges must be in ${languageNames[language]}.`;
+    }
+
+    const prompt = `You are an expert training analyst. Analyze the following training session notes${hasAttendance ? ', attendance data' : ''}${hasParkingLot ? ', and parking lot items' : ''} and extract:${toneInstruction}${languageInstruction}
 
 1. Key Highlights: 3-5 positive outcomes, achievements, or important observations from the training
 2. Challenges: 2-4 obstacles, issues, or areas that need improvement
@@ -100,7 +132,7 @@ Guidelines:
 - Be concise and specific
 - Focus on actionable insights
 - Use complete sentences
-- Prioritize the most important items
+- Order highlights and challenges chronologically, following the sequence of events in the session notes
 - Ensure highlights are positive and challenges are constructive
 ${hasAttendance ? '- Include attendance insights when relevant (e.g., "Excellent attendance with all participants present" or "3 participants were absent: John, Jane, Bob - follow-up required")' : ''}
 ${hasParkingLot ? '- Include parking lot insights when relevant (e.g., "Several open questions need to be addressed" or "High priority issue: [issue title] requires immediate attention")' : ''}`;

@@ -221,6 +221,72 @@ const DropZoneTimeSlot = ({ time, event, hour, dayDate, isLast, onDrop, onSelect
   );
 };
 
+// ==============================|| DAY FOCUS FIELD ||============================== //
+
+const DayFocusField = ({ value, onSave }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const handleSave = () => {
+    const text = draft.trim();
+    setIsEditing(false);
+    setDraft('');
+    if (text) onSave(text);
+  };
+
+  if (isEditing) {
+    return (
+      <TextField
+        size="small"
+        autoFocus
+        placeholder="Enter focus of the day..."
+        value={draft}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            handleSave();
+          } else if (e.key === 'Escape') {
+            setIsEditing(false);
+            setDraft('');
+          }
+        }}
+        onBlur={handleSave}
+        sx={{
+          mt: 0.5,
+          '& .MuiInputBase-root': { height: 28, fontSize: '0.8rem' },
+          '& .MuiOutlinedInput-input': { py: 0.5, px: 1 },
+          minWidth: 220
+        }}
+      />
+    );
+  }
+
+  return (
+    <Typography
+      variant="caption"
+      onClick={(e) => {
+        e.stopPropagation();
+        setDraft(value || '');
+        setIsEditing(true);
+      }}
+      sx={{
+        mt: 0.5,
+        display: 'block',
+        color: value ? 'text.secondary' : 'text.disabled',
+        fontStyle: value ? 'normal' : 'italic',
+        cursor: 'pointer',
+        '&:hover': {
+          color: 'primary.main',
+          textDecoration: 'underline'
+        }
+      }}
+    >
+      {value ? `Focus: ${value}` : '+ Add focus of the day'}
+    </Typography>
+  );
+};
+
 // ==============================|| AGENDA VIEW ||============================== //
 
 const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect }) => {
@@ -241,6 +307,45 @@ const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect })
   // Edit dialog state - lifted from DraggableEventCard to prevent re-render issues
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState(null);
+
+  // Focus of the day - single bulk fetch for all days
+  const [dayFocusMap, setDayFocusMap] = useState({});
+
+  useEffect(() => {
+    if (!project?.id) return;
+    let cancelled = false;
+    const fetchAllFocus = async () => {
+      try {
+        const res = await fetch(`/api/projects/daily-focus?projectId=${project.id}`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const map = {};
+          if (Array.isArray(data)) {
+            data.forEach(entry => {
+              const dateKey = new Date(entry.date).toISOString().split('T')[0];
+              map[dateKey] = entry.focus;
+            });
+          }
+          setDayFocusMap(map);
+        }
+      } catch (e) { /* silent */ }
+    };
+    fetchAllFocus();
+    return () => { cancelled = true; };
+  }, [project?.id]);
+
+  const handleSaveFocus = useCallback(async (date, text) => {
+    if (!project?.id) return;
+    const dateStr = date.toISOString().split('T')[0];
+    setDayFocusMap(prev => ({ ...prev, [dateStr]: text }));
+    try {
+      await fetch(`/api/projects/daily-focus?projectId=${project.id}&date=${dateStr}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ focus: text })
+      });
+    } catch (e) { /* optimistic UI already updated */ }
+  }, [project?.id]);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -794,6 +899,11 @@ const AgendaViewContent = ({ project, events, curriculums = [], onEventSelect })
                     day: 'numeric'
                   })}
                 </Typography>
+                {/* Focus of the Day */}
+                <DayFocusField
+                  value={dayFocusMap[day.date.toISOString().split('T')[0]] || ''}
+                  onSave={(text) => handleSaveFocus(day.date, text)}
+                />
               </Box>
             </Stack>
 

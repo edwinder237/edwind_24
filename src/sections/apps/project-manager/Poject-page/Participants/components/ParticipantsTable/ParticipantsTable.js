@@ -12,12 +12,15 @@ import { PopupTransition } from 'components/@extended/Transitions';
 // CQRS architecture with commands and events
 import { selectAllParticipants } from 'store/entities/participantsSlice';
 import { selectAllGroups } from 'store/entities/groupsSlice';
+import { selectProjectCurriculums } from 'store/entities/settingsSlice';
 import { participantCommands } from 'store/commands';
 import { useSendParticipantCredentials } from './hooks/useSendParticipantCredentials';
+import { useSendSatisfactionSurvey } from './hooks/useSendSatisfactionSurvey';
 
 // Components
 import ReactTable from './components/ReactTable';
 import EmailAccessDialog from 'components/EmailAccessDialog';
+import SatisfactionSurveyDialog from 'components/SatisfactionSurveyDialog';
 import ParticipantDetailsDrawer from '../../../Participant-Dialog/ParticipantDetailsDrawer';
 import AddParticipantOptionsDialog from './AddParticipantOptionsDialog';
 import BulkCredentialUploadDialog from './BulkCredentialUploadDialog';
@@ -36,8 +39,9 @@ import eventBus from 'store/events/EventBus';
 const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
   const dispatch = useDispatch();
 
-  // Get projectId from projectSettings store (proper CQRS pattern)
+  // Get projectId and title from projectSettings store (proper CQRS pattern)
   const projectId = useSelector(state => state.projectSettings?.projectId);
+  const projectTitle = useSelector(state => state.projectSettings?.projectInfo?.title);
 
   // Use RTK Query to get loading/error states for participants
   const {
@@ -124,6 +128,59 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
 
   // Email sending hook for participant credentials
   const { handleSendEmail } = useSendParticipantCredentials();
+
+  // Satisfaction survey state
+  const [surveyDialog, setSurveyDialog] = useState(false);
+  const [curriculumSurveys, setCurriculumSurveys] = useState([]);
+  const [surveysLoading, setSurveysLoading] = useState(false);
+
+  const handleSurveyDialog = useCallback(() => {
+    setSurveyDialog(prev => !prev);
+  }, []);
+
+  // Survey sending hook
+  const { handleSendSurvey } = useSendSatisfactionSurvey();
+
+  // Get project curriculums to fetch surveys
+  const projectCurriculums = useSelector(selectProjectCurriculums);
+
+  // Fetch satisfaction surveys from project's curriculum
+  useEffect(() => {
+    const fetchSurveys = async () => {
+      if (!projectCurriculums || projectCurriculums.length === 0) {
+        setCurriculumSurveys([]);
+        return;
+      }
+
+      setSurveysLoading(true);
+      try {
+        // Fetch surveys from all curriculums assigned to this project
+        const allSurveys = [];
+        for (const pc of projectCurriculums) {
+          const curriculumId = pc.curriculumId || pc.curriculum?.id;
+          if (!curriculumId) continue;
+
+          const response = await fetch(`/api/curriculum-surveys/list?curriculumId=${curriculumId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.surveys) {
+              // Filter to post_training (L1 satisfaction) surveys only
+              const satisfactionSurveys = data.surveys.filter(s => s.surveyType === 'post_training');
+              allSurveys.push(...satisfactionSurveys);
+            }
+          }
+        }
+        setCurriculumSurveys(allSurveys);
+      } catch (err) {
+        console.error('[ParticipantsTable] Error fetching curriculum surveys:', err);
+        setCurriculumSurveys([]);
+      } finally {
+        setSurveysLoading(false);
+      }
+    };
+
+    fetchSurveys();
+  }, [projectCurriculums]);
 
   // Bulk credential upload state
   const [credentialUploadOpen, setCredentialUploadOpen] = useState(false);
@@ -427,6 +484,7 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
             groupsLoading={false}
             onAssignGroup={handleBulkAssignGroup}
             onUploadCredentials={handleOpenCredentialUpload}
+            onSendSurvey={handleSurveyDialog}
           />
         </Box>
       </MainCard>
@@ -450,12 +508,23 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
         onSend={handleSendEmail}
       />
 
+      {/* Satisfaction Survey Dialog */}
+      <SatisfactionSurveyDialog
+        open={surveyDialog}
+        onClose={handleSurveyDialog}
+        selectedParticipants={selectedParticipants}
+        surveys={curriculumSurveys}
+        onSend={handleSendSurvey}
+        loading={surveysLoading}
+      />
+
       {/* Bulk Credential Upload Dialog */}
       <BulkCredentialUploadDialog
         open={credentialUploadOpen}
         onClose={handleCloseCredentialUpload}
         participants={participants}
         projectId={projectId}
+        projectTitle={projectTitle}
         onComplete={handleCredentialUploadComplete}
       />
 

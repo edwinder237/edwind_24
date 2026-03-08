@@ -36,6 +36,7 @@ const BulkCredentialUploadDialog = ({
   onClose,
   participants = [],
   projectId,
+  projectTitle,
   onComplete
 }) => {
   // CSV state
@@ -244,8 +245,9 @@ const BulkCredentialUploadDialog = ({
     instrSheet['!cols'] = [{ wch: 80 }];
     XLSX.utils.book_append_sheet(wb, instrSheet, 'Instructions');
 
-    XLSX.writeFile(wb, 'credentials_template.xlsx');
-  }, [participants]);
+    const safeName = (projectTitle || 'project').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `${safeName}_credentials_template.xlsx`);
+  }, [participants, projectTitle]);
 
   const handleUpload = async () => {
     if (csvErrors.length > 0 || csvData.length === 0) return;
@@ -534,6 +536,7 @@ BulkCredentialUploadDialog.propTypes = {
   onClose: PropTypes.func.isRequired,
   participants: PropTypes.array,
   projectId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  projectTitle: PropTypes.string,
   onComplete: PropTypes.func
 };
 

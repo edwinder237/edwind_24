@@ -74,11 +74,11 @@ const getInitialValues = (course) => {
     summary: '',
     description: '',
     language: 'english',
-    deliveryMethod: '',
-    level: '',
-    courseCategory: '',
+    deliveryMethod: 'in-person',
+    level: 'beginner',
+    courseCategory: 'technical',
     courseStatus: 'draft',
-    CourseType: '',
+    CourseType: 'training',
     targetAudience: '',
     maxParticipants: '10',
     code: '',
@@ -86,8 +86,8 @@ const getInitialValues = (course) => {
     accessRestrictions: '',
     certification: '',
     resources: '',
-    goLiveDate: null,
-    deadline: null,
+    goLiveDate: new Date(),
+    deadline: new Date(),
     published: false,
     isMandatoryToAllRole: false
   };
@@ -146,10 +146,11 @@ const AddCourseMultiStep = ({ course, onCancel }) => {
   const [showAllRoles, setShowAllRoles] = useState(false);
   const [isTargetAudienceExpanded, setIsTargetAudienceExpanded] = useState(false);
 
-  // Note: Using simplified validation instead of step schemas for better reliability
+  // Memoize initial values so new Date() doesn't cause Formik to reinitialize on every render
+  const initialValues = React.useMemo(() => getInitialValues(course), [course]);
 
   const formik = useFormik({
-    initialValues: getInitialValues(course),
+    initialValues,
     enableReinitialize: true,
     validationSchema: Yup.object().shape({
       // Combined validation for all steps

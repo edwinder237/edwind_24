@@ -75,7 +75,8 @@ import {
   generateModuleLinkTemplate,
   generateFeedbackTemplate,
   generateContactAdminTemplate,
-  generateContactAutoReplyTemplate
+  generateContactAutoReplyTemplate,
+  generateSurveyTemplate
 } from './templates';
 
 /**
@@ -153,7 +154,7 @@ export async function sendCalendarInvite(options) {
   // Send email
   const result = await sendEmail({
     to: cleanedEmail,
-    subject: `Training Session: ${event.title} | ${projectTitle}`,
+    subject: `Training Survey: ${event.title} | ${projectTitle}`,
     html,
     from: EMAIL_SENDERS.training,
     attachments: [createICSAttachment(icsContent, event.title)]
@@ -211,6 +212,63 @@ export async function sendCredentials(options) {
     subject: `Your CRM 360 Access Credentials - ${projectName} - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
     html,
     from: EMAIL_SENDERS.credentials,
+    replyTo: instructorEmail,
+    headers
+  });
+
+  if (result.error) {
+    return {
+      success: false,
+      error: result.error,
+      participant: recipientName
+    };
+  }
+
+  return {
+    success: true,
+    emailId: result.data?.id || result.id,
+    participant: recipientName
+  };
+}
+
+/**
+ * Send survey email to a participant
+ *
+ * @param {Object} options
+ * @param {Object} options.participant - Participant data
+ * @param {string} options.surveyUrl - Survey URL
+ * @param {string} options.surveyTitle - Survey title
+ * @param {string} options.projectName - Project name
+ * @param {string} [options.organizationLogoUrl] - Organization logo URL
+ * @param {string} [options.instructorEmail] - Instructor email for reply-to
+ * @returns {Promise<Object>} Send result
+ */
+export async function sendSurvey(options) {
+  const { participant, surveyUrl, surveyTitle, projectName, organizationLogoUrl, instructorEmail } = options;
+
+  if (!isValidEmail(participant.email)) {
+    return {
+      success: false,
+      error: { message: 'Invalid email address', code: 'INVALID_EMAIL' }
+    };
+  }
+
+  const recipientName = formatRecipientName(participant.firstName, participant.lastName);
+  const headers = createAntiCollapseHeaders('survey', participant.id);
+
+  const html = generateSurveyTemplate({
+    participantName: recipientName,
+    surveyUrl,
+    surveyTitle,
+    projectName,
+    organizationLogoUrl
+  });
+
+  const result = await sendEmail({
+    to: cleanEmail(participant.email),
+    subject: `Satisfaction Survey - ${projectName} - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    html,
+    from: EMAIL_SENDERS.training,
     replyTo: instructorEmail,
     headers
   });
@@ -373,6 +431,7 @@ export const emailService = {
   // Specific email types
   sendCalendarInvite,
   sendCredentials,
+  sendSurvey,
   sendModuleLink,
   sendFeedback,
   sendContactForm,

@@ -26,6 +26,15 @@ export default async function handler(req, res) {
 
     switch (method) {
       case 'GET':
+        if (!date) {
+          // Bulk fetch: return all focus entries for the project
+          const allFocus = await prisma.daily_focus.findMany({
+            where: { projectId: parseInt(projectId) },
+            orderBy: { date: 'asc' }
+          });
+          return res.status(200).json(allFocus);
+        }
+
         const focus = await prisma.daily_focus.findUnique({
           where: {
             date_projectId: {
@@ -34,7 +43,7 @@ export default async function handler(req, res) {
             }
           }
         });
-        
+
         return res.status(200).json(focus);
 
       case 'POST':

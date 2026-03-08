@@ -23,7 +23,14 @@ import {
   Tooltip,
   Grid,
   Collapse,
-  CircularProgress
+  CircularProgress,
+  Popover,
+  FormControl,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
+  Select,
+  InputLabel
 } from '@mui/material';
 import {
   Add,
@@ -49,7 +56,9 @@ import {
   AutoAwesome,
   LocalParking,
   HelpOutline,
-  ReportProblem
+  ReportProblem,
+  Settings,
+  Download
 } from '@mui/icons-material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useSelector, useDispatch } from 'react-redux';
@@ -69,6 +78,12 @@ import {
 import { useGetDailyTrainingNotesQuery } from 'store/api/projectApi';
 import { useDateUtils } from 'hooks/useDateUtils';
 import axios from 'utils/axios';
+import dynamic from 'next/dynamic';
+
+const ReportDownloadButton = dynamic(
+  () => import('./ReportDownloadButton'),
+  { ssr: false, loading: () => <CircularProgress size={16} /> }
+);
 
 // Function to extract session notes from events and group by date
 const transformEventsToMockDailyNotes = (events, project) => {
@@ -422,6 +437,53 @@ const DailyNotes = ({ project }) => {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
+
+  // AI Settings state
+  const [aiSettingsAnchor, setAiSettingsAnchor] = useState(null);
+  const [aiSettings, setAiSettings] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('edwind_ai_settings');
+        if (saved) return JSON.parse(saved);
+      } catch (e) { /* ignore */ }
+    }
+    return { tone: 'natural', customTone: '', language: 'auto' };
+  });
+
+  const updateAiSettings = (updates) => {
+    setAiSettings(prev => {
+      const next = { ...prev, ...updates };
+      try { localStorage.setItem('edwind_ai_settings', JSON.stringify(next)); } catch (e) { /* ignore */ }
+      return next;
+    });
+  };
+
+  // Training Report state
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportLanguage, setReportLanguage] = useState('en');
+  const [reportData, setReportData] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  const handleGenerateReport = async () => {
+    if (!project?.id) return;
+    setReportLoading(true);
+    setReportData(null);
+    try {
+      const response = await axios.get(`/api/projects/training-report-data?projectId=${project.id}`);
+      setReportData(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch report data:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: 'Failed to generate report data',
+        variant: 'alert',
+        alert: { color: 'error' },
+        close: false
+      }));
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   // Parking Lot state
   const [parkingLotItems, setParkingLotItems] = useState([]);
@@ -802,7 +864,10 @@ const DailyNotes = ({ project }) => {
         date: currentNote.date,
         sessionNotes: currentNote.sessionNotes,
         attendanceData,
-        parkingLotItems: parkingLotData
+        parkingLotItems: parkingLotData,
+        tone: aiSettings.tone,
+        customTone: aiSettings.customTone,
+        language: aiSettings.language
       })).unwrap();
     } catch (error) {
       console.error('Failed to summarize with AI:', error);
@@ -903,10 +968,27 @@ const DailyNotes = ({ project }) => {
           />
         </Stack>
         <Stack direction="row" spacing={1}>
+          <Tooltip title="Download complete training report as PDF">
+            <Button
+              startIcon={<Download />}
+              variant="outlined"
+              size="small"
+              onClick={() => { setReportDialogOpen(true); setReportData(null); }}
+              disabled={notes.length === 0}
+              sx={{
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                  borderColor: 'primary.main'
+                }
+              }}
+            >
+              Report
+            </Button>
+          </Tooltip>
           <Tooltip title="Copy current note to clipboard for email">
-            <Button 
-              startIcon={<ContentCopy />} 
-              variant="outlined" 
+            <Button
+              startIcon={<ContentCopy />}
+              variant="outlined"
               size="small"
               onClick={() => copyNoteToClipboard(currentNote)}
               disabled={!currentNote || isCopying}
@@ -920,9 +1002,9 @@ const DailyNotes = ({ project }) => {
               {isCopying ? 'Copying...' : 'Copy'}
             </Button>
           </Tooltip>
-          <Button 
-            startIcon={<Add />} 
-            variant="contained" 
+          <Button
+            startIcon={<Add />}
+            variant="contained"
             size="small"
             onClick={() => setNewNoteDialogOpen(true)}
           >
@@ -1494,34 +1576,96 @@ const DailyNotes = ({ project }) => {
                           <Description sx={{ fontSize: 20, color: 'info.main' }} />
                           Session Notes
                         </Typography>
-                        <Tooltip title="Use AI to automatically generate Key Highlights and Challenges from Session Notes">
-                          <span>
-                            <Button
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          <Tooltip title="AI Settings">
+                            <IconButton
                               size="small"
-                              variant="outlined"
-                              startIcon={isSummarizing ? <CircularProgress size={16} /> : <AutoAwesome />}
-                              onClick={handleSummarizeClick}
-                              disabled={isSummarizing || !currentNote?.sessionNotes || currentNote.sessionNotes.trim().length < 10}
-                              sx={{
-                                borderRadius: 2,
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                borderColor: 'primary.main',
-                                color: 'primary.main',
-                                '&:hover': {
-                                  borderColor: 'primary.dark',
-                                  bgcolor: alpha(theme.palette.primary.main, 0.08)
-                                },
-                                '&.Mui-disabled': {
-                                  borderColor: 'action.disabled',
-                                  color: 'action.disabled'
-                                }
-                              }}
+                              onClick={(e) => setAiSettingsAnchor(e.currentTarget)}
+                              sx={{ color: 'text.secondary' }}
                             >
-                              {isSummarizing ? 'Summarizing...' : 'Summarize with AI'}
-                            </Button>
-                          </span>
-                        </Tooltip>
+                              <Settings sx={{ fontSize: 20 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Popover
+                            open={Boolean(aiSettingsAnchor)}
+                            anchorEl={aiSettingsAnchor}
+                            onClose={() => setAiSettingsAnchor(null)}
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                            slotProps={{ paper: { sx: { p: 2.5, minWidth: 260, maxWidth: 300 } } }}
+                          >
+                            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1.5 }}>AI Settings</Typography>
+
+                            {/* Tone */}
+                            <FormControl component="fieldset" sx={{ mb: 2, width: '100%' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600 }}>Tone</Typography>
+                              <RadioGroup
+                                value={aiSettings.tone}
+                                onChange={(e) => updateAiSettings({ tone: e.target.value })}
+                              >
+                                <FormControlLabel value="natural" control={<Radio size="small" />} label="Natural" />
+                                <FormControlLabel value="formal" control={<Radio size="small" />} label="Formal" />
+                                <FormControlLabel value="executive" control={<Radio size="small" />} label="Executive" />
+                                <FormControlLabel value="custom" control={<Radio size="small" />} label="Custom" />
+                              </RadioGroup>
+                              {aiSettings.tone === 'custom' && (
+                                <TextField
+                                  size="small"
+                                  placeholder='e.g. "quebec"'
+                                  value={aiSettings.customTone}
+                                  onChange={(e) => updateAiSettings({ customTone: e.target.value })}
+                                  fullWidth
+                                  sx={{ mt: 1 }}
+                                />
+                              )}
+                            </FormControl>
+
+                            {/* Language */}
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Language</InputLabel>
+                              <Select
+                                value={aiSettings.language}
+                                label="Language"
+                                onChange={(e) => updateAiSettings({ language: e.target.value })}
+                              >
+                                <MenuItem value="auto">Auto (English)</MenuItem>
+                                <MenuItem value="en">English</MenuItem>
+                                <MenuItem value="fr">French</MenuItem>
+                                <MenuItem value="es">Spanish</MenuItem>
+                                <MenuItem value="pt">Portuguese</MenuItem>
+                                <MenuItem value="de">German</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </Popover>
+                          <Tooltip title="Use AI to automatically generate Key Highlights and Challenges from Session Notes">
+                            <span>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={isSummarizing ? <CircularProgress size={16} /> : <AutoAwesome />}
+                                onClick={handleSummarizeClick}
+                                disabled={isSummarizing || !currentNote?.sessionNotes || currentNote.sessionNotes.trim().length < 10}
+                                sx={{
+                                  borderRadius: 2,
+                                  textTransform: 'none',
+                                  fontWeight: 600,
+                                  borderColor: 'primary.main',
+                                  color: 'primary.main',
+                                  '&:hover': {
+                                    borderColor: 'primary.dark',
+                                    bgcolor: alpha(theme.palette.primary.main, 0.08)
+                                  },
+                                  '&.Mui-disabled': {
+                                    borderColor: 'action.disabled',
+                                    color: 'action.disabled'
+                                  }
+                                }}
+                              >
+                                {isSummarizing ? 'Summarizing...' : 'Summarize with AI'}
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        </Stack>
                       </Stack>
                       <Box
                         sx={{
@@ -1898,6 +2042,54 @@ const DailyNotes = ({ project }) => {
           >
             Regenerate
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Training Report Download Dialog */}
+      <Dialog
+        open={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Download sx={{ color: 'primary.main' }} />
+          Download Training Report
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Generate a complete executive training report aggregating all daily notes, attendance, and parking lot data.
+          </Typography>
+          <FormControl fullWidth size="small">
+            <InputLabel>Report Language</InputLabel>
+            <Select
+              value={reportLanguage}
+              label="Report Language"
+              onChange={(e) => { setReportLanguage(e.target.value); setReportData(null); }}
+            >
+              <MenuItem value="en">English</MenuItem>
+              <MenuItem value="fr">French</MenuItem>
+              <MenuItem value="es">Spanish</MenuItem>
+              <MenuItem value="pt">Portuguese</MenuItem>
+              <MenuItem value="de">German</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReportDialogOpen(false)}>Cancel</Button>
+          {!reportData && (
+            <Button
+              variant="contained"
+              onClick={handleGenerateReport}
+              disabled={reportLoading}
+              startIcon={reportLoading ? <CircularProgress size={16} /> : <Download />}
+            >
+              {reportLoading ? 'Preparing...' : 'Generate'}
+            </Button>
+          )}
+          {reportData && (
+            <ReportDownloadButton data={reportData} language={reportLanguage} />
+          )}
         </DialogActions>
       </Dialog>
     </Paper>
