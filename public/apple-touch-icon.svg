@@ -1,7 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
-  <rect width="180" height="180" rx="20" ry="20" fill="#476BAB"/>
-  <g transform="scale(-2.8, 2.8) translate(-294, 34)">
-    <polygon fill="#ffffff" points="1,9.3 47,18.4 32.2,20.9 17.1,15.8 27.7,21.9 11.1,24.6"/>
-    <polygon fill="#ffffff" points="37.4,21.9 20.2,24.6 35.6,38.7"/>
+<svg width="1200" height="1200" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1">
+  <rect width="1200" height="1200" rx="120" ry="120" fill="#4285F4"/>
+  <g transform="translate(1200, 0) scale(-1, 1)">
+    <g transform="scale(23.47826086956522) translate(1.5555555555555554, 1.5555546018812372)">
+      <g fill="#ffffff">
+        <g xmlns="http://www.w3.org/2000/svg">
+          <g><polygon points="1,9.3 47,18.4 32.2,20.9 17.1,15.8 27.7,21.9 11.1,24.6"/></g>
+          <g><polygon points="37.4,21.9 20.2,24.6 35.6,38.7"/></g>
+        </g>
+      </g>
+    </g>
   </g>
 </svg>

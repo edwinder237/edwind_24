@@ -1,6 +1,6 @@
 {
-  "name": "EDWIND",
-  "short_name": "EDWIND",
+  "name": "edbahn",
+  "short_name": "edbahn",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -13,7 +13,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#476BAB",
-  "background_color": "#476BAB",
+  "theme_color": "#4285F4",
+  "background_color": "#4285F4",
   "display": "standalone"
 }
