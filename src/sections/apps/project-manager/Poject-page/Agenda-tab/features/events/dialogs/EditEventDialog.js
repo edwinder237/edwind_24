@@ -20,7 +20,8 @@ import {
   alpha,
   Avatar,
   ToggleButton,
-  ToggleButtonGroup
+  ToggleButtonGroup,
+  Chip
 } from '@mui/material';
 import {
   Close,
@@ -41,6 +42,8 @@ import { eventCommands } from 'store/commands';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
 import { useDateTimeRangeInput, formatDateTimeLocal } from 'hooks/useTimeRangeInput';
 import TimezoneSelect from 'components/TimezoneSelect';
+import AttendanceStats from '../../participants/components/AttendanceStats';
+import { ATTENDANCE_STATUS_CHOICES } from 'constants';
 
 const EditEventDialog = ({ open, onClose, event, project }) => {
   const theme = useTheme();
@@ -48,6 +51,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [optimisticAttendees, setOptimisticAttendees] = useState([]);
+  const [updatingParticipantId, setUpdatingParticipantId] = useState(null);
 
   // Track if dialog was ever opened to prevent premature data loading
   const [wasOpened, setWasOpened] = useState(false);
@@ -188,6 +193,39 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     return leadInstructor || availableInstructors[0] || null;
   }, [availableInstructors]);
 
+  // All project groups for group multi-select
+  const projectGroups = useMemo(() => agendaData?.groups || [], [agendaData?.groups]);
+
+  // All project participants for add-participant autocomplete
+  const projectParticipants = useMemo(() => agendaData?.participants || [], [agendaData?.participants]);
+
+  // Current attendees - deduplicated and sorted by name
+  const currentAttendees = useMemo(() => {
+    const deduped = optimisticAttendees.filter((attendee, index, self) =>
+      index === self.findIndex(a => a.enrolleeId === attendee.enrolleeId)
+    );
+    return deduped.sort((a, b) => {
+      const aName = `${a.enrollee?.participant?.firstName || ''} ${a.enrollee?.participant?.lastName || ''}`.trim().toLowerCase();
+      const bName = `${b.enrollee?.participant?.firstName || ''} ${b.enrollee?.participant?.lastName || ''}`.trim().toLowerCase();
+      return aName.localeCompare(bName);
+    });
+  }, [optimisticAttendees]);
+
+  // Attendance statistics for summary display
+  const attendanceStats = useMemo(() => ({
+    scheduled: currentAttendees.filter(a => a.attendance_status === 'scheduled').length,
+    present: currentAttendees.filter(a => a.attendance_status === 'present').length,
+    absent: currentAttendees.filter(a => a.attendance_status === 'absent').length,
+    late: currentAttendees.filter(a => a.attendance_status === 'late').length,
+    total: currentAttendees.length
+  }), [currentAttendees]);
+
+  // Participants available to add (not already enrolled)
+  const availableParticipantsToAdd = useMemo(() => {
+    const enrolledIds = new Set(currentAttendees.map(a => a.enrolleeId));
+    return projectParticipants.filter(pp => !enrolledIds.has(pp.id));
+  }, [projectParticipants, currentAttendees]);
+
   // Initialize form data when event changes
   useEffect(() => {
     if (event && open) {
@@ -218,6 +256,9 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
         deliveryMode: event.deliveryMode || 'in_person',
         meetingLink: event.meetingLink || ''
       });
+
+      // Initialize optimistic attendees from event data
+      setOptimisticAttendees(event.event_attendees || []);
     }
   }, [event, open, theme.palette.primary.main, defaultInstructor, _setStartRaw, _setEndRaw]);
 
@@ -258,6 +299,74 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
     }));
   };
 
+  // Immediate operation: Add individual participant to event
+  const handleAddParticipant = async (projectParticipant) => {
+    if (!event?.id || !projectParticipant) return;
+    setUpdatingParticipantId(projectParticipant.id);
+    try {
+      await dispatch(eventCommands.addParticipantToEvent({
+        eventId: parseInt(event.id),
+        participantId: projectParticipant.id,
+        attendanceStatus: 'scheduled'
+      }));
+      // Optimistic update - append to local attendees
+      setOptimisticAttendees(prev => [...prev, {
+        id: `temp-${Date.now()}`,
+        enrolleeId: projectParticipant.id,
+        attendance_status: 'scheduled',
+        enrollee: {
+          id: projectParticipant.id,
+          participantId: projectParticipant.participantId,
+          status: projectParticipant.status,
+          participant: projectParticipant.participant
+        }
+      }]);
+    } catch (error) {
+      console.error('Failed to add participant:', error);
+    } finally {
+      setUpdatingParticipantId(null);
+    }
+  };
+
+  // Immediate operation: Remove participant from event
+  const handleRemoveParticipant = async (enrolleeId) => {
+    if (!event?.id) return;
+    setUpdatingParticipantId(enrolleeId);
+    try {
+      await dispatch(eventCommands.removeParticipantFromEvent({
+        eventId: parseInt(event.id),
+        participantId: enrolleeId
+      }));
+      // Optimistic update - remove from local attendees
+      setOptimisticAttendees(prev => prev.filter(a => a.enrolleeId !== enrolleeId));
+    } catch (error) {
+      console.error('Failed to remove participant:', error);
+    } finally {
+      setUpdatingParticipantId(null);
+    }
+  };
+
+  // Immediate operation: Change attendance status
+  const handleAttendanceChange = async (enrolleeId, newStatus) => {
+    if (!event?.id) return;
+    setUpdatingParticipantId(enrolleeId);
+    try {
+      await dispatch(eventCommands.updateAttendanceStatus({
+        eventId: parseInt(event.id),
+        participantId: enrolleeId,
+        attendanceStatus: newStatus
+      }));
+      // Optimistic update - update status in local attendees
+      setOptimisticAttendees(prev => prev.map(a =>
+        a.enrolleeId === enrolleeId ? { ...a, attendance_status: newStatus } : a
+      ));
+    } catch (error) {
+      console.error('Failed to update attendance:', error);
+    } finally {
+      setUpdatingParticipantId(null);
+    }
+  };
+
   const handleClose = () => {
     resetDateTimes('', '');
     setFormData({
@@ -276,6 +385,8 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
       deliveryMode: 'in_person',
       meetingLink: ''
     });
+    setOptimisticAttendees([]);
+    setUpdatingParticipantId(null);
     onClose();
   };
 
@@ -698,6 +809,195 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
                 label="Timezone"
                 size="small"
               />
+            </Grid>
+
+            {/* Participants & Groups Section */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                Participants & Groups
+              </Typography>
+            </Grid>
+
+            {/* Group Assignment (Batched - saves with form) */}
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                fullWidth
+                size="small"
+                options={projectGroups}
+                getOptionLabel={(option) => option.groupName || ''}
+                value={projectGroups.filter(g => formData.selectedGroups.includes(g.id))}
+                onChange={(_, newValue) => handleInputChange('selectedGroups', newValue.map(g => g.id))}
+                disableCloseOnSelect
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                renderTags={(value, getTagProps) =>
+                  value.map((group, index) => (
+                    <Chip
+                      {...getTagProps({ index })}
+                      key={group.id}
+                      label={group.groupName}
+                      size="small"
+                      avatar={
+                        <Box sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          bgcolor: group.chipColor || theme.palette.primary.main,
+                          ml: 0.5
+                        }} />
+                      }
+                    />
+                  ))
+                }
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        bgcolor: option.chipColor || theme.palette.primary.main
+                      }} />
+                      <Typography variant="body2">{option.groupName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ({option.participants?.length || 0})
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Assigned Groups"
+                    placeholder="Select groups..."
+                    helperText="Group changes apply when you save"
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Attendees (Immediate operations) */}
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" fontWeight={600}>
+                  Attendees ({attendanceStats.total})
+                </Typography>
+                <AttendanceStats attendanceStats={attendanceStats} />
+              </Box>
+
+              {/* Add Individual Participant */}
+              <Autocomplete
+                fullWidth
+                size="small"
+                options={availableParticipantsToAdd}
+                getOptionLabel={(option) =>
+                  `${option.participant?.firstName || ''} ${option.participant?.lastName || ''}`.trim()
+                }
+                onChange={(_, newValue) => {
+                  if (newValue) handleAddParticipant(newValue);
+                }}
+                value={null}
+                blurOnSelect
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Box>
+                      <Typography variant="body2">
+                        {option.participant?.firstName} {option.participant?.lastName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.participant?.role?.title || 'No Role'}
+                        {option.participant?.email ? ` - ${option.participant.email}` : ''}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Add individual participant..."
+                    size="small"
+                  />
+                )}
+                sx={{ mb: 1 }}
+              />
+
+              {/* Attendees List */}
+              <Box sx={{
+                maxHeight: 200,
+                overflowY: 'auto',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1
+              }}>
+                {currentAttendees.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                    No attendees yet
+                  </Typography>
+                ) : (
+                  currentAttendees.map((attendee, index) => {
+                    const participant = attendee.enrollee?.participant;
+                    if (!participant) return null;
+                    return (
+                      <Box
+                        key={attendee.enrolleeId}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          py: 0.5,
+                          px: 1,
+                          borderBottom: index < currentAttendees.length - 1 ? '1px solid' : 'none',
+                          borderColor: 'divider',
+                          '&:hover': { backgroundColor: 'action.hover' }
+                        }}
+                      >
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontSize: '0.8rem',
+                            flex: 1,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            mr: 1
+                          }}
+                        >
+                          {participant.firstName} {participant.lastName}
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          {ATTENDANCE_STATUS_CHOICES
+                            .filter(s => s.value !== 'not_needed')
+                            .map(status => (
+                              <Chip
+                                key={status.value}
+                                label={status.text}
+                                size="small"
+                                variant={attendee.attendance_status === status.value ? 'filled' : 'outlined'}
+                                color={
+                                  status.value === 'present' ? 'success' :
+                                  status.value === 'absent' ? 'error' :
+                                  status.value === 'late' ? 'warning' : 'info'
+                                }
+                                onClick={() => handleAttendanceChange(attendee.enrolleeId, status.value)}
+                                disabled={updatingParticipantId === attendee.enrolleeId}
+                                sx={{ height: 20, fontSize: '0.65rem', cursor: 'pointer' }}
+                              />
+                            ))}
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveParticipant(attendee.enrolleeId)}
+                            disabled={updatingParticipantId === attendee.enrolleeId}
+                            sx={{ color: 'error.main', p: 0.25 }}
+                          >
+                            <Close sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Stack>
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
             </Grid>
 
           </Grid>

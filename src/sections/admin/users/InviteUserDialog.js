@@ -6,27 +6,25 @@ import {
   Alert,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   Grid,
   InputLabel,
   MenuItem,
   Select,
-  TextField
+  TextField,
+  Typography
 } from '@mui/material';
 
 // icons
-import { MailOutlined } from '@ant-design/icons';
+import { MailOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 
 // project imports
+import MainCard from 'components/MainCard';
 import axios from 'utils/axios';
 
-// ==============================|| INVITE USER DIALOG ||============================== //
+// ==============================|| INVITE USER PANEL ||============================== //
 
-const InviteUserDialog = ({ open, onClose, subOrganizations, systemRoles }) => {
+const InviteUserDialog = ({ onClose, subOrganizations, systemRoles }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -37,7 +35,7 @@ const InviteUserDialog = ({ open, onClose, subOrganizations, systemRoles }) => {
     firstName: '',
     lastName: '',
     role: 'member',
-    sub_organizationId: '',
+    sub_organizationId: subOrganizations?.[0]?.id || '',
     appRoleId: ''
   });
 
@@ -89,164 +87,165 @@ const InviteUserDialog = ({ open, onClose, subOrganizations, systemRoles }) => {
       }
     } catch (err) {
       console.error('Invite error:', err);
-      setError(err.response?.data?.error || 'Failed to send invitation');
+      // axios interceptor unwraps error.response.data, so err may be the data object directly
+      const message = err.error || err.response?.data?.error || err.message || 'Failed to send invitation';
+      const details = err.details || err.response?.data?.details;
+      setError(details ? `${message}: ${details}` : message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDialogClose = () => {
+  const handleBack = () => {
     if (!loading) {
-      setFormData({
-        email: '',
-        firstName: '',
-        lastName: '',
-        role: 'member',
-        sub_organizationId: '',
-        appRoleId: ''
-      });
-      setError('');
-      setSuccess('');
       onClose(false);
     }
   };
 
   return (
-    <Dialog open={open} onClose={handleDialogClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <MailOutlined style={{ marginRight: 8 }} />
-        Invite New User
-      </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          {/* Error/Success alerts */}
-          {error && (
-            <Grid item xs={12}>
-              <Alert severity="error">{error}</Alert>
-            </Grid>
-          )}
-          {success && (
-            <Grid item xs={12}>
-              <Alert severity="success">{success}</Alert>
-            </Grid>
-          )}
-
-          {/* Email */}
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              required
-              label="Email Address"
-              type="email"
-              value={formData.email}
-              onChange={handleChange('email')}
-              placeholder="user@example.com"
-              disabled={loading}
-            />
-          </Grid>
-
-          {/* First Name */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="First Name"
-              value={formData.firstName}
-              onChange={handleChange('firstName')}
-              disabled={loading}
-            />
-          </Grid>
-
-          {/* Last Name */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Last Name"
-              value={formData.lastName}
-              onChange={handleChange('lastName')}
-              disabled={loading}
-            />
-          </Grid>
-
-          {/* Role */}
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
-              <Select
-                value={formData.role}
-                label="Role"
-                onChange={handleChange('role')}
-                disabled={loading}
-              >
-                <MenuItem value="member">Member</MenuItem>
-                <MenuItem value="admin">Admin</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          {/* Sub-Organization */}
-          <Grid item xs={12} sm={6}>
-            <FormControl fullWidth>
-              <InputLabel>Sub-Organization</InputLabel>
-              <Select
-                value={formData.sub_organizationId}
-                label="Sub-Organization"
-                onChange={handleChange('sub_organizationId')}
-                disabled={loading}
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {subOrganizations.map((subOrg) => (
-                  <MenuItem key={subOrg.id} value={subOrg.id}>
-                    {subOrg.title}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          {/* Application Role */}
-          <Grid item xs={12}>
-            <FormControl fullWidth>
-              <InputLabel>Application Role</InputLabel>
-              <Select
-                value={formData.appRoleId}
-                label="Application Role"
-                onChange={handleChange('appRoleId')}
-                disabled={loading || formData.role === 'admin'}
-              >
-                <MenuItem value="">
-                  <em>Viewer (default)</em>
-                </MenuItem>
-                {systemRoles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    {role.name} - {role.description}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleDialogClose} disabled={loading}>
-          Cancel
-        </Button>
+    <MainCard
+      title={
+        <Typography variant="h5">
+          <MailOutlined style={{ marginRight: 8 }} />
+          Invite New User
+        </Typography>
+      }
+      secondary={
         <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={loading || !formData.email}
-          startIcon={loading ? <CircularProgress size={16} /> : <MailOutlined />}
+          variant="outlined"
+          startIcon={<ArrowLeftOutlined />}
+          onClick={handleBack}
+          disabled={loading}
         >
-          {loading ? 'Sending...' : 'Send Invitation'}
+          Back to Users
         </Button>
-      </DialogActions>
-    </Dialog>
+      }
+    >
+      <Grid container spacing={2}>
+        {/* Error/Success alerts */}
+        {error && (
+          <Grid item xs={12}>
+            <Alert severity="error" onClose={() => setError('')}>{error}</Alert>
+          </Grid>
+        )}
+        {success && (
+          <Grid item xs={12}>
+            <Alert severity="success" onClose={() => setSuccess('')}>{success}</Alert>
+          </Grid>
+        )}
+
+        {/* Email */}
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            required
+            label="Email Address"
+            type="email"
+            value={formData.email}
+            onChange={handleChange('email')}
+            placeholder="user@example.com"
+            disabled={loading}
+          />
+        </Grid>
+
+        {/* First Name */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="First Name"
+            value={formData.firstName}
+            onChange={handleChange('firstName')}
+            disabled={loading}
+          />
+        </Grid>
+
+        {/* Last Name */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Last Name"
+            value={formData.lastName}
+            onChange={handleChange('lastName')}
+            disabled={loading}
+          />
+        </Grid>
+
+        {/* Role */}
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth>
+            <InputLabel>Role</InputLabel>
+            <Select
+              value={formData.role}
+              label="Role"
+              onChange={handleChange('role')}
+              disabled={loading}
+            >
+              <MenuItem value="member">Member</MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+
+        {/* Sub-Organization */}
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth>
+            <InputLabel>Sub-Organization</InputLabel>
+            <Select
+              value={formData.sub_organizationId}
+              label="Sub-Organization"
+              onChange={handleChange('sub_organizationId')}
+              disabled={loading}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {subOrganizations.map((subOrg) => (
+                <MenuItem key={subOrg.id} value={subOrg.id}>
+                  {subOrg.title}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
+        {/* Application Role */}
+        <Grid item xs={12}>
+          <FormControl fullWidth>
+            <InputLabel>Application Role</InputLabel>
+            <Select
+              value={formData.appRoleId}
+              label="Application Role"
+              onChange={handleChange('appRoleId')}
+              disabled={loading || formData.role === 'admin'}
+            >
+              <MenuItem value="">
+                <em>Viewer (default)</em>
+              </MenuItem>
+              {systemRoles.map((role) => (
+                <MenuItem key={role.id} value={role.id}>
+                  {role.name} - {role.description}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Button
+            variant="contained"
+            onClick={handleSubmit}
+            disabled={loading || !formData.email}
+            startIcon={loading ? <CircularProgress size={16} /> : <MailOutlined />}
+          >
+            {loading ? 'Sending...' : 'Send Invitation'}
+          </Button>
+        </Grid>
+      </Grid>
+    </MainCard>
   );
 };
 
 InviteUserDialog.propTypes = {
-  open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   subOrganizations: PropTypes.array,
   systemRoles: PropTypes.array

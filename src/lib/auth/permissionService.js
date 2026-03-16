@@ -120,6 +120,20 @@ export async function getUserPermissions(workosUserId, organizationId, workosRol
     }
   }
 
+  // Apply user-specific overrides (highest priority)
+  const userOverrides = await prisma.user_permission_overrides.findMany({
+    where: { userId: dbUser.id, organizationId },
+    include: { permission: true }
+  });
+
+  for (const override of userOverrides) {
+    if (override.isEnabled) {
+      permissionMap.set(override.permission.key, true);
+    } else {
+      permissionMap.delete(override.permission.key);
+    }
+  }
+
   // Convert to array of permission keys
   const permissions = Array.from(permissionMap.keys());
 

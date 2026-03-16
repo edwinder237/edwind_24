@@ -3,6 +3,7 @@ import { setAgendaData } from '../reducers/project/agenda';
 import { setDashboardData } from '../reducers/project/dashboard';
 import { setSettingsData } from '../reducers/project/settings';
 import {
+  participantsReceived,
   participantsUpserted,
   participantAdded,
   participantRemoved,
@@ -11,12 +12,14 @@ import {
   updateMetadata
 } from '../entities/participantsSlice';
 import {
+  groupsReceived,
   groupsUpserted,
   groupAdded,
   groupUpdated,
   groupRemoved
 } from '../entities/groupsSlice';
 import {
+  eventsReceived,
   eventsUpserted,
   eventAdded,
   eventUpdated,
@@ -103,21 +106,14 @@ export const projectApi = createApi({
           // They should be fetched via getProjectParticipants query (primary source)
           // Agenda reads participants from normalized entities store
 
-          // Normalize groups into entity store
-          if (data?.groups && data.groups.length > 0) {
-            dispatch(groupsUpserted(data.groups));
-          }
+          // Replace entity stores with this project's data (setAll clears old + sets new)
+          dispatch(groupsReceived(data?.groups || []));
 
-          // Normalize events into entity store
-          if (data?.events && data.events.length > 0) {
-            // Add projectId to each event for proper filtering
-            // Ensure projectId is always a number for consistent filtering
-            const eventsWithProjectId = data.events.map(event => ({
-              ...event,
-              projectId: parseInt(projectId)
-            }));
-            dispatch(eventsUpserted(eventsWithProjectId));
-          }
+          const eventsWithProjectId = (data?.events || []).map(event => ({
+            ...event,
+            projectId: parseInt(projectId)
+          }));
+          dispatch(eventsReceived(eventsWithProjectId));
         } catch (error) {
           console.error('Failed to normalize entities:', error);
         }
@@ -274,15 +270,13 @@ export const projectApi = createApi({
           // Filter out invalid entries (where participant is null/undefined)
           const validParticipants = participants?.filter(p => p && p.participant) || [];
 
-          // Normalize participants into entity store
-          if (validParticipants && validParticipants.length > 0) {
-            dispatch(participantsUpserted(validParticipants));
-            dispatch(updateMetadata({
-              projectId,
-              totalCount: validParticipants.length,
-              lastFetch: new Date().toISOString()
-            }));
-          }
+          // Replace entity store with this project's participants (setAll clears old + sets new)
+          dispatch(participantsReceived(validParticipants));
+          dispatch(updateMetadata({
+            projectId,
+            totalCount: validParticipants.length,
+            lastFetch: new Date().toISOString()
+          }));
         } catch (error) {
           console.error('Failed to normalize participants:', error);
         }
@@ -361,10 +355,8 @@ export const projectApi = createApi({
           // Filter out invalid entries
           const validGroups = groups?.filter(g => g && g.id) || [];
 
-          // Normalize groups into entity store
-          if (validGroups && validGroups.length > 0) {
-            dispatch(groupsUpserted(validGroups));
-          }
+          // Replace entity store with this project's groups
+          dispatch(groupsReceived(validGroups));
         } catch (error) {
           console.error('Failed to normalize groups:', error);
         }

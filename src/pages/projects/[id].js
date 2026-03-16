@@ -14,6 +14,11 @@ import useUser from "hooks/useUser";
 import { useDispatch } from "store";
 import { clearLoading } from "store/reducers/loading";
 
+// Entity store actions - needed to sync on cache hits (onQueryStarted only fires on cache MISS)
+import { participantsReceived, updateMetadata } from "store/entities/participantsSlice";
+import { groupsReceived } from "store/entities/groupsSlice";
+import { eventsReceived } from "store/entities/eventsSlice";
+
 // RTK Query hooks for CQRS pattern
 import {
   useGetProjectSettingsQuery,
@@ -122,6 +127,7 @@ function ProjectDefault() {
   // Participants query is PRIMARY - fetched first and normalized to entities store
   // Data is not used directly here, but normalizes to entities for child components
   const {
+    data: participantsData,
     isLoading: participantsLoading,
     error: participantsError
   } = useGetProjectParticipantsQuery(projectId, { skip: !projectId });
@@ -148,6 +154,32 @@ function ProjectDefault() {
       dispatch(clearLoading());
     }
   }, [participantsLoading, settingsLoading, agendaLoading, dispatch]);
+
+  // Sync entity stores from RTK Query data (covers both cache hits AND fresh fetches)
+  // onQueryStarted only fires on network requests (cache MISS), so on cache hits
+  // the entity stores would be stale without this sync
+  useEffect(() => {
+    if (agendaData && projectId) {
+      dispatch(groupsReceived(agendaData?.groups || []));
+      const eventsWithProjectId = (agendaData?.events || []).map(event => ({
+        ...event,
+        projectId: parseInt(projectId)
+      }));
+      dispatch(eventsReceived(eventsWithProjectId));
+    }
+  }, [agendaData, projectId, dispatch]);
+
+  useEffect(() => {
+    if (participantsData && projectId) {
+      const validParticipants = participantsData?.filter(p => p && p.participant) || [];
+      dispatch(participantsReceived(validParticipants));
+      dispatch(updateMetadata({
+        projectId,
+        totalCount: validParticipants.length,
+        lastFetch: new Date().toISOString()
+      }));
+    }
+  }, [participantsData, projectId, dispatch]);
 
   // Show loader while any query is loading
   const isLoading = participantsLoading || settingsLoading || agendaLoading;

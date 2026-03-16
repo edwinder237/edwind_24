@@ -421,7 +421,7 @@ const Profile = () => {
                       )}
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                         <Chip
-                          label={user?.role || 'User'}
+                          label={user?.appRole?.name || user?.role || 'User'}
                           size="small"
                           sx={{
                             height: 22,

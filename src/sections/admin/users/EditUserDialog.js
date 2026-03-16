@@ -6,10 +6,6 @@ import {
   Alert,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -24,17 +20,18 @@ import {
 } from '@mui/material';
 
 // icons
-import { EditOutlined, SaveOutlined } from '@ant-design/icons';
+import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 
 // project imports
+import MainCard from 'components/MainCard';
 import axios from 'utils/axios';
 
 // Admin roles that are determined by WorkOS (Level 0-1)
 const ADMIN_WORKOS_ROLES = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
 
-// ==============================|| EDIT USER DIALOG ||============================== //
+// ==============================|| EDIT USER PANEL ||============================== //
 
-const EditUserDialog = ({ open, onClose, user, subOrganizations, systemRoles }) => {
+const EditUserDialog = ({ onClose, user, subOrganizations, systemRoles }) => {
   const [loading, setLoading] = useState(false);
   const [roleLoading, setRoleLoading] = useState(false);
   const [appRoleLoading, setAppRoleLoading] = useState(false);
@@ -154,7 +151,7 @@ const EditUserDialog = ({ open, onClose, user, subOrganizations, systemRoles }) 
     }
   };
 
-  const handleDialogClose = () => {
+  const handleBack = () => {
     if (!loading && !roleLoading && !appRoleLoading) {
       onClose(success !== '');
     }
@@ -162,219 +159,225 @@ const EditUserDialog = ({ open, onClose, user, subOrganizations, systemRoles }) 
 
   if (!user) return null;
 
+  const userName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+
   return (
-    <Dialog open={open} onClose={handleDialogClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <EditOutlined style={{ marginRight: 8 }} />
-        Edit User: {user.email}
-      </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          {/* Error/Success alerts */}
-          {error && (
-            <Grid item xs={12}>
-              <Alert severity="error">{error}</Alert>
-            </Grid>
-          )}
-          {success && (
-            <Grid item xs={12}>
-              <Alert severity="success">{success}</Alert>
-            </Grid>
-          )}
-
-          {/* User Info Section */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              User Information
-            </Typography>
-          </Grid>
-
-          {/* First Name */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="First Name"
-              value={formData.firstName}
-              onChange={handleChange('firstName')}
-              disabled={loading}
-            />
-          </Grid>
-
-          {/* Last Name */}
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Last Name"
-              value={formData.lastName}
-              onChange={handleChange('lastName')}
-              disabled={loading}
-            />
-          </Grid>
-
-          {/* Sub-Organization */}
-          <Grid item xs={12}>
-            <FormControl fullWidth>
-              <InputLabel>Sub-Organization</InputLabel>
-              <Select
-                value={formData.sub_organizationId}
-                label="Sub-Organization"
-                onChange={handleChange('sub_organizationId')}
-                disabled={loading}
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {subOrganizations.map((subOrg) => (
-                  <MenuItem key={subOrg.id} value={subOrg.id}>
-                    {subOrg.title}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          {/* Active Status */}
-          <Grid item xs={12}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.isActive}
-                  onChange={handleChange('isActive')}
-                  color="success"
-                  disabled={loading}
-                />
-              }
-              label={formData.isActive ? 'Active' : 'Inactive'}
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <Button
-              variant="contained"
-              onClick={handleSaveLocal}
-              disabled={loading || roleLoading}
-              startIcon={loading ? <CircularProgress size={16} /> : <SaveOutlined />}
-            >
-              {loading ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Divider sx={{ my: 1 }} />
-          </Grid>
-
-          {/* Role Section (WorkOS) */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Role (Managed by WorkOS)
-            </Typography>
-            {!user.workos_user_id && (
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                This user is not linked to WorkOS. Role cannot be changed.
-              </Alert>
-            )}
-          </Grid>
-
-          <Grid item xs={12} sm={8}>
-            <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
-              <Select
-                value={formData.role}
-                label="Role"
-                onChange={handleChange('role')}
-                disabled={roleLoading || !user.workos_user_id}
-              >
-                <MenuItem value="member">Member</MenuItem>
-                <MenuItem value="admin">Admin</MenuItem>
-                <MenuItem value="owner">Owner</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} sm={4}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={handleSaveRole}
-              disabled={loading || roleLoading || !user.workos_user_id}
-              startIcon={roleLoading ? <CircularProgress size={16} /> : null}
-              sx={{ height: '56px' }}
-            >
-              {roleLoading ? 'Updating...' : 'Update Role'}
-            </Button>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Divider sx={{ my: 1 }} />
-          </Grid>
-
-          {/* App Role Section (Level 2-4) */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Application Role (Permissions)
-            </Typography>
-            {isAdminUser ? (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                This user has Admin/Owner access via WorkOS. Application roles are not applicable for admin-tier users.
-              </Alert>
-            ) : (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                App roles control what features the user can access within the platform.
-              </Alert>
-            )}
-          </Grid>
-
-          <Grid item xs={12} sm={8}>
-            <FormControl fullWidth>
-              <InputLabel>Application Role</InputLabel>
-              <Select
-                value={formData.appRoleId || ''}
-                label="Application Role"
-                onChange={handleChange('appRoleId')}
-                disabled={appRoleLoading || isAdminUser}
-              >
-                <MenuItem value="">
-                  <em>Not assigned (defaults to Viewer)</em>
-                </MenuItem>
-                {systemRoles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    <Stack>
-                      <Typography variant="body2">{role.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {role.description}
-                      </Typography>
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} sm={4}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={handleSaveAppRole}
-              disabled={loading || appRoleLoading || isAdminUser}
-              startIcon={appRoleLoading ? <CircularProgress size={16} /> : null}
-              sx={{ height: '56px' }}
-            >
-              {appRoleLoading ? 'Updating...' : 'Update App Role'}
-            </Button>
-          </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleDialogClose} disabled={loading || roleLoading || appRoleLoading}>
-          Close
+    <MainCard
+      title={
+        <Typography variant="h5">
+          Edit User: {userName}
+        </Typography>
+      }
+      secondary={
+        <Button
+          variant="outlined"
+          startIcon={<ArrowLeftOutlined />}
+          onClick={handleBack}
+          disabled={loading || roleLoading || appRoleLoading}
+        >
+          Back to Users
         </Button>
-      </DialogActions>
-    </Dialog>
+      }
+    >
+      <Grid container spacing={2}>
+        {/* Error/Success alerts */}
+        {error && (
+          <Grid item xs={12}>
+            <Alert severity="error" onClose={() => setError('')}>{error}</Alert>
+          </Grid>
+        )}
+        {success && (
+          <Grid item xs={12}>
+            <Alert severity="success" onClose={() => setSuccess('')}>{success}</Alert>
+          </Grid>
+        )}
+
+        {/* User Info Section */}
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            User Information
+          </Typography>
+        </Grid>
+
+        {/* First Name */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="First Name"
+            value={formData.firstName}
+            onChange={handleChange('firstName')}
+            disabled={loading}
+          />
+        </Grid>
+
+        {/* Last Name */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Last Name"
+            value={formData.lastName}
+            onChange={handleChange('lastName')}
+            disabled={loading}
+          />
+        </Grid>
+
+        {/* Sub-Organization */}
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth>
+            <InputLabel>Sub-Organization</InputLabel>
+            <Select
+              value={formData.sub_organizationId}
+              label="Sub-Organization"
+              onChange={handleChange('sub_organizationId')}
+              disabled={loading}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {subOrganizations.map((subOrg) => (
+                <MenuItem key={subOrg.id} value={subOrg.id}>
+                  {subOrg.title}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
+        {/* Active Status */}
+        <Grid item xs={12} sm={6} sx={{ display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formData.isActive}
+                onChange={handleChange('isActive')}
+                color="success"
+                disabled={loading}
+              />
+            }
+            label={formData.isActive ? 'Active' : 'Inactive'}
+          />
+        </Grid>
+
+        <Grid item xs={12}>
+          <Button
+            variant="contained"
+            onClick={handleSaveLocal}
+            disabled={loading || roleLoading}
+            startIcon={loading ? <CircularProgress size={16} /> : <SaveOutlined />}
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Divider sx={{ my: 1 }} />
+        </Grid>
+
+        {/* Role Section (WorkOS) */}
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Role (Managed by WorkOS)
+          </Typography>
+          {!user.workos_user_id && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              This user is not linked to WorkOS. Role cannot be changed.
+            </Alert>
+          )}
+        </Grid>
+
+        <Grid item xs={12} sm={8}>
+          <FormControl fullWidth>
+            <InputLabel>Role</InputLabel>
+            <Select
+              value={formData.role}
+              label="Role"
+              onChange={handleChange('role')}
+              disabled={roleLoading || !user.workos_user_id}
+            >
+              <MenuItem value="member">Member</MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="owner">Owner</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+
+        <Grid item xs={12} sm={4}>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={handleSaveRole}
+            disabled={loading || roleLoading || !user.workos_user_id}
+            startIcon={roleLoading ? <CircularProgress size={16} /> : null}
+            sx={{ height: '56px' }}
+          >
+            {roleLoading ? 'Updating...' : 'Update Role'}
+          </Button>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Divider sx={{ my: 1 }} />
+        </Grid>
+
+        {/* App Role Section (Level 2-4) */}
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Application Role (Permissions)
+          </Typography>
+          {isAdminUser ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              This user has Admin/Owner access via WorkOS. Application roles are not applicable for admin-tier users.
+            </Alert>
+          ) : (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              App roles control what features the user can access within the platform.
+            </Alert>
+          )}
+        </Grid>
+
+        <Grid item xs={12} sm={8}>
+          <FormControl fullWidth>
+            <InputLabel>Application Role</InputLabel>
+            <Select
+              value={formData.appRoleId || ''}
+              label="Application Role"
+              onChange={handleChange('appRoleId')}
+              disabled={appRoleLoading || isAdminUser}
+            >
+              <MenuItem value="">
+                <em>Not assigned (defaults to Viewer)</em>
+              </MenuItem>
+              {systemRoles.map((role) => (
+                <MenuItem key={role.id} value={role.id}>
+                  <Stack>
+                    <Typography variant="body2">{role.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {role.description}
+                    </Typography>
+                  </Stack>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
+        <Grid item xs={12} sm={4}>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={handleSaveAppRole}
+            disabled={loading || appRoleLoading || isAdminUser}
+            startIcon={appRoleLoading ? <CircularProgress size={16} /> : null}
+            sx={{ height: '56px' }}
+          >
+            {appRoleLoading ? 'Updating...' : 'Update App Role'}
+          </Button>
+        </Grid>
+      </Grid>
+    </MainCard>
   );
 };
 
 EditUserDialog.propTypes = {
-  open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   user: PropTypes.object,
   subOrganizations: PropTypes.array,

@@ -3,6 +3,7 @@ import { parse, serialize } from 'cookie';
 import prisma from '../../../lib/prisma';
 import { buildAndCacheClaims } from '../../../lib/auth/claimsManager';
 import { encrypt } from '../../../lib/crypto/index.js';
+import { createCheckoutSession, getPriceIdForPlan } from '../../../lib/stripe/stripeService.js';
 
 // Initialize WorkOS
 let workos;
@@ -30,13 +31,11 @@ export default async function handler(req, res) {
     // Get form data
     const {
       organizationName,
-      organizationDescription,
       industry,
-      website,
-      contactName,
+      teamSize,
       contactEmail,
-      contactPhone,
-      teamSize
+      selectedPlan,
+      teamInvites
     } = req.body;
 
     // Validate required fields
@@ -76,7 +75,7 @@ export default async function handler(req, res) {
     const organization = await prisma.organizations.create({
       data: {
         title: organizationName.trim(),
-        description: organizationDescription || null,
+        description: null,
         workos_org_id: workosOrg?.id || null,
         createdBy: user.id,
         updatedby: user.id,
@@ -85,12 +84,10 @@ export default async function handler(req, res) {
         type: 'primary',
         info: {
           industry: industry || null,
-          website: website || null,
-          contactName: contactName || null,
-          contactEmail: contactEmail || null,
-          contactPhone: contactPhone || null,
+          contactEmail: contactEmail || user.email || null,
           teamSize: teamSize || null,
-          onboardedAt: new Date().toISOString()
+          onboardedAt: new Date().toISOString(),
+          selectedPlan: selectedPlan || 'essential'
         }
       }
     });
@@ -100,8 +97,8 @@ export default async function handler(req, res) {
     // 3. Create default sub-organization
     const subOrganization = await prisma.sub_organizations.create({
       data: {
-        title: 'Default',
-        description: `Default sub-organization for ${organizationName}`,
+        title: organizationName.trim(),
+        description: `Primary sub-organization for ${organizationName}`,
         organizationId: organization.id,
         createdBy: user.id,
         updatedby: user.id
@@ -125,7 +122,29 @@ export default async function handler(req, res) {
 
     console.log(`✅ Updated user with sub-organization`);
 
-    // 5. Create organization membership in WorkOS if we have a WorkOS org
+    // 5. Assign Level 2 app role (Training Manager) to the creator
+    try {
+      const trainingManagerRole = await prisma.system_roles.findUnique({
+        where: { slug: 'training_manager' }
+      });
+
+      if (trainingManagerRole) {
+        await prisma.user_role_assignments.create({
+          data: {
+            userId: user.id,
+            organizationId: organization.id,
+            roleId: trainingManagerRole.id,
+            assignedBy: user.id,
+            isActive: true
+          }
+        });
+        console.log(`✅ Assigned Training Manager (Level 2) app role`);
+      }
+    } catch (roleError) {
+      console.error('Error assigning app role:', roleError.message);
+    }
+
+    // 6. Create organization membership in WorkOS if we have a WorkOS org
     let membership = null;
     if (workosOrg) {
       try {
@@ -155,7 +174,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 6. Rebuild claims cache if membership was created
+    // 7. Rebuild claims cache if membership was created
     if (membership) {
       try {
         const memberships = await workosInstance.userManagement.listOrganizationMemberships({
@@ -170,34 +189,124 @@ export default async function handler(req, res) {
       }
     }
 
-    // 7. Create a default subscription (essential tier)
+    // 8. Create subscription based on selected plan
+    const planId = selectedPlan === 'professional' ? 'professional' : 'essential';
     try {
-      // Check if essential plan exists
-      const essentialPlan = await prisma.subscription_plans.findUnique({
-        where: { planId: 'essential' }
+      const plan = await prisma.subscription_plans.findUnique({
+        where: { planId }
       });
 
-      if (essentialPlan) {
-        await prisma.subscriptions.create({
+      if (plan) {
+        const subscriptionData = {
+          organizationId: organization.id,
+          planId,
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year
+        };
+
+        if (planId === 'professional') {
+          // 14-day trial
+          subscriptionData.status = 'trialing';
+          subscriptionData.trialStart = new Date();
+          subscriptionData.trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+          subscriptionData.currentPeriodEnd = subscriptionData.trialEnd;
+        } else {
+          subscriptionData.status = 'active';
+        }
+
+        const createdSubscription = await prisma.subscriptions.create({ data: subscriptionData });
+
+        // Record in subscription_history
+        await prisma.subscription_history.create({
           data: {
-            organizationId: organization.id,
-            planId: 'essential',
-            status: 'active',
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year
+            subscriptionId: createdSubscription.id,
+            eventType: planId === 'professional' ? 'trial_started' : 'created',
+            toPlanId: planId,
+            toStatus: subscriptionData.status,
+            reason: 'Onboarding',
+            changedBy: user.id
           }
         });
-        console.log(`✅ Created essential subscription`);
+
+        console.log(`✅ Created ${planId} subscription (${subscriptionData.status})`);
       }
     } catch (subscriptionError) {
       console.error('Subscription creation error:', subscriptionError);
       // Non-critical error
     }
 
-    console.log(`🎉 Onboarding complete for ${user.email}`);
+    // 9. For Professional plan: create Stripe checkout session with 14-day trial
+    let checkoutUrl = null;
 
-    // 8. Set the organization cookie so user is immediately in the right context
-    // We set this directly without validation since we just created the membership
+    if (planId === 'professional') {
+      try {
+        const priceId = await getPriceIdForPlan('professional', 'monthly');
+
+        if (priceId) {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 8081}`;
+          const session = await createCheckoutSession({
+            organizationId: organization.id,
+            priceId,
+            successUrl: `${baseUrl}/onboarding?checkout=success`,
+            cancelUrl: `${baseUrl}/onboarding?checkout=canceled`,
+            interval: 'monthly',
+            trialDays: 14
+          });
+          checkoutUrl = session.url;
+          console.log(`✅ Created Stripe checkout session for Professional trial`);
+        } else {
+          console.warn('⚠️ No Stripe price configured for Professional plan — skipping checkout');
+        }
+      } catch (stripeError) {
+        console.error('Stripe checkout creation error:', stripeError.message);
+        // Non-critical — user can add payment later from org settings
+      }
+    }
+
+    // 10. Send team invitations (if provided)
+    if (teamInvites && Array.isArray(teamInvites) && teamInvites.length > 0 && workosOrg) {
+      for (const invite of teamInvites.slice(0, 5)) {
+        if (!invite.email || !invite.email.trim()) continue;
+        try {
+          const invitation = await workosInstance.userManagement.sendInvitation({
+            email: invite.email.trim(),
+            organizationId: workosOrg.id,
+            inviterUserId: workosUserId,
+            roleSlug: invite.role || 'member',
+            expiresInDays: 7
+          });
+
+          // Create pending user record
+          await prisma.user.create({
+            data: {
+              email: invite.email.trim(),
+              firstName: '',
+              lastName: '',
+              name: invite.email.split('@')[0],
+              username: invite.email.split('@')[0],
+              password: 'pending_invitation',
+              isActive: false,
+              sub_organizationId: subOrganization.id,
+              info: {
+                invitedBy: user.id,
+                invitedAt: new Date().toISOString(),
+                workos_invitation_id: invitation.id,
+                pendingRole: invite.role || 'member',
+                invitedToOrganizationId: organization.id
+              }
+            }
+          });
+          console.log(`✅ Invited ${invite.email}`);
+        } catch (inviteError) {
+          console.error(`Failed to invite ${invite.email}:`, inviteError.message);
+          // Non-critical — continue with other invites
+        }
+      }
+    }
+
+    console.log(`🎉 Onboarding complete for ${user.email} (plan: ${planId})`);
+
+    // 11. Set the organization cookie so user is immediately in the right context
     const ORG_COOKIE_NAME = 'edwind_current_org';
     const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
@@ -229,7 +338,9 @@ export default async function handler(req, res) {
       subOrganization: {
         id: subOrganization.id,
         title: subOrganization.title
-      }
+      },
+      selectedPlan: planId,
+      checkoutUrl // null for Essential, Stripe URL for Professional
     });
 
   } catch (error) {

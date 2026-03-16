@@ -62,7 +62,7 @@ async function getToolAccesses(req, res) {
 
 async function createToolAccess(req, res) {
   const { participantId } = req.query;
-  const { tool, toolType, toolUrl, toolDescription, username, accessCode } = req.body;
+  const { tool, toolType, toolUrl, toolDescription, username, accessCode, organizationToolId } = req.body;
 
   if (!tool || !username || !accessCode) {
     return res.status(400).json({ 
@@ -106,6 +106,7 @@ async function createToolAccess(req, res) {
         accessCode,
         participantId,
         isActive: true,
+        organizationToolId: organizationToolId || null,
         createdBy: 'user', // TODO: Replace with actual user ID
         updatedBy: 'user', // TODO: Replace with actual user ID
       }

@@ -3,6 +3,10 @@ import { useRouter } from 'next/router';
 
 // material-ui
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
   Box,
   Button,
   Chip,
@@ -44,7 +48,10 @@ import {
   CloseCircleOutlined,
   LinkOutlined,
   DisconnectOutlined,
-  LockOutlined
+  LockOutlined,
+  DownOutlined,
+  UndoOutlined,
+  ArrowLeftOutlined
 } from '@ant-design/icons';
 
 // project imports
@@ -57,6 +64,21 @@ import EditUserDialog from 'sections/admin/users/EditUserDialog';
 
 // Admin role check
 const ADMIN_ROLES = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
+
+// Category labels and icons (shared with roles page)
+const CATEGORY_CONFIG = {
+  projects: { label: 'Projects', icon: '📁' },
+  courses: { label: 'Courses & Curriculums', icon: '📚' },
+  events: { label: 'Events & Schedule', icon: '📅' },
+  participants: { label: 'Participants', icon: '👥' },
+  assessments: { label: 'Assessments', icon: '📝' },
+  timeline: { label: 'Timeline', icon: '📊' },
+  kirkpatrick: { label: 'Kirkpatrick Evaluations', icon: '📈' },
+  reports: { label: 'Reports & Certificates', icon: '📋' },
+  resources: { label: 'Resources', icon: '🏢' },
+  user_management: { label: 'User Management', icon: '👤' },
+  settings: { label: 'Settings', icon: '⚙️' }
+};
 
 // ==============================|| ADMIN - USERS PAGE ||============================== //
 
@@ -80,11 +102,18 @@ const AdminUsersPage = () => {
 
   // Dialogs
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
   // Sub-organizations for assignment
   const [subOrganizations, setSubOrganizations] = useState([]);
+
+  // User permissions management
+  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState(null);
+  const [userPermissions, setUserPermissions] = useState(null);
+  const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [savingPermission, setSavingPermission] = useState(null);
+  const [expandedCategories, setExpandedCategories] = useState([]);
+  const [savingCategory, setSavingCategory] = useState(null);
 
   // Check if current user is admin
   const isAdmin = user?.organizations?.some(
@@ -146,6 +175,112 @@ const AdminUsersPage = () => {
     }
   };
 
+  // --- User permission handlers ---
+
+  const fetchUserPermissions = async (userId, keepExpanded = false) => {
+    setPermissionsLoading(true);
+    try {
+      const response = await axios.get(`/api/admin/users/${userId}/permissions`);
+      setUserPermissions(response.data);
+      if (!keepExpanded) {
+        setExpandedCategories([]);
+      }
+    } catch (err) {
+      console.error('Error fetching user permissions:', err);
+      setError(err.response?.data?.error || 'Failed to fetch permissions');
+    } finally {
+      setPermissionsLoading(false);
+    }
+  };
+
+  const handleToggleUserPermission = async (permissionId, currentEnabled) => {
+    setSavingPermission(permissionId);
+    try {
+      await axios.put(`/api/admin/users/${selectedUserForPermissions.id}/permissions`, {
+        permissionId,
+        isEnabled: !currentEnabled
+      });
+      await fetchUserPermissions(selectedUserForPermissions.id, true);
+    } catch (err) {
+      console.error('Error toggling permission:', err);
+      setError(err.response?.data?.error || 'Failed to update permission');
+    } finally {
+      setSavingPermission(null);
+    }
+  };
+
+  const handleToggleCategoryPermissions = async (category, permissions, currentlyEnabled) => {
+    setSavingCategory(category);
+    try {
+      const newState = !currentlyEnabled;
+      const overrides = permissions.map(p => ({
+        permissionId: p.id,
+        isEnabled: newState
+      }));
+
+      await axios.put(`/api/admin/users/${selectedUserForPermissions.id}/permissions`, { overrides });
+      await fetchUserPermissions(selectedUserForPermissions.id, true);
+    } catch (err) {
+      console.error('Error toggling category permissions:', err);
+      setError(err.response?.data?.error || 'Failed to update permissions');
+    } finally {
+      setSavingCategory(null);
+    }
+  };
+
+  const handleResetUserOverrides = async () => {
+    if (!confirm('This will remove all user-specific permission overrides. The user will revert to their role defaults. Continue?')) {
+      return;
+    }
+
+    setPermissionsLoading(true);
+    try {
+      const overrides = [];
+      for (const category of Object.values(userPermissions.permissionsByCategory)) {
+        for (const perm of category) {
+          if (perm.hasUserOverride) {
+            overrides.push({
+              permissionId: perm.id,
+              isEnabled: perm.effectiveFromRole
+            });
+          }
+        }
+      }
+
+      if (overrides.length > 0) {
+        await axios.put(`/api/admin/users/${selectedUserForPermissions.id}/permissions`, { overrides });
+      }
+
+      await fetchUserPermissions(selectedUserForPermissions.id);
+    } catch (err) {
+      console.error('Error resetting overrides:', err);
+      setError(err.response?.data?.error || 'Failed to reset overrides');
+    } finally {
+      setPermissionsLoading(false);
+    }
+  };
+
+  const handleOpenUserPermissions = (userRow) => {
+    setSelectedUserForPermissions(userRow);
+    setError('');
+    fetchUserPermissions(userRow.id);
+  };
+
+  const handleBackToUsers = () => {
+    setSelectedUserForPermissions(null);
+    setUserPermissions(null);
+    setExpandedCategories([]);
+    setError('');
+  };
+
+  const handleToggleCategory = (category) => {
+    setExpandedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
   useEffect(() => {
     if (isAuthenticated && isAdmin) {
       fetchUsers();
@@ -186,7 +321,6 @@ const AdminUsersPage = () => {
   // Handle edit click
   const handleEditClick = (userToEdit) => {
     setSelectedUser(userToEdit);
-    setEditDialogOpen(true);
   };
 
   // Handle dialog close
@@ -198,7 +332,6 @@ const AdminUsersPage = () => {
   };
 
   const handleEditClose = (success) => {
-    setEditDialogOpen(false);
     setSelectedUser(null);
     if (success) {
       fetchUsers();
@@ -230,6 +363,265 @@ const AdminUsersPage = () => {
     );
   }
 
+  // ========== Invite User View ==========
+  if (inviteDialogOpen) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <InviteUserDialog
+          onClose={handleInviteClose}
+          subOrganizations={subOrganizations}
+          systemRoles={systemRoles}
+        />
+      </Container>
+    );
+  }
+
+  // ========== Edit User View ==========
+  if (selectedUser) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <EditUserDialog
+          onClose={handleEditClose}
+          user={selectedUser}
+          subOrganizations={subOrganizations}
+          systemRoles={systemRoles}
+        />
+      </Container>
+    );
+  }
+
+  // ========== User Permissions View ==========
+  if (selectedUserForPermissions) {
+    const userName = selectedUserForPermissions.name
+      || `${selectedUserForPermissions.firstName || ''} ${selectedUserForPermissions.lastName || ''}`.trim()
+      || selectedUserForPermissions.email;
+
+    return (
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <MainCard
+          title={
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography variant="h5">
+                {userName}
+              </Typography>
+              {userPermissions?.role && (
+                <Chip
+                  label={userPermissions.role.name}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
+              )}
+              {userPermissions?.userOverrideCount > 0 && (
+                <Chip
+                  label={`${userPermissions.userOverrideCount} user override${userPermissions.userOverrideCount !== 1 ? 's' : ''}`}
+                  color="info"
+                  size="small"
+                />
+              )}
+            </Stack>
+          }
+          secondary={
+            <Stack direction="row" spacing={2}>
+              {userPermissions?.userOverrideCount > 0 && (
+                <Button
+                  variant="outlined"
+                  startIcon={<UndoOutlined />}
+                  onClick={handleResetUserOverrides}
+                  color="warning"
+                  disabled={permissionsLoading}
+                >
+                  Reset User Overrides
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                startIcon={<ArrowLeftOutlined />}
+                onClick={handleBackToUsers}
+              >
+                Back to Users
+              </Button>
+            </Stack>
+          }
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Manage individual permission overrides for this user. Changes here take priority over role and organization defaults.
+          </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+
+          {permissionsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : userPermissions ? (
+            <Stack spacing={2}>
+              {/* Legend */}
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                <Stack direction="row" spacing={3} flexWrap="wrap">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CheckCircleOutlined style={{ color: theme.palette.success.main }} />
+                    <Typography variant="caption">Enabled (role default)</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CloseCircleOutlined style={{ color: theme.palette.text.disabled }} />
+                    <Typography variant="caption">Disabled (role default)</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box sx={{ width: 8, height: 8, bgcolor: 'warning.main', borderRadius: '50%' }} />
+                    <Typography variant="caption">Org-level override</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box sx={{ width: 8, height: 8, bgcolor: 'info.main', borderRadius: '50%' }} />
+                    <Typography variant="caption">User-specific override</Typography>
+                  </Stack>
+                </Stack>
+              </Paper>
+
+              {!userPermissions.role && (
+                <Alert severity="warning">
+                  This user has no application role assigned. All permissions default to disabled.
+                  Assign a role first, or use user overrides to grant specific permissions.
+                </Alert>
+              )}
+
+              {/* Permission Categories */}
+              {Object.entries(userPermissions.permissionsByCategory).map(([category, permissions]) => {
+                const allEnabled = permissions.every(p => p.isEnabled);
+                const someEnabled = permissions.some(p => p.isEnabled);
+                return (
+                <Accordion
+                  key={category}
+                  expanded={expandedCategories.includes(category)}
+                  onChange={() => handleToggleCategory(category)}
+                  variant="outlined"
+                >
+                  <AccordionSummary expandIcon={<DownOutlined />}>
+                    <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', mr: 1 }}>
+                      <Typography variant="body1" sx={{ flex: 1 }}>
+                        {CATEGORY_CONFIG[category]?.icon} {CATEGORY_CONFIG[category]?.label || category}
+                      </Typography>
+                      <Chip
+                        label={`${permissions.filter(p => p.isEnabled).length}/${permissions.length}`}
+                        size="small"
+                        color={allEnabled ? 'success' : 'default'}
+                        variant="outlined"
+                      />
+                      {permissions.some(p => p.hasUserOverride) && (
+                        <Chip
+                          label="User Modified"
+                          size="small"
+                          color="info"
+                          variant="filled"
+                        />
+                      )}
+                      <Tooltip title={someEnabled ? 'Disable all' : 'Enable all'}>
+                        <Switch
+                          checked={someEnabled}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleCategoryPermissions(category, permissions, someEnabled);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={savingCategory === category}
+                          size="small"
+                          color="success"
+                        />
+                      </Tooltip>
+                      {savingCategory === category && (
+                        <CircularProgress size={16} />
+                      )}
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Stack spacing={1}>
+                      {permissions.map((perm) => (
+                        <Paper
+                          key={perm.id}
+                          variant="outlined"
+                          sx={{
+                            p: 1.5,
+                            bgcolor: perm.hasUserOverride
+                              ? alpha(theme.palette.info.main, 0.08)
+                              : perm.hasOrgOverride
+                              ? alpha(theme.palette.warning.main, 0.08)
+                              : 'transparent'
+                          }}
+                        >
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                          >
+                            <Box sx={{ flex: 1 }}>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Typography variant="body2" fontWeight={500}>
+                                  {perm.name}
+                                </Typography>
+                                {perm.hasUserOverride && (
+                                  <Chip
+                                    label="User Override"
+                                    size="small"
+                                    color="info"
+                                    variant="outlined"
+                                    sx={{ fontSize: '0.6rem', height: 20 }}
+                                  />
+                                )}
+                                {perm.hasOrgOverride && !perm.hasUserOverride && (
+                                  <Chip
+                                    label="Org Override"
+                                    size="small"
+                                    color="warning"
+                                    variant="outlined"
+                                    sx={{ fontSize: '0.6rem', height: 20 }}
+                                  />
+                                )}
+                              </Stack>
+                              <Typography variant="caption" color="text.secondary">
+                                {perm.key}
+                                {' | Role: '}
+                                {perm.isRoleDefault ? 'On' : 'Off'}
+                                {perm.hasOrgOverride ? ` | Org: ${perm.effectiveFromRole ? 'On' : 'Off'}` : ''}
+                              </Typography>
+                            </Box>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={perm.isEnabled}
+                                    onChange={() => handleToggleUserPermission(perm.id, perm.isEnabled)}
+                                    disabled={savingPermission === perm.id}
+                                    size="small"
+                                    color={perm.isEnabled ? 'success' : 'default'}
+                                  />
+                                }
+                                label=""
+                                sx={{ m: 0 }}
+                              />
+                              {savingPermission === perm.id && (
+                                <CircularProgress size={16} />
+                              )}
+                            </Stack>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+                );
+              })}
+            </Stack>
+          ) : null}
+        </MainCard>
+      </Container>
+    );
+  }
+
+  // ========== Users List View ==========
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <MainCard
@@ -353,19 +745,20 @@ const AdminUsersPage = () => {
                 <TableCell align="center">Status</TableCell>
                 <TableCell align="center">WorkOS</TableCell>
                 <TableCell>Created</TableCell>
+                <TableCell>Last Active</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
                       No users found
                     </Typography>
@@ -433,13 +826,20 @@ const AdminUsersPage = () => {
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Tooltip title={userRow.isActive ? 'Active - Click to deactivate' : 'Inactive - Click to activate'}>
-                        <Switch
-                          checked={userRow.isActive}
-                          onChange={() => handleToggleActive(userRow.id, userRow.isActive)}
-                          color="success"
-                          size="small"
-                        />
+                      <Tooltip title={
+                        userRow.id === user?.id
+                          ? 'You cannot deactivate your own account'
+                          : userRow.isActive ? 'Active - Click to deactivate' : 'Inactive - Click to activate'
+                      }>
+                        <span>
+                          <Switch
+                            checked={userRow.isActive}
+                            onChange={() => handleToggleActive(userRow.id, userRow.isActive)}
+                            color="success"
+                            size="small"
+                            disabled={userRow.id === user?.id}
+                          />
+                        </span>
                       </Tooltip>
                     </TableCell>
                     <TableCell align="center">
@@ -456,15 +856,36 @@ const AdminUsersPage = () => {
                         {new Date(userRow.createdAt).toLocaleDateString()}
                       </Typography>
                     </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {userRow.lastActiveAt
+                          ? new Date(userRow.lastActiveAt).toLocaleDateString()
+                          : '-'}
+                      </Typography>
+                    </TableCell>
                     <TableCell align="center">
-                      <Tooltip title="Edit User">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditClick(userRow)}
-                        >
-                          <EditOutlined />
-                        </IconButton>
-                      </Tooltip>
+                      <Stack direction="row" spacing={0.5} justifyContent="center">
+                        <Tooltip title="Edit User">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditClick(userRow)}
+                          >
+                            <EditOutlined />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={userRow.appRole ? 'Manage Permissions' : 'Assign an app role first'}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenUserPermissions(userRow)}
+                              disabled={!userRow.appRole && !ADMIN_ROLES.includes(userRow.role?.toLowerCase())}
+                              color="primary"
+                            >
+                              <LockOutlined />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))
@@ -485,22 +906,6 @@ const AdminUsersPage = () => {
         />
       </MainCard>
 
-      {/* Invite User Dialog */}
-      <InviteUserDialog
-        open={inviteDialogOpen}
-        onClose={handleInviteClose}
-        subOrganizations={subOrganizations}
-        systemRoles={systemRoles}
-      />
-
-      {/* Edit User Dialog */}
-      <EditUserDialog
-        open={editDialogOpen}
-        onClose={handleEditClose}
-        user={selectedUser}
-        subOrganizations={subOrganizations}
-        systemRoles={systemRoles}
-      />
     </Container>
   );
 };

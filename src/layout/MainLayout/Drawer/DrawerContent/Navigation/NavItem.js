@@ -32,24 +32,37 @@ const NavItem = ({ item, level }) => {
 
   const { menuOrientation } = useConfig();
 
-  // Check if item requires a specific permission or role
-  if (item.permission) {
-    const userPermissions = user?.permissions || [];
-    const userRole = user?.role?.toLowerCase() || '';
+  // Access control: permissions + subscription plan tier
+  const userPermissions = user?.permissions || [];
+  const userRole = user?.role?.toLowerCase() || '';
+  const adminRoles = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
+  const isAdminRole = adminRoles.includes(userRole);
 
-    // Admin roles that should have access to ALL menu items (Level 0-1)
-    const adminRoles = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
+  // Permission check
+  // Owner-only items: require exactly 'owner' role (admin does not bypass)
+  if (item.permission === 'owner' && userRole !== 'owner') {
+    return null;
+  }
 
-    // Level 0-1 admins have access to everything - skip permission checks
-    if (adminRoles.includes(userRole)) {
-      // Allow access - admin tier users can see all menu items
+  if (item.permission && item.permission !== 'owner' && !isAdminRole) {
+    let hasPermission;
+    if (item.permission.endsWith(':*')) {
+      const prefix = item.permission.slice(0, -1);
+      hasPermission = userPermissions.some(p => p.startsWith(prefix));
     } else {
-      // For non-admin users, check specific permission
-      const hasPermission = userPermissions.includes(item.permission);
+      hasPermission = userPermissions.includes(item.permission);
+    }
+    if (!hasPermission) return null;
+  }
 
-      if (!hasPermission) {
-        return null; // Hide menu item if user doesn't have required permission
-      }
+  // Organization subscription plan tier check
+  if (item.featureBadge && !isAdminRole) {
+    const TIER_ORDER = { essential: 0, professional: 1, enterprise: 2 };
+    const BADGE_TO_PLAN = { pro: 'professional', enterprise: 'enterprise' };
+    const requiredPlan = BADGE_TO_PLAN[item.featureBadge];
+    const orgPlan = user?.subscription?.planId || 'essential';
+    if ((TIER_ORDER[orgPlan] || 0) < (TIER_ORDER[requiredPlan] || 0)) {
+      return null;
     }
   }
 

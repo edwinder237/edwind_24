@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 
 async function updateToolAccess(req, res) {
   const { participantId, toolAccessId } = req.query;
-  const { tool, toolType, toolUrl, toolDescription, username, accessCode, isActive } = req.body;
+  const { tool, toolType, toolUrl, toolDescription, username, accessCode, isActive, organizationToolId } = req.body;
 
   if (!tool || !username || !accessCode) {
     return res.status(400).json({ 
@@ -77,6 +77,7 @@ async function updateToolAccess(req, res) {
         username,
         accessCode,
         isActive: isActive !== undefined ? isActive : existingToolAccess.isActive,
+        organizationToolId: organizationToolId !== undefined ? (organizationToolId || null) : existingToolAccess.organizationToolId,
         updatedBy: 'user', // TODO: Replace with actual user ID
       }
     });

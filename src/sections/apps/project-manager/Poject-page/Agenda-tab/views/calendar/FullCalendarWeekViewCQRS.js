@@ -315,6 +315,8 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to update event');
       }
 
+      const data = await response.json();
+
       // CQRS: Refresh agenda data using RTK Query (safe wrapper prevents DB crashes)
       if (project?.id) {
         await safeRefetch();
@@ -331,10 +333,24 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
           autoHideDuration: 2000
         })
       );
+
+      if (data?.calendarSyncTriggered) {
+        setTimeout(() => {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Syncing event to your connected calendar...',
+            variant: 'alert',
+            alert: { color: 'info' },
+            close: false,
+            anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+            autoHideDuration: 3000
+          }));
+        }, 1500);
+      }
     } catch (error) {
       console.error('Error updating event:', error);
       dropInfo.revert();
-      
+
       dispatch(
         openSnackbar({
           open: true,
@@ -373,6 +389,8 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to update event');
       }
 
+      const data = await response.json();
+
       // CQRS: Refresh agenda data using RTK Query (safe wrapper prevents DB crashes)
       if (project?.id) {
         await safeRefetch();
@@ -389,10 +407,24 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
           autoHideDuration: 2000
         })
       );
+
+      if (data?.calendarSyncTriggered) {
+        setTimeout(() => {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Syncing event to your connected calendar...',
+            variant: 'alert',
+            alert: { color: 'info' },
+            close: false,
+            anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+            autoHideDuration: 3000
+          }));
+        }, 1500);
+      }
     } catch (error) {
       console.error('Error resizing event:', error);
       resizeInfo.revert();
-      
+
       dispatch(
         openSnackbar({
           open: true,

@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { participants, surveyUrl, surveyTitle, projectName, projectId } = req.body;
+    const { participants, surveyUrl, surveyTitle, projectName, projectId, instructorName } = req.body;
 
     if (!participants || !Array.isArray(participants) || participants.length === 0) {
       return res.status(400).json({ message: 'Participants array is required' });
@@ -39,43 +39,48 @@ export default async function handler(req, res) {
       if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
     }
 
-    // Fetch organization logo
+    // Fetch organization logo and name
     let organizationLogoUrl = null;
+    let organizationName = null;
     try {
-      const organization = await prisma.organizations.findFirst({
-        select: {
-          logo_url: true,
-          title: true
-        }
-      });
+      const organization = organizationId
+        ? await prisma.organizations.findUnique({
+            where: { id: organizationId },
+            select: { logo_url: true, title: true }
+          })
+        : null;
       organizationLogoUrl = organization?.logo_url;
+      organizationName = organization?.title || null;
     } catch (error) {
-      console.error('Error fetching organization logo:', error);
+      console.error('Error fetching organization:', error);
     }
 
-    // Get instructor email for reply-to
+    // Get instructor email and name
     let instructorEmail = null;
+    let resolvedInstructorName = instructorName || null;
     if (projectId) {
       try {
         const projectInstructor = await prisma.project_instructors.findFirst({
           where: {
             projectId: parseInt(projectId),
-            status: 'active'
-          },
-          orderBy: {
-            assignedAt: 'asc'
+            instructorType: 'main'
           },
           include: {
             instructor: {
               select: {
-                email: true
+                email: true,
+                firstName: true,
+                lastName: true
               }
             }
           }
         });
         instructorEmail = projectInstructor?.instructor?.email || null;
+        if (!resolvedInstructorName && projectInstructor?.instructor) {
+          resolvedInstructorName = `${projectInstructor.instructor.firstName || ''} ${projectInstructor.instructor.lastName || ''}`.trim() || null;
+        }
       } catch (error) {
-        console.error('Error fetching instructor email:', error);
+        console.error('Error fetching instructor:', error);
       }
     }
 
@@ -118,7 +123,9 @@ export default async function handler(req, res) {
           surveyTitle,
           projectName: projectName || 'Training Project',
           organizationLogoUrl,
-          instructorEmail
+          organizationName,
+          instructorEmail,
+          instructorName: resolvedInstructorName
         });
 
         // Rate limiting delay

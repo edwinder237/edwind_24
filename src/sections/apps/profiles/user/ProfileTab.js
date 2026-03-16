@@ -8,7 +8,7 @@ import { useTheme } from '@mui/material/styles';
 import { List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 
 // assets
-import { CreditCardOutlined, LockOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CreditCardOutlined, LockOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 
 function getPathIndex(asPath) {
   let selectedTab = 0;
@@ -21,6 +21,9 @@ function getPathIndex(asPath) {
       break;
     case '/apps/profiles/user/settings':
       selectedTab = 3;
+      break;
+    case '/apps/profiles/user/integrations':
+      selectedTab = 4;
       break;
     case '/apps/profiles/user/personal':
     default:
@@ -71,6 +74,12 @@ const ProfileTab = () => {
           <SettingOutlined />
         </ListItemIcon>
         <ListItemText primary="Settings" />
+      </ListItemButton>
+      <ListItemButton selected={selectedIndex === 4} onClick={() => handleListItemClick(4, '/apps/profiles/user/integrations')}>
+        <ListItemIcon>
+          <CalendarOutlined />
+        </ListItemIcon>
+        <ListItemText primary="Integrations" />
       </ListItemButton>
     </List>
   );

@@ -11,7 +11,7 @@ import eventBus from 'store/events/EventBus';
 export const useSendParticipantCredentials = () => {
   const dispatch = useDispatch();
   const projectId = useSelector(state => state.projectSettings?.projectId);
-  const projectTitle = useSelector(state => state.projectSettings?.title);
+  const projectTitle = useSelector(state => state.projectSettings?.projectInfo?.title);
   const projectInstructors = useSelector(state => state.projectSettings?.projectInstructors || []);
 
   // Get the primary instructor's email for reply-to (first active instructor)

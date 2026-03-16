@@ -162,6 +162,8 @@ const FullCalendarMonthViewCQRS = ({ project, events, onEventSelect }) => {
         throw new Error('Failed to update event');
       }
 
+      const data = await response.json();
+
       // CQRS: Refresh agenda data using RTK Query
       if (project?.id) {
         await refetchAgenda();
@@ -178,10 +180,24 @@ const FullCalendarMonthViewCQRS = ({ project, events, onEventSelect }) => {
           autoHideDuration: 2000
         })
       );
+
+      if (data?.calendarSyncTriggered) {
+        setTimeout(() => {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Syncing event to your connected calendar...',
+            variant: 'alert',
+            alert: { color: 'info' },
+            close: false,
+            anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
+            autoHideDuration: 3000
+          }));
+        }, 1500);
+      }
     } catch (error) {
       console.error('Error updating event:', error);
       dropInfo.revert();
-      
+
       dispatch(
         openSnackbar({
           open: true,

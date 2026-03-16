@@ -1,6 +1,6 @@
 {
-  "name": "edwind",
-  "version": "0.5.2",
+  "name": "edbahn",
+  "version": "0.8.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 8081",
@@ -12,6 +12,7 @@
     "@ant-design/colors": "^6.0.0",
     "@ant-design/icons": "^4.7.0",
     "@aws-sdk/client-s3": "^3.981.0",
+    "@azure/msal-node": "^5.1.0",
     "@emotion/cache": "^11.10.5",
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
@@ -24,6 +25,7 @@
     "@fullcalendar/timegrid": "^6.1.18",
     "@google/generative-ai": "^0.24.1",
     "@hello-pangea/dnd": "^16.3.0",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
     "@mui/base": "^5.0.0-alpha.101",
     "@mui/icons-material": "^5.14.7",
     "@mui/lab": "5.0.0-alpha.143",

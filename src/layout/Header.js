@@ -203,17 +203,8 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                     <Button
                       variant="contained"
                       size="medium"
-                      onClick={async () => {
-                        try {
-                          // WorkOS uses the same auth endpoint for both login and signup
-                          const response = await fetch('/api/auth/signin-url');
-                          const data = await response.json();
-                          if (data.url) {
-                            window.location.href = data.url;
-                          }
-                        } catch (error) {
-                          console.error('Error redirecting to sign-up:', error);
-                        }
+                      onClick={() => {
+                        window.location.href = '/signup';
                       }}
                       sx={{
                         backgroundColor: '#1976d2',
@@ -268,16 +259,8 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
               <Button
                 variant="contained"
                 size="small"
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/auth/signin-url');
-                    const data = await response.json();
-                    if (data.url) {
-                      window.location.href = data.url;
-                    }
-                  } catch (error) {
-                    console.error('Error redirecting to sign-up:', error);
-                  }
+                onClick={() => {
+                  window.location.href = '/signup';
                 }}
                 sx={{
                   height: 32,
@@ -408,16 +391,8 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                     </ListItemButton>
                     <ListItemButton
                       component="span"
-                      onClick={async () => {
-                        try {
-                          const response = await fetch('/api/auth/signin-url');
-                          const data = await response.json();
-                          if (data.url) {
-                            window.location.href = data.url;
-                          }
-                        } catch (error) {
-                          console.error('Error redirecting to sign-up:', error);
-                        }
+                      onClick={() => {
+                        window.location.href = '/signup';
                         setDrawerToggle(false);
                       }}
                     >

@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/router';
 import {
+  CircularProgress,
   Grid,
   Typography,
   Box,
@@ -27,7 +29,11 @@ import { Download, Refresh, FilterList } from '@mui/icons-material';
 import Layout from 'layout';
 import Page from 'components/Page';
 import MainCard from 'components/MainCard';
+import useUser from 'hooks/useUser';
 import { useGetCurriculumsQuery } from 'store/api/projectApi';
+
+// Admin roles that bypass permission checks
+const ADMIN_ROLES = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
 
 // ==============================|| KIRKPATRICK MODEL ANALYTICS ||============================== //
 
@@ -203,6 +209,8 @@ const ProjectComparisonTable = ({ projects }) => {
 };
 
 const Kirkpatrick = () => {
+  const router = useRouter();
+  const { user, isLoading: userLoading } = useUser();
   const [timeRange, setTimeRange] = useState('quarter');
   const [curriculum, setCurriculum] = useState('all');
   const [project, setProject] = useState('all');
@@ -210,6 +218,38 @@ const Kirkpatrick = () => {
 
   // Fetch curriculums for the filter
   const { data: curriculums = [] } = useGetCurriculumsQuery();
+
+  // Permission check
+  const userRole = user?.role?.toLowerCase() || '';
+  const isAdmin = ADMIN_ROLES.includes(userRole);
+  const userPermissions = user?.permissions || [];
+  const hasKirkpatrickAccess = isAdmin || userPermissions.some(p => p.startsWith('kirkpatrick:'));
+
+  if (userLoading) {
+    return (
+      <Page title="Kirkpatrick Model Analytics">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+          <CircularProgress />
+        </Box>
+      </Page>
+    );
+  }
+
+  if (!hasKirkpatrickAccess) {
+    return (
+      <Page title="Kirkpatrick Model Analytics">
+        <MainCard>
+          <Typography variant="h5" color="error">Access Denied</Typography>
+          <Typography variant="body1" sx={{ mt: 2 }}>
+            You do not have permission to access Kirkpatrick Evaluations.
+          </Typography>
+          <Button variant="outlined" sx={{ mt: 2 }} onClick={() => router.push('/projects')}>
+            Back to Projects
+          </Button>
+        </MainCard>
+      </Page>
+    );
+  }
 
   // Calculate overall effectiveness score (weighted average of all levels)
   const overallScore = useMemo(() => {

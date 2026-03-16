@@ -130,7 +130,21 @@ export async function getServerSideProps(context) {
         }
       }
 
-      // Block inactive users from logging in
+      // Check if this is a pending invited user accepting their invitation
+      // Pending users have isActive=false but no workos_user_id yet
+      const isPendingInvite = existingUser && existingUser.isActive === false && !existingUser.workos_user_id;
+
+      if (isPendingInvite) {
+        // Activate the invited user on first login
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { isActive: true }
+        });
+        existingUser.isActive = true;
+        console.log(`✅ Activated invited user on first login: ${user.email}`);
+      }
+
+      // Block inactive users from logging in (but not pending invites — they were just activated above)
       if (existingUser && existingUser.isActive === false) {
         console.log(`⛔ Inactive user attempted login: ${user.email}`);
 
@@ -199,6 +213,11 @@ export async function getServerSideProps(context) {
         // Update existing user's profile from WorkOS on every login
         const updatedName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || existingUser.name || 'WorkOS User';
 
+        // For invited users, also mark onboarding as complete (they're joining an existing org)
+        const updatedInfo = wasInvitedUser && existingUser.sub_organizationId
+          ? { ...(existingUser.info || {}), onboardingComplete: true, workos_user: true }
+          : undefined;
+
         await prisma.user.update({
           where: { id: existingUser.id },
           data: {
@@ -206,7 +225,8 @@ export async function getServerSideProps(context) {
             email: user.email, // Sync email in case it changed
             name: updatedName, // Sync full name from WorkOS
             firstName: user.firstName || existingUser.firstName,
-            lastName: user.lastName || existingUser.lastName
+            lastName: user.lastName || existingUser.lastName,
+            ...(updatedInfo ? { info: updatedInfo } : {})
           }
         });
 

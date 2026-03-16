@@ -141,10 +141,11 @@ export default async function handler(req, res) {
     });
 
     // Calculate aggregate stats
-    const totalOrgs = await prisma.organizations.count();
-    const activeSubscriptions = await prisma.subscriptions.count({
-      where: { status: 'active' }
-    });
+    const [totalOrgs, activeSubscriptions, deactivatedOrgs] = await Promise.all([
+      prisma.organizations.count(),
+      prisma.subscriptions.count({ where: { status: 'active' } }),
+      prisma.organizations.count({ where: { status: 'inactive' } })
+    ]);
 
     return res.status(200).json({
       organizations: formattedOrganizations,
@@ -156,7 +157,8 @@ export default async function handler(req, res) {
       },
       stats: {
         totalOrganizations: totalOrgs,
-        activeSubscriptions
+        activeSubscriptions,
+        deactivatedOrganizations: deactivatedOrgs
       }
     });
 

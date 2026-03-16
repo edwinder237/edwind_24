@@ -107,6 +107,14 @@ async function handler(req, res) {
     ? new Date(stripeSubscription.current_period_end * 1000)
     : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // Default to 30 days from now
 
+  // Compute trial dates from Stripe
+  const trialStart = stripeSubscription.trial_start
+    ? new Date(stripeSubscription.trial_start * 1000)
+    : null;
+  const trialEnd = stripeSubscription.trial_end
+    ? new Date(stripeSubscription.trial_end * 1000)
+    : null;
+
   // Upsert subscription in database (billingInterval fetched from Stripe when needed)
   const dbSubscription = await prisma.subscriptions.upsert({
     where: { organizationId: orgContext.organizationId },
@@ -119,7 +127,9 @@ async function handler(req, res) {
       planId: plan.planId,
       status: stripeSubscription.status,
       currentPeriodStart,
-      currentPeriodEnd
+      currentPeriodEnd,
+      trialStart,
+      trialEnd
     },
     update: {
       stripeCustomerId,
@@ -129,7 +139,9 @@ async function handler(req, res) {
       planId: plan.planId,
       status: stripeSubscription.status,
       currentPeriodStart,
-      currentPeriodEnd
+      currentPeriodEnd,
+      trialStart,
+      trialEnd
     },
     include: {
       plan: true

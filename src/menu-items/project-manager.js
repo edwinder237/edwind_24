@@ -2,16 +2,17 @@
 import { FormattedMessage } from 'react-intl';
 
 // assets
-import { 
-  DashboardOutlined, 
-  ProjectOutlined, 
+import {
+  DashboardOutlined,
+  ProjectOutlined,
   TeamOutlined,
   BarChartOutlined,
   CalendarOutlined,
   SettingOutlined,
   FileTextOutlined,
   UserOutlined,
-  ScheduleOutlined
+  ScheduleOutlined,
+  ToolOutlined
 } from '@ant-design/icons';
 import { LocalParking, ViewTimeline } from '@mui/icons-material';
 
@@ -26,6 +27,7 @@ const icons = {
   FileTextOutlined,
   UserOutlined,
   ScheduleOutlined,
+  ToolOutlined,
   LocalParking,
   ViewTimeline
 };
@@ -53,7 +55,7 @@ const ProjectManager = {
       url: '/project-manager/projects/timeline',
       icon: icons.ViewTimeline,
       breadcrumbs: true,
-      permission: 'access-timeline',
+      permission: 'timeline:*',
       featureBadge: 'pro'
     },
     {
@@ -111,6 +113,13 @@ const ProjectManager = {
           type: 'item',
           url: '/project-manager/resources/rooms',
           breadcrumbs: true
+        },
+        {
+          id: 'pm-resources-tools',
+          title: <FormattedMessage id="Tool Templates" />,
+          type: 'item',
+          url: '/project-manager/resources/tools',
+          breadcrumbs: true
         }
       ]
     },
@@ -132,7 +141,8 @@ const ProjectManager = {
           title: <FormattedMessage id="Kirkpatrick" />,
           type: 'item',
           url: '/project-manager/reports/kirkpatrick',
-          breadcrumbs: true
+          breadcrumbs: true,
+          permission: 'kirkpatrick:*'
         }
       ]
     }

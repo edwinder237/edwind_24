@@ -9,6 +9,7 @@
 
 import prisma from '../prisma.js';
 import { PLAN_IDS, hasResourceCapacity } from './featureAccess';
+import { getStripe, getPlanFromPriceId } from '../stripe/stripeService.js';
 
 // Simple in-memory cache for subscriptions (15 minute TTL)
 const subscriptionCache = new Map();
@@ -32,7 +33,7 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
   }
 
   try {
-    const subscription = await prisma.subscriptions.findUnique({
+    let subscription = await prisma.subscriptions.findUnique({
       where: {organizationId},
       include: {
         plan: true,
@@ -45,6 +46,154 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
         }
       }
     });
+
+    // Auto-sync from Stripe: if we have a Stripe customer but no subscription ID,
+    // the checkout.session.completed webhook was missed. Look up from Stripe directly.
+    if (
+      subscription &&
+      subscription.stripeCustomerId &&
+      !subscription.stripeSubscriptionId
+    ) {
+      try {
+        const stripe = getStripe();
+        console.log(`🔄 [AUTO-SYNC] Missing stripeSubscriptionId for org ${organizationId}, syncing from Stripe...`);
+
+        // Look up active or trialing subscriptions for this customer
+        let stripeSubscriptions = await stripe.subscriptions.list({
+          customer: subscription.stripeCustomerId,
+          status: 'active',
+          limit: 1
+        });
+
+        if (stripeSubscriptions.data.length === 0) {
+          stripeSubscriptions = await stripe.subscriptions.list({
+            customer: subscription.stripeCustomerId,
+            status: 'trialing',
+            limit: 1
+          });
+        }
+
+        if (stripeSubscriptions.data.length > 0) {
+          const stripeSub = stripeSubscriptions.data[0];
+          const priceId = stripeSub.items.data[0]?.price?.id;
+          const plan = await getPlanFromPriceId(priceId);
+
+          const updateData = {
+            stripeSubscriptionId: stripeSub.id,
+            stripeProductId: stripeSub.items.data[0]?.price?.product,
+            stripePriceId: priceId,
+            status: stripeSub.status,
+            ...(plan && { planId: plan.planId }),
+            ...(stripeSub.current_period_start && {
+              currentPeriodStart: new Date(stripeSub.current_period_start * 1000)
+            }),
+            ...(stripeSub.current_period_end && {
+              currentPeriodEnd: new Date(stripeSub.current_period_end * 1000)
+            }),
+            ...(stripeSub.trial_start && { trialStart: new Date(stripeSub.trial_start * 1000) }),
+            ...(stripeSub.trial_end && { trialEnd: new Date(stripeSub.trial_end * 1000) }),
+            // Clear trialEnd if Stripe says no trial (trial already ended)
+            ...(!stripeSub.trial_end && subscription.trialEnd && { trialEnd: null })
+          };
+
+          await prisma.subscriptions.update({
+            where: { id: subscription.id },
+            data: updateData
+          });
+
+          await prisma.subscription_history.create({
+            data: {
+              subscriptionId: subscription.id,
+              eventType: 'synced',
+              fromPlanId: subscription.planId,
+              toPlanId: plan?.planId || subscription.planId,
+              fromStatus: subscription.status,
+              toStatus: stripeSub.status,
+              reason: 'Auto-synced from Stripe (missed webhook recovery)'
+            }
+          });
+
+          console.log(`✅ [AUTO-SYNC] Synced subscription for org ${organizationId}: ${stripeSub.status} (${plan?.planId || subscription.planId})`);
+
+          // Invalidate cache and re-fetch with fresh data
+          subscriptionCache.delete(organizationId);
+          return getOrgSubscription(organizationId, true);
+        } else {
+          console.log(`🔄 [AUTO-SYNC] No active Stripe subscription found for customer ${subscription.stripeCustomerId}`);
+        }
+      } catch (syncError) {
+        console.error(`⚠️ [AUTO-SYNC] Failed to sync from Stripe:`, syncError.message);
+        // Continue with local data — don't block the request
+      }
+    }
+
+    // Fallback: handle expired trials
+    // Covers both Stripe-backed and non-Stripe trials when webhooks are missed.
+    if (
+      subscription &&
+      subscription.status === 'trialing' &&
+      subscription.trialEnd &&
+      new Date(subscription.trialEnd) < new Date()
+    ) {
+      if (!subscription.stripeSubscriptionId) {
+        // Non-Stripe trial (user skipped checkout): auto-downgrade to Essential
+        console.log(`⏰ Trial expired for org ${organizationId} — auto-downgrading to Essential`);
+
+        await prisma.subscriptions.update({
+          where: { id: subscription.id },
+          data: {
+            planId: 'essential',
+            status: 'active',
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+          }
+        });
+
+        await prisma.subscription_history.create({
+          data: {
+            subscriptionId: subscription.id,
+            eventType: 'trial_ended',
+            fromPlanId: subscription.planId,
+            toPlanId: 'essential',
+            fromStatus: 'trialing',
+            toStatus: 'active',
+            reason: 'Trial expired without payment — auto-downgraded to Essential'
+          }
+        });
+
+        // Invalidate cache and re-fetch
+        subscriptionCache.delete(organizationId);
+        return getOrgSubscription(organizationId, true);
+      } else {
+        // Stripe-backed trial expired but webhook didn't update status yet.
+        // Assume active (Stripe will charge the card on file).
+        // If payment fails, the next webhook will set status to past_due.
+        console.log(`⏰ Stripe trial ended for org ${organizationId} — updating local status to active (webhook fallback)`);
+
+        await prisma.subscriptions.update({
+          where: { id: subscription.id },
+          data: {
+            status: 'active'
+          }
+        });
+
+        await prisma.subscription_history.create({
+          data: {
+            subscriptionId: subscription.id,
+            eventType: 'trial_ended',
+            fromPlanId: subscription.planId,
+            toPlanId: subscription.planId,
+            fromStatus: 'trialing',
+            toStatus: 'active',
+            reason: 'Stripe trial expired — local status updated (webhook fallback)'
+          }
+        });
+
+        // Invalidate cache and re-fetch
+        subscriptionCache.delete(organizationId);
+        return getOrgSubscription(organizationId, true);
+      }
+    }
 
     // Cache the result
     if (subscription) {

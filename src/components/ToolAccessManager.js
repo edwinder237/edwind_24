@@ -68,25 +68,21 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
     toolUrl: '',
     toolDescription: '',
     username: '',
-    accessCode: ''
+    accessCode: '',
+    organizationToolId: null
   });
+  const [isCustomTool, setIsCustomTool] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const commonTools = [
-    { name: 'CRM', type: 'crm' },
-    { name: 'LMS', type: 'lms' },
-    { name: 'Dashboard', type: 'dashboard' },
-    { name: 'Project Manager', type: 'project' },
-    { name: 'Email System', type: 'email' },
-    { name: 'Calendar', type: 'calendar' },
-    { name: 'Chat Platform', type: 'communication' },
-    { name: 'File Storage', type: 'storage' },
-  ];
+  // Organization tools from DB
+  const [orgTools, setOrgTools] = useState([]);
+  const [orgToolsLoading, setOrgToolsLoading] = useState(false);
 
   useEffect(() => {
     if (open && participantId) {
       fetchToolAccesses();
+      fetchOrgTools();
     }
   }, [open, participantId]);
 
@@ -103,23 +99,45 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
     }
   };
 
+  const fetchOrgTools = async () => {
+    setOrgToolsLoading(true);
+    try {
+      const response = await axios.get('/api/organization-tools');
+      setOrgTools(response.data);
+    } catch (error) {
+      console.error('Error fetching organization tools:', error);
+    } finally {
+      setOrgToolsLoading(false);
+    }
+  };
+
   const handleOpenForm = (toolAccess = null) => {
     setEditingAccess(toolAccess);
-    setFormData(toolAccess ? {
-      tool: toolAccess.tool,
-      toolType: toolAccess.toolType || '',
-      toolUrl: toolAccess.toolUrl || '',
-      toolDescription: toolAccess.toolDescription || '',
-      username: toolAccess.username,
-      accessCode: toolAccess.accessCode
-    } : {
-      tool: '',
-      toolType: '',
-      toolUrl: '',
-      toolDescription: '',
-      username: '',
-      accessCode: ''
-    });
+    if (toolAccess) {
+      // Editing existing - check if it has an org tool template
+      const hasTemplate = toolAccess.organizationToolId && orgTools.find(t => t.id === toolAccess.organizationToolId);
+      setIsCustomTool(!hasTemplate);
+      setFormData({
+        tool: toolAccess.tool,
+        toolType: toolAccess.toolType || '',
+        toolUrl: toolAccess.toolUrl || '',
+        toolDescription: toolAccess.toolDescription || '',
+        username: toolAccess.username,
+        accessCode: toolAccess.accessCode,
+        organizationToolId: toolAccess.organizationToolId || null
+      });
+    } else {
+      setIsCustomTool(false);
+      setFormData({
+        tool: '',
+        toolType: '',
+        toolUrl: '',
+        toolDescription: '',
+        username: '',
+        accessCode: '',
+        organizationToolId: null
+      });
+    }
     setFormOpen(true);
     setError('');
     setSuccess('');
@@ -128,13 +146,15 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
   const handleCloseForm = () => {
     setFormOpen(false);
     setEditingAccess(null);
+    setIsCustomTool(false);
     setFormData({
       tool: '',
       toolType: '',
       toolUrl: '',
       toolDescription: '',
       username: '',
-      accessCode: ''
+      accessCode: '',
+      organizationToolId: null
     });
     setError('');
     setSuccess('');
@@ -147,13 +167,32 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
     }));
   };
 
-  const handleToolSelect = (toolName) => {
-    const selectedTool = commonTools.find(tool => tool.name === toolName);
-    setFormData(prev => ({
-      ...prev,
-      tool: toolName,
-      toolType: selectedTool ? selectedTool.type : toolName.toLowerCase()
-    }));
+  const handleToolSelect = (value) => {
+    if (value === 'custom') {
+      setIsCustomTool(true);
+      setFormData(prev => ({
+        ...prev,
+        tool: '',
+        toolType: '',
+        toolUrl: '',
+        toolDescription: '',
+        organizationToolId: null
+      }));
+      return;
+    }
+
+    const selectedTool = orgTools.find(t => t.id === value);
+    if (selectedTool) {
+      setIsCustomTool(false);
+      setFormData(prev => ({
+        ...prev,
+        tool: selectedTool.name,
+        toolType: selectedTool.toolType || '',
+        toolUrl: selectedTool.toolUrl || '',
+        toolDescription: selectedTool.toolDescription || '',
+        organizationToolId: selectedTool.id
+      }));
+    }
   };
 
   const handleSave = async () => {
@@ -244,6 +283,13 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
   const handleClose = () => {
     handleCloseForm();
     onClose();
+  };
+
+  // Determine the current select value for the tool dropdown
+  const getSelectValue = () => {
+    if (isCustomTool) return 'custom';
+    if (formData.organizationToolId) return formData.organizationToolId;
+    return '';
   };
 
   return (
@@ -402,41 +448,98 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
                 </Alert>
               )}
 
+              {/* Tool Selection - Organization tools from DB */}
               <FormControl fullWidth>
                 <InputLabel>Tool</InputLabel>
                 <Select
-                  value={formData.tool}
+                  value={getSelectValue()}
                   onChange={(e) => handleToolSelect(e.target.value)}
                   label="Tool"
                   required
+                  disabled={orgToolsLoading}
                 >
-                  {commonTools.map((tool) => (
-                    <MenuItem key={tool.name} value={tool.name}>
-                      {tool.name}
+                  {orgTools.map((tool) => (
+                    <MenuItem key={tool.id} value={tool.id}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography>{tool.name}</Typography>
+                        {tool.toolType && (
+                          <Chip label={tool.toolType} size="small" variant="outlined" />
+                        )}
+                      </Stack>
                     </MenuItem>
                   ))}
+                  {orgTools.length > 0 && <Divider />}
                   <MenuItem value="custom">Custom Tool...</MenuItem>
                 </Select>
               </FormControl>
 
-              {formData.tool === 'custom' && (
-                <TextField
-                  label="Custom Tool Name"
-                  fullWidth
-                  value={formData.tool === 'custom' ? '' : formData.tool}
-                  onChange={(e) => handleInputChange('tool', e.target.value)}
-                  required
-                />
+              {/* Custom tool fields - only shown when "Custom Tool..." is selected */}
+              {isCustomTool && (
+                <>
+                  <TextField
+                    label="Tool Name"
+                    fullWidth
+                    value={formData.tool}
+                    onChange={(e) => handleInputChange('tool', e.target.value)}
+                    required
+                    placeholder="e.g., Salesforce CRM"
+                  />
+
+                  <TextField
+                    label="Tool Type"
+                    fullWidth
+                    value={formData.toolType}
+                    onChange={(e) => handleInputChange('toolType', e.target.value)}
+                    placeholder="e.g., crm, lms, dashboard"
+                  />
+
+                  <TextField
+                    label="Tool URL"
+                    fullWidth
+                    value={formData.toolUrl}
+                    onChange={(e) => handleInputChange('toolUrl', e.target.value)}
+                    placeholder="https://example.com"
+                  />
+
+                  <TextField
+                    label="Description"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={formData.toolDescription}
+                    onChange={(e) => handleInputChange('toolDescription', e.target.value)}
+                    placeholder="Brief description of this tool access"
+                  />
+                </>
               )}
 
-              <TextField
-                label="Tool Type"
-                fullWidth
-                value={formData.toolType}
-                onChange={(e) => handleInputChange('toolType', e.target.value)}
-                placeholder="e.g., crm, lms, dashboard"
-              />
+              {/* Show auto-filled info when an org tool is selected */}
+              {!isCustomTool && formData.organizationToolId && (
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                    Tool details (from template)
+                  </Typography>
+                  {formData.toolType && (
+                    <Typography variant="body2"><strong>Type:</strong> {formData.toolType}</Typography>
+                  )}
+                  {formData.toolUrl && (
+                    <Typography variant="body2">
+                      <strong>URL:</strong>{' '}
+                      <Typography component="a" variant="body2" color="primary" href={formData.toolUrl} target="_blank" rel="noopener noreferrer">
+                        {formData.toolUrl}
+                      </Typography>
+                    </Typography>
+                  )}
+                  {formData.toolDescription && (
+                    <Typography variant="body2"><strong>Description:</strong> {formData.toolDescription}</Typography>
+                  )}
+                  {!formData.toolType && !formData.toolUrl && !formData.toolDescription && (
+                    <Typography variant="body2" color="text.secondary">No additional details configured for this tool.</Typography>
+                  )}
+                </Paper>
+              )}
 
+              {/* Username and Access Code - always shown */}
               <TextField
                 label="Username"
                 fullWidth
@@ -451,24 +554,6 @@ const ToolAccessManager = ({ open, onClose, participantId, participantName, onUp
                 value={formData.accessCode}
                 onChange={(e) => handleInputChange('accessCode', e.target.value)}
                 required
-              />
-
-              <TextField
-                label="Tool URL"
-                fullWidth
-                value={formData.toolUrl}
-                onChange={(e) => handleInputChange('toolUrl', e.target.value)}
-                placeholder="https://example.com"
-              />
-
-              <TextField
-                label="Description"
-                fullWidth
-                multiline
-                rows={2}
-                value={formData.toolDescription}
-                onChange={(e) => handleInputChange('toolDescription', e.target.value)}
-                placeholder="Brief description of this tool access"
               />
             </Stack>
           </DialogContent>

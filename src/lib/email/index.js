@@ -12,6 +12,8 @@ export {
   isEmailServiceConfigured,
   DEFAULT_FROM_EMAIL,
   SUPPORT_EMAIL,
+  SECURITY_EMAIL,
+  ADMIN_EMAIL,
   EMAIL_SENDERS
 } from './resendClient';
 
@@ -64,7 +66,7 @@ export * from './templates';
 // High-level email sending functions
 // ============================================
 
-import { getResendClient, EMAIL_SENDERS } from './resendClient';
+import { getResendClient, EMAIL_SENDERS, ADMIN_EMAIL } from './resendClient';
 import { isValidEmail, cleanEmail, validateEmailList } from './validators';
 import { sendWithRetry, sendBatch as sendBatchEmails, delay } from './rateLimiter';
 import { generateSingleEventICS, createICSAttachment } from './icsGenerator';
@@ -86,7 +88,7 @@ import {
  * @param {string} options.to - Recipient email
  * @param {string} options.subject - Email subject
  * @param {string} options.html - HTML content
- * @param {string} [options.from] - Sender email (defaults to admin@edwind.ca)
+ * @param {string} [options.from] - Sender email (defaults to RESEND_FROM_EMAIL env var)
  * @param {string} [options.replyTo] - Reply-to email address
  * @param {Object} [options.headers] - Custom headers
  * @param {Array} [options.attachments] - Email attachments
@@ -209,7 +211,7 @@ export async function sendCredentials(options) {
 
   const result = await sendEmail({
     to: cleanEmail(participant.email),
-    subject: `Your CRM 360 Access Credentials - ${projectName} - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    subject: `Your CRM 360 Access Credentials - ${recipientName}`,
     html,
     from: EMAIL_SENDERS.credentials,
     replyTo: instructorEmail,
@@ -244,7 +246,7 @@ export async function sendCredentials(options) {
  * @returns {Promise<Object>} Send result
  */
 export async function sendSurvey(options) {
-  const { participant, surveyUrl, surveyTitle, projectName, organizationLogoUrl, instructorEmail } = options;
+  const { participant, surveyUrl, surveyTitle, projectName, organizationLogoUrl, organizationName, instructorEmail, instructorName } = options;
 
   if (!isValidEmail(participant.email)) {
     return {
@@ -261,14 +263,15 @@ export async function sendSurvey(options) {
     surveyUrl,
     surveyTitle,
     projectName,
-    organizationLogoUrl
+    organizationLogoUrl,
+    instructorName
   });
 
   const result = await sendEmail({
     to: cleanEmail(participant.email),
-    subject: `Satisfaction Survey - ${projectName} - ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+    subject: `Satisfaction Survey - ${projectName}`,
     html,
-    from: EMAIL_SENDERS.training,
+    from: organizationName ? `${organizationName} <${ADMIN_EMAIL}>` : EMAIL_SENDERS.training,
     replyTo: instructorEmail,
     headers
   });
@@ -370,7 +373,7 @@ export async function sendFeedback(feedbackData) {
   const html = generateFeedbackTemplate(feedbackData);
 
   const result = await sendEmail({
-    to: process.env.RESEND_TO_EMAIL || 'admin@edwind.ca',
+    to: process.env.RESEND_TO_EMAIL || ADMIN_EMAIL,
     subject: `[Feedback] ${feedbackData.type}: From ${feedbackData.userName}`,
     html,
     from: process.env.RESEND_FROM_EMAIL || EMAIL_SENDERS.default
@@ -400,7 +403,7 @@ export async function sendContactForm(formData) {
   // Send admin notification
   const adminHtml = generateContactAdminTemplate(formData);
   results.adminNotification = await sendEmail({
-    to: process.env.RESEND_TO_EMAIL || 'admin@edwind.ca',
+    to: process.env.RESEND_TO_EMAIL || ADMIN_EMAIL,
     subject: `EDWIND Contact Form: ${formData.subject}`,
     html: adminHtml,
     from: process.env.RESEND_FROM_EMAIL || EMAIL_SENDERS.default

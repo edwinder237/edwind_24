@@ -4,6 +4,8 @@
  * Templates for contact form submissions (admin notification + user auto-reply)
  */
 
+import { ADMIN_EMAIL } from '../resendClient';
+
 /**
  * High priority subjects that get a badge
  */
@@ -281,7 +283,7 @@ export function generateContactAutoReplyTemplate(formData) {
 
             <div class="contact-info">
               <h3>Need immediate assistance?</h3>
-              <p><strong>Email:</strong> admin@edwind.ca</p>
+              <p><strong>Email:</strong> ${ADMIN_EMAIL}</p>
             </div>
 
             <p>
@@ -298,7 +300,7 @@ export function generateContactAutoReplyTemplate(formData) {
           <div class="footer">
             <p>
               This is an automated confirmation email. Please do not reply to this message.<br>
-              If you need to reach us, please email admin@edwind.ca
+              If you need to reach us, please email ${ADMIN_EMAIL}
             </p>
             <p>
               &copy; ${currentYear} EDWIND by Lumeve. All rights reserved.

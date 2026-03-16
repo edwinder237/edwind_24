@@ -9,6 +9,7 @@
 
 import prisma from '../prisma.js';
 import { getPlanFromPriceId } from './stripeService.js';
+import { invalidateSubscriptionCache } from '../features/subscriptionService.js';
 
 /**
  * Handle checkout.session.completed event
@@ -43,6 +44,9 @@ export async function handleCheckoutCompleted(session) {
   }
 
   // Create or update subscription in database (billingInterval fetched from Stripe when needed)
+  const trialStart = stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000) : null;
+  const trialEnd = stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null;
+
   const dbSubscription = await prisma.subscriptions.upsert({
     where: { organizationId },
     create: {
@@ -54,7 +58,9 @@ export async function handleCheckoutCompleted(session) {
       planId: plan.planId,
       status: stripeSubscription.status,
       currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000)
+      currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+      trialStart,
+      trialEnd
     },
     update: {
       stripeCustomerId,
@@ -64,7 +70,9 @@ export async function handleCheckoutCompleted(session) {
       planId: plan.planId,
       status: stripeSubscription.status,
       currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000)
+      currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
+      trialStart,
+      trialEnd
     }
   });
 
@@ -85,6 +93,9 @@ export async function handleCheckoutCompleted(session) {
       }
     }
   });
+
+  // Invalidate subscription cache so next request gets fresh data
+  invalidateSubscriptionCache(organizationId);
 
   console.log(`💳 [WEBHOOK] Updated subscription for org ${organizationId} to ${plan.planId}`);
 }
@@ -130,7 +141,13 @@ export async function handleSubscriptionUpdated(subscription) {
       stripePriceId: priceId,
       currentPeriodStart: new Date(subscription.current_period_start * 1000),
       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null
+      cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
+      ...(subscription.trial_start !== undefined && {
+        trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null
+      }),
+      ...(subscription.trial_end !== undefined && {
+        trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null
+      })
     }
   });
 
@@ -154,6 +171,9 @@ export async function handleSubscriptionUpdated(subscription) {
       }
     });
   }
+
+  // Invalidate subscription cache
+  invalidateSubscriptionCache(dbSubscription.organizationId);
 
   console.log(`💳 [WEBHOOK] Updated subscription ${subscription.id}`);
 }
@@ -205,6 +225,9 @@ export async function handleSubscriptionDeleted(subscription) {
       }
     }
   });
+
+  // Invalidate subscription cache
+  invalidateSubscriptionCache(dbSubscription.organizationId);
 
   console.log(`💳 [WEBHOOK] Subscription ${subscription.id} canceled`);
 }

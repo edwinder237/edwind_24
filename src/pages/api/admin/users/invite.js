@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     }
 
     // Get invitation data
-    const { email, firstName, lastName, role = 'member', sub_organizationId } = req.body;
+    const { email, firstName, lastName, role = 'member', sub_organizationId, appRoleId } = req.body;
 
     // Validate required fields
     if (!email) {
@@ -111,17 +111,35 @@ export default async function handler(req, res) {
       console.log(`✅ WorkOS invitation sent to ${email}:`, invitation.id);
     } catch (workosError) {
       console.error('WorkOS invitation error:', workosError);
+      const msg = workosError.message || '';
+      const rawData = workosError.rawData || workosError.data || {};
 
-      // Handle specific WorkOS errors
-      if (workosError.message?.includes('already exists')) {
+      // Handle specific WorkOS errors with clear messages
+      // Order matters: check more specific patterns before broader ones
+      if (msg.includes('already invited') || rawData.code === 'invitation_already_exists') {
         return res.status(400).json({
-          error: 'This email is already registered in the system'
+          error: 'An invitation has already been sent to this email. Check pending invitations or wait for it to expire.'
+        });
+      }
+      if (msg.includes('already exists') || rawData.code === 'user_already_exists') {
+        return res.status(400).json({
+          error: 'This email is already registered in WorkOS. The user may already have an account.'
+        });
+      }
+      if (rawData.code === 'organization_not_found') {
+        return res.status(400).json({
+          error: 'Organization not found in WorkOS. Please contact support.'
+        });
+      }
+      if (workosError.status === 422 || workosError.statusCode === 422) {
+        return res.status(400).json({
+          error: `Invalid invitation request: ${rawData.message || msg || 'Please check the email and role.'}`
         });
       }
 
       return res.status(500).json({
         error: 'Failed to send invitation via WorkOS',
-        details: workosError.message
+        details: msg
       });
     }
 
@@ -161,7 +179,7 @@ export default async function handler(req, res) {
         username: email.split('@')[0],
         password: 'pending_invitation', // Placeholder - user will set via WorkOS
         isActive: false, // Will be activated when invitation is accepted
-        sub_organizationId: finalSubOrgId,
+        sub_organization: { connect: { id: finalSubOrgId } },
         info: {
           invitedBy: currentUser.id,
           invitedAt: new Date().toISOString(),
@@ -171,6 +189,19 @@ export default async function handler(req, res) {
         }
       }
     });
+
+    // Create role assignment if an app role was specified
+    if (appRoleId) {
+      await prisma.user_role_assignments.create({
+        data: {
+          userId: pendingUser.id,
+          roleId: appRoleId,
+          organizationId: orgContext.organizationId,
+          assignedBy: workosUserId
+        }
+      });
+      console.log(`✅ Assigned role ${appRoleId} to pending user ${pendingUser.email}`);
+    }
 
     console.log(`✅ Created pending user: ${pendingUser.email}`);
 
@@ -192,6 +223,15 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error inviting user:', error);
+
+    // Prisma unique constraint violation (e.g. duplicate email or username)
+    if (error.code === 'P2002') {
+      const field = error.meta?.target?.[0] || 'field';
+      return res.status(400).json({
+        error: `A user with this ${field} already exists`
+      });
+    }
+
     return res.status(500).json({
       error: 'Failed to invite user',
       details: error.message

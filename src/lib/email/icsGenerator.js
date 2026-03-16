@@ -6,6 +6,7 @@
  */
 
 import { formatInTimeZone } from 'date-fns-tz';
+import { ADMIN_EMAIL } from './resendClient';
 
 /**
  * Escape special characters for ICS format
@@ -80,10 +81,10 @@ END:VTIMEZONE
  * @param {string} attendee.firstName - Attendee first name
  * @param {string} attendee.lastName - Attendee last name
  * @param {string} [organizerName='EDWIND Training'] - Organizer name
- * @param {string} [organizerEmail='admin@edwind.ca'] - Organizer email
+ * @param {string} [organizerEmail] - Organizer email (defaults to RESEND_FROM_EMAIL env var)
  * @returns {string} ICS file content
  */
-export function generateSingleEventICS(event, attendee, organizerName = 'EDWIND Training', organizerEmail = 'admin@edwind.ca') {
+export function generateSingleEventICS(event, attendee, organizerName = 'EDWIND Training', organizerEmail = ADMIN_EMAIL) {
   const now = new Date();
   const timestamp = formatDateUTC(now);
   const uid = generateUID();
@@ -175,7 +176,7 @@ LOCATION:${escapeIcal(event.location)}
 STATUS:CONFIRMED
 SEQUENCE:0
 ATTENDEE;CN=${attendeeName};RSVP=TRUE;ROLE=REQ-PARTICIPANT:mailto:${attendee.email}
-ORGANIZER;CN=${organizerName}:mailto:admin@edwind.ca
+ORGANIZER;CN=${organizerName}:mailto:${ADMIN_EMAIL}
 REQUEST-STATUS:2.0;Success
 END:VEVENT`;
   }).join('\n');

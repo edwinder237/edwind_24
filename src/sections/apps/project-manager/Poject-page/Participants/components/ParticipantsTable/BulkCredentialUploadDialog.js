@@ -29,7 +29,7 @@ import MainCard from 'components/MainCard';
 import axios from 'utils/axios';
 import * as XLSX from 'xlsx';
 
-const requiredCredentialFields = ['email', 'tool', 'username', 'accessCode'];
+const requiredCredentialFields = ['email', 'toolId', 'username', 'accessCode'];
 
 const BulkCredentialUploadDialog = ({
   open,
@@ -50,6 +50,17 @@ const BulkCredentialUploadDialog = ({
   const [showResults, setShowResults] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Organization tools
+  const [orgTools, setOrgTools] = useState([]);
+
+  React.useEffect(() => {
+    if (open) {
+      axios.get('/api/organization-tools')
+        .then(res => setOrgTools(res.data || []))
+        .catch(() => setOrgTools([]));
+    }
+  }, [open]);
 
   const resetState = useCallback(() => {
     setCsvData([]);
@@ -79,6 +90,11 @@ const BulkCredentialUploadDialog = ({
     return map;
   }, [participants]);
 
+  // Build org tool ID set for client-side validation
+  const orgToolIdSet = React.useMemo(() => {
+    return new Set(orgTools.map(t => t.id));
+  }, [orgTools]);
+
   const validateCredentialData = useCallback((headers, rows) => {
     const errors = [];
 
@@ -92,7 +108,7 @@ const BulkCredentialUploadDialog = ({
     rows.forEach((row) => {
       // Check required fields
       requiredCredentialFields.forEach(field => {
-        if (!row[field] || row[field].trim() === '') {
+        if (!row[field] || String(row[field]).trim() === '') {
           errors.push(`Row ${row._rowIndex}: Missing required field '${field}'`);
         }
       });
@@ -105,6 +121,16 @@ const BulkCredentialUploadDialog = ({
       // Check email matches an existing participant
       if (row.email && !participantEmailMap.has(row.email.toLowerCase().trim())) {
         errors.push(`Row ${row._rowIndex}: No participant found with email '${row.email}'`);
+      }
+
+      // Validate toolId is a number and matches an org tool
+      if (row.toolId) {
+        const parsedId = parseInt(row.toolId, 10);
+        if (isNaN(parsedId)) {
+          errors.push(`Row ${row._rowIndex}: toolId '${row.toolId}' is not a valid number`);
+        } else if (orgToolIdSet.size > 0 && !orgToolIdSet.has(parsedId)) {
+          errors.push(`Row ${row._rowIndex}: toolId '${row.toolId}' does not match any saved tool template`);
+        }
       }
     });
 
@@ -199,27 +225,24 @@ const BulkCredentialUploadDialog = ({
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: Credentials template pre-populated with participant data
-    const headers = ['email', 'firstName', 'lastName', 'externalId', 'tool', 'toolType', 'username', 'accessCode', 'toolUrl', 'toolDescription'];
+    const headers = ['email', 'externalId', 'firstName', 'lastName', 'toolId', 'username', 'accessCode'];
     const rows = participants.map(p => [
       p.participant?.email || '',
+      p.participant?.externalId || '',
       p.participant?.firstName || '',
       p.participant?.lastName || '',
-      p.participant?.externalId || '',
-      '', '', '', '', '', '' // Empty credential columns for user to fill
+      '', '', '' // Empty credential columns for user to fill
     ]);
     const sheetData = [headers, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
     ws['!cols'] = [
       { wch: 30 }, // email
+      { wch: 15 }, // externalId
       { wch: 15 }, // firstName
       { wch: 15 }, // lastName
-      { wch: 15 }, // externalId
-      { wch: 18 }, // tool
-      { wch: 12 }, // toolType
+      { wch: 10 }, // toolId
       { wch: 20 }, // username
       { wch: 20 }, // accessCode
-      { wch: 30 }, // toolUrl
-      { wch: 30 }, // toolDescription
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'credentials_template');
 
@@ -227,27 +250,47 @@ const BulkCredentialUploadDialog = ({
     const instrData = [
       ['Bulk Credential Upload Instructions'],
       [''],
-      ['Required columns: email, tool, username, accessCode'],
-      ['Optional columns: toolType, toolUrl, toolDescription'],
-      ['Reference columns (pre-filled): firstName, lastName, externalId'],
+      ['Required columns: email, toolId, username, accessCode'],
+      ['Optional columns: externalId'],
+      ['Reference columns (pre-filled): firstName, lastName'],
       [''],
       ['Notes:'],
       ['- email must match an existing participant in the project'],
+      ['- toolId must match an ID from the "Tool Templates" sheet'],
       ['- Each row creates one tool access record'],
       ['- A participant can have multiple rows for multiple tools (duplicate the row)'],
       ['- Duplicates (same tool + username for same participant) will be skipped'],
       ['- If email is missing, externalId will be used as a fallback match key'],
-      [''],
-      ['Common Tool Types:'],
-      ['crm, lms, dashboard, project, email, calendar, communication, storage']
     ];
     const instrSheet = XLSX.utils.aoa_to_sheet(instrData);
     instrSheet['!cols'] = [{ wch: 80 }];
     XLSX.utils.book_append_sheet(wb, instrSheet, 'Instructions');
 
+    // Sheet 3: Tool Templates - saved org tools with IDs for reference
+    if (orgTools.length > 0) {
+      const toolHeaders = ['id', 'name', 'toolType', 'toolUrl', 'toolDescription'];
+      const toolRows = orgTools.map(t => [
+        t.id,
+        t.name || '',
+        t.toolType || '',
+        t.toolUrl || '',
+        t.toolDescription || ''
+      ]);
+      const toolSheetData = [toolHeaders, ...toolRows];
+      const toolSheet = XLSX.utils.aoa_to_sheet(toolSheetData);
+      toolSheet['!cols'] = [
+        { wch: 8 },  // id
+        { wch: 25 }, // name
+        { wch: 15 }, // toolType
+        { wch: 35 }, // toolUrl
+        { wch: 35 }, // toolDescription
+      ];
+      XLSX.utils.book_append_sheet(wb, toolSheet, 'Tool Templates');
+    }
+
     const safeName = (projectTitle || 'project').replace(/[^a-zA-Z0-9]/g, '_');
     XLSX.writeFile(wb, `${safeName}_credentials_template.xlsx`);
-  }, [participants, projectTitle]);
+  }, [participants, projectTitle, orgTools]);
 
   const handleUpload = async () => {
     if (csvErrors.length > 0 || csvData.length === 0) return;
@@ -259,12 +302,9 @@ const BulkCredentialUploadDialog = ({
         credentials: csvData.map(row => ({
           email: row.email?.trim() || '',
           externalId: row.externalId?.trim() || '',
-          tool: row.tool?.trim() || '',
-          toolType: row.toolType?.trim() || '',
+          toolId: row.toolId ? parseInt(row.toolId, 10) : null,
           username: row.username?.trim() || '',
           accessCode: row.accessCode?.trim() || '',
-          toolUrl: row.toolUrl?.trim() || null,
-          toolDescription: row.toolDescription?.trim() || null
         }))
       });
 
@@ -315,18 +355,34 @@ const BulkCredentialUploadDialog = ({
           <Stack spacing={3}>
             {/* Instructions */}
             {!showResults && (
-              <Alert severity="info">
-                <Typography variant="subtitle2" gutterBottom>
-                  Upload tool access credentials for existing participants:
-                </Typography>
-                <Typography variant="body2" component="div">
-                  1. Download the template (pre-filled with participant emails)<br/>
-                  2. Fill in the credential columns: tool, username, accessCode<br/>
-                  3. Optional columns: toolType, toolUrl, toolDescription<br/>
-                  4. Each row creates one credential &mdash; duplicate rows for multiple tools per participant<br/>
-                  5. Upload the completed file
-                </Typography>
-              </Alert>
+              <Stack spacing={2}>
+                {orgTools.length === 0 && (
+                  <Alert severity="warning">
+                    <Typography variant="subtitle2" gutterBottom>
+                      No tool templates found
+                    </Typography>
+                    <Typography variant="body2">
+                      Before uploading credentials, set up your tools in{' '}
+                      <strong>Resources &rarr; Tool Templates</strong>.
+                      Each tool (e.g. CRM, LMS) needs to be created once with its name, URL, and description.
+                      You can then reference it by its ID when uploading credentials.
+                    </Typography>
+                  </Alert>
+                )}
+                <Alert severity="info">
+                  <Typography variant="subtitle2" gutterBottom>
+                    Upload tool access credentials for existing participants:
+                  </Typography>
+                  <Typography variant="body2" component="div">
+                    1. Set up your tools in <strong>Resources &rarr; Tool Templates</strong> (if not done already)<br/>
+                    2. Download the template below (pre-filled with participant emails)<br/>
+                    3. Check the &ldquo;Tool Templates&rdquo; sheet for available tool IDs<br/>
+                    4. Fill in: toolId, username, accessCode<br/>
+                    5. Each row creates one credential &mdash; duplicate rows for multiple tools per participant<br/>
+                    6. Upload the completed file
+                  </Typography>
+                </Alert>
+              </Stack>
             )}
 
             {/* Actions: Download + Upload */}

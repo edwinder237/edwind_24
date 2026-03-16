@@ -20,12 +20,12 @@ const PricingBlock = () => {
 
   const plans = [
     {
-      title: intl.formatMessage({ id: 'landing.pricing.starter' }),
-      price: 49,
+      title: intl.formatMessage({ id: 'landing.pricing.essential' }),
+      price: 29.95,
       period: intl.formatMessage({ id: 'landing.pricing.perMonth' }),
-      description: intl.formatMessage({ id: 'landing.pricing.starterDesc' }),
+      description: intl.formatMessage({ id: 'landing.pricing.essentialDesc' }),
       features: [
-        { text: intl.formatMessage({ id: 'landing.pricing.upTo50Participants' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.upTo100Participants' }), included: true },
         { text: intl.formatMessage({ id: 'landing.pricing.5Projects' }), included: true },
         { text: intl.formatMessage({ id: 'landing.pricing.basicAnalytics' }), included: true },
         { text: intl.formatMessage({ id: 'landing.pricing.emailSupport' }), included: true },
@@ -40,12 +40,12 @@ const PricingBlock = () => {
     },
     {
       title: intl.formatMessage({ id: 'landing.pricing.professional' }),
-      price: 149,
+      price: 49.95,
       period: intl.formatMessage({ id: 'landing.pricing.perMonth' }),
       description: intl.formatMessage({ id: 'landing.pricing.professionalDesc' }),
       features: [
-        { text: intl.formatMessage({ id: 'landing.pricing.upTo500Participants' }), included: true },
-        { text: intl.formatMessage({ id: 'landing.pricing.unlimitedProjects' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.unlimitedParticipants' }), included: true },
+        { text: intl.formatMessage({ id: 'landing.pricing.50Projects' }), included: true },
         { text: intl.formatMessage({ id: 'landing.pricing.advancedAnalytics' }), included: true },
         { text: intl.formatMessage({ id: 'landing.pricing.prioritySupport' }), included: true },
         { text: intl.formatMessage({ id: 'landing.pricing.courseTemplates' }), included: true },

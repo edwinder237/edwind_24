@@ -85,6 +85,7 @@ const RolePermissionsPage = () => {
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [savingPermission, setSavingPermission] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState([]);
+  const [savingCategory, setSavingCategory] = useState(null);
 
   const isOwner = user?.role?.toLowerCase() === 'owner';
 
@@ -104,17 +105,45 @@ const RolePermissionsPage = () => {
   }, []);
 
   // Fetch permissions for a specific role
-  const fetchRolePermissions = async (roleId) => {
+  const fetchRolePermissions = async (roleId, keepExpanded = false) => {
     setPermissionsLoading(true);
     try {
       const response = await axios.get(`/api/internal/role-permissions?roleId=${roleId}`);
       setRolePermissions(response.data);
-      setExpandedCategories([]);
+      if (!keepExpanded) {
+        setExpandedCategories([]);
+      }
     } catch (err) {
       console.error('Error fetching role permissions:', err);
       setError(err.response?.data?.error || 'Failed to fetch permissions');
     } finally {
       setPermissionsLoading(false);
+    }
+  };
+
+  // Toggle all permissions in a category
+  const handleToggleCategoryPermissions = async (category, permissions, currentlyEnabled) => {
+    setSavingCategory(category);
+    setSuccess('');
+    try {
+      const newState = !currentlyEnabled;
+      const updates = permissions.map(p => ({
+        permissionId: p.id,
+        isEnabled: newState
+      }));
+
+      await axios.put('/api/internal/role-permissions', {
+        roleId: selectedRole.id,
+        updates
+      });
+      setSuccess(`All ${CATEGORY_CONFIG[category]?.label || category} permissions ${newState ? 'enabled' : 'disabled'}`);
+      await fetchRolePermissions(selectedRole.id, true);
+      fetchRoles();
+    } catch (err) {
+      console.error('Error toggling category permissions:', err);
+      setError(err.response?.data?.error || 'Failed to update permissions');
+    } finally {
+      setSavingCategory(null);
     }
   };
 
@@ -129,7 +158,7 @@ const RolePermissionsPage = () => {
         isEnabled: !currentEnabled
       });
       setSuccess(`${response.data.permissionKey} ${!currentEnabled ? 'enabled' : 'disabled'}`);
-      await fetchRolePermissions(selectedRole.id);
+      await fetchRolePermissions(selectedRole.id, true);
       // Refresh role list to update counts
       fetchRoles();
     } catch (err) {
@@ -345,7 +374,10 @@ const RolePermissionsPage = () => {
               )}
 
               {/* Permission Categories */}
-              {Object.entries(rolePermissions.permissionsByCategory).map(([category, permissions]) => (
+              {Object.entries(rolePermissions.permissionsByCategory).map(([category, permissions]) => {
+                const allEnabled = permissions.every(p => p.isEnabled);
+                const someEnabled = permissions.some(p => p.isEnabled);
+                return (
                 <Accordion
                   key={category}
                   expanded={expandedCategories.includes(category)}
@@ -353,16 +385,32 @@ const RolePermissionsPage = () => {
                   variant="outlined"
                 >
                   <AccordionSummary expandIcon={<DownOutlined />}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Typography variant="body1">
+                    <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', mr: 1 }}>
+                      <Typography variant="body1" sx={{ flex: 1 }}>
                         {CATEGORY_CONFIG[category]?.icon} {CATEGORY_CONFIG[category]?.label || category}
                       </Typography>
                       <Chip
                         label={`${permissions.filter(p => p.isEnabled).length}/${permissions.length}`}
                         size="small"
-                        color={permissions.filter(p => p.isEnabled).length === permissions.length ? 'success' : 'default'}
+                        color={allEnabled ? 'success' : 'default'}
                         variant="outlined"
                       />
+                      <Tooltip title={someEnabled ? 'Disable all' : 'Enable all'}>
+                        <Switch
+                          checked={someEnabled}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleCategoryPermissions(category, permissions, someEnabled);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={savingCategory === category}
+                          size="small"
+                          color="success"
+                        />
+                      </Tooltip>
+                      {savingCategory === category && (
+                        <CircularProgress size={16} />
+                      )}
                     </Stack>
                   </AccordionSummary>
                   <AccordionDetails>
@@ -410,7 +458,8 @@ const RolePermissionsPage = () => {
                     </Stack>
                   </AccordionDetails>
                 </Accordion>
-              ))}
+                );
+              })}
             </Stack>
           ) : null}
         </DialogContent>

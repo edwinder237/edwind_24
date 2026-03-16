@@ -178,12 +178,13 @@ export default async function handler(req, res) {
       prisma.user.count({ where })
     ]);
 
-    // Get WorkOS memberships for role information
+    // Get WorkOS memberships and user data for role information + last active
     const workosInstance = getWorkOS();
     const usersWithRoles = await Promise.all(
       users.map(async (user) => {
         let workosRole = null;
         let workosStatus = null;
+        let lastActiveAt = null;
 
         // Try to get role from local cache first
         if (user.organization_memberships.length > 0) {
@@ -192,18 +193,24 @@ export default async function handler(req, res) {
           workosStatus = primaryMembership.status;
         }
 
-        // If no local cache, try to fetch from WorkOS
-        if (!workosRole && user.workos_user_id) {
+        // Fetch WorkOS user data for lastActiveAt and fallback role
+        if (user.workos_user_id) {
           try {
-            const memberships = await workosInstance.userManagement.listOrganizationMemberships({
-              userId: user.workos_user_id
-            });
-            if (memberships.data?.length > 0) {
-              workosRole = memberships.data[0].role?.slug || 'member';
-              workosStatus = memberships.data[0].status;
+            const workosUser = await workosInstance.userManagement.getUser(user.workos_user_id);
+            lastActiveAt = workosUser.lastActiveAt || null;
+
+            // Fallback: get role from memberships if not cached locally
+            if (!workosRole) {
+              const memberships = await workosInstance.userManagement.listOrganizationMemberships({
+                userId: user.workos_user_id
+              });
+              if (memberships.data?.length > 0) {
+                workosRole = memberships.data[0].role?.slug || 'member';
+                workosStatus = memberships.data[0].status;
+              }
             }
           } catch (err) {
-            console.warn(`Could not fetch WorkOS memberships for user ${user.id}:`, err.message);
+            console.warn(`Could not fetch WorkOS data for user ${user.id}:`, err.message);
           }
         }
 
@@ -221,6 +228,7 @@ export default async function handler(req, res) {
           isActive: user.isActive,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
+          lastActiveAt,
           sub_organization: user.sub_organization,
           role: workosRole || 'member',
           workosStatus: workosStatus || 'active',

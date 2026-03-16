@@ -69,10 +69,11 @@ import ProjectsMap from 'components/ProjectsMap';
 
 // ==============================|| PROJECTS TIMELINE ||============================== //
 
-const REQUIRED_PERMISSION = 'access-timeline';
+const REQUIRED_PERMISSION_PREFIX = 'timeline:';
+const REQUIRED_PLAN = 'professional';
 
 const ProjectsTimeline = ({ googleMapsApiKey }) => {
-  // Permission check
+  // Permission + subscription check
   const { user, isLoading: userLoading } = useUser();
 
   // Admin roles that have access to ALL features (Level 0-1)
@@ -80,8 +81,13 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
   const userRole = user?.role?.toLowerCase() || '';
   const isAdminTier = adminRoles.includes(userRole);
 
-  // Admin-tier users have access to everything, others need specific permission
-  const hasPermission = isAdminTier || user?.permissions?.includes(REQUIRED_PERMISSION);
+  // Admin-tier users have access to everything, others need any timeline:* permission
+  const hasPermission = isAdminTier || user?.permissions?.some(p => p.startsWith(REQUIRED_PERMISSION_PREFIX));
+
+  // Organization subscription plan check
+  const TIER_ORDER = { essential: 0, professional: 1, enterprise: 2 };
+  const orgPlan = user?.subscription?.planId || 'essential';
+  const hasPlanAccess = isAdminTier || (TIER_ORDER[orgPlan] || 0) >= (TIER_ORDER[REQUIRED_PLAN] || 0);
 
   // State management
   const [projects, setProjects] = useState([]);
@@ -440,6 +446,28 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
         <MainCard>
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
             <CircularProgress />
+          </Box>
+        </MainCard>
+      </Page>
+    );
+  }
+
+  // Show upgrade required if organization plan is insufficient
+  if (!hasPlanAccess) {
+    return (
+      <Page title="Upgrade Required">
+        <MainCard>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <LockOutlined style={{ fontSize: '4rem', color: '#faad14', marginBottom: 16 }} />
+            <Typography variant="h4" gutterBottom>
+              Professional Plan Required
+            </Typography>
+            <Typography color="textSecondary">
+              The Timeline feature is available on the Professional plan and above.
+            </Typography>
+            <Typography color="textSecondary" sx={{ mt: 1 }}>
+              Contact your administrator to upgrade your organization&apos;s subscription.
+            </Typography>
           </Box>
         </MainCard>
       </Page>

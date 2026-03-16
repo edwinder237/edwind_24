@@ -14,6 +14,7 @@ import {
   Paper
 } from '@mui/material';
 import { Close, Shield, Lock, Security, Verified } from '@mui/icons-material';
+import { ADMIN_EMAIL, SECURITY_EMAIL } from '../lib/email/resendClient';
 
 const LegalModal = ({ open, onClose, type }) => {
   const getContent = () => {
@@ -92,7 +93,7 @@ const LegalModal = ({ open, onClose, type }) => {
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Contact:</strong> admin@edwind.ca | Montreal, QC, Canada<br />
+                  <strong>Contact:</strong> {ADMIN_EMAIL} | Montreal, QC, Canada<br />
                   <strong>Last updated:</strong> {new Date().toLocaleDateString()}
                 </Typography>
               </Box>
@@ -170,7 +171,7 @@ const LegalModal = ({ open, onClose, type }) => {
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Contact:</strong> admin@edwind.ca | Montreal, QC, Canada<br />
+                  <strong>Contact:</strong> {ADMIN_EMAIL} | Montreal, QC, Canada<br />
                   <strong>Governed by:</strong> Laws of Quebec, Canada<br />
                   <strong>Last updated:</strong> {new Date().toLocaleDateString()}
                 </Typography>
@@ -203,10 +204,10 @@ const LegalModal = ({ open, onClose, type }) => {
                   <Grid item xs={12} sm={4}>
                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                       <Typography variant="subtitle2" color="primary" gutterBottom>
-                        Starter
+                        Essential
                       </Typography>
                       <Typography variant="body2">
-                        Up to 50 participants<br />
+                        Up to 100 participants<br />
                         Basic features<br />
                         Email support
                       </Typography>
@@ -267,7 +268,7 @@ const LegalModal = ({ open, onClose, type }) => {
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Contact:</strong> admin@edwind.ca | Montreal, QC, Canada<br />
+                  <strong>Contact:</strong> {ADMIN_EMAIL} | Montreal, QC, Canada<br />
                   <strong>Last updated:</strong> {new Date().toLocaleDateString()}
                 </Typography>
               </Box>
@@ -366,15 +367,15 @@ const LegalModal = ({ open, onClose, type }) => {
                   Report Security Issues
                 </Typography>
                 <Typography variant="body2">
-                  Contact our security team at <strong>security@edwind.ca</strong><br />
+                  Contact our security team at <strong>{SECURITY_EMAIL}</strong><br />
                   We respond to security reports within 24 hours.
                 </Typography>
               </Box>
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Contact:</strong> admin@edwind.ca | Montreal, QC, Canada<br />
-                  <strong>Security Email:</strong> security@edwind.ca<br />
+                  <strong>Contact:</strong> {ADMIN_EMAIL} | Montreal, QC, Canada<br />
+                  <strong>Security Email:</strong> {SECURITY_EMAIL}<br />
                   <strong>Last updated:</strong> {new Date().toLocaleDateString()}
                 </Typography>
               </Box>

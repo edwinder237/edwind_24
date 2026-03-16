@@ -147,6 +147,7 @@ export async function getOrCreateCustomer(organizationId) {
  * @param {string} params.successUrl - URL to redirect on success
  * @param {string} params.cancelUrl - URL to redirect on cancel
  * @param {string} params.interval - 'monthly' or 'annual'
+ * @param {number} params.trialDays - Trial period in days (0 = no trial)
  * @returns {Promise<Stripe.Checkout.Session>}
  */
 export async function createCheckoutSession({
@@ -154,7 +155,8 @@ export async function createCheckoutSession({
   priceId,
   successUrl,
   cancelUrl,
-  interval = 'monthly'
+  interval = 'monthly',
+  trialDays = 0
 }) {
   try {
     // Get or create customer
@@ -171,8 +173,8 @@ export async function createCheckoutSession({
       throw new Error('Organization already has an active subscription. Use billing portal to make changes.');
     }
 
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    // Build checkout session config
+    const sessionConfig = {
       customer: customer.id,
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -196,7 +198,15 @@ export async function createCheckoutSession({
       },
       allow_promotion_codes: true,
       billing_address_collection: 'required'
-    });
+    };
+
+    // Add trial period if specified
+    if (trialDays > 0) {
+      sessionConfig.subscription_data.trial_period_days = trialDays;
+    }
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     console.log(`💳 [STRIPE] Created checkout session ${session.id} for org ${organizationId}`);
 

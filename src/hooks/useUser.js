@@ -21,6 +21,11 @@ const useUser = () => {
     }
   }, []); // Empty dependency array - only run on mount
 
+  // Force refetch user data (bypasses hasFetched guard)
+  const refetchUser = useCallback(() => {
+    return dispatch(fetchUser());
+  }, [dispatch]);
+
   // Fetch full profile with subscription/usage data
   const fetchProfile = useCallback(() => {
     return dispatch(fetchUserProfile());
@@ -38,6 +43,7 @@ const useUser = () => {
     error,           // Error message if fetch failed
     profileLoading,  // true while profile operations are in progress
     profileError,    // Error message if profile operation failed
+    refetchUser,     // Function to force refetch user data
     fetchProfile,    // Function to fetch full profile with subscription data
     updateProfile    // Function to update profile data
   };

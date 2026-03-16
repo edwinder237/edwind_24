@@ -3,6 +3,7 @@ import { getOrgSubscription } from "../../../lib/features/subscriptionService";
 import { canAccessFeature } from "../../../lib/features/featureAccess";
 import { createAuditLog } from "../../../lib/utils/auditLog";
 import { attachUserClaims } from "../../../lib/auth/middleware";
+import { syncEventToCalendars } from "../../../lib/calendar/calendarSyncService";
 
 export default async function handler(req, res) {
     // Try to get user info (non-blocking)
@@ -92,7 +93,27 @@ export default async function handler(req, res) {
         });
       }
 
-      res.status(200).json(`${newEvent.title} Event created and saved to database`);
+      // Check if user has active calendar integrations
+      const userId = req.userClaims?.userId;
+      let calendarSyncTriggered = false;
+      if (userId) {
+        const activeIntegrations = await prisma.calendar_integrations.count({
+          where: { userId, isActive: true }
+        });
+        calendarSyncTriggered = activeIntegrations > 0;
+      }
+
+      res.status(200).json({
+        message: `${newEvent.title} Event created and saved to database`,
+        calendarSyncTriggered
+      });
+
+      // Calendar sync (non-blocking, fire-and-forget)
+      if (calendarSyncTriggered) {
+        syncEventToCalendars(createdEvent.id, 'create', userId).catch(err =>
+          console.error('[CALENDAR_SYNC] Create sync failed:', err.message)
+        );
+      }
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Internal Server Error" });

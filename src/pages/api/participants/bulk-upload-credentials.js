@@ -44,6 +44,20 @@ async function handler(req, res) {
       throw new NotFoundError('Project not found');
     }
 
+    // Collect unique toolIds from credentials and fetch matching org tools
+    const toolIds = [...new Set(credentials.map(c => c.toolId).filter(Boolean))];
+    const orgToolMap = new Map();
+    if (toolIds.length > 0) {
+      const orgTools = await prisma.organization_tools.findMany({
+        where: {
+          id: { in: toolIds },
+          sub_organizationId: project.sub_organizationId,
+          isActive: true
+        }
+      });
+      orgTools.forEach(t => orgToolMap.set(t.id, t));
+    }
+
     // Get all active project participants with emails and externalIds for matching
     const projectParticipants = await prisma.project_participants.findMany({
       where: { projectId: parseInt(projectId), status: 'active' },
@@ -99,10 +113,33 @@ async function handler(req, res) {
                 continue;
               }
 
-              if (!cred.tool || !cred.username || !cred.accessCode) {
+              // Resolve tool from toolId or fall back to direct tool name
+              let toolName = cred.tool || null;
+              let toolType = cred.toolType || null;
+              let toolUrl = cred.toolUrl || null;
+              let toolDescription = cred.toolDescription || null;
+              let organizationToolId = null;
+
+              if (cred.toolId) {
+                const orgTool = orgToolMap.get(cred.toolId);
+                if (!orgTool) {
+                  batchErrors.push({
+                    email: cred.email || cred.externalId || 'unknown',
+                    error: `Tool template with ID ${cred.toolId} not found`
+                  });
+                  continue;
+                }
+                toolName = orgTool.name;
+                toolType = orgTool.toolType;
+                toolUrl = orgTool.toolUrl;
+                toolDescription = orgTool.toolDescription;
+                organizationToolId = orgTool.id;
+              }
+
+              if (!toolName || !cred.username || !cred.accessCode) {
                 batchErrors.push({
                   email: cred.email || cred.externalId || 'unknown',
-                  error: 'Missing required fields (tool, username, accessCode)'
+                  error: 'Missing required fields (toolId, username, accessCode)'
                 });
                 continue;
               }
@@ -111,7 +148,7 @@ async function handler(req, res) {
               const existing = await tx.toolAccesses.findFirst({
                 where: {
                   participantId,
-                  tool: cred.tool,
+                  tool: toolName,
                   username: cred.username,
                   isActive: true
                 }
@@ -120,7 +157,7 @@ async function handler(req, res) {
               if (existing) {
                 batchSkipped.push({
                   email: cred.email || '',
-                  tool: cred.tool,
+                  tool: toolName,
                   username: cred.username,
                   reason: 'Tool access already exists for this participant'
                 });
@@ -130,13 +167,14 @@ async function handler(req, res) {
               // Create new tool access
               await tx.toolAccesses.create({
                 data: {
-                  tool: cred.tool,
-                  toolType: cred.toolType || cred.tool.toLowerCase(),
-                  toolUrl: cred.toolUrl || null,
-                  toolDescription: cred.toolDescription || null,
+                  tool: toolName,
+                  toolType: toolType || toolName.toLowerCase(),
+                  toolUrl: toolUrl || null,
+                  toolDescription: toolDescription || null,
                   username: cred.username,
                   accessCode: cred.accessCode,
                   participantId,
+                  organizationToolId,
                   isActive: true,
                   createdBy: 'csv-credential-upload',
                   updatedBy: 'csv-credential-upload'
@@ -145,7 +183,7 @@ async function handler(req, res) {
 
               batchCreated.push({
                 email: cred.email || '',
-                tool: cred.tool,
+                tool: toolName,
                 username: cred.username,
                 participantId
               });

@@ -13,6 +13,7 @@ import TabPersonal from 'sections/apps/profiles/user/TabPersonal';
 import TabPayment from 'sections/apps/profiles/user/TabPayment';
 import TabPassword from 'sections/apps/profiles/user/TabPassword';
 import TabSettings from 'sections/apps/profiles/user/TabSettings';
+import TabIntegrations from 'sections/apps/profiles/user/TabIntegrations';
 
 // ==============================|| PROFILE - USER ||============================== //
 
@@ -34,6 +35,7 @@ const UserProfile = () => {
           {tab === 'payment' && <TabPayment />}
           {tab === 'password' && <TabPassword />}
           {tab === 'settings' && <TabSettings />}
+          {tab === 'integrations' && <TabIntegrations />}
         </Grid>
       </Grid>
     </Page>
@@ -50,7 +52,8 @@ export async function getStaticPaths() {
       { params: { tab: 'personal' } },
       { params: { tab: 'payment' } },
       { params: { tab: 'password' } },
-      { params: { tab: 'settings' } }
+      { params: { tab: 'settings' } },
+      { params: { tab: 'integrations' } }
     ],
     fallback: false
   };

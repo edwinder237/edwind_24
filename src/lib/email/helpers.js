@@ -5,6 +5,7 @@
  */
 
 import prisma from '../prisma';
+import { ADMIN_EMAIL } from './resendClient';
 
 /**
  * Generate a unique message ID to prevent Gmail from collapsing similar emails
@@ -15,7 +16,7 @@ import prisma from '../prisma';
 export function generateUniqueMessageId(prefix = 'email', id = '') {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 15);
-  return `${prefix}-${id}-${timestamp}-${random}@edwind.ca`;
+  return `${prefix}-${id}-${timestamp}-${random}@${ADMIN_EMAIL.split('@')[1]}`;
 }
 
 /**

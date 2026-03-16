@@ -71,10 +71,10 @@ async function handler(req, res) {
     });
   }
 
-  // Build URLs
+  // Build URLs — success goes through verify endpoint to sync Stripe data before landing
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 8081}`;
-  const successUrl = `${baseUrl}/organization-settings?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${baseUrl}/organization-settings?checkout=canceled`;
+  const successUrl = `${baseUrl}/api/subscriptions/verify-checkout?session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${baseUrl}/checkout-required`;
 
   // Create checkout session
   const session = await createCheckoutSession({

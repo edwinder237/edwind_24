@@ -1,6 +1,10 @@
 import prisma from "../../../lib/prisma";
+import { attachUserClaims } from "../../../lib/auth/middleware";
+import { syncEventToCalendars } from "../../../lib/calendar/calendarSyncService";
 
 export default async function handler(req, res) {
+  await attachUserClaims(req, res);
+
   try {
     const { event, eventId } = req.body;
     
@@ -195,11 +199,29 @@ export default async function handler(req, res) {
       return updatedEvent;
     });
 
-    res.status(200).json({ 
-      success: true, 
+    // Check if user has active calendar integrations
+    const userId = req.userClaims?.userId;
+    let calendarSyncTriggered = false;
+    if (userId) {
+      const activeIntegrations = await prisma.calendar_integrations.count({
+        where: { userId, isActive: true }
+      });
+      calendarSyncTriggered = activeIntegrations > 0;
+    }
+
+    res.status(200).json({
+      success: true,
       message: "Event and group assignments updated successfully",
-      updatedEvent: result
+      updatedEvent: result,
+      calendarSyncTriggered
     });
+
+    // Calendar sync (non-blocking, fire-and-forget)
+    if (calendarSyncTriggered) {
+      syncEventToCalendars(parseInt(eventId), 'update', userId).catch(err =>
+        console.error('[CALENDAR_SYNC] Update sync failed:', err.message)
+      );
+    }
   } catch (error) {
     console.error('Error updating event:', error);
     res.status(500).json({ 

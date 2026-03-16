@@ -17,7 +17,7 @@ import { createHiddenUniqueContent } from '../helpers';
  * @param {string} [params.organizationLogoUrl] - Organization logo URL
  * @returns {string} HTML email template
  */
-export function generateSurveyTemplate({ participantName, surveyUrl, surveyTitle, projectName, organizationLogoUrl }) {
+export function generateSurveyTemplate({ participantName, surveyUrl, surveyTitle, projectName, organizationLogoUrl, instructorName }) {
   const hiddenContent = createHiddenUniqueContent(`Survey-${participantName}`);
 
   return `
@@ -47,7 +47,7 @@ export function generateSurveyTemplate({ participantName, surveyUrl, surveyTitle
         </p>
 
         <p style="color: #333333; margin-bottom: 25px;">
-          We would love to hear your feedback about your training experience for <strong>${projectName}</strong>. Please take a few minutes to complete the following survey:
+          We would love to hear your feedback about your training experience for <strong>${projectName}</strong>${instructorName ? ` led by <strong>${instructorName}</strong>` : ''}. Please take a few minutes to complete the following survey:
         </p>
 
         <div style="text-align: center; margin: 30px 0;">

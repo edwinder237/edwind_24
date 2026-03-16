@@ -7,6 +7,7 @@
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS } from 'date-fns/locale';
+import { SUPPORT_EMAIL } from '../resendClient';
 
 /**
  * Generate single event invitation email template
@@ -87,7 +88,7 @@ export function generateEventInviteTemplate({ participantName, event, projectTit
       <div style="text-align: center; color: #6c757d; font-size: 14px; border-top: 1px solid #e1e5e9; padding-top: 20px;">
         <p style="margin: 0;">
           EDWIND Training Management System<br>
-          <a href="mailto:support@edwind.ca" style="color: #1976d2;">support@edwind.ca</a>
+          <a href="mailto:${SUPPORT_EMAIL}" style="color: #1976d2;">${SUPPORT_EMAIL}</a>
         </p>
       </div>
 
@@ -200,7 +201,7 @@ export function generateScheduleSummaryTemplate({ participantName, projectTitle,
       <div style="text-align: center; color: #6c757d; font-size: 14px; border-top: 1px solid #e1e5e9; padding-top: 20px;">
         <p style="margin: 0;">
           EDWIND Training Management System<br>
-          <a href="mailto:support@edwind.ca" style="color: #1976d2;">support@edwind.ca</a>
+          <a href="mailto:${SUPPORT_EMAIL}" style="color: #1976d2;">${SUPPORT_EMAIL}</a>
         </p>
       </div>
 

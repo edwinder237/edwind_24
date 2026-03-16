@@ -10,7 +10,8 @@ import eventBus from 'store/events/EventBus';
 export const useSendSatisfactionSurvey = () => {
   const dispatch = useDispatch();
   const projectId = useSelector(state => state.projectSettings?.projectId);
-  const projectTitle = useSelector(state => state.projectSettings?.title);
+  const projectTitle = useSelector(state => state.projectSettings?.projectInfo?.title);
+  const projectInstructors = useSelector(state => state.projectSettings?.projectInstructors || []);
 
   const handleSendSurvey = useCallback(async ({ participants: surveyParticipants, surveyUrl, surveyTitle }) => {
     try {
@@ -30,7 +31,10 @@ export const useSendSatisfactionSurvey = () => {
           surveyUrl,
           surveyTitle,
           projectName: projectTitle || 'Training Project',
-          projectId
+          projectId,
+          instructorName: projectInstructors.find(i => i.instructorType === 'main')?.instructor
+            ? `${projectInstructors.find(i => i.instructorType === 'main').instructor.firstName || ''} ${projectInstructors.find(i => i.instructorType === 'main').instructor.lastName || ''}`.trim()
+            : null
         }),
       });
 
@@ -95,7 +99,7 @@ export const useSendSatisfactionSurvey = () => {
 
       throw error;
     }
-  }, [projectTitle, projectId, dispatch]);
+  }, [projectTitle, projectId, projectInstructors, dispatch]);
 
   return { handleSendSurvey };
 };

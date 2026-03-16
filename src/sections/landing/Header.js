@@ -124,7 +124,7 @@ const HeaderPage = () => {
                         variant="contained"
                         startIcon={<EyeOutlined style={{ fontSize: '1.15rem' }} />}
                         onClick={() => {
-                          document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+                          window.location.href = '/signup';
                         }}
                         sx={{
                           backgroundColor: '#1976d2',

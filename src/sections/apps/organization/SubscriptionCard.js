@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import axios from 'axios';
 
 // material-ui
@@ -52,6 +53,7 @@ import { BillingPortalButton } from '../../../components/subscription';
 
 const SubscriptionCard = () => {
   const theme = useTheme();
+  const router = useRouter();
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -417,9 +419,9 @@ const SubscriptionCard = () => {
                           <Button
                             variant={plan.highlightText ? 'contained' : 'outlined'}
                             fullWidth
-                            onClick={() => handleUpgrade(plan.planId, plan.billingInterval)}
+                            onClick={() => plan.planId === 'enterprise' ? router.push('/enterprise') : handleUpgrade(plan.planId, plan.billingInterval)}
                           >
-                            Subscribe
+                            {plan.planId === 'enterprise' ? 'Contact Sales' : 'Subscribe'}
                           </Button>
                         </Stack>
                       </CardContent>
@@ -1041,9 +1043,9 @@ const SubscriptionCard = () => {
                         variant={plan.planId === subscription.planId ? 'outlined' : 'contained'}
                         fullWidth
                         disabled={plan.planId === subscription.planId}
-                        onClick={() => handleUpgrade(plan.planId)}
+                        onClick={() => plan.planId === 'enterprise' ? router.push('/enterprise') : handleUpgrade(plan.planId)}
                       >
-                        {plan.planId === subscription.planId ? 'Current Plan' : 'Select Plan'}
+                        {plan.planId === subscription.planId ? 'Current Plan' : plan.planId === 'enterprise' ? 'Contact Sales' : 'Select Plan'}
                       </Button>
                     </Stack>
                   </CardContent>

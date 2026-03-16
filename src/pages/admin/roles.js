@@ -14,10 +14,6 @@ import {
   Chip,
   CircularProgress,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   FormControlLabel,
   Grid,
@@ -25,8 +21,6 @@ import {
   Paper,
   Stack,
   Switch,
-  Tab,
-  Tabs,
   Tooltip,
   Typography,
   alpha,
@@ -37,8 +31,6 @@ import {
 import {
   SettingOutlined,
   LockOutlined,
-  UnlockOutlined,
-  InfoCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   DownOutlined,
@@ -92,11 +84,11 @@ const AdminRolesPage = () => {
 
   // Selected role for permission management
   const [selectedRole, setSelectedRole] = useState(null);
-  const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [rolePermissions, setRolePermissions] = useState(null);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [savingPermission, setSavingPermission] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState([]);
+  const [savingCategory, setSavingCategory] = useState(null);
 
   // Check if current user is admin
   const isAdmin = user?.organizations?.some(
@@ -120,13 +112,14 @@ const AdminRolesPage = () => {
   }, []);
 
   // Fetch role permissions
-  const fetchRolePermissions = async (roleId) => {
+  const fetchRolePermissions = async (roleId, keepExpanded = false) => {
     setPermissionsLoading(true);
     try {
       const response = await axios.get(`/api/admin/roles/${roleId}/permissions`);
       setRolePermissions(response.data);
-      // Keep all categories collapsed by default
-      setExpandedCategories([]);
+      if (!keepExpanded) {
+        setExpandedCategories([]);
+      }
     } catch (err) {
       console.error('Error fetching role permissions:', err);
       setError(err.response?.data?.error || 'Failed to fetch permissions');
@@ -143,13 +136,32 @@ const AdminRolesPage = () => {
         permissionId,
         isEnabled: !currentEnabled
       });
-      // Refresh permissions
-      await fetchRolePermissions(selectedRole.id);
+      await fetchRolePermissions(selectedRole.id, true);
     } catch (err) {
       console.error('Error toggling permission:', err);
       setError(err.response?.data?.error || 'Failed to update permission');
     } finally {
       setSavingPermission(null);
+    }
+  };
+
+  // Toggle all permissions in a category
+  const handleToggleCategoryPermissions = async (category, permissions, currentlyEnabled) => {
+    setSavingCategory(category);
+    try {
+      const newState = !currentlyEnabled;
+      const overrides = permissions.map(p => ({
+        permissionId: p.id,
+        isEnabled: newState
+      }));
+
+      await axios.put(`/api/admin/roles/${selectedRole.id}/permissions`, { overrides });
+      await fetchRolePermissions(selectedRole.id, true);
+    } catch (err) {
+      console.error('Error toggling category permissions:', err);
+      setError(err.response?.data?.error || 'Failed to update permissions');
+    } finally {
+      setSavingCategory(null);
     }
   };
 
@@ -161,14 +173,13 @@ const AdminRolesPage = () => {
 
     setPermissionsLoading(true);
     try {
-      // Get all overridden permissions and reset them
       const overrides = [];
       for (const category of Object.values(rolePermissions.permissionsByCategory)) {
         for (const perm of category) {
           if (perm.hasOverride) {
             overrides.push({
               permissionId: perm.id,
-              isEnabled: perm.isDefault // Set back to default
+              isEnabled: perm.isDefault
             });
           }
         }
@@ -189,16 +200,14 @@ const AdminRolesPage = () => {
     }
   };
 
-  // Open permissions dialog
+  // Open permissions view
   const handleOpenPermissions = (role) => {
     setSelectedRole(role);
-    setPermissionsDialogOpen(true);
     fetchRolePermissions(role.id);
   };
 
-  // Close permissions dialog
-  const handleClosePermissions = () => {
-    setPermissionsDialogOpen(false);
+  // Back to roles list
+  const handleBackToRoles = () => {
     setSelectedRole(null);
     setRolePermissions(null);
     setExpandedCategories([]);
@@ -244,6 +253,212 @@ const AdminRolesPage = () => {
     );
   }
 
+  // Permissions view for selected role
+  if (selectedRole) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <MainCard
+          title={
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography variant="h5">
+                {selectedRole.name} Permissions
+              </Typography>
+              {rolePermissions?.overrideCount > 0 && (
+                <Chip
+                  label={`${rolePermissions.overrideCount} override${rolePermissions.overrideCount !== 1 ? 's' : ''}`}
+                  color="warning"
+                  size="small"
+                />
+              )}
+            </Stack>
+          }
+          secondary={
+            <Stack direction="row" spacing={2}>
+              {rolePermissions?.overrideCount > 0 && (
+                <Button
+                  variant="outlined"
+                  startIcon={<UndoOutlined />}
+                  onClick={handleResetOverrides}
+                  color="warning"
+                  disabled={permissionsLoading}
+                >
+                  Reset All Overrides
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                startIcon={<ArrowLeftOutlined />}
+                onClick={handleBackToRoles}
+              >
+                Back to Roles
+              </Button>
+            </Stack>
+          }
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Customize permissions for your organization
+          </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+
+          {permissionsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : rolePermissions ? (
+            <Stack spacing={2}>
+              {/* Legend */}
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                <Stack direction="row" spacing={3} flexWrap="wrap">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CheckCircleOutlined style={{ color: theme.palette.success.main }} />
+                    <Typography variant="caption">Enabled (default)</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CloseCircleOutlined style={{ color: theme.palette.text.disabled }} />
+                    <Typography variant="caption">Disabled (default)</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box sx={{ width: 8, height: 8, bgcolor: 'warning.main', borderRadius: '50%' }} />
+                    <Typography variant="caption">Custom override</Typography>
+                  </Stack>
+                </Stack>
+              </Paper>
+
+              {/* Permission Categories */}
+              {Object.entries(rolePermissions.permissionsByCategory).map(([category, permissions]) => {
+                const allEnabled = permissions.every(p => p.isEnabled);
+                const someEnabled = permissions.some(p => p.isEnabled);
+                return (
+                <Accordion
+                  key={category}
+                  expanded={expandedCategories.includes(category)}
+                  onChange={() => handleToggleCategory(category)}
+                  variant="outlined"
+                >
+                  <AccordionSummary expandIcon={<DownOutlined />}>
+                    <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', mr: 1 }}>
+                      <Typography variant="body1" sx={{ flex: 1 }}>
+                        {CATEGORY_CONFIG[category]?.icon} {CATEGORY_CONFIG[category]?.label || category}
+                      </Typography>
+                      <Chip
+                        label={`${permissions.filter(p => p.isEnabled).length}/${permissions.length}`}
+                        size="small"
+                        color={allEnabled ? 'success' : 'default'}
+                        variant="outlined"
+                      />
+                      {permissions.some(p => p.hasOverride) && (
+                        <Chip
+                          label="Modified"
+                          size="small"
+                          color="warning"
+                          variant="filled"
+                        />
+                      )}
+                      <Tooltip title={someEnabled ? 'Disable all' : 'Enable all'}>
+                        <Switch
+                          checked={someEnabled}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleCategoryPermissions(category, permissions, someEnabled);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={savingCategory === category}
+                          size="small"
+                          color="success"
+                        />
+                      </Tooltip>
+                      {savingCategory === category && (
+                        <CircularProgress size={16} />
+                      )}
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Stack spacing={1}>
+                      {permissions.map((perm) => (
+                        <Paper
+                          key={perm.id}
+                          variant="outlined"
+                          sx={{
+                            p: 1.5,
+                            bgcolor: perm.hasOverride
+                              ? alpha(theme.palette.warning.main, 0.08)
+                              : 'transparent'
+                          }}
+                        >
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                          >
+                            <Box sx={{ flex: 1 }}>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Typography variant="body2" fontWeight={500}>
+                                  {perm.name}
+                                </Typography>
+                                {perm.hasOverride && (
+                                  <Tooltip title="Custom override for your organization">
+                                    <Box
+                                      sx={{
+                                        width: 8,
+                                        height: 8,
+                                        bgcolor: 'warning.main',
+                                        borderRadius: '50%'
+                                      }}
+                                    />
+                                  </Tooltip>
+                                )}
+                              </Stack>
+                              <Typography variant="caption" color="text.secondary">
+                                {perm.key}
+                              </Typography>
+                            </Box>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              {!perm.isDefault && !perm.hasOverride && (
+                                <Chip
+                                  label="Not default"
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ fontSize: '0.65rem' }}
+                                />
+                              )}
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={perm.isEnabled}
+                                    onChange={() => handleTogglePermission(perm.id, perm.isEnabled)}
+                                    disabled={savingPermission === perm.id}
+                                    size="small"
+                                    color={perm.isEnabled ? 'success' : 'default'}
+                                  />
+                                }
+                                label=""
+                                sx={{ m: 0 }}
+                              />
+                              {savingPermission === perm.id && (
+                                <CircularProgress size={16} />
+                              )}
+                            </Stack>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+                );
+              })}
+            </Stack>
+          ) : null}
+        </MainCard>
+      </Container>
+    );
+  }
+
+  // Roles list view
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <MainCard
@@ -350,183 +565,6 @@ const AdminRolesPage = () => {
           </Grid>
         )}
       </MainCard>
-
-      {/* Permissions Dialog */}
-      <Dialog
-        open={permissionsDialogOpen}
-        onClose={handleClosePermissions}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{ sx: { maxHeight: '90vh' } }}
-      >
-        <DialogTitle>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Box>
-              <Typography variant="h5">
-                {selectedRole?.name} Permissions
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Customize permissions for your organization
-              </Typography>
-            </Box>
-            {rolePermissions?.overrideCount > 0 && (
-              <Chip
-                label={`${rolePermissions.overrideCount} override${rolePermissions.overrideCount !== 1 ? 's' : ''}`}
-                color="warning"
-                size="small"
-              />
-            )}
-          </Stack>
-        </DialogTitle>
-
-        <DialogContent dividers>
-          {permissionsLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : rolePermissions ? (
-            <Stack spacing={2}>
-              {/* Legend */}
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                <Stack direction="row" spacing={3} flexWrap="wrap">
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <CheckCircleOutlined style={{ color: theme.palette.success.main }} />
-                    <Typography variant="caption">Enabled (default)</Typography>
-                  </Stack>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <CloseCircleOutlined style={{ color: theme.palette.text.disabled }} />
-                    <Typography variant="caption">Disabled (default)</Typography>
-                  </Stack>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Box sx={{ width: 8, height: 8, bgcolor: 'warning.main', borderRadius: '50%' }} />
-                    <Typography variant="caption">Custom override</Typography>
-                  </Stack>
-                </Stack>
-              </Paper>
-
-              {/* Permission Categories */}
-              {Object.entries(rolePermissions.permissionsByCategory).map(([category, permissions]) => (
-                <Accordion
-                  key={category}
-                  expanded={expandedCategories.includes(category)}
-                  onChange={() => handleToggleCategory(category)}
-                  variant="outlined"
-                >
-                  <AccordionSummary expandIcon={<DownOutlined />}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Typography variant="body1">
-                        {CATEGORY_CONFIG[category]?.icon} {CATEGORY_CONFIG[category]?.label || category}
-                      </Typography>
-                      <Chip
-                        label={`${permissions.filter(p => p.isEnabled).length}/${permissions.length}`}
-                        size="small"
-                        color={permissions.filter(p => p.isEnabled).length === permissions.length ? 'success' : 'default'}
-                        variant="outlined"
-                      />
-                      {permissions.some(p => p.hasOverride) && (
-                        <Chip
-                          label="Modified"
-                          size="small"
-                          color="warning"
-                          variant="filled"
-                        />
-                      )}
-                    </Stack>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Stack spacing={1}>
-                      {permissions.map((perm) => (
-                        <Paper
-                          key={perm.id}
-                          variant="outlined"
-                          sx={{
-                            p: 1.5,
-                            bgcolor: perm.hasOverride
-                              ? alpha(theme.palette.warning.main, 0.08)
-                              : 'transparent'
-                          }}
-                        >
-                          <Stack
-                            direction="row"
-                            justifyContent="space-between"
-                            alignItems="center"
-                          >
-                            <Box sx={{ flex: 1 }}>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <Typography variant="body2" fontWeight={500}>
-                                  {perm.name}
-                                </Typography>
-                                {perm.hasOverride && (
-                                  <Tooltip title="Custom override for your organization">
-                                    <Box
-                                      sx={{
-                                        width: 8,
-                                        height: 8,
-                                        bgcolor: 'warning.main',
-                                        borderRadius: '50%'
-                                      }}
-                                    />
-                                  </Tooltip>
-                                )}
-                              </Stack>
-                              <Typography variant="caption" color="text.secondary">
-                                {perm.key}
-                              </Typography>
-                            </Box>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              {!perm.isDefault && !perm.hasOverride && (
-                                <Chip
-                                  label="Not default"
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{ fontSize: '0.65rem' }}
-                                />
-                              )}
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    checked={perm.isEnabled}
-                                    onChange={() => handleTogglePermission(perm.id, perm.isEnabled)}
-                                    disabled={savingPermission === perm.id}
-                                    size="small"
-                                    color={perm.isEnabled ? 'success' : 'default'}
-                                  />
-                                }
-                                label=""
-                                sx={{ m: 0 }}
-                              />
-                              {savingPermission === perm.id && (
-                                <CircularProgress size={16} />
-                              )}
-                            </Stack>
-                          </Stack>
-                        </Paper>
-                      ))}
-                    </Stack>
-                  </AccordionDetails>
-                </Accordion>
-              ))}
-            </Stack>
-          ) : null}
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          {rolePermissions?.overrideCount > 0 && (
-            <Button
-              startIcon={<UndoOutlined />}
-              onClick={handleResetOverrides}
-              color="warning"
-              disabled={permissionsLoading}
-            >
-              Reset All Overrides
-            </Button>
-          )}
-          <Box sx={{ flex: 1 }} />
-          <Button onClick={handleClosePermissions}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 };

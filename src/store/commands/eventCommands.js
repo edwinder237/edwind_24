@@ -52,6 +52,19 @@ export const createEvent = createAsyncThunk(
         close: false
       }));
 
+      // Show calendar sync toast if triggered
+      if (result?.calendarSyncTriggered) {
+        setTimeout(() => {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Syncing event to your connected calendar...',
+            variant: 'alert',
+            alert: { color: 'info' },
+            close: false
+          }));
+        }, 1500);
+      }
+
       return { ...result, command };
       
     } catch (error) {
@@ -105,7 +118,7 @@ export const updateEvent = createAsyncThunk(
       // Removing this prevents duplicate refetches that overwhelm Prisma connection pool
 
       const eventTitle = updates.title || 'Event';
-      
+
       dispatch(openSnackbar({
         open: true,
         message: `${eventTitle} has been updated successfully`,
@@ -114,8 +127,21 @@ export const updateEvent = createAsyncThunk(
         close: false
       }));
 
+      // Show calendar sync toast if triggered
+      if (result?.calendarSyncTriggered) {
+        setTimeout(() => {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Syncing event to your connected calendar...',
+            variant: 'alert',
+            alert: { color: 'info' },
+            close: false
+          }));
+        }, 1500);
+      }
+
       return { ...result, command };
-      
+
     } catch (error) {
       console.error('Failed to update event:', error);
       
@@ -148,7 +174,7 @@ export const deleteEvent = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      await dispatch(projectApi.endpoints.deleteEvent.initiate({
+      const result = await dispatch(projectApi.endpoints.deleteEvent.initiate({
         eventId,
         projectId
       })).unwrap();
@@ -175,6 +201,19 @@ export const deleteEvent = createAsyncThunk(
         alert: { color: 'success' },
         close: false
       }));
+
+      // Show calendar sync toast if triggered
+      if (result?.calendarSyncTriggered) {
+        setTimeout(() => {
+          dispatch(openSnackbar({
+            open: true,
+            message: 'Removing event from your connected calendar...',
+            variant: 'alert',
+            alert: { color: 'info' },
+            close: false
+          }));
+        }, 1500);
+      }
 
       return { eventId, command };
       

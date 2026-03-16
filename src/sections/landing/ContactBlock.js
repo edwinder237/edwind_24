@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Send, Email, Business } from '@mui/icons-material';
 import Animation from './Animation';
+import { ADMIN_EMAIL } from '../../lib/email/resendClient';
 
 const ContactBlock = () => {
   const theme = useTheme();
@@ -148,7 +149,7 @@ const ContactBlock = () => {
                         <FormattedMessage id="landing.contact.emailUs" />
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        admin@edwind.ca
+                        {ADMIN_EMAIL}
                       </Typography>
                     </Box>
                   </Box>

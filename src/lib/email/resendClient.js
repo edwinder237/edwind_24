@@ -37,17 +37,20 @@ export function isEmailServiceConfigured() {
 }
 
 /**
- * Default sender configuration
+ * Email address configuration — reads from .env, falls back to defaults
  */
-export const DEFAULT_FROM_EMAIL = 'EDWIND <admin@edwind.ca>';
-export const SUPPORT_EMAIL = 'support@edwind.ca';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'admin@email.edbahn.app';
+export const ADMIN_EMAIL = FROM_EMAIL;
+export const DEFAULT_FROM_EMAIL = `EDBAHN <${FROM_EMAIL}>`;
+export const SUPPORT_EMAIL = process.env.RESEND_SUPPORT_EMAIL || 'support@email.edbahn.app';
+export const SECURITY_EMAIL = process.env.RESEND_SECURITY_EMAIL || 'security@email.edbahn.app';
 
 /**
  * Email sender presets for different types of emails
  */
 export const EMAIL_SENDERS = {
-  training: 'Training Schedule <admin@edwind.ca>',
-  credentials: 'CRM 360 access credentials <admin@edwind.ca>',
-  notifications: 'EDWIND Notifications <admin@edwind.ca>',
+  training: `Training Schedule <${FROM_EMAIL}>`,
+  credentials: `CRM 360 access credentials <${FROM_EMAIL}>`,
+  notifications: `EDBAHN Notifications <${FROM_EMAIL}>`,
   default: DEFAULT_FROM_EMAIL
 };

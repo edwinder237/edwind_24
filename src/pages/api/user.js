@@ -105,11 +105,25 @@ export default async function handler(req, res) {
           select: {
             id: true,
             title: true,
-            workos_org_id: true
+            workos_org_id: true,
+            status: true
           }
         });
 
         if (currentOrg) {
+          // Check if organization is deactivated
+          if (currentOrg.status === 'inactive') {
+            res.setHeader('Set-Cookie', [
+              'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+              'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+              'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+            ]);
+            return res.status(401).json({
+              error: 'Your organization has been deactivated',
+              code: 'ORGANIZATION_INACTIVE'
+            });
+          }
+
           currentOrgName = currentOrg.title;
 
           // Find the user's role in the CURRENT organization
@@ -159,10 +173,20 @@ export default async function handler(req, res) {
       try {
         const subData = await getOrgSubscription(currentOrgId);
         if (subData) {
+          console.log(`🔍 [USER API] Subscription for org ${currentOrgId}:`, {
+            planId: subData.planId,
+            status: subData.status,
+            trialStart: subData.trialStart,
+            trialEnd: subData.trialEnd,
+            stripeSubscriptionId: subData.stripeSubscriptionId
+          });
           subscription = {
             planId: subData.planId,
             planName: subData.plan?.name || 'Free',
-            status: subData.status
+            status: subData.status,
+            trialStart: subData.trialStart || null,
+            trialEnd: subData.trialEnd || null,
+            requiresCheckout: false // Trial works without upfront checkout; admin completes payment from subscription settings
           };
         }
       } catch (subError) {

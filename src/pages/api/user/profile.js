@@ -166,6 +166,8 @@ async function handleGet(req, res, userId) {
         planName: subscription.plan?.name || 'Free',
         status: subscription.status,
         currentPeriodEnd: subscription.currentPeriodEnd,
+        trialStart: subscription.trialStart || null,
+        trialEnd: subscription.trialEnd || null,
         resourceLimits: subscription.customLimits || subscription.plan?.resourceLimits || {},
         features: subscription.customFeatures || subscription.plan?.features || []
       } : {
