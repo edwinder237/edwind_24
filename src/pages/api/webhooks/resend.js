@@ -54,43 +54,41 @@ export default createHandler({
       return res.status(400).json({ error: 'Webhook signature verification failed' });
     }
 
-    // Acknowledge receipt immediately
-    res.status(200).json({ received: true });
+    // Process event BEFORE responding (Vercel terminates serverless functions after response)
+    const eventType = event.type;
+    const newStatus = STATUS_MAP[eventType];
 
-    // Process asynchronously
-    try {
-      const eventType = event.type;
-      const newStatus = STATUS_MAP[eventType];
-      if (!newStatus) return; // Ignore unhandled event types
-
+    if (newStatus) {
       const resendEmailId = event.data?.email_id;
       if (!resendEmailId) {
         console.warn('[RESEND WEBHOOK] No email_id in payload for event:', eventType);
-        return;
-      }
+      } else {
+        try {
+          const existing = await prisma.email_logs.findFirst({
+            where: { resendEmailId },
+            select: { id: true, deliveryStatus: true }
+          });
 
-      // Find matching email log(s)
-      const existing = await prisma.email_logs.findFirst({
-        where: { resendEmailId },
-        select: { id: true, deliveryStatus: true }
-      });
+          if (existing) {
+            const currentPriority = STATUS_PRIORITY[existing.deliveryStatus] || 0;
+            const newPriority = STATUS_PRIORITY[newStatus] || 0;
 
-      if (!existing) return; // Email not in our logs (sent before tracking was added)
-
-      // Only update if new status is more significant
-      const currentPriority = STATUS_PRIORITY[existing.deliveryStatus] || 0;
-      const newPriority = STATUS_PRIORITY[newStatus] || 0;
-      if (newPriority <= currentPriority) return;
-
-      await prisma.email_logs.updateMany({
-        where: { resendEmailId },
-        data: {
-          deliveryStatus: newStatus,
-          deliveryUpdatedAt: new Date()
+            if (newPriority > currentPriority) {
+              await prisma.email_logs.updateMany({
+                where: { resendEmailId },
+                data: {
+                  deliveryStatus: newStatus,
+                  deliveryUpdatedAt: new Date()
+                }
+              });
+            }
+          }
+        } catch (error) {
+          console.error('[RESEND WEBHOOK] Error processing event:', error);
         }
-      });
-    } catch (error) {
-      console.error('[RESEND WEBHOOK] Error processing event:', error);
+      }
     }
+
+    return res.status(200).json({ received: true });
   }
 });
