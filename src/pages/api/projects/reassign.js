@@ -18,18 +18,16 @@
  */
 
 import prisma from "../../../lib/prisma";
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique, scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { orgContext } = req;
 
-  const { orgContext } = req;
-
-  try {
+    try {
     const { projectId, newUserId } = req.body;
 
     if (!projectId) {
@@ -121,10 +119,9 @@ async function handler(req, res) {
       previousOwner: existingProject.user,
       newOwner: newUser
     });
-  } catch (error) {
-    console.error('Error reassigning project:', error);
-    throw error;
+    } catch (error) {
+      console.error('Error reassigning project:', error);
+      throw error;
+    }
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

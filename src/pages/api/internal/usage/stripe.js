@@ -9,15 +9,13 @@
  * - Recent activity
  */
 
+import { createHandler } from '../../../../lib/api/createHandler';
 import prisma from '../../../../lib/prisma';
 import { getStripe } from '../../../../lib/stripe/stripeService';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'public',
+  GET: async (req, res) => {
     // Check authentication (owner only)
     const userId = req.cookies.workos_user_id;
     if (!userId) {
@@ -235,8 +233,5 @@ export default async function handler(req, res) {
       }))
     });
 
-  } catch (error) {
-    console.error('[Stripe Usage] Error:', error);
-    return res.status(500).json({ error: 'Failed to fetch Stripe analytics' });
   }
-}
+});

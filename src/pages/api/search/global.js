@@ -23,37 +23,33 @@
  */
 
 import prisma from "../../../lib/prisma";
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
 
 const RESULTS_PER_TYPE = 5;
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { orgContext } = req;
+    const { q: query } = req.query;
 
-  const { orgContext } = req;
-  const { q: query } = req.query;
+    // Validate organization context for multi-tenancy
+    if (!orgContext || !orgContext.subOrganizationIds || orgContext.subOrganizationIds.length === 0) {
+      return res.status(403).json({
+        error: 'No organization access',
+        message: 'User does not have access to any sub-organizations'
+      });
+    }
 
-  // Validate organization context for multi-tenancy
-  if (!orgContext || !orgContext.subOrganizationIds || orgContext.subOrganizationIds.length === 0) {
-    return res.status(403).json({
-      error: 'No organization access',
-      message: 'User does not have access to any sub-organizations'
-    });
-  }
+    // Validate query
+    if (!query || query.trim().length < 2) {
+      return res.status(400).json({
+        error: 'Search query must be at least 2 characters'
+      });
+    }
 
-  // Validate query
-  if (!query || query.trim().length < 2) {
-    return res.status(400).json({
-      error: 'Search query must be at least 2 characters'
-    });
-  }
-
-  const searchTerm = query.trim();
-
-  try {
+    const searchTerm = query.trim();
     // Run all searches in parallel for performance
     // MULTI-TENANCY: Each query is scoped to user's subOrganizationIds
     const [projects, courses, curriculums, participants] = await Promise.all([
@@ -200,14 +196,5 @@ async function handler(req, res) {
       totalCount,
       query: searchTerm
     });
-
-  } catch (error) {
-    console.error('Global search error:', error);
-    return res.status(500).json({
-      error: 'Search failed',
-      message: error.message
-    });
   }
-}
-
-export default withOrgScope(handler);
+});

@@ -16,28 +16,30 @@
  */
 
 import prisma from "../../../lib/prisma";
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  const { projectId } = req.body;
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { projectId } = req.body;
+    const { orgContext } = req;
 
-  if (!projectId) {
-    throw new ValidationError('Project ID is required');
-  }
+    if (!projectId) {
+      throw new ValidationError('Project ID is required');
+    }
 
-  // Verify project ownership
-  const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
-    where: { id: parseInt(projectId) }
-  });
+    // Verify project ownership
+    const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: parseInt(projectId) }
+    });
 
-  if (!projectOwnership) {
-    throw new NotFoundError('Project not found');
-  }
+    if (!projectOwnership) {
+      throw new NotFoundError('Project not found');
+    }
 
-  try {
+    try {
     const events = await prisma.events.findMany({
       where: {
         projectId: projectId,
@@ -97,10 +99,9 @@ async function handler(req, res) {
     });
 
     res.status(200).json({ events });
-  } catch (error) {
-    console.error('[fetchEvents] Error:', error);
-    throw error;
+    } catch (error) {
+      console.error('[fetchEvents] Error:', error);
+      throw error;
+    }
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

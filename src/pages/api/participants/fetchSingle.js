@@ -12,19 +12,17 @@
  * - Checklist items
  *
  * Multi-tenancy: All queries are scoped to the user's organization via:
- * 1. withOrgScope middleware validates authentication and org membership
+ * 1. createHandler with org scope validates authentication and org membership
  * 2. Primary participant lookup verifies sub_organization ownership
  * 3. All related data queries filter by sub_organizationId
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
   const { orgContext } = req;
   const { participantId } = req.query;
 
@@ -34,8 +32,6 @@ async function handler(req, res) {
       message: 'Participant ID is required'
     });
   }
-
-  try {
     // Multi-tenancy gate: First verify participant belongs to user's organization
     // Query with org filter to prevent enumeration attacks
     const participant = await prisma.participants.findFirst({
@@ -517,15 +513,5 @@ async function handler(req, res) {
       checklistItems,
       stats
     });
-
-  } catch (error) {
-    console.error('Error fetching participant details:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch participant details',
-      error: error.message
-    });
   }
-}
-
-export default withOrgScope(handler);
+});

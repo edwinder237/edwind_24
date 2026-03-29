@@ -15,25 +15,21 @@
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { orgContext } = req;
+    const subOrgId = orgContext.subOrganizationIds[0];
 
-  const { orgContext } = req;
-  const subOrgId = orgContext.subOrganizationIds[0];
+    if (!subOrgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'No sub-organization found'
+      });
+    }
 
-  if (!subOrgId) {
-    return res.status(400).json({
-      success: false,
-      message: 'No sub-organization found'
-    });
-  }
-
-  try {
     // Check if a default curriculum already exists for this sub-org
     let defaultCurriculum = await prisma.curriculums.findFirst({
       where: {
@@ -123,11 +119,5 @@ async function handler(req, res) {
       },
       created: true
     });
-
-  } catch (error) {
-    console.error('Error ensuring default curriculum:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

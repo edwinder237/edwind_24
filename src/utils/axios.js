@@ -51,6 +51,24 @@ axiosServices.interceptors.response.use(
       return axiosServices(config);
     }
 
+    // Intercept resource limit / feature-not-available errors and show global dialog
+    if (error.response?.status === 403 && error.response?.data) {
+      const data = error.response.data;
+      if (
+        data.error === 'Resource limit exceeded' ||
+        data.error === 'Feature not available' ||
+        data.reason === 'plan_upgrade_required'
+      ) {
+        try {
+          const { showResourceLimitError } = await import('contexts/ResourceLimitContext');
+          showResourceLimitError(data);
+        } catch (_) {
+          // Context not mounted yet (e.g., during SSR) — fall through
+        }
+        data._limitHandled = true;
+      }
+    }
+
     return Promise.reject((error.response && error.response.data) || 'Network error occurred');
   }
 );

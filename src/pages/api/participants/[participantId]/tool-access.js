@@ -1,31 +1,27 @@
 import prisma from '../../../../lib/prisma';
+import { createHandler } from '../../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  const { method, query } = req;
-  const { participantId } = query;
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { participantId } = req.query;
 
-  if (!participantId) {
-    return res.status(400).json({ error: 'Participant ID is required' });
-  }
-
-  try {
-    switch (method) {
-      case 'GET':
-        return await getToolAccesses(req, res);
-      case 'POST':
-        return await createToolAccess(req, res);
-      default:
-        res.setHeader('Allow', ['GET', 'POST']);
-        return res.status(405).end(`Method ${method} Not Allowed`);
+    if (!participantId) {
+      return res.status(400).json({ error: 'Participant ID is required' });
     }
-  } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ 
-      error: 'Internal Server Error',
-      message: error.message 
-    });
+
+    return await getToolAccesses(req, res);
+  },
+  POST: async (req, res) => {
+    const { participantId } = req.query;
+
+    if (!participantId) {
+      return res.status(400).json({ error: 'Participant ID is required' });
+    }
+
+    return await createToolAccess(req, res);
   }
-}
+});
 
 async function getToolAccesses(req, res) {
   const { participantId } = req.query;

@@ -3,85 +3,98 @@
  * RESOURCE LIMIT DIALOG
  * ============================================
  *
- * Reusable dialog shown when a 403 "Resource limit exceeded" error
- * is returned from an API route. Displays current usage, the limit,
- * and provides role-appropriate actions:
- *   - Level 0-1 (Admin/Owner): "Upgrade Now" button
- *   - Level 2+  (other roles): "Contact Administrator" message
+ * Polished modal using MainCard (matches app styling) shown when a
+ * 403 "Resource limit exceeded" or "Feature not available" error
+ * is returned from an API route.
  *
- * Usage:
- *   const [limitError, setLimitError] = useState(null);
+ * Displays:
+ *   - Human-readable resource name in the title
+ *   - Current usage with visual progress bar
+ *   - Role-appropriate CTA (admin → "Upgrade Plan", others → "Contact Admin")
  *
- *   // In your fetch error handler:
- *   if (response.status === 403) {
- *     const data = await response.json();
- *     if (data.error === 'Resource limit exceeded') {
- *       setLimitError(data);
- *       return;
- *     }
- *   }
+ * Typically used via the global <ResourceLimitProvider> which renders
+ * this dialog automatically for all limit errors intercepted by axios.
  *
- *   <ResourceLimitDialog
- *     open={!!limitError}
- *     onClose={() => setLimitError(null)}
- *     limitError={limitError}
- *   />
+ * Can also be used directly:
+ *   <ResourceLimitDialog open={!!error} onClose={...} limitError={error} />
  */
 
-import { useRouter } from 'next/router';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Modal,
   Button,
   Typography,
   Box,
   LinearProgress,
-  Stack
+  Stack,
+  Chip,
+  Divider
 } from '@mui/material';
 import { WarningAmberRounded, ArrowUpward } from '@mui/icons-material';
+import MainCard from 'components/MainCard';
 import useUser from 'hooks/useUser';
 import { isAdmin } from 'lib/auth/roleNormalization';
+import { getResourceLabel, getResourceNoun } from 'lib/features/resourceDisplayNames';
 
 export default function ResourceLimitDialog({ open, onClose, limitError }) {
-  const router = useRouter();
   const { user } = useUser();
 
   if (!limitError) return null;
 
-  const { message, current, limit, available } = limitError;
+  const { current, limit, available, requiredPlan, currentPlan } = limitError;
+  const isFeatureError = limitError.error === 'Feature not available';
+  const resourceLabel = getResourceLabel(limitError);
+  const resourceNoun = getResourceNoun(limitError);
   const usagePercent = limit > 0 ? Math.min((current / limit) * 100, 100) : 100;
   const canUpgrade = isAdmin(user?.role);
 
+  // Build the dialog title
+  const title = isFeatureError
+    ? 'Feature Not Available'
+    : resourceLabel
+      ? `${resourceLabel} Limit Reached`
+      : 'Plan Limit Reached';
+
+  // Build the description message
+  let description;
+  if (isFeatureError) {
+    const planName = requiredPlan
+      ? requiredPlan.charAt(0).toUpperCase() + requiredPlan.slice(1)
+      : 'a higher';
+    description = `This feature requires the ${planName} plan or above.`;
+  } else if (typeof current === 'number' && typeof limit === 'number') {
+    description = `You've used all ${current} of your ${limit} available ${resourceNoun}.`;
+  } else {
+    description = `You've reached your plan limit for ${resourceNoun}.`;
+  }
+
   const handleUpgrade = () => {
     onClose();
-    router.push('/internal/subscriptions');
+    // Full page navigation to destroy any open dialogs/modals underneath
+    window.location.href = '/organization-settings?tab=billing';
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      PaperProps={{
-        sx: { borderTop: '4px solid', borderColor: 'warning.main' }
-      }}
-    >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
-        <WarningAmberRounded color="warning" />
-        <Typography variant="h5" component="span">
-          Limit Reached
-        </Typography>
-      </DialogTitle>
-
-      <DialogContent>
+    <Modal open={open} onClose={onClose} aria-labelledby="resource-limit-title">
+      <MainCard
+        modal
+        sx={{
+          width: { xs: 'calc(100% - 50px)', sm: 400 }
+        }}
+        title={
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <WarningAmberRounded color="warning" />
+            <Typography id="resource-limit-title" variant="h5">
+              {title}
+            </Typography>
+          </Stack>
+        }
+      >
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2.5 }}>
-          {message || 'You have reached your plan limit for this resource.'}
+          {description}
         </Typography>
 
-        {typeof current === 'number' && typeof limit === 'number' && (
+        {/* Usage bar - only for resource limit errors with numeric data */}
+        {!isFeatureError && typeof current === 'number' && typeof limit === 'number' && (
           <Box sx={{ mb: 2 }}>
             <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
               <Typography variant="body2" color="text.secondary">
@@ -112,29 +125,43 @@ export default function ResourceLimitDialog({ open, onClose, limitError }) {
           </Box>
         )}
 
+        {/* Plan info chip for feature errors */}
+        {isFeatureError && currentPlan && (
+          <Box sx={{ mb: 2 }}>
+            <Chip
+              label={`Current plan: ${currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}`}
+              size="small"
+              variant="outlined"
+              color="default"
+            />
+          </Box>
+        )}
+
         <Typography variant="body2" color="text.secondary">
           {canUpgrade
-            ? 'Upgrade your subscription plan to increase your limits and unlock more capacity.'
-            : 'Please contact your organization administrator to upgrade the subscription plan.'}
+            ? 'Upgrade your plan to increase your limits and unlock more capacity.'
+            : 'Please contact your organization administrator to upgrade the plan.'}
         </Typography>
-      </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-        <Button onClick={onClose} color="inherit" size="small">
-          Close
-        </Button>
-        {canUpgrade && (
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<ArrowUpward />}
-            onClick={handleUpgrade}
-          >
-            Upgrade Now
+        <Divider sx={{ my: 2 }} />
+
+        <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
+          <Button onClick={onClose} color="inherit" size="small">
+            Close
           </Button>
-        )}
-      </DialogActions>
-    </Dialog>
+          {canUpgrade && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<ArrowUpward />}
+              onClick={handleUpgrade}
+            >
+              Upgrade Plan
+            </Button>
+          )}
+        </Stack>
+      </MainCard>
+    </Modal>
   );
 }
 
@@ -156,7 +183,8 @@ export function isResourceLimitError(status, data) {
     status === 403 &&
     data &&
     (data.error === 'Resource limit exceeded' ||
-     data.error === 'Feature not available')
+     data.error === 'Feature not available' ||
+     data.reason === 'plan_upgrade_required')
   ) {
     return data;
   }

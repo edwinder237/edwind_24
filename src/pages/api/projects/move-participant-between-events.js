@@ -1,23 +1,20 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from "../../../lib/prisma";
 
 /**
  * API endpoint for moving a participant between events
  * Removes participant from source event and adds to target event
  */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { participantId, fromEventId, toEventId, projectId } = req.body;
 
-  const { participantId, fromEventId, toEventId, projectId } = req.body;
-
-  if (!participantId || !toEventId || !projectId) {
-    return res.status(400).json({ 
-      error: 'Participant ID, target event ID, and project ID are required' 
-    });
-  }
-
-  try {
+    if (!participantId || !toEventId || !projectId) {
+      return res.status(400).json({
+        error: 'Participant ID, target event ID, and project ID are required'
+      });
+    }
     const result = await prisma.$transaction(async (tx) => {
       const operations = [];
 
@@ -155,16 +152,9 @@ export default async function handler(req, res) {
     res.status(200).json({
       success: true,
       data: result,
-      message: result.fromEventId 
+      message: result.fromEventId
         ? `Participant moved from "${result.eventTitles.from}" to "${result.eventTitles.to}"`
         : `Participant added to "${result.eventTitles.to}"`
     });
-
-  } catch (error) {
-    console.error('Error moving participant between events:', error);
-    res.status(500).json({ 
-      error: 'Failed to move participant between events', 
-      details: error.message 
-    });
   }
-}
+});

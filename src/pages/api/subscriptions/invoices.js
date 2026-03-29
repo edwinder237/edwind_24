@@ -9,17 +9,15 @@
  * PROTECTED: Admin-only access via withAdminScope middleware
  */
 
-import { withAdminScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { getStripe } from '../../../lib/stripe/stripeService.js';
 import prisma from '../../../lib/prisma.js';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'admin',
+  skipSubscriptionCheck: true,
+  GET: async (req, res) => {
+    const { orgContext } = req;
   const stripe = getStripe();
 
   // Get subscription to find Stripe customer ID
@@ -70,13 +68,12 @@ async function handler(req, res) {
       hasMore: stripeInvoices.has_more,
       message: invoices.length > 0 ? 'Invoices found' : 'No invoices found'
     });
-  } catch (err) {
-    console.error('Error fetching invoices:', err);
-    return res.status(500).json({
-      invoices: [],
-      message: 'Could not retrieve invoices'
-    });
+    } catch (err) {
+      console.error('Error fetching invoices:', err);
+      return res.status(500).json({
+        invoices: [],
+        message: 'Could not retrieve invoices'
+      });
+    }
   }
-}
-
-export default withAdminScope(asyncHandler(handler));
+});

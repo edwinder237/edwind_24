@@ -1,16 +1,14 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { bumpVersion } from '../../../lib/utils/versionUtils';
 import { isVersionLocked } from '../../../lib/utils/versionProtection';
 import { createAuditLog } from '../../../lib/utils/auditLog';
-import { attachUserClaims } from '../../../lib/auth/middleware';
 
-export default async function handler(req, res) {
-  // Get user info for audit logging
-  await attachUserClaims(req, res);
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { moduleId, changedByName } = req.body;
 
-  const { moduleId, changedByName } = req.body;
-
-  try {
     // Get the module info before deletion
     const moduleToDelete = await prisma.modules.findUnique({
       where: { id: parseInt(moduleId) },
@@ -78,7 +76,7 @@ export default async function handler(req, res) {
     });
 
     // Log the audit entry
-    const userName = changedByName || req.userClaims?.name || course?.authorName || 'Author';
+    const userName = changedByName || req.orgContext?.claims?.name || course?.authorName || 'Author';
     await createAuditLog(prisma, {
       courseId,
       entityType: 'module',
@@ -97,8 +95,5 @@ export default async function handler(req, res) {
       courseId: courseId,
       courseVersion: newVersion,
     });
-  } catch (error) {
-    console.error('Error deleting module:', error);
-    res.status(500).json({ error: 'Failed to delete module' });
   }
-}
+});

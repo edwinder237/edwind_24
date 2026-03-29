@@ -19,18 +19,14 @@
  */
 
 import { calculateCourseDurationFromModules } from '../../../utils/durationCalculations';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { orgContext } = req;
 
-  const { orgContext } = req;
-
-  try {
     // Fetch curriculums filtered by organization's sub-organizations
     const curriculums = await scopedFindMany(orgContext, 'curriculums', {
       include: {
@@ -104,11 +100,5 @@ async function handler(req, res) {
     }));
 
     res.status(200).json(formattedCurriculums);
-
-  } catch (error) {
-    console.error('Error fetching curriculums:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

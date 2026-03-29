@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { curriculumId } = req.query;
 
     if (!curriculumId) {
@@ -35,12 +33,5 @@ export default async function handler(req, res) {
       success: true,
       surveys
     });
-  } catch (error) {
-    console.error('Error fetching curriculum surveys:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch surveys',
-      error: error.message
-    });
   }
-}
+});

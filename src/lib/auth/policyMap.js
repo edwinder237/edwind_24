@@ -31,6 +31,23 @@ export const ROLE_PERMISSIONS = {
   ],
 
   /**
+   * owner - WorkOS assigns this to organization creators
+   */
+  'owner': [
+    'projects:*',
+    'sub_organizations:*',
+    'users:*',
+    'courses:*',
+    'curriculums:*',
+    'participants:*',
+    'instructors:*',
+    'reports:*',
+    'settings:*',
+    'assessments:*',
+    'events:*'
+  ],
+
+  /**
    * admin (lowercase) - Same as Admin for WorkOS compatibility
    */
   'admin': [
@@ -182,6 +199,7 @@ export const ROLE_PERMISSIONS = {
  * Lower number = higher privilege
  */
 export const ROLE_HIERARCHY = {
+  'owner': 0, // WorkOS org creator
   'Admin': 0,
   'admin': 0, // WorkOS compatibility
   'Organization Admin': 1,

@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
 /**
  * Get project-level assessment data aggregated across all participants
@@ -7,13 +8,8 @@ import prisma from '../../../lib/prisma';
  * @query {number} projectId - The project ID
  * @returns {Object} Aggregated assessment data with participant scores
  */
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const { projectId } = req.query;
+export default createHandler({ scope: 'org', GET: async (req, res) => {
+  const { projectId } = req.query;
 
     if (!projectId) {
       return res.status(400).json({
@@ -269,13 +265,5 @@ export default async function handler(req, res) {
       totalParticipants,
       totalAssessments: allAssessments.length
     });
-
-  } catch (error) {
-    console.error('Error fetching project assessments:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch project assessments',
-      error: error.message
-    });
-  }
 }
+});

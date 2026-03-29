@@ -1,21 +1,19 @@
 import prisma from '../../../../lib/prisma';
+import { createHandler } from '../../../../lib/api/createHandler';
 
 /**
  * GET /api/courses/versions/[id]
  * Get a specific version with full content
  */
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { id } = req.query;
 
-  const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({ error: 'Version ID is required' });
+    }
 
-  if (!id) {
-    return res.status(400).json({ error: 'Version ID is required' });
-  }
-
-  try {
     const version = await prisma.course_versions.findUnique({
       where: { id: parseInt(id) },
       include: {
@@ -80,12 +78,5 @@ export default async function handler(req, res) {
         eventCount: version._count.events
       }
     });
-  } catch (error) {
-    console.error('Error fetching version:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch version',
-      details: error.message
-    });
   }
-}
+});

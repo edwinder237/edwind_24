@@ -9,17 +9,17 @@
  * FIXED: Added org scope middleware for consistency.
  */
 
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
 
-async function handler(req, res) {
-  const { newProject, Projects } = req.body;
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { newProject, Projects } = req.body;
 
-  const result = {
-    Projects: [newProject, ...Projects]
-  };
+    const result = {
+      Projects: [newProject, ...Projects]
+    };
 
-  return res.status(200).json({ ...result });
-}
-
-export default withOrgScope(asyncHandler(handler));
+    return res.status(200).json({ ...result });
+  }
+});

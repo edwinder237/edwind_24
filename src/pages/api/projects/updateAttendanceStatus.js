@@ -1,3 +1,4 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from "../../../lib/prisma";
 import { WorkOS } from '@workos-inc/node';
 
@@ -11,12 +12,9 @@ function clearProgressCacheForProject(projectId) {
 }
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const userId = req.cookies.workos_user_id;
     
     if (!userId) {
@@ -81,9 +79,5 @@ export default async function handler(req, res) {
       count: updatedAttendee.count,
       progressCacheCleared: true
     });
-
-  } catch (error) {
-    console.error('Error updating attendance status:', error);
-    return res.status(500).json({ error: 'Internal server error' });
   }
-}
+});

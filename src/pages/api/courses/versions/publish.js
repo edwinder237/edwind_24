@@ -1,4 +1,5 @@
 import prisma from '../../../../lib/prisma';
+import { createHandler } from '../../../../lib/api/createHandler';
 
 /**
  * POST /api/courses/versions/publish
@@ -9,18 +10,15 @@ import prisma from '../../../../lib/prisma';
  * - changelog: Optional - description of changes in this version
  * - userId: Optional - the user publishing
  */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { versionId, changelog, userId } = req.body;
 
-  const { versionId, changelog, userId } = req.body;
+    if (!versionId) {
+      return res.status(400).json({ error: 'versionId is required' });
+    }
 
-  if (!versionId) {
-    return res.status(400).json({ error: 'versionId is required' });
-  }
-
-  try {
     // Get the version to publish
     const version = await prisma.course_versions.findUnique({
       where: { id: parseInt(versionId) },
@@ -141,13 +139,5 @@ export default async function handler(req, res) {
       message: `Version ${publishedVersion.version} published successfully`,
       version: completeVersion
     });
-
-  } catch (error) {
-    console.error('Error publishing version:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to publish version',
-      details: error.message
-    });
   }
-}
+});

@@ -1,15 +1,13 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
 /**
  * API endpoint to force-sync course progress for an event
  * This will check all completed modules and update courses_enrollee_progress
  */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { eventId } = req.body;
 
     if (!eventId) {
@@ -153,13 +151,5 @@ export default async function handler(req, res) {
         results
       }
     });
-
-  } catch (error) {
-    console.error('Error syncing course progress:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to sync course progress',
-      details: error.message
-    });
   }
-}
+});

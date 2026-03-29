@@ -16,28 +16,18 @@ import {
   AccordionDetails
 } from '@mui/material';
 import { ArrowLeftOutlined, DownOutlined } from '@ant-design/icons';
-import CustomEventIconPicker, { DEFAULT_CATEGORY_ICONS } from './CustomEventIconPicker';
-import { CUSTOM_EVENT_CATEGORIES, CUSTOM_EVENT_DURATIONS } from '../../../utils/constants';
+import { CUSTOM_EVENT_DURATIONS } from '../../../utils/constants';
 import { APP_COLOR_OPTIONS } from 'constants/eventColors';
 
-const CustomEventForm = ({ onSubmit, onCancel, isSubmitting, theme }) => {
+const CustomEventForm = ({ onSubmit, onCancel, isSubmitting, theme, onFormStateChange }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: 'Break',
+    category: 'Custom',
     duration: 60,
-    icon: DEFAULT_CATEGORY_ICONS['Break'],
     color: null
   });
   const [errors, setErrors] = useState({});
-
-  // Update icon when category changes
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      icon: DEFAULT_CATEGORY_ICONS[prev.category] || DEFAULT_CATEGORY_ICONS.Other
-    }));
-  }, [formData.category]);
 
   const handleChange = (field) => (event) => {
     const value = event.target.value;
@@ -47,10 +37,6 @@ const CustomEventForm = ({ onSubmit, onCancel, isSubmitting, theme }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: null }));
     }
-  };
-
-  const handleIconSelect = (iconName) => {
-    setFormData(prev => ({ ...prev, icon: iconName }));
   };
 
   const handleColorSelect = (colorValue) => {
@@ -83,10 +69,12 @@ const CustomEventForm = ({ onSubmit, onCancel, isSubmitting, theme }) => {
     }
   };
 
-  const getTextColor = (colorValue) => {
-    const colorOption = APP_COLOR_OPTIONS.find(c => c.value === colorValue);
-    return colorOption?.textColor || '#ffffff';
-  };
+  // Notify parent of form state for external submit button
+  useEffect(() => {
+    if (onFormStateChange) {
+      onFormStateChange({ handleSubmit, canSubmit: !!formData.title.trim() });
+    }
+  }, [formData.title]);
 
   return (
     <Box>
@@ -140,45 +128,21 @@ const CustomEventForm = ({ onSubmit, onCancel, isSubmitting, theme }) => {
           size="small"
         />
 
-        {/* Category and Duration row */}
-        <Stack direction="row" spacing={2}>
-          <FormControl sx={{ flex: 1 }} size="small">
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={formData.category}
-              onChange={handleChange('category')}
-              label="Category"
-            >
-              {CUSTOM_EVENT_CATEGORIES.map((cat) => (
-                <MenuItem key={cat} value={cat}>
-                  {cat}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl sx={{ width: 130 }} size="small">
-            <InputLabel>Duration</InputLabel>
-            <Select
-              value={formData.duration}
-              onChange={handleChange('duration')}
-              label="Duration"
-            >
-              {CUSTOM_EVENT_DURATIONS.map(({ value, label }) => (
-                <MenuItem key={value} value={value}>
-                  {label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Stack>
-
-        {/* Icon Picker */}
-        <CustomEventIconPicker
-          selectedIcon={formData.icon}
-          category={formData.category}
-          onSelect={handleIconSelect}
-        />
+        {/* Duration */}
+        <FormControl fullWidth size="small">
+          <InputLabel>Duration</InputLabel>
+          <Select
+            value={formData.duration}
+            onChange={handleChange('duration')}
+            label="Duration"
+          >
+            {CUSTOM_EVENT_DURATIONS.map(({ value, label }) => (
+              <MenuItem key={value} value={value}>
+                {label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
         {/* Color Picker (collapsible) */}
         <Accordion
@@ -265,23 +229,7 @@ const CustomEventForm = ({ onSubmit, onCancel, isSubmitting, theme }) => {
         </Accordion>
       </Stack>
 
-      {/* Action buttons */}
-      <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
-        <Button
-          variant="outlined"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={!formData.title.trim() || isSubmitting}
-        >
-          {isSubmitting ? 'Creating...' : 'Create Event'}
-        </Button>
-      </Stack>
+      {/* Action buttons rendered by parent dialog */}
     </Box>
   );
 };

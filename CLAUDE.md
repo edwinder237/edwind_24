@@ -67,6 +67,44 @@ await prisma.$disconnect(); // NEVER DO THIS
 - **Main client**: `src/lib/prisma.js` - Import from here
 - **Scoped queries**: `src/lib/prisma/scopedQueries.js` - Uses the shared client internally
 
+## CRITICAL: API Route Pattern (MUST FOLLOW)
+
+**All API routes MUST use `createHandler` from `src/lib/api/createHandler.js`.**
+
+### Default (org-scoped) route
+```javascript
+import { createHandler } from '../../../lib/api/createHandler';
+
+export default createHandler({
+  POST: async (req, res) => {
+    // req.orgContext is guaranteed — auth + org membership verified
+    // req.db is scoped to user's organization automatically
+    const projects = await req.db.projects.findMany({});
+    res.status(200).json({ projects });
+  }
+});
+```
+
+### Scope options
+```javascript
+// Admin-only route
+export default createHandler({ scope: 'admin', GET: async (req, res) => { ... } });
+
+// Authenticated user, org optional (profile, org selection)
+export default createHandler({ scope: 'auth', GET: async (req, res) => { ... } });
+
+// Public (auth endpoints, webhooks)
+export default createHandler({ scope: 'public', POST: async (req, res) => { ... } });
+```
+
+### Key rules
+- **Organization scoping is ON by default** — public routes must explicitly use `scope: 'public'`
+- Use `req.db` instead of importing `prisma` directly for org-scoped models
+- Use `req.db.$raw` ONLY when cross-org access is needed (will be flagged in CI/review)
+- Use `req.db.$transaction` for transactions (these use raw Prisma internally)
+- For child models without `sub_organizationId` (events, groups), verify the parent project's org first
+- The lint script `scripts/lint-api-routes.sh` enforces this in CI
+
 ## Project Architecture
 
 ### Application Overview

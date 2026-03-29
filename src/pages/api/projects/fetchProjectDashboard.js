@@ -1,22 +1,20 @@
 import prisma from "../../../lib/prisma";
 import { calculateProjectCourseCompletion } from "../../../utils/courseCompletionCalculator";
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { projectId } = req.body;
+    const { orgContext } = req;
 
-  const { projectId } = req.body;
-  const { orgContext } = req;
+    if (!projectId) {
+      throw new ValidationError('Project ID is required');
+    }
 
-  if (!projectId) {
-    throw new ValidationError('Project ID is required');
-  }
-
-  try {
+    try {
     // First verify project exists and belongs to organization
     const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
       where: { id: parseInt(projectId) }
@@ -103,16 +101,15 @@ async function handler(req, res) {
       data: dashboardData
     });
 
-  } catch (error) {
-    console.error('Error fetching project dashboard:', error);
-    res.status(500).json({
-      error: 'Failed to fetch project dashboard',
-      details: error.message
-    });
+    } catch (error) {
+      console.error('Error fetching project dashboard:', error);
+      res.status(500).json({
+        error: 'Failed to fetch project dashboard',
+        details: error.message
+      });
+    }
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});
 
 function calculateDashboardMetrics(project) {
   // Basic project info

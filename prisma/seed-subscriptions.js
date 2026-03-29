@@ -20,7 +20,9 @@ const PLANS = [
       'basic_participant_management',
       'basic_courses',
       'basic_reporting',
-      'single_sub_organization'
+      'single_sub_organization',
+      'training_recipients',
+      'event_management'
     ],
     resourceLimits: {
       maxProjects: 5,
@@ -29,8 +31,9 @@ const PLANS = [
       maxInstructors: 3,
       maxCourses: 15,
       maxCurriculums: 5,
-      maxStorageGB: 5,
-      maxProjectsPerMonth: 5
+      maxProjectsPerMonth: 5,
+      maxTrainingRecipients: 3,
+      maxSmartPulsePerDay: 5
     }
   },
   {
@@ -63,7 +66,10 @@ const PLANS = [
       'attendance_tracking',
       'group_management',
       'custom_participant_roles',
-      'multiple_sub_organizations'
+      'multiple_sub_organizations',
+      'dashboard',
+      'timeline',
+      'kirkpatrick'
     ],
     resourceLimits: {
       maxProjects: 50,
@@ -72,9 +78,10 @@ const PLANS = [
       maxInstructors: 20,
       maxCourses: 100,
       maxCurriculums: 25,
-      maxStorageGB: 50,
       maxProjectsPerMonth: 50,
-      maxCustomRoles: 10
+      maxCustomRoles: 10,
+      maxTrainingRecipients: 8,
+      maxSmartPulsePerDay: 25
     }
   },
   {
@@ -108,16 +115,25 @@ const PLANS = [
       'group_management',
       'custom_participant_roles',
       'multiple_sub_organizations',
+      'dashboard',
+      'timeline',
+      'kirkpatrick',
       'api_access',
-      'sso_integration',
-      'custom_branding',
-      'priority_support',
-      'white_labeling',
-      'advanced_permissions',
+      'sso_saml',
+      'white_label',
       'custom_integrations',
+      'priority_support',
+      'dedicated_account_manager',
+      'custom_sla',
       'audit_logs',
+      'advanced_security',
+      'custom_workflows',
+      'bulk_operations',
+      'advanced_permissions',
+      'custom_branding',
+      'multi_language',
       'data_export',
-      'dedicated_support'
+      'custom_reports'
     ],
     resourceLimits: {
       maxProjects: -1, // unlimited
@@ -126,9 +142,10 @@ const PLANS = [
       maxInstructors: -1,
       maxCourses: -1,
       maxCurriculums: -1,
-      maxStorageGB: 500,
       maxProjectsPerMonth: -1,
-      maxCustomRoles: -1
+      maxCustomRoles: -1,
+      maxTrainingRecipients: -1,
+      maxSmartPulsePerDay: -1
     }
   }
 ];

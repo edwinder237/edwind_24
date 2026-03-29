@@ -20,18 +20,17 @@
 
 import { WorkOS } from '@workos-inc/node';
 import prisma from '../../../../lib/prisma';
-import { withOrgScope } from '../../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError } from '../../../../lib/errors/index.js';
+import { createHandler } from '../../../../lib/api/createHandler';
+import { ValidationError } from '../../../../lib/errors/index.js';
 import { invalidateClaimsCache, warmClaimsCache } from '../../../../lib/auth/claimsCache.js';
 import { enforceResourceLimit } from '../../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../../lib/features/featureAccess';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
 
   const { orgContext } = req;
   const { title, description } = req.body;
@@ -90,6 +89,5 @@ async function handler(req, res) {
     success: true,
     subOrganization
   });
-}
-
-export default withOrgScope(asyncHandler(handler));
+  }
+});

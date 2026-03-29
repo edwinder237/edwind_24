@@ -1,21 +1,19 @@
 import prisma from '../../../../lib/prisma';
+import { createHandler } from '../../../../lib/api/createHandler';
 
 /**
  * GET /api/courses/versions?courseId=123
  * Lists all versions for a course
  */
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { courseId } = req.query;
 
-  const { courseId } = req.query;
+    if (!courseId) {
+      return res.status(400).json({ error: 'courseId is required' });
+    }
 
-  if (!courseId) {
-    return res.status(400).json({ error: 'courseId is required' });
-  }
-
-  try {
     const versions = await prisma.course_versions.findMany({
       where: { courseId: parseInt(courseId) },
       orderBy: { createdAt: 'desc' },
@@ -50,12 +48,5 @@ export default async function handler(req, res) {
       success: true,
       versions: versionsWithMeta
     });
-  } catch (error) {
-    console.error('Error fetching course versions:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch versions',
-      details: error.message
-    });
   }
-}
+});

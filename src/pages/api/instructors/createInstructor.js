@@ -20,20 +20,16 @@
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedCreate } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { ValidationError } from '../../../lib/errors/index.js';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { orgContext } = req;
     const {
       firstName,
       lastName,
@@ -111,11 +107,5 @@ async function handler(req, res) {
       data: instructor,
       instructor: instructor // Keep both for backward compatibility
     });
-
-  } catch (error) {
-    console.error('Error creating instructor:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

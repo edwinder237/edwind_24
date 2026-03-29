@@ -1,17 +1,15 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 
-export default async function handler(req, res) {
-  if (req.method !== 'DELETE') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  DELETE: async (req, res) => {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Course ID is required' 
+        message: 'Course ID is required'
       });
     }
 
@@ -28,15 +26,15 @@ export default async function handler(req, res) {
     });
 
     if (!existingCourse) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Course not found' 
+        message: 'Course not found'
       });
     }
 
     // Check if course is being used in any curriculums or events
     const hasAssociations = existingCourse.curriculum_courses.length > 0 || existingCourse.events.length > 0;
-    
+
     if (hasAssociations) {
       return res.status(400).json({
         success: false,
@@ -54,13 +52,5 @@ export default async function handler(req, res) {
       message: 'Course deleted successfully',
       courseId: courseId
     });
-
-  } catch (error) {
-    console.error('Error deleting course:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to delete course',
-      error: error.message 
-    });
   }
-}
+});

@@ -5,23 +5,22 @@
  * GET /api/maps/photo?photoReference=...&maxWidth=...
  */
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+import { createHandler } from '../../../lib/api/createHandler';
 
-  const { photoReference, maxWidth = 800 } = req.query;
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { photoReference, maxWidth = 800 } = req.query;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
-  if (!photoReference) {
-    return res.status(400).json({ error: 'photoReference parameter is required' });
-  }
+    if (!photoReference) {
+      return res.status(400).json({ error: 'photoReference parameter is required' });
+    }
 
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Maps API key not configured' });
-  }
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Maps API key not configured' });
+    }
 
-  try {
     const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxWidth}&photoreference=${photoReference}&key=${apiKey}`;
 
     const response = await fetch(photoUrl);
@@ -39,8 +38,5 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
 
     return res.send(Buffer.from(buffer));
-  } catch (error) {
-    console.error('[Maps Proxy] Photo fetch error:', error);
-    return res.status(500).json({ error: 'Failed to fetch photo' });
   }
-}
+});

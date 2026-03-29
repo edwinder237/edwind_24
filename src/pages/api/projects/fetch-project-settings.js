@@ -1,16 +1,14 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from "../../../lib/prisma";
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { projectId } = req.query;
 
     if (!projectId) {
-      return res.status(400).json({ 
-        error: 'Missing required parameter', 
+      return res.status(400).json({
+        error: 'Missing required parameter',
         details: 'projectId is required'
       });
     }
@@ -53,13 +51,5 @@ export default async function handler(req, res) {
       },
       settings: projectSettings
     });
-
-  } catch (error) {
-    console.error('Error fetching project settings:', error);
-    
-    res.status(500).json({ 
-      error: "Internal Server Error",
-      message: "Failed to fetch project settings"
-    });
   }
-}
+});

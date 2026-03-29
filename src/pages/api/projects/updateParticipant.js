@@ -10,10 +10,11 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
 
-async function handler(req, res) {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
   const { index, id, value, participants, groups } = req.body;
 
   const updatedParticipants = participants.map((person) => {
@@ -53,6 +54,5 @@ async function handler(req, res) {
   };
 
   return res.status(200).json({ ...result });
-}
-
-export default withOrgScope(asyncHandler(handler));
+  }
+});

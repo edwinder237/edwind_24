@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import { useState, useEffect, useRef } from 'react';
 
 // material-ui
 import {
@@ -13,24 +12,30 @@ import {
 } from '@mui/material';
 
 // icons
-import { CreditCardOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { CreditCardOutlined } from '@ant-design/icons';
 
 // project import
 import Layout from 'layout';
+import useUser from 'hooks/useUser';
 import axios from 'utils/axios';
 
 const CheckoutRequiredPage = () => {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { user } = useUser();
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const hasAttempted = useRef(false);
 
-  const handleContinueToCheckout = async () => {
+  const planId = user?.subscription?.planId || 'essential';
+  const planName = user?.subscription?.planName || 'Essential';
+  const hasTrial = planId === 'professional';
+
+  const redirectToCheckout = async () => {
     setLoading(true);
     setError('');
 
     try {
       const response = await axios.post('/api/subscriptions/checkout', {
-        planId: 'professional',
+        planId,
         interval: 'monthly'
       });
 
@@ -47,10 +52,45 @@ const CheckoutRequiredPage = () => {
     }
   };
 
+  // Auto-redirect to Stripe checkout on mount
+  useEffect(() => {
+    if (!user || hasAttempted.current) return;
+    hasAttempted.current = true;
+    redirectToCheckout();
+  }, [user]);
+
   const handleLogout = () => {
     window.location.href = '/api/auth/logout';
   };
 
+  // Show loading spinner while redirecting to Stripe
+  if (loading && !error) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 3
+        }}
+      >
+        <Container maxWidth="sm">
+          <Card sx={{ borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <CardContent sx={{ p: { xs: 3, md: 5 }, textAlign: 'center' }}>
+              <CircularProgress sx={{ mb: 3 }} />
+              <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                Redirecting to payment...
+              </Typography>
+            </CardContent>
+          </Card>
+        </Container>
+      </Box>
+    );
+  }
+
+  // Show error fallback with retry button
   return (
     <Box
       sx={{
@@ -86,11 +126,13 @@ const CheckoutRequiredPage = () => {
             </Typography>
 
             <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-              You selected the <strong>Professional</strong> plan with a 14-day free trial.
+              You selected the <strong>{planName}</strong> plan.
             </Typography>
 
             <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              To activate your trial, please add your payment details. You won&apos;t be charged until the trial ends.
+              {hasTrial
+                ? "To activate your 14-day free trial, please add your payment details. You won\u2019t be charged until the trial ends."
+                : 'Please add your payment details to activate your subscription.'}
             </Typography>
 
             {error && (
@@ -103,7 +145,7 @@ const CheckoutRequiredPage = () => {
               variant="contained"
               size="large"
               fullWidth
-              onClick={handleContinueToCheckout}
+              onClick={redirectToCheckout}
               disabled={loading}
               sx={{
                 py: 1.5,

@@ -14,13 +14,11 @@
  */
 
 import prisma from '../../../../lib/prisma';
-import { withOrgScope } from '../../../../lib/middleware/withOrgScope.js';
-import { asyncHandler } from '../../../../lib/errors/index.js';
+import { createHandler } from '../../../../lib/api/createHandler';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
 
   const { orgContext } = req;
 
@@ -78,6 +76,5 @@ async function handler(req, res) {
       max: maxSubOrganizations
     }
   });
-}
-
-export default withOrgScope(asyncHandler(handler));
+  }
+});

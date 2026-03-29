@@ -1,4 +1,4 @@
-
+import { createHandler } from '../../../lib/api/createHandler';
 
 const employees = [
     {
@@ -123,7 +123,9 @@ const employees = [
     }
 ];
 
-
-export default function handler(req, res) {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     return res.status(200).json({ employees: employees });
-  };
+  }
+});

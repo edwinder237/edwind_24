@@ -1,11 +1,9 @@
 import prisma from '../../../../lib/prisma';
+import { createHandler } from '../../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { courseId } = req.query;
     const {
       entityType,
@@ -94,12 +92,5 @@ export default async function handler(req, res) {
         hasMore: parsedOffset + history.length < total,
       },
     });
-  } catch (error) {
-    console.error('Error fetching audit history:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch audit history',
-      error: error.message,
-    });
   }
-}
+});

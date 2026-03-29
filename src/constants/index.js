@@ -67,6 +67,7 @@ export const COURSE_STATUS = {
   DRAFT: 'draft',
   REVIEW: 'review',
   APPROVED: 'approved',
+  PILOT: 'pilot',
   PUBLISHED: 'published',
   ARCHIVED: 'archived',
   INACTIVE: 'inactive',

@@ -1,5 +1,6 @@
 import prisma from '../../../../lib/prisma';
 import { bumpVersion } from '../../../../lib/utils/versionUtils';
+import { createHandler } from '../../../../lib/api/createHandler';
 
 /**
  * POST /api/courses/versions/create-draft
@@ -10,18 +11,15 @@ import { bumpVersion } from '../../../../lib/utils/versionUtils';
  * - fromVersionId: Optional - specific version to clone from (defaults to latest published)
  * - userId: Optional - the user creating the draft
  */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { courseId, fromVersionId, userId } = req.body;
 
-  const { courseId, fromVersionId, userId } = req.body;
+    if (!courseId) {
+      return res.status(400).json({ error: 'courseId is required' });
+    }
 
-  if (!courseId) {
-    return res.status(400).json({ error: 'courseId is required' });
-  }
-
-  try {
     // Check if course already has a draft
     const course = await prisma.courses.findUnique({
       where: { id: parseInt(courseId) },
@@ -181,13 +179,5 @@ export default async function handler(req, res) {
       version: completeDraft,
       clonedFrom: sourceVersion?.version || null
     });
-
-  } catch (error) {
-    console.error('Error creating draft version:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create draft version',
-      details: error.message
-    });
   }
-}
+});

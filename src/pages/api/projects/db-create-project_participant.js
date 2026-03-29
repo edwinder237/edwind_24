@@ -1,10 +1,12 @@
 import prisma from "../../../lib/prisma";
-import { withOrgScope } from "../../../lib/middleware/withOrgScope";
+import { createHandler } from '../../../lib/api/createHandler';
 import { enforceResourceLimit } from "../../../lib/features/subscriptionService";
 import { RESOURCES } from "../../../lib/features/featureAccess";
 
-async function handler(req, res) {
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    try {
     // Extract participant data from the request body
     const { projectId, newParticipant } = req.body;
     const { orgContext } = req;
@@ -251,7 +253,6 @@ async function handler(req, res) {
       message: "An unexpected error occurred while adding the participant.",
       details: error.message
     });
+    }
   }
-}
-
-export default withOrgScope(handler);
+});

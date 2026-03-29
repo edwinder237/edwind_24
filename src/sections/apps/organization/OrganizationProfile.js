@@ -173,11 +173,11 @@ const OrganizationProfile = ({ focusInput }) => {
               )}
             </Box>
             <Stack spacing={0.5}>
-              <Typography variant="h5">{organization?.title || user?.organizationName || 'EDWIND Learning Solutions'}</Typography>
+              <Typography variant="h5">{organization?.title || user?.organizationName || 'My Organization'}</Typography>
               <Typography color="secondary">
                 {organization?.sub_organizations && Array.isArray(organization.sub_organizations) && organization.sub_organizations.length > 0
                   ? organization.sub_organizations[0].title
-                  : user?.subOrganizationName || 'Training Division'}
+                  : user?.subOrganizationName || ''}
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ maxWidth: 350 }}>
                 Sub-organization for managing training programs and educational content delivery.

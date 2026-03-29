@@ -21,9 +21,9 @@
  */
 
 import prisma from "../../../lib/prisma";
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
 // Helper function to calculate individual participant progress
 async function calculateIndividualParticipantProgress(participantId, projectParticipantId, groupId, projectId) {
@@ -207,28 +207,26 @@ async function calculateGroupCurriculumProgress(groupId, projectId) {
   }
 }
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { projectId } = req.body;
+    const { orgContext } = req;
 
-  const { projectId } = req.body;
-  const { orgContext } = req;
+    if (!projectId) {
+      throw new ValidationError('Project ID is required');
+    }
 
-  if (!projectId) {
-    throw new ValidationError('Project ID is required');
-  }
+    // Verify project ownership
+    const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: parseInt(projectId) }
+    });
 
-  // Verify project ownership
-  const projectOwnership = await scopedFindUnique(orgContext, 'projects', {
-    where: { id: parseInt(projectId) }
-  });
+    if (!projectOwnership) {
+      throw new NotFoundError('Project not found');
+    }
 
-  if (!projectOwnership) {
-    throw new NotFoundError('Project not found');
-  }
-
-  try {
+    try {
 
     // OPTIMIZED: Fast query without progress calculation
     const groups = await prisma.groups.findMany({
@@ -308,10 +306,9 @@ async function handler(req, res) {
     }));
 
     res.status(200).json(optimizedGroups);
-  } catch (error) {
-    console.error('[fetchGroupsDetails] Error:', error);
-    throw error;
+    } catch (error) {
+      console.error('[fetchGroupsDetails] Error:', error);
+      throw error;
+    }
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

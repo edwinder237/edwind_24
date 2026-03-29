@@ -15,7 +15,7 @@ import Landing from 'sections/landing';
 const HomePage = () => {
   const router = useRouter();
   const { error } = router.query;
-  const { isLoading, isAuthenticated } = useUser();
+  const { user, isLoading, isAuthenticated } = useUser();
   const [showError, setShowError] = useState(true);
 
   // Handle dismissing the error alert
@@ -29,10 +29,10 @@ const HomePage = () => {
     // Only redirect authenticated users to projects
     if (isLoading) return;
 
-    if (isAuthenticated) {
+    if (isAuthenticated && !user?.subscription?.requiresCheckout) {
       router.push('/projects');
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, user, router]);
 
   // Show loading spinner while determining auth status
   if (isLoading) {
@@ -50,8 +50,8 @@ const HomePage = () => {
     );
   }
 
-  // If authenticated, show loading while redirecting to /projects
-  if (isAuthenticated) {
+  // If authenticated and will be redirected to /projects, show loading spinner
+  if (isAuthenticated && !user?.subscription?.requiresCheckout) {
     return (
       <Box
         sx={{

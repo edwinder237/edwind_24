@@ -1,21 +1,18 @@
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
+import { ValidationError } from '../../../lib/errors/index.js';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
 import { attachUserClaims } from '../../../lib/auth/middleware';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    // Get user info for author name
+    await attachUserClaims(req, res);
 
-  // Get user info for author name
-  await attachUserClaims(req, res);
+    const { orgContext } = req;
 
-  const { orgContext } = req;
-
-  try {
     const {
       title,
       summary,
@@ -107,11 +104,5 @@ async function handler(req, res) {
       course: fullCourse,
       courseId: course.id
     });
-
-  } catch (error) {
-    console.error('Error creating course:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

@@ -497,8 +497,10 @@ export async function getResourceUsage(organizationId) {
       recentProjects,
       // Monthly email count
       emailCount,
-      // Monthly AI summarization count
-      aiSummarizationCount
+      // Total training recipients
+      trainingRecipientCount,
+      // Daily SmartPulse count
+      smartPulseCount
     ] = await Promise.all([
       // Total projects
       prisma.projects.count({
@@ -522,9 +524,12 @@ export async function getResourceUsage(organizationId) {
         }
       }),
 
-      // Custom participant roles
+      // Custom participant roles (exclude system defaults)
       prisma.sub_organization_participant_role.count({
-        where: { sub_organizationId: { in: subOrgIds } }
+        where: {
+          sub_organizationId: { in: subOrgIds },
+          isSystemDefault: { not: true }
+        }
       }),
 
       // Projects created in last 30 days
@@ -547,14 +552,19 @@ export async function getResourceUsage(organizationId) {
         }
       }),
 
-      // AI summarizations this month (Gemini provider, summarize action, successful only)
+      // Total training recipients
+      prisma.training_recipients.count({
+        where: { sub_organizationId: { in: subOrgIds } }
+      }),
+
+      // SmartPulse calls today (Gemini provider, summarize action, successful only)
       prisma.usage_logs.count({
         where: {
           organizationId,
           provider: 'gemini',
           action: 'summarize_session_notes',
           success: true,
-          createdAt: { gte: monthStart }
+          createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) }
         }
       })
     ]);
@@ -578,8 +588,8 @@ export async function getResourceUsage(organizationId) {
       projects_per_month: recentProjects,
       custom_roles: customRoleCount,
       emails_per_month: emailCount,
-      ai_summarizations_per_month: aiSummarizationCount,
-      storage: 0 // TODO: Calculate actual storage usage
+      training_recipients: trainingRecipientCount,
+      smart_pulse_per_day: smartPulseCount,
     };
   } catch (error) {
     console.error('Error getting resource usage:', error);
@@ -649,6 +659,7 @@ export async function enforceResourceLimit(organizationId, resource, amount = 1)
       status: 403,
       body: {
         error: 'Resource limit exceeded',
+        resource,
         message: `You have reached your ${resource} limit`,
         current: check.current,
         limit: check.limit,

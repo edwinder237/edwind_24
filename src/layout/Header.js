@@ -35,6 +35,7 @@ import IconButton from 'components/@extended/IconButton';
 import AnimateButton from 'components/@extended/AnimateButton';
 import Logo from 'components/logo';
 import LanguageSelector from 'components/LanguageSelector';
+import useUser from 'hooks/useUser';
 
 // assets
 import { MenuOutlined, LineOutlined } from '@ant-design/icons';
@@ -63,7 +64,8 @@ function ElevationScroll({ layout, children, window }) {
 
 const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
   const theme = useTheme();
-  const session = null; // Replace with your authentication logic
+  const { user, isAuthenticated } = useUser();
+  const requiresCheckout = user?.subscription?.requiresCheckout;
 
   const matchDownMd = useMediaQuery(theme.breakpoints.down('md'));
   const [drawerToggle, setDrawerToggle] = useState(false);
@@ -167,61 +169,89 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                 <LanguageSelector variant="landing" />
 
                 <Box sx={{ ml: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <AnimateButton>
-                    <Button
-                      variant="outlined"
-                      size="medium"
-                      onClick={async () => {
-                        try {
-                          const response = await fetch('/api/auth/signin-url');
-                          const data = await response.json();
-                          if (data.url) {
-                            window.location.href = data.url;
+                  {isAuthenticated ? (
+                    <AnimateButton>
+                      <Button
+                        variant="contained"
+                        size="medium"
+                        onClick={() => {
+                          window.location.href = requiresCheckout ? '/checkout-required' : '/projects';
+                        }}
+                        sx={{
+                          backgroundColor: requiresCheckout ? '#ed6c02' : '#1976d2',
+                          color: 'white',
+                          fontWeight: 500,
+                          minWidth: '140px',
+                          height: '40px',
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          '&:hover': {
+                            backgroundColor: requiresCheckout ? '#e65100' : '#1565c0'
                           }
-                        } catch (error) {
-                          console.error('Error redirecting to sign-in:', error);
-                        }
-                      }}
-                      sx={{
-                        borderColor: '#1976d2',
-                        color: '#1976d2',
-                        fontWeight: 500,
-                        minWidth: '100px',
-                        height: '40px',
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        '&:hover': {
-                          borderColor: '#1565c0',
-                          backgroundColor: 'rgba(25, 118, 210, 0.04)'
-                        }
-                      }}
-                    >
-                      <FormattedMessage id="landing.nav.login" />
-                    </Button>
-                  </AnimateButton>
-                  <AnimateButton>
-                    <Button
-                      variant="contained"
-                      size="medium"
-                      onClick={() => {
-                        window.location.href = '/signup';
-                      }}
-                      sx={{
-                        backgroundColor: '#1976d2',
-                        color: 'white',
-                        fontWeight: 500,
-                        minWidth: '100px',
-                        height: '40px',
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        '&:hover': {
-                          backgroundColor: '#1565c0'
-                        }
-                      }}
-                    >
-                      <FormattedMessage id="landing.nav.getStarted" />
-                    </Button>
-                  </AnimateButton>
+                        }}
+                      >
+                        {requiresCheckout ? 'Complete Setup' : 'Go to Dashboard'}
+                      </Button>
+                    </AnimateButton>
+                  ) : (
+                    <>
+                      <AnimateButton>
+                        <Button
+                          variant="outlined"
+                          size="medium"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch('/api/auth/signin-url');
+                              const data = await response.json();
+                              if (data.url) {
+                                window.location.href = data.url;
+                              }
+                            } catch (error) {
+                              console.error('Error redirecting to sign-in:', error);
+                            }
+                          }}
+                          sx={{
+                            borderColor: '#1976d2',
+                            color: '#1976d2',
+                            fontWeight: 500,
+                            minWidth: '100px',
+                            height: '40px',
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            '&:hover': {
+                              borderColor: '#1565c0',
+                              backgroundColor: 'rgba(25, 118, 210, 0.04)'
+                            }
+                          }}
+                        >
+                          <FormattedMessage id="landing.nav.login" />
+                        </Button>
+                      </AnimateButton>
+                      <AnimateButton>
+                        <Button
+                          variant="contained"
+                          size="medium"
+                          onClick={() => {
+                            window.location.href = '/signup';
+                          }}
+                          sx={{
+                            backgroundColor: '#1976d2',
+                            color: 'white',
+                            fontWeight: 500,
+                            minWidth: '100px',
+                            height: '40px',
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            '&:hover': {
+                              backgroundColor: '#1565c0'
+                            }
+                          }}
+                        >
+                          <FormattedMessage id="landing.nav.getStarted" />
+                        </Button>
+                      </AnimateButton>
+                    </>
+                  )}
                 </Box>
               </Stack>
             </Box>
@@ -231,49 +261,72 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
               {/* Language Selector for Mobile */}
               <LanguageSelector variant="landing" />
 
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/auth/signin-url');
-                    const data = await response.json();
-                    if (data.url) {
-                      window.location.href = data.url;
-                    }
-                  } catch (error) {
-                    console.error('Error redirecting to sign-in:', error);
-                  }
-                }}
-                sx={{
-                  height: 32,
-                  minWidth: '55px',
-                  fontSize: '0.75rem',
-                  borderColor: '#1976d2',
-                  color: '#1976d2',
-                  px: 1
-                }}
-              >
-                <FormattedMessage id="landing.nav.login" />
-              </Button>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={() => {
-                  window.location.href = '/signup';
-                }}
-                sx={{
-                  height: 32,
-                  minWidth: '55px',
-                  fontSize: '0.75rem',
-                  backgroundColor: '#1976d2',
-                  color: 'white',
-                  px: 1,
-                  '&:hover': { backgroundColor: '#1565c0' }
-                }}
-              >
-                <FormattedMessage id="landing.nav.getStarted" />
-              </Button>
+              {isAuthenticated ? (
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={() => {
+                    window.location.href = requiresCheckout ? '/checkout-required' : '/projects';
+                  }}
+                  sx={{
+                    height: 32,
+                    minWidth: '80px',
+                    fontSize: '0.75rem',
+                    backgroundColor: requiresCheckout ? '#ed6c02' : '#1976d2',
+                    color: 'white',
+                    px: 1,
+                    '&:hover': { backgroundColor: requiresCheckout ? '#e65100' : '#1565c0' }
+                  }}
+                >
+                  {requiresCheckout ? 'Complete Setup' : 'Dashboard'}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/auth/signin-url');
+                        const data = await response.json();
+                        if (data.url) {
+                          window.location.href = data.url;
+                        }
+                      } catch (error) {
+                        console.error('Error redirecting to sign-in:', error);
+                      }
+                    }}
+                    sx={{
+                      height: 32,
+                      minWidth: '55px',
+                      fontSize: '0.75rem',
+                      borderColor: '#1976d2',
+                      color: '#1976d2',
+                      px: 1
+                    }}
+                  >
+                    <FormattedMessage id="landing.nav.login" />
+                  </Button>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => {
+                      window.location.href = '/signup';
+                    }}
+                    sx={{
+                      height: 32,
+                      minWidth: '55px',
+                      fontSize: '0.75rem',
+                      backgroundColor: '#1976d2',
+                      color: 'white',
+                      px: 1,
+                      '&:hover': { backgroundColor: '#1565c0' }
+                    }}
+                  >
+                    <FormattedMessage id="landing.nav.getStarted" />
+                  </Button>
+                </>
+              )}
 
               <IconButton
                 {...(layout === 'component' ? { onClick: handleDrawerOpen } : { onClick: drawerToggler(true) })}
@@ -366,44 +419,64 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                         primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
                       />
                     </ListItemButton>
-                    <ListItemButton
-                      component="span"
-                      onClick={async () => {
-                        try {
-                          const response = await fetch('/api/auth/signin-url');
-                          const data = await response.json();
-                          if (data.url) {
-                            window.location.href = data.url;
-                          }
-                        } catch (error) {
-                          console.error('Error redirecting to sign-in:', error);
-                        }
-                        setDrawerToggle(false);
-                      }}
-                    >
-                      <ListItemIcon>
-                        <LineOutlined />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={<FormattedMessage id="landing.nav.login" />}
-                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
-                      />
-                    </ListItemButton>
-                    <ListItemButton
-                      component="span"
-                      onClick={() => {
-                        window.location.href = '/signup';
-                        setDrawerToggle(false);
-                      }}
-                    >
-                      <ListItemIcon>
-                        <LineOutlined />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={<FormattedMessage id="landing.nav.getStarted" />}
-                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
-                      />
-                    </ListItemButton>
+                    {isAuthenticated ? (
+                      <ListItemButton
+                        component="span"
+                        onClick={() => {
+                          window.location.href = requiresCheckout ? '/checkout-required' : '/projects';
+                          setDrawerToggle(false);
+                        }}
+                      >
+                        <ListItemIcon>
+                          <LineOutlined />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={requiresCheckout ? 'Complete Setup' : 'Go to Dashboard'}
+                          primaryTypographyProps={{ variant: 'h6', color: requiresCheckout ? 'warning.main' : 'primary.main' }}
+                        />
+                      </ListItemButton>
+                    ) : (
+                      <>
+                        <ListItemButton
+                          component="span"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch('/api/auth/signin-url');
+                              const data = await response.json();
+                              if (data.url) {
+                                window.location.href = data.url;
+                              }
+                            } catch (error) {
+                              console.error('Error redirecting to sign-in:', error);
+                            }
+                            setDrawerToggle(false);
+                          }}
+                        >
+                          <ListItemIcon>
+                            <LineOutlined />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={<FormattedMessage id="landing.nav.login" />}
+                            primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                          />
+                        </ListItemButton>
+                        <ListItemButton
+                          component="span"
+                          onClick={() => {
+                            window.location.href = '/signup';
+                            setDrawerToggle(false);
+                          }}
+                        >
+                          <ListItemIcon>
+                            <LineOutlined />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={<FormattedMessage id="landing.nav.getStarted" />}
+                            primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                          />
+                        </ListItemButton>
+                      </>
+                    )}
                   </List>
                 </Box>
               </Drawer>

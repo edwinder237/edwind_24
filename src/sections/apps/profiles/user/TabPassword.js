@@ -14,7 +14,7 @@ import MainCard from 'components/MainCard';
 import axios from 'utils/axios';
 
 // assets
-import { LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { LockOutlined } from '@ant-design/icons';
 
 // ==============================|| TAB - PASSWORD CHANGE ||============================== //
 
@@ -48,18 +48,10 @@ const TabPassword = () => {
   return (
     <MainCard title="Change Password">
       <Box sx={{ textAlign: 'center', py: 4 }}>
-        <SafetyCertificateOutlined style={{ fontSize: '4rem', color: '#1890ff', marginBottom: 24 }} />
-
-        <Typography variant="h4" sx={{ mb: 2 }}>
-          Secure Password Management
-        </Typography>
-
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 500, mx: 'auto' }}>
-          For your security, password changes are handled through our secure authentication provider.
-          Click the button below to be redirected to the secure password reset page.
-        </Typography>
-
         <Stack spacing={2} alignItems="center">
+          <Typography variant="body1" color="text.secondary">
+            You will be redirected to reset your password securely.
+          </Typography>
           <Button
             variant="contained"
             size="large"
@@ -81,17 +73,6 @@ const TabPassword = () => {
             </Typography>
           )}
         </Stack>
-
-        <Box sx={{ mt: 6, p: 3, bgcolor: 'grey.100', borderRadius: 2, maxWidth: 500, mx: 'auto' }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            Why external password management?
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Your password is managed by WorkOS, an enterprise-grade authentication provider.
-            This ensures your credentials are stored and processed with the highest security standards,
-            including encryption and compliance with industry best practices.
-          </Typography>
-        </Box>
       </Box>
     </MainCard>
   );

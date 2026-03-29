@@ -1,16 +1,12 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
 /**
  * Toggle assessment active status for a specific project
  * This creates or updates a project_assessment_config override
  */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const {
+export default createHandler({ scope: 'org', POST: async (req, res) => {
+  const {
       projectId,
       courseAssessmentId,
       isActive,
@@ -126,13 +122,5 @@ export default async function handler(req, res) {
       config: result,
       isActive: result.isActive
     });
-
-  } catch (error) {
-    console.error('Error toggling assessment for project:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to toggle assessment status',
-      error: error.message
-    });
-  }
 }
+});

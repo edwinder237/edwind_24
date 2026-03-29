@@ -1,13 +1,11 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { RESOURCES } from '../../../lib/features/featureAccess';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     // Extract participant data from the request body
     const { projectId, newParticipants } = req.body;
 
@@ -140,11 +138,5 @@ export default async function handler(req, res) {
         total: createdCount + reactivatedCount
       }
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: "Internal Server Error",
-      details: error.message,
-    });
   }
-}
+});

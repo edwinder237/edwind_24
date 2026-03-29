@@ -1,11 +1,9 @@
 import prisma from "../../../../lib/prisma";
+import { createHandler } from '../../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { eventId:id } = req.query;
     const eventId = parseInt(id, 10);
 
@@ -67,7 +65,7 @@ export default async function handler(req, res) {
                         title:true
                       }
                     }
-                    
+
                   },
                 },
               },
@@ -105,11 +103,5 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({ success: true, event });
-  } catch (error) {
-    console.error("Error fetching event details:", error);
-    return res.status(500).json({
-      error: "Internal Server Error",
-      message: String(error?.message || error),
-    });
   }
-}
+});

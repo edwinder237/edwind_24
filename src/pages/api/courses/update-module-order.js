@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { modules, courseId } = req.body;
 
     if (!modules || !Array.isArray(modules)) {
@@ -41,13 +39,5 @@ export default async function handler(req, res) {
       message: 'Module order updated successfully',
       modules: updatedModules
     });
-
-  } catch (error) {
-    console.error('Error updating module order:', error);
-    return res.status(500).json({ 
-      message: 'Failed to update module order',
-      error: error.message 
-    });
-  } finally {
   }
-}
+});

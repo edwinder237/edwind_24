@@ -12,7 +12,8 @@ import {
   FileTextOutlined,
   UserOutlined,
   ScheduleOutlined,
-  ToolOutlined
+  ToolOutlined,
+  BankOutlined
 } from '@ant-design/icons';
 import { LocalParking, ViewTimeline } from '@mui/icons-material';
 
@@ -28,6 +29,7 @@ const icons = {
   UserOutlined,
   ScheduleOutlined,
   ToolOutlined,
+  BankOutlined,
   LocalParking,
   ViewTimeline
 };
@@ -46,7 +48,8 @@ const ProjectManager = {
       url: '/project-manager/dashboard',
       icon: icons.DashboardOutlined,
       breadcrumbs: true,
-      permission: 'access-projects-dashboard'
+      permission: 'access-projects-dashboard',
+      featureKey: 'dashboard'
     },
     {
       id: 'pm-timeline',
@@ -56,7 +59,7 @@ const ProjectManager = {
       icon: icons.ViewTimeline,
       breadcrumbs: true,
       permission: 'timeline:*',
-      featureBadge: 'pro'
+      featureKey: 'timeline'
     },
     {
       id: 'pm-projects-list',
@@ -67,61 +70,28 @@ const ProjectManager = {
       breadcrumbs: false
     },
     {
-      id: 'pm-resources',
-      title: <FormattedMessage id="Resources" />,
-      type: 'collapse',
+      id: 'pm-my-team',
+      title: <FormattedMessage id="My Team" />,
+      type: 'item',
+      url: '/project-manager/my-team',
       icon: icons.TeamOutlined,
-      children: [
-        {
-          id: 'pm-resources-team',
-          title: <FormattedMessage id="Team Members" />,
-          type: 'item',
-          url: '/project-manager/resources/team',
-          breadcrumbs: true
-        },
-        {
-          id: 'pm-resources-instructors',
-          title: <FormattedMessage id="Instructors" />,
-          type: 'item',
-          url: '/project-manager/resources/instructors',
-          breadcrumbs: true
-        },
-        {
-          id: 'pm-resources-training-recipients',
-          title: <FormattedMessage id="Training Recipients" />,
-          type: 'item',
-          url: '/project-manager/training-recipients',
-          breadcrumbs: true
-        },
-        {
-          id: 'pm-resources-topics',
-          title: <FormattedMessage id="Topics" />,
-          type: 'item',
-          url: '/project-manager/resources/topics',
-          breadcrumbs: true
-        },
-        {
-          id: 'pm-resources-participant-roles',
-          title: <FormattedMessage id="Participant Roles" />,
-          type: 'item',
-          url: '/project-manager/resources/participant-roles',
-          breadcrumbs: true
-        },
-        {
-          id: 'pm-resources-rooms',
-          title: <FormattedMessage id="Rooms" />,
-          type: 'item',
-          url: '/project-manager/resources/rooms',
-          breadcrumbs: true
-        },
-        {
-          id: 'pm-resources-tools',
-          title: <FormattedMessage id="Tool Templates" />,
-          type: 'item',
-          url: '/project-manager/resources/tools',
-          breadcrumbs: true
-        }
-      ]
+      breadcrumbs: true
+    },
+    {
+      id: 'pm-training-recipients',
+      title: <FormattedMessage id="Training Recipients" />,
+      type: 'item',
+      url: '/project-manager/training-recipients',
+      icon: icons.BankOutlined,
+      breadcrumbs: true
+    },
+    {
+      id: 'pm-configuration',
+      title: <FormattedMessage id="Configuration" />,
+      type: 'item',
+      url: '/project-manager/configuration',
+      icon: icons.SettingOutlined,
+      breadcrumbs: true
     },
     {
       id: 'pm-analytics',
@@ -142,7 +112,8 @@ const ProjectManager = {
           type: 'item',
           url: '/project-manager/reports/kirkpatrick',
           breadcrumbs: true,
-          permission: 'kirkpatrick:*'
+          permission: 'kirkpatrick:*',
+          featureKey: 'kirkpatrick'
         }
       ]
     }

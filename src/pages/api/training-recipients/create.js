@@ -7,16 +7,15 @@
  * Uses org scoping for proper sub-organization assignment.
  */
 
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedCreate, scopedFindFirst } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
-import { getOrgSubscription } from '../../../lib/features/subscriptionService';
-import { canAccessFeature } from '../../../lib/features/featureAccess';
+import { ValidationError } from '../../../lib/errors/index.js';
+import { getOrgSubscription, enforceResourceLimit } from '../../../lib/features/subscriptionService';
+import { canAccessFeature, RESOURCES } from '../../../lib/features/featureAccess';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
 
   const { orgContext } = req;
   const {
@@ -37,6 +36,10 @@ async function handler(req, res) {
   if (!name) {
     throw new ValidationError('Name is required');
   }
+
+  // Check training recipients limit
+  const limitCheck = await enforceResourceLimit(orgContext.organizationId, RESOURCES.TRAINING_RECIPIENTS);
+  if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
 
   // Check training_recipients feature access
   const subscription = await getOrgSubscription(orgContext.organizationId);
@@ -99,11 +102,10 @@ async function handler(req, res) {
     createdBy: orgContext.userId
   });
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
     message: 'Training recipient created successfully',
     trainingRecipient: newRecipient
   });
-}
-
-export default withOrgScope(asyncHandler(handler));
+  }
+});

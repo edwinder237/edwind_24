@@ -9,6 +9,7 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Divider,
   Grid,
   LinearProgress,
   Paper,
@@ -47,6 +48,10 @@ import Layout from 'layout';
 import Page from 'components/Page';
 import MainCard from 'components/MainCard';
 import useUser from 'hooks/useUser';
+import { FEATURES, TOGGLEABLE_FEATURE_KEYS, FEATURE_CONFIG_MARKER } from 'lib/features/featureAccess';
+const FEATURE_LABELS = Object.fromEntries(
+  TOGGLEABLE_FEATURE_KEYS.map(key => [key, { label: FEATURES[key].name, description: FEATURES[key].description }])
+);
 
 // Ordered list of limit keys for display
 const LIMIT_KEYS = [
@@ -58,9 +63,9 @@ const LIMIT_KEYS = [
   'maxCourses',
   'maxCurriculums',
   'maxCustomRoles',
-  'maxStorageGB',
+  'maxTrainingRecipients',
   'maxEmailsPerMonth',
-  'maxAiSummarizationsPerMonth'
+  'maxSmartPulsePerDay'
 ];
 
 const LIMIT_LABELS = {
@@ -72,9 +77,9 @@ const LIMIT_LABELS = {
   maxCourses: { label: 'Max Courses', description: 'Total courses that can be created' },
   maxCurriculums: { label: 'Max Curriculums', description: 'Total curriculums that can be created' },
   maxCustomRoles: { label: 'Max Custom Roles', description: 'Custom participant roles per organization' },
-  maxStorageGB: { label: 'Max Storage (GB)', description: 'File storage quota in gigabytes' },
+  maxTrainingRecipients: { label: 'Max Training Recipients', description: 'Total training recipients (clients) allowed' },
   maxEmailsPerMonth: { label: 'Max Emails / Month', description: 'Outbound emails sent per month' },
-  maxAiSummarizationsPerMonth: { label: 'Max AI Summarizations / Month', description: 'AI summarization calls per month' }
+  maxSmartPulsePerDay: { label: 'SmartPulse / Day', description: 'SmartPulse AI calls per day' }
 };
 
 const PLAN_META = {
@@ -136,7 +141,7 @@ const UsageCell = ({ used, limit }) => {
 
 // ==============================|| PLAN LIMIT CARD ||============================== //
 
-const PlanLimitCard = ({ plan, editedLimits, onLimitChange, onToggleUnlimited, onSave, onReset, saving, hasChanges }) => {
+const PlanLimitCard = ({ plan, editedLimits, editedFeatures, onLimitChange, onToggleUnlimited, onToggleFeature, onSave, onReset, saving, hasChanges }) => {
   const theme = useTheme();
   const meta = PLAN_META[plan.planId] || PLAN_META.essential;
 
@@ -221,6 +226,38 @@ const PlanLimitCard = ({ plan, editedLimits, onLimitChange, onToggleUnlimited, o
           })}
         </Stack>
 
+        {/* Feature toggles */}
+        <Divider sx={{ mt: 3, mb: 1 }} />
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          Features
+        </Typography>
+        <Stack spacing={0.5}>
+          {TOGGLEABLE_FEATURE_KEYS.map((key) => {
+            const isEnabled = editedFeatures?.includes(key);
+            const info = FEATURE_LABELS[key];
+
+            return (
+              <Stack key={key} direction="row" alignItems="center" spacing={1}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack direction="row" alignItems="center" spacing={0.5}>
+                    <Typography variant="body2" noWrap sx={{ fontSize: '0.8rem' }}>
+                      {info.label}
+                    </Typography>
+                    <Tooltip title={info.description} arrow placement="top">
+                      <InfoCircleOutlined style={{ fontSize: 11, color: theme.palette.text.disabled, cursor: 'help' }} />
+                    </Tooltip>
+                  </Stack>
+                </Box>
+                <Switch
+                  size="small"
+                  checked={isEnabled}
+                  onChange={() => onToggleFeature(plan.planId, key)}
+                />
+              </Stack>
+            );
+          })}
+        </Stack>
+
         {/* Actions */}
         <Stack direction="row" spacing={1} sx={{ mt: 3 }}>
           <Button
@@ -264,6 +301,9 @@ const InternalSubscriptionLimitsPage = () => {
   const [editedLimits, setEditedLimits] = useState({});
   const [originalLimits, setOriginalLimits] = useState({});
   const [codeDefaults, setCodeDefaults] = useState({});
+  const [editedFeatures, setEditedFeatures] = useState({});
+  const [originalFeatures, setOriginalFeatures] = useState({});
+  const [codeDefaultFeatures, setCodeDefaultFeatures] = useState({});
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
@@ -281,6 +321,9 @@ const InternalSubscriptionLimitsPage = () => {
       const initial = {};
       const originals = {};
       const defaults = {};
+      const initFeatures = {};
+      const origFeatures = {};
+      const defaultFeatures = {};
       data.plans.forEach((plan) => {
         const limits = {};
         LIMIT_KEYS.forEach((key) => {
@@ -289,10 +332,41 @@ const InternalSubscriptionLimitsPage = () => {
         initial[plan.planId] = limits;
         originals[plan.planId] = { ...limits };
         defaults[plan.planId] = plan.codeDefaults || {};
+
+        // Features: DB is authoritative when the config marker is present (admin saved before).
+        // Otherwise merge code defaults for toggleable keys so they show correct initial state.
+        const dbFeatures = Array.isArray(plan.features) && plan.features.length > 0 ? plan.features : null;
+        const codeFeats = plan.codeDefaultFeatures || [];
+
+        let features;
+        if (dbFeatures) {
+          const featuresConfigured = dbFeatures.includes(FEATURE_CONFIG_MARKER);
+          if (featuresConfigured) {
+            // Admin previously saved — DB is authoritative. Strip marker for UI display.
+            features = dbFeatures.filter(f => f !== FEATURE_CONFIG_MARKER);
+          } else {
+            // Never saved from admin UI — merge code defaults for toggleable keys
+            features = [...dbFeatures];
+            TOGGLEABLE_FEATURE_KEYS.forEach(key => {
+              if (codeFeats.includes(key) && !features.includes(key)) {
+                features.push(key);
+              }
+            });
+          }
+        } else {
+          features = [...codeFeats];
+        }
+
+        initFeatures[plan.planId] = [...features];
+        origFeatures[plan.planId] = [...features];
+        defaultFeatures[plan.planId] = codeFeats;
       });
       setEditedLimits(initial);
       setOriginalLimits(originals);
       setCodeDefaults(defaults);
+      setEditedFeatures(initFeatures);
+      setOriginalFeatures(origFeatures);
+      setCodeDefaultFeatures(defaultFeatures);
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     } finally {
@@ -330,26 +404,46 @@ const InternalSubscriptionLimitsPage = () => {
     });
   };
 
+  const handleToggleFeature = (planId, featureKey) => {
+    setEditedFeatures((prev) => {
+      const current = prev[planId] || [];
+      const updated = current.includes(featureKey)
+        ? current.filter(f => f !== featureKey)
+        : [...current, featureKey];
+      return { ...prev, [planId]: updated };
+    });
+  };
+
   const handleSave = async (planId) => {
     setSaving((prev) => ({ ...prev, [planId]: true }));
     try {
+      // Include marker so access checks know admin explicitly configured toggleable features
+      const featuresToSave = [...(editedFeatures[planId] || [])];
+      if (!featuresToSave.includes(FEATURE_CONFIG_MARKER)) {
+        featuresToSave.push(FEATURE_CONFIG_MARKER);
+      }
       const response = await fetch('/api/internal/subscription-limits', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planId,
-          resourceLimits: editedLimits[planId]
+          resourceLimits: editedLimits[planId],
+          features: featuresToSave
         })
       });
       if (!response.ok) {
         const errData = await response.json();
         throw new Error(errData.error || 'Failed to save');
       }
-      setSnackbar({ open: true, message: `${PLAN_META[planId]?.label || planId} limits updated successfully`, severity: 'success' });
+      setSnackbar({ open: true, message: `${PLAN_META[planId]?.label || planId} plan updated successfully`, severity: 'success' });
       // Update originals to reflect saved state
       setOriginalLimits((prev) => ({
         ...prev,
         [planId]: { ...editedLimits[planId] }
+      }));
+      setOriginalFeatures((prev) => ({
+        ...prev,
+        [planId]: [...(editedFeatures[planId] || [])]
       }));
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
@@ -368,13 +462,24 @@ const InternalSubscriptionLimitsPage = () => {
       ...prev,
       [planId]: resetLimits
     }));
+    setEditedFeatures((prev) => ({
+      ...prev,
+      [planId]: [...(codeDefaultFeatures[planId] || [])]
+    }));
   };
 
   const hasChanges = (planId) => {
-    const current = editedLimits[planId];
-    const original = originalLimits[planId];
-    if (!current || !original) return false;
-    return LIMIT_KEYS.some((key) => current[key] !== original[key]);
+    const currentLimits = editedLimits[planId];
+    const originalLimitsForPlan = originalLimits[planId];
+    const limitsChanged = currentLimits && originalLimitsForPlan &&
+      LIMIT_KEYS.some((key) => currentLimits[key] !== originalLimitsForPlan[key]);
+
+    const currentFeats = editedFeatures[planId] || [];
+    const originalFeats = originalFeatures[planId] || [];
+    const featuresChanged = currentFeats.length !== originalFeats.length ||
+      currentFeats.some(f => !originalFeats.includes(f));
+
+    return limitsChanged || featuresChanged;
   };
 
   const isOwner = user?.role?.toLowerCase() === 'owner';
@@ -448,8 +553,10 @@ const InternalSubscriptionLimitsPage = () => {
                 <PlanLimitCard
                   plan={plan}
                   editedLimits={editedLimits[plan.planId] || {}}
+                  editedFeatures={editedFeatures[plan.planId] || []}
                   onLimitChange={handleLimitChange}
                   onToggleUnlimited={handleToggleUnlimited}
+                  onToggleFeature={handleToggleFeature}
                   onSave={handleSave}
                   onReset={handleReset}
                   saving={saving[plan.planId] || false}

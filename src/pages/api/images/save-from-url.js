@@ -1,4 +1,5 @@
 import { uploadImageToR2, uploadMultipleImagesToR2 } from '../../../lib/r2-client-cloudflare';
+import { createHandler } from '../../../lib/api/createHandler';
 
 // Helper to convert relative URLs to absolute URLs
 function resolveUrl(url, req) {
@@ -19,15 +20,9 @@ function resolveUrl(url, req) {
   return url;
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({
-      error: 'Method not allowed',
-      message: 'This endpoint only accepts POST requests'
-    });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     let { imageUrl, imageUrls, prefix = 'places' } = req.body;
 
     // Resolve relative URLs to absolute URLs
@@ -123,13 +118,5 @@ export default async function handler(req, res) {
       error: 'Invalid request',
       message: 'No valid image URLs provided'
     });
-
-  } catch (error) {
-    console.error('❌ API error:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Internal Server Error',
-      message: error.message
-    });
   }
-}
+});

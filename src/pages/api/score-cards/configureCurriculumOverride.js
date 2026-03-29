@@ -1,12 +1,8 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const {
+export default createHandler({ scope: 'org', POST: async (req, res) => {
+  const {
       curriculumId,
       courseAssessmentId,
       isActive,
@@ -133,13 +129,5 @@ export default async function handler(req, res) {
       override,
       action: existingOverride ? 'updated' : 'created'
     });
-
-  } catch (error) {
-    console.error('Error configuring curriculum override:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to configure curriculum override',
-      error: error.message
-    });
-  }
 }
+});

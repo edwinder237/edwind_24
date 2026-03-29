@@ -1,16 +1,10 @@
 import prisma from '../../../lib/prisma';
 import { createAuditLog } from '../../../lib/utils/auditLog';
-import { attachUserClaims } from '../../../lib/auth/middleware';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Try to get user info (non-blocking - we don't require auth for this endpoint)
-  await attachUserClaims(req, res);
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const {
       eventId,
       moduleId,
@@ -158,25 +152,8 @@ export default async function handler(req, res) {
       message: `Module progress saved successfully for event ${eventId}`,
       results
     });
-
-  } catch (error) {
-    console.error('Error saving module progress:', error);
-
-    // Handle Prisma constraint errors
-    if (error.code === 'P2002') {
-      return res.status(409).json({
-        error: 'Duplicate progress entry',
-        details: 'Progress for this module/activity combination already exists'
-      });
-    }
-
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to save module progress',
-      details: error.message
-    });
   }
-}
+});
 
 /**
  * Sync course progress for all participants in an event

@@ -92,6 +92,7 @@
     "simplebar-react": "^2.4.1",
     "stripe": "^20.3.0",
     "stylis-plugin-rtl": "^2.1.1",
+    "svix": "^1.89.0",
     "tls": "^0.0.1",
     "use-places-autocomplete": "^4.0.1",
     "uuid": "^9.0.0",

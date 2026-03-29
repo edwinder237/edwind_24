@@ -8,18 +8,16 @@
  * the local database without requiring webhooks.
  */
 
-import { withAdminScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { getStripe, getPlanFromPriceId } from '../../../lib/stripe/stripeService.js';
 import prisma from '../../../lib/prisma.js';
 import { invalidateSubscriptionCache } from '../../../lib/features/subscriptionService.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'admin',
+  skipSubscriptionCheck: true,
+  POST: async (req, res) => {
+    const { orgContext } = req;
   const stripe = getStripe();
 
   // Find existing subscription record to get Stripe customer ID
@@ -151,18 +149,17 @@ async function handler(req, res) {
   // Invalidate subscription cache so fresh data is returned
   invalidateSubscriptionCache(orgContext.organizationId);
 
-  console.log(`💳 [SYNC] Synced subscription for org ${orgContext.organizationId} to ${plan.planId}`);
+    console.log(`💳 [SYNC] Synced subscription for org ${orgContext.organizationId} to ${plan.planId}`);
 
-  return res.status(200).json({
-    success: true,
-    subscription: {
-      planId: dbSubscription.planId,
-      status: dbSubscription.status,
-      plan: {
-        name: dbSubscription.plan.name
+    return res.status(200).json({
+      success: true,
+      subscription: {
+        planId: dbSubscription.planId,
+        status: dbSubscription.status,
+        plan: {
+          name: dbSubscription.plan.name
+        }
       }
-    }
-  });
-}
-
-export default withAdminScope(asyncHandler(handler));
+    });
+  }
+});

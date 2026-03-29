@@ -32,8 +32,6 @@ model User {
   calendar_integrations   calendar_integrations[]
 
   @@index([sub_organizationId])
-  @@index([workos_user_id])
-  @@index([isActive])
   @@map("users")
 }
 
@@ -59,7 +57,6 @@ model organizations {
   organization_role_overrides organization_role_overrides[]
   user_permission_overrides user_permission_overrides[]
 
-  @@index([workos_org_id])
 }
 
 model sub_organizations {
@@ -92,6 +89,7 @@ model sub_organization_participant_role {
   description              String?
   sub_organizationId       Int
   isActive                 Boolean                    @default(true)
+  isSystemDefault          Boolean                    @default(false)
   createdAt                DateTime                   @default(now())
   updatedAt                DateTime                   @updatedAt
   createdBy                String
@@ -104,7 +102,6 @@ model sub_organization_participant_role {
   @@unique([title, sub_organizationId], name: "unique_role_per_organization")
   @@index([sub_organizationId])
   @@index([title])
-  @@index([isActive])
 }
 
 model training_recipients {
@@ -180,7 +177,7 @@ model projects {
   parking_lot_items                  parking_lot_items[]
 
   @@index([CreatedBy])
-  @@index([sub_organizationId])
+  @@index([sub_organizationId, createdAt])
   @@index([trainingRecipientId])
 }
 
@@ -268,7 +265,6 @@ model project_settings {
   updatedBy      String?
   project        projects  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@index([projectId])
 }
 
 model participants {
@@ -336,7 +332,7 @@ model project_participants {
   training_recipient                  training_recipients?                          @relation(fields: [trainingRecipientId], references: [id])
 
   @@unique([projectId, participantId])
-  @@index([projectId])
+  @@index([projectId, status])
   @@index([participantId])
   @@index([trainingRecipientId])
 }
@@ -440,8 +436,7 @@ model courses {
   versions                  course_versions[]
   audit_logs                course_audit_logs[]
 
-  @@index([sub_organizationId])
-  @@index([isActive])
+  @@index([sub_organizationId, isActive])
   @@index([currentVersionId])
 }
 
@@ -584,7 +579,8 @@ model events {
   event_module_progress   event_module_progress[]
   calendar_event_mappings calendar_event_mappings[]
 
-  @@index([projectId])
+  @@index([projectId, start])
+  @@index([eventType])
   @@index([courseId])
   @@index([courseVersionId])
   @@index([supportActivityId])
@@ -608,6 +604,7 @@ model event_attendees {
   @@index([eventsId])
   @@index([enrolleeId])
   @@index([attendanceType])
+  @@index([attendance_status])
 }
 
 model event_groups {
@@ -813,7 +810,6 @@ model topics {
   @@unique([title, sub_organizationId], name: "unique_topic_per_organization")
   @@index([sub_organizationId])
   @@index([title])
-  @@index([isActive])
 }
 
 model course_topics {
@@ -881,7 +877,6 @@ model project_course_checklist_progress {
   @@unique([projectId, checklistItemId])
   @@index([projectId])
   @@index([checklistItemId])
-  @@index([completed])
 }
 
 model project_participants_course_checklist_progress {
@@ -905,7 +900,6 @@ model project_participants_course_checklist_progress {
   @@index([projectId])
   @@index([participantId])
   @@index([checklistItemId])
-  @@index([completed])
 }
 
 model course_objectives {
@@ -1071,7 +1065,6 @@ model course_assessments {
   project_overrides          project_assessment_config[]
 
   @@index([courseId])
-  @@index([isActive])
 }
 
 model curriculum_assessment_config {
@@ -1089,7 +1082,6 @@ model curriculum_assessment_config {
   @@unique([curriculumId, courseAssessmentId], name: "unique_curriculum_assessment")
   @@index([curriculumId])
   @@index([courseAssessmentId])
-  @@index([isActive])
 }
 
 model project_assessment_config {
@@ -1107,7 +1099,6 @@ model project_assessment_config {
   @@unique([projectId, courseAssessmentId], name: "unique_project_assessment")
   @@index([projectId])
   @@index([courseAssessmentId])
-  @@index([isActive])
 }
 
 model participant_assessment_scores {
@@ -1134,14 +1125,8 @@ model participant_assessment_scores {
   instructor       instructors?         @relation(fields: [instructorId], references: [id])
 
   @@unique([courseAssessmentId, participantId, attemptNumber], name: "unique_participant_attempt")
-  @@index([courseAssessmentId])
-  @@index([participantId])
+  @@index([participantId, courseAssessmentId, isCurrent])
   @@index([instructorId])
-  @@index([passed])
-  @@index([attemptNumber])
-  @@index([isCurrent])
-  @@index([assessmentDate])
-  @@index([scorePercentage])
 }
 
 model curriculum_checklist_items {
@@ -1183,7 +1168,6 @@ model project_curriculum_checklist_progress {
   @@unique([projectId, checklistItemId])
   @@index([projectId])
   @@index([checklistItemId])
-  @@index([completed])
 }
 
 model organization_memberships {
@@ -1202,7 +1186,6 @@ model organization_memberships {
   @@unique([userId, organizationId])
   @@index([userId])
   @@index([organizationId])
-  @@index([workos_membership_id])
   @@index([status])
 }
 
@@ -1240,9 +1223,6 @@ model subscription_plans {
 
   subscriptions       subscriptions[]
 
-  @@index([planId])
-  @@index([isActive])
-  @@index([isPublic])
   @@index([displayOrder])
   @@index([stripeProductId])
   @@index([stripePriceId])
@@ -1285,11 +1265,8 @@ model subscriptions {
 
   history             subscription_history[]
 
-  @@index([organizationId])
   @@index([planId])
   @@index([status])
-  @@index([stripeCustomerId])
-  @@index([stripeSubscriptionId])
   @@index([currentPeriodEnd])
 }
 
@@ -1355,7 +1332,6 @@ model curriculum_surveys {
   @@index([curriculumId])
   @@index([status])
   @@index([provider])
-  @@index([isActive])
   @@index([triggerCourseId])
 }
 
@@ -1392,7 +1368,6 @@ model rooms {
   @@index([status])
   @@index([type])
   @@index([roomType])
-  @@index([isActive])
 }
 
 // ============================================
@@ -1413,9 +1388,7 @@ model system_roles {
   role_permissions role_permissions[]
   organization_role_overrides organization_role_overrides[]
 
-  @@index([slug])
   @@index([hierarchyLevel])
-  @@index([isActive])
 }
 
 // ============================================
@@ -1439,7 +1412,6 @@ model user_role_assignments {
   @@index([userId])
   @@index([roleId])
   @@index([organizationId])
-  @@index([isActive])
 }
 
 // ============================================
@@ -1462,10 +1434,8 @@ model permissions {
   organization_role_overrides organization_role_overrides[]
   user_permission_overrides user_permission_overrides[]
 
-  @@index([key])
   @@index([resource])
   @@index([category])
-  @@index([isActive])
 }
 
 // ============================================
@@ -1755,4 +1725,36 @@ model calendar_event_mappings {
   @@index([eventId])
   @@index([integrationId])
   @@map("calendar_event_mappings")
+}
+
+// ============================================
+// EMAIL LOG (Individual Email Tracking)
+// ============================================
+
+model email_logs {
+  id                 Int       @id @default(autoincrement())
+  sub_organizationId Int
+  recipientEmail     String
+  recipientName      String?
+  recipientType      String    @default("participant") // participant, instructor, contact, admin
+  subject            String
+  emailType          String    // credentials, event_access, module_link, survey, calendar_invite
+  status             String    @default("sent") // sent, failed, skipped
+  errorMessage       String?   @db.Text
+  resendEmailId      String?
+  projectId          Int?
+  projectTitle       String?
+  eventId            Int?
+  participantId      String?
+  sentByUserId       String?
+  sentByUserName     String?
+  deliveryStatus     String?   // delivered, bounced, delayed, complained, opened, clicked
+  deliveryUpdatedAt  DateTime?
+  createdAt          DateTime  @default(now())
+
+  @@index([sub_organizationId, createdAt])
+  @@index([sub_organizationId, emailType])
+  @@index([recipientEmail])
+  @@index([projectId])
+  @@index([resendEmailId])
 }

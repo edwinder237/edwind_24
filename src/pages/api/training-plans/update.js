@@ -1,19 +1,17 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const { 
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
+    const {
       id,
-      title, 
-      description, 
-      totalDays, 
+      title,
+      description,
+      totalDays,
       status,
       days,
-      updatedBy 
+      updatedBy
     } = req.body;
 
     if (!id) {
@@ -86,12 +84,5 @@ export default async function handler(req, res) {
       data: trainingPlan,
       message: 'Training plan updated successfully'
     });
-  } catch (error) {
-    console.error('Error updating training plan:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to update training plan',
-      error: error.message 
-    });
   }
-}
+});

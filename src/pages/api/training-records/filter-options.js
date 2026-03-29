@@ -1,15 +1,10 @@
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
-import { errorHandler } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { orgContext } = req;
     const { projectId } = req.query;
 
     // Use organization context for multi-tenant scoping
@@ -247,11 +242,5 @@ async function handler(req, res) {
       success: true,
       data: filterOptions
     });
-
-  } catch (error) {
-    console.error('Error fetching filter options:', error);
-    return errorHandler(error, req, res);
   }
-}
-
-export default withOrgScope(handler);
+});

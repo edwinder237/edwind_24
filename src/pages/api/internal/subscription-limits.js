@@ -4,9 +4,12 @@
  * PUT /api/internal/subscription-limits - Update a plan's resource limits
  */
 
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { WorkOS } from '@workos-inc/node';
-import { PLAN_DEFINITIONS, RESOURCE_DISPLAY_INFO } from '../../../lib/features/featureAccess';
+import { PLAN_DEFINITIONS, FEATURES, RESOURCE_DISPLAY_INFO, FEATURE_CONFIG_MARKER } from '../../../lib/features/featureAccess';
+
+const VALID_FEATURE_KEYS = [...Object.keys(FEATURES), FEATURE_CONFIG_MARKER];
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
@@ -50,7 +53,8 @@ async function handleGet(req, res) {
 
   const plansWithDefaults = plans.map(plan => ({
     ...plan,
-    codeDefaults: PLAN_DEFINITIONS[plan.planId]?.limits || {}
+    codeDefaults: PLAN_DEFINITIONS[plan.planId]?.limits || {},
+    codeDefaultFeatures: PLAN_DEFINITIONS[plan.planId]?.features || []
   }));
 
   // Also fetch all organizations with their usage stats
@@ -117,10 +121,10 @@ async function handleGet(req, res) {
 }
 
 async function handlePut(req, res) {
-  const { planId, resourceLimits } = req.body;
+  const { planId, resourceLimits, features } = req.body;
 
-  if (!planId || !resourceLimits) {
-    return res.status(400).json({ error: 'planId and resourceLimits are required' });
+  if (!planId) {
+    return res.status(400).json({ error: 'planId is required' });
   }
 
   // Validate planId
@@ -129,22 +133,37 @@ async function handlePut(req, res) {
     return res.status(400).json({ error: 'Invalid planId' });
   }
 
-  // Validate each limit key and value
-  for (const [key, value] of Object.entries(resourceLimits)) {
-    if (!VALID_LIMIT_KEYS.includes(key)) {
-      return res.status(400).json({ error: `Invalid limit key: ${key}` });
+  const updateData = { updatedAt: new Date() };
+
+  // Validate and include resource limits if provided
+  if (resourceLimits) {
+    for (const [key, value] of Object.entries(resourceLimits)) {
+      if (!VALID_LIMIT_KEYS.includes(key)) {
+        return res.status(400).json({ error: `Invalid limit key: ${key}` });
+      }
+      if (typeof value !== 'number' || value < -1) {
+        return res.status(400).json({ error: `Invalid value for ${key}: must be a number >= -1` });
+      }
     }
-    if (typeof value !== 'number' || value < -1) {
-      return res.status(400).json({ error: `Invalid value for ${key}: must be a number >= -1` });
+    updateData.resourceLimits = resourceLimits;
+  }
+
+  // Validate and include features if provided
+  if (features !== undefined) {
+    if (!Array.isArray(features)) {
+      return res.status(400).json({ error: 'features must be an array of feature keys' });
     }
+    for (const key of features) {
+      if (!VALID_FEATURE_KEYS.includes(key)) {
+        return res.status(400).json({ error: `Invalid feature key: ${key}` });
+      }
+    }
+    updateData.features = features;
   }
 
   const updatedPlan = await prisma.subscription_plans.update({
     where: { planId },
-    data: {
-      resourceLimits,
-      updatedAt: new Date()
-    }
+    data: updateData
   });
 
   return res.status(200).json({
@@ -153,22 +172,22 @@ async function handlePut(req, res) {
   });
 }
 
-export default async function handler(req, res) {
-  try {
+export default createHandler({
+  scope: 'public',
+  GET: async (req, res) => {
     const auth = await verifyOwner(req);
     if (auth.error) {
       return res.status(auth.status).json({ error: auth.error });
     }
 
-    if (req.method === 'GET') {
-      return handleGet(req, res);
-    } else if (req.method === 'PUT') {
-      return handlePut(req, res);
-    } else {
-      return res.status(405).json({ error: 'Method not allowed' });
+    return handleGet(req, res);
+  },
+  PUT: async (req, res) => {
+    const auth = await verifyOwner(req);
+    if (auth.error) {
+      return res.status(auth.status).json({ error: auth.error });
     }
-  } catch (error) {
-    console.error('Error in subscription-limits API:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+
+    return handlePut(req, res);
   }
-}
+});

@@ -1,12 +1,10 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { calculateCourseDurationFromModules } from '../../../utils/durationCalculations';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { projectId } = req.body;
 
     if (!projectId) {
@@ -319,13 +317,5 @@ export default async function handler(req, res) {
     };
 
     res.status(201).json(response);
-
-  } catch (error) {
-    console.error('Error importing curriculum schedule:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to import curriculum schedule',
-      error: error.message
-    });
   }
-}
+});

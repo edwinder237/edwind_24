@@ -22,6 +22,7 @@ const PublishingSettings = ({ formData, onInputChange }) => {
       case 'published': return 'success';
       case 'approved': return 'info';
       case 'review': return 'warning';
+      case 'pilot': return 'primary';
       case 'archived': return 'error';
       default: return 'default';
     }
@@ -31,6 +32,7 @@ const PublishingSettings = ({ formData, onInputChange }) => {
     { value: 'draft', label: 'Draft', description: 'Work in progress, not visible to learners' },
     { value: 'review', label: 'Under Review', description: 'Pending approval from administrators' },
     { value: 'approved', label: 'Approved', description: 'Ready for publishing' },
+    { value: 'pilot', label: 'Pilot', description: 'Trial run with a limited audience' },
     { value: 'published', label: 'Published', description: 'Live and available to learners' },
     { value: 'archived', label: 'Archived', description: 'No longer active' },
   ];

@@ -170,15 +170,15 @@ const OrganizationFormTab = ({ inputRef }) => {
     <MainCard content={false} title="Organization Settings" sx={{ '& .MuiInputLabel-root': { fontSize: '0.875rem' } }}>
       <Formik
         initialValues={{
-          organizationName: organization?.title || 'EDWIND Learning Solutions',
+          organizationName: organization?.title || '',
           subOrganizationName: (organization?.sub_organizations && Array.isArray(organization.sub_organizations) && organization.sub_organizations.length > 0)
             ? organization.sub_organizations[0].title
-            : 'Training Division',
-          description: organization?.description || 'A comprehensive training division focused on delivering high-quality educational programs and professional development courses.',
-          address: organization?.info?.address || '123 Learning Street, Education City, EC 12345',
-          phone: organization?.info?.phone || '+1-555-0123',
-          email: organization?.info?.email || 'info@edwind.com',
-          website: organization?.info?.website || 'https://www.edwind.com',
+            : '',
+          description: organization?.description || '',
+          address: organization?.info?.address || '',
+          phone: organization?.info?.phone || '',
+          email: organization?.info?.email || '',
+          website: organization?.info?.website || '',
           logo: '',
           submit: null
         }}

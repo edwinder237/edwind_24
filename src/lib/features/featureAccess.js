@@ -45,7 +45,9 @@ export const PLAN_DEFINITIONS = {
       'basic_participant_management',
       'basic_courses',
       'basic_reporting',
-      'single_sub_organization'
+      'single_sub_organization',
+      'training_recipients',
+      'event_management'
     ],
     limits: {
       maxProjects: 5,
@@ -54,10 +56,10 @@ export const PLAN_DEFINITIONS = {
       maxInstructors: 3,
       maxCourses: 15,
       maxCurriculums: 5,
-      maxStorageGB: 5,
       maxProjectsPerMonth: 5,
       maxEmailsPerMonth: 100,
-      maxAiSummarizationsPerMonth: 10
+      maxTrainingRecipients: 3,
+      maxSmartPulsePerDay: 5
     }
   },
 
@@ -89,7 +91,10 @@ export const PLAN_DEFINITIONS = {
       'attendance_tracking',
       'group_management',
       'custom_participant_roles',
-      'multiple_sub_organizations'
+      'multiple_sub_organizations',
+      'dashboard',
+      'timeline',
+      'kirkpatrick'
     ],
     limits: {
       maxProjects: 50,
@@ -98,11 +103,11 @@ export const PLAN_DEFINITIONS = {
       maxInstructors: 20,
       maxCourses: 100,
       maxCurriculums: 25,
-      maxStorageGB: 50,
       maxProjectsPerMonth: 50,
       maxCustomRoles: 10,
       maxEmailsPerMonth: 1000,
-      maxAiSummarizationsPerMonth: 100
+      maxTrainingRecipients: 8,
+      maxSmartPulsePerDay: 25
     }
   },
 
@@ -133,6 +138,9 @@ export const PLAN_DEFINITIONS = {
       'group_management',
       'custom_participant_roles',
       'multiple_sub_organizations',
+      'dashboard',
+      'timeline',
+      'kirkpatrick',
 
       // Enterprise-only features
       'api_access',
@@ -159,11 +167,11 @@ export const PLAN_DEFINITIONS = {
       maxInstructors: -1,
       maxCourses: -1,
       maxCurriculums: -1,
-      maxStorageGB: 500,
       maxProjectsPerMonth: -1,
       maxCustomRoles: -1,
       maxEmailsPerMonth: -1,
-      maxAiSummarizationsPerMonth: -1
+      maxTrainingRecipients: -1,
+      maxSmartPulsePerDay: -1
     }
   }
 };
@@ -172,6 +180,13 @@ export const PLAN_DEFINITIONS = {
 // FEATURE CATALOG
 // ============================================
 // Complete list of all features with metadata
+
+// Features that can be toggled per plan from the admin UI.
+export const TOGGLEABLE_FEATURE_KEYS = ['dashboard', 'timeline', 'kirkpatrick'];
+
+// Marker saved into DB features array when admin saves from the subscription-limits UI.
+// Presence means "admin explicitly configured toggleable features" → DB is authoritative.
+export const FEATURE_CONFIG_MARKER = '_toggleable_configured';
 
 export const FEATURE_CATEGORIES = {
   PROJECTS: 'projects',
@@ -262,6 +277,36 @@ export const FEATURES = {
     permissions: ['participants:create', 'participants:bulk']
   },
 
+  dashboard: {
+    key: 'dashboard',
+    name: 'Dashboard',
+    description: 'Projects dashboard with analytics overview',
+    category: FEATURE_CATEGORIES.ANALYTICS,
+    plans: ['professional', 'enterprise'],
+    roles: ['Admin', 'Organization Admin', 'Project Manager'],
+    permissions: ['access-projects-dashboard']
+  },
+
+  timeline: {
+    key: 'timeline',
+    name: 'Projects Timeline',
+    description: 'Visual Gantt chart timeline of all projects',
+    category: FEATURE_CATEGORIES.PROJECTS,
+    plans: ['professional', 'enterprise'],
+    roles: ['Admin', 'Organization Admin', 'Project Manager'],
+    permissions: ['timeline:read']
+  },
+
+  kirkpatrick: {
+    key: 'kirkpatrick',
+    name: 'Kirkpatrick Reports',
+    description: 'Kirkpatrick evaluation model reports',
+    category: FEATURE_CATEGORIES.ANALYTICS,
+    plans: ['professional', 'enterprise'],
+    roles: ['Admin', 'Organization Admin', 'Project Manager'],
+    permissions: ['kirkpatrick:read']
+  },
+
   multiple_instructors: {
     key: 'multiple_instructors',
     name: 'Multiple Instructors',
@@ -287,7 +332,7 @@ export const FEATURES = {
     name: 'Training Recipients',
     description: 'Manage training recipient organizations',
     category: FEATURE_CATEGORIES.PARTICIPANTS,
-    plans: ['professional', 'enterprise'],
+    plans: ['essential', 'professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager'],
     permissions: ['training_recipients:create']
   },
@@ -347,7 +392,7 @@ export const FEATURES = {
     name: 'Event Management',
     description: 'Schedule and manage training events',
     category: FEATURE_CATEGORIES.PROJECTS,
-    plans: ['professional', 'enterprise'],
+    plans: ['essential', 'professional', 'enterprise'],
     roles: ['Admin', 'Organization Admin', 'Project Manager', 'Instructor'],
     permissions: ['events:create']
   },
@@ -569,11 +614,11 @@ export const RESOURCES = {
   INSTRUCTORS: 'instructors',
   COURSES: 'courses',
   CURRICULUMS: 'curriculums',
-  STORAGE: 'storage',
   PROJECTS_PER_MONTH: 'projects_per_month',
   CUSTOM_ROLES: 'custom_roles',
   EMAILS_PER_MONTH: 'emails_per_month',
-  AI_SUMMARIZATIONS_PER_MONTH: 'ai_summarizations_per_month'
+  TRAINING_RECIPIENTS: 'training_recipients',
+  SMART_PULSE_PER_DAY: 'smart_pulse_per_day'
 };
 
 // Map resource names to their limit keys in plan definitions
@@ -584,11 +629,11 @@ export const RESOURCE_LIMIT_KEYS = {
   [RESOURCES.INSTRUCTORS]: 'maxInstructors',
   [RESOURCES.COURSES]: 'maxCourses',
   [RESOURCES.CURRICULUMS]: 'maxCurriculums',
-  [RESOURCES.STORAGE]: 'maxStorageGB',
   [RESOURCES.PROJECTS_PER_MONTH]: 'maxProjectsPerMonth',
   [RESOURCES.CUSTOM_ROLES]: 'maxCustomRoles',
   [RESOURCES.EMAILS_PER_MONTH]: 'maxEmailsPerMonth',
-  [RESOURCES.AI_SUMMARIZATIONS_PER_MONTH]: 'maxAiSummarizationsPerMonth'
+  [RESOURCES.TRAINING_RECIPIENTS]: 'maxTrainingRecipients',
+  [RESOURCES.SMART_PULSE_PER_DAY]: 'maxSmartPulsePerDay'
 };
 
 // Human-readable metadata for resource limits (used by admin UI)
@@ -601,9 +646,9 @@ export const RESOURCE_DISPLAY_INFO = {
   maxCourses: { label: 'Max Courses', description: 'Total courses that can be created' },
   maxCurriculums: { label: 'Max Curriculums', description: 'Total curriculums that can be created' },
   maxCustomRoles: { label: 'Max Custom Roles', description: 'Custom participant roles per organization' },
-  maxStorageGB: { label: 'Max Storage (GB)', description: 'File storage quota in gigabytes' },
   maxEmailsPerMonth: { label: 'Max Emails Per Month', description: 'Outbound emails sent per month' },
-  maxAiSummarizationsPerMonth: { label: 'Max AI Summarizations / Month', description: 'AI summarization calls per month' }
+  maxTrainingRecipients: { label: 'Max Training Recipients', description: 'Total training recipients (clients) allowed' },
+  maxSmartPulsePerDay: { label: 'SmartPulse / Day', description: 'SmartPulse AI calls per day' }
 };
 
 // ============================================
@@ -660,8 +705,23 @@ export function canAccessFeature({ subscription, userClaims, featureKey, organiz
   }
 
   // Check if feature is available in the current plan
+  // Priority: DB plan features (admin-managed) > code FEATURES catalog (fallback)
+  // FEATURE_CONFIG_MARKER in DB means admin has explicitly configured toggleable features.
   const planId = subscription.planId;
-  const isFeatureInPlan = feature.plans.includes(planId);
+  const dbPlanFeatures = subscription.plan?.features;
+  let isFeatureInPlan;
+  if (Array.isArray(dbPlanFeatures) && dbPlanFeatures.length > 0) {
+    const featuresConfigured = dbPlanFeatures.includes(FEATURE_CONFIG_MARKER);
+    if (featuresConfigured || !TOGGLEABLE_FEATURE_KEYS.includes(featureKey)) {
+      // DB authoritative: admin configured features, or checking a non-toggleable feature
+      isFeatureInPlan = dbPlanFeatures.includes(featureKey);
+    } else {
+      // Toggleable feature not yet configured by admin — fall back to code catalog
+      isFeatureInPlan = feature.plans.includes(planId);
+    }
+  } else {
+    isFeatureInPlan = feature.plans.includes(planId);
+  }
 
   if (!isFeatureInPlan) {
     // Find the minimum plan that has this feature

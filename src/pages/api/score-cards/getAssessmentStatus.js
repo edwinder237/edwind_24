@@ -1,12 +1,8 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const { assessmentId, projectId, curriculumId } = req.query;
+export default createHandler({ scope: 'org', GET: async (req, res) => {
+  const { assessmentId, projectId, curriculumId } = req.query;
 
     if (!assessmentId) {
       return res.status(400).json({
@@ -119,13 +115,5 @@ export default async function handler(req, res) {
       success: true,
       status: finalStatus
     });
-
-  } catch (error) {
-    console.error('Error getting assessment status:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get assessment status',
-      error: error.message
-    });
-  }
 }
+});

@@ -185,6 +185,16 @@ export function createEvent(newEvent, events, isAdding) {
       // dispatch(calendar.actions.isAdding(!isAdding));
     } catch (error) {
       dispatch(calendar.actions.hasError(error));
+      // Global dialog already shown by axios interceptor for limit errors
+      const errData = error.response?.data || (typeof error === 'object' ? error : {});
+      if (errData?._limitHandled) return;
+      const errMsg = errData.message || errData.error || 'Failed to create event. Please try again.';
+      dispatch(openSnackbar({
+        open: true,
+        message: errMsg,
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
     }
   };
 }
@@ -310,6 +320,14 @@ export function deleteEvent(eventId, events) {
       console.log(serverResponse.data);
     } catch (error) {
       dispatch(calendar.actions.hasError(error));
+      const errData = error.response?.data || {};
+      const errMsg = errData.message || errData.error || 'Failed to delete event. Please try again.';
+      dispatch(openSnackbar({
+        open: true,
+        message: errMsg,
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
     }
   };
 }

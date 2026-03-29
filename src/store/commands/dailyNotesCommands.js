@@ -6,7 +6,7 @@
  */
 
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import axios from 'utils/axios';
 import { openSnackbar } from '../reducers/snackbar';
 import {
   dailyNoteUpserted,
@@ -67,18 +67,19 @@ export const updateDailyNotes = createAsyncThunk(
     } catch (error) {
       console.error('[Command] Failed to update daily notes:', error);
 
-      dispatch(errorOccurred(error.message));
+      const errorMessage = error?.error || error?.message || 'Failed to save daily notes';
+      dispatch(errorOccurred(errorMessage));
       dispatch(loadingCompleted());
 
       dispatch(openSnackbar({
         open: true,
-        message: error.response?.data?.error || 'Failed to save daily notes',
+        message: errorMessage,
         variant: 'alert',
         alert: { color: 'error' },
         close: false
       }));
 
-      return rejectWithValue(error.message || 'Failed to update daily notes');
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -509,10 +510,11 @@ export const fetchDailyNotes = createAsyncThunk(
     } catch (error) {
       console.error('[Command] Failed to fetch daily notes:', error);
 
-      dispatch(errorOccurred(error.message));
+      const errorMessage = error?.error || error?.message || 'Failed to fetch daily notes';
+      dispatch(errorOccurred(errorMessage));
       dispatch(loadingCompleted());
 
-      return rejectWithValue(error.message);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -571,6 +573,7 @@ export const summarizeWithAI = createAsyncThunk(
       }
 
       const { keyHighlights, challenges } = response.data.data;
+      const smartPulse = response.data.smartPulse;
 
       // Get current note from state
       const noteId = `${projectId}-${date}`;
@@ -593,10 +596,13 @@ export const summarizeWithAI = createAsyncThunk(
       dispatch(dailyNoteUpserted(saveResponse.data));
       dispatch(loadingCompleted());
 
-      // Show success notification
+      // Show success notification with remaining SmartPulse count
+      const remainingText = smartPulse && smartPulse.limit !== -1
+        ? ` (${smartPulse.remaining} SmartPulse remaining today)`
+        : '';
       dispatch(openSnackbar({
         open: true,
-        message: `AI generated ${keyHighlights.length} highlights and ${challenges.length} challenges`,
+        message: `AI generated ${keyHighlights.length} highlights and ${challenges.length} challenges${remainingText}`,
         variant: 'alert',
         alert: { color: 'success' },
         close: false
@@ -606,18 +612,23 @@ export const summarizeWithAI = createAsyncThunk(
       return {
         ...saveResponse.data,
         aiGenerated: { keyHighlights, challenges },
+        smartPulse,
         command
       };
 
     } catch (error) {
       console.error('[Command] Failed to summarize with AI:', error);
 
-      dispatch(errorOccurred(error.message));
+      // Custom axios rejects with response data object or string; raw axios rejects with AxiosError
+      const errData = (typeof error === 'object' && !error.response) ? error : (error.response?.data || {});
+      let errorMessage = errData.error || error.message || 'Failed to generate AI summary';
+      const errorType = errData.errorType || 'unknown';
+
+      dispatch(errorOccurred(errorMessage));
       dispatch(loadingCompleted());
 
-      // Get the error message from the API response or use a default
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to generate AI summary';
-      const errorType = error.response?.data?.errorType || 'unknown';
+      // Global dialog already shown by axios interceptor for limit errors
+      if (errData?._limitHandled) return;
 
       // Determine snackbar color and auto-hide duration based on error type
       let alertColor = 'error';

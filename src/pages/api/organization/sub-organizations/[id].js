@@ -10,23 +10,19 @@
 
 import { WorkOS } from '@workos-inc/node';
 import prisma from '../../../../lib/prisma';
-import { withOrgScope } from '../../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../../lib/errors/index.js';
+import { createHandler } from '../../../../lib/api/createHandler';
+import { ValidationError, NotFoundError } from '../../../../lib/errors/index.js';
 import { invalidateClaimsCache, warmClaimsCache } from '../../../../lib/auth/claimsCache.js';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
-async function handler(req, res) {
-  const { id } = req.query;
-  const { orgContext } = req;
-  const workosUserId = req.cookies.workos_user_id;
-
+// Helper to verify sub-organization ownership
+async function verifySubOrgOwnership(id, orgContext) {
   const subOrgId = parseInt(id, 10);
   if (isNaN(subOrgId)) {
     throw new ValidationError('Invalid sub-organization ID');
   }
 
-  // Verify sub-organization belongs to current organization
   const existingSubOrg = await prisma.sub_organizations.findFirst({
     where: {
       id: subOrgId,
@@ -38,19 +34,14 @@ async function handler(req, res) {
     throw new NotFoundError('Sub-organization not found');
   }
 
-  switch (req.method) {
-    case 'GET':
-      return handleGet(req, res, subOrgId);
-    case 'PUT':
-      return handleUpdate(req, res, subOrgId, workosUserId);
-    case 'DELETE':
-      return handleDelete(req, res, subOrgId, orgContext, workosUserId);
-    default:
-      return res.status(405).json({ error: 'Method not allowed' });
-  }
+  return subOrgId;
 }
 
-async function handleGet(req, res, subOrgId) {
+async function handleGet(req, res) {
+  const { id } = req.query;
+  const { orgContext } = req;
+  const subOrgId = await verifySubOrgOwnership(id, orgContext);
+
   const subOrganization = await prisma.sub_organizations.findUnique({
     where: { id: subOrgId },
     select: {
@@ -81,7 +72,12 @@ async function handleGet(req, res, subOrgId) {
   });
 }
 
-async function handleUpdate(req, res, subOrgId, workosUserId) {
+async function handleUpdate(req, res) {
+  const { id } = req.query;
+  const { orgContext } = req;
+  const workosUserId = req.cookies.workos_user_id;
+  const subOrgId = await verifySubOrgOwnership(id, orgContext);
+
   const { title, description } = req.body;
 
   if (!title || !title.trim()) {
@@ -121,7 +117,12 @@ async function handleUpdate(req, res, subOrgId, workosUserId) {
   });
 }
 
-async function handleDelete(req, res, subOrgId, orgContext, workosUserId) {
+async function handleDelete(req, res) {
+  const { id } = req.query;
+  const { orgContext } = req;
+  const workosUserId = req.cookies.workos_user_id;
+  const subOrgId = await verifySubOrgOwnership(id, orgContext);
+
   // Check if this is the only sub-organization
   const subOrgCount = await prisma.sub_organizations.count({
     where: { organizationId: orgContext.organizationId }
@@ -188,4 +189,9 @@ async function handleDelete(req, res, subOrgId, orgContext, workosUserId) {
   });
 }
 
-export default withOrgScope(asyncHandler(handler));
+export default createHandler({
+  scope: 'org',
+  GET: handleGet,
+  PUT: handleUpdate,
+  DELETE: handleDelete
+});

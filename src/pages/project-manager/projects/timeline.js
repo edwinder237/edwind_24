@@ -26,8 +26,7 @@ import {
   Fade,
   Grid,
   Avatar,
-  AvatarGroup,
-  CircularProgress
+  AvatarGroup
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -48,7 +47,6 @@ import {
   TableOutlined,
   UnorderedListOutlined,
   AppstoreOutlined,
-  LockOutlined,
   FlagOutlined,
   EyeOutlined,
   EyeInvisibleOutlined
@@ -59,7 +57,7 @@ import { format, differenceInDays, addDays, startOfMonth, endOfMonth, startOfWee
 import Layout from 'layout';
 import Page from 'components/Page';
 import MainCard from 'components/MainCard';
-import useUser from 'hooks/useUser';
+import FeatureGate from 'components/FeatureGate';
 import ReportCard from 'components/cards/statistics/ReportCard';
 import { mockProjects, mockInstructors, mockRooms, projectionTypes } from 'data/mockData';
 import GanttChart from 'components/GanttChart/GanttChart';
@@ -69,25 +67,7 @@ import ProjectsMap from 'components/ProjectsMap';
 
 // ==============================|| PROJECTS TIMELINE ||============================== //
 
-const REQUIRED_PERMISSION_PREFIX = 'timeline:';
-const REQUIRED_PLAN = 'professional';
-
 const ProjectsTimeline = ({ googleMapsApiKey }) => {
-  // Permission + subscription check
-  const { user, isLoading: userLoading } = useUser();
-
-  // Admin roles that have access to ALL features (Level 0-1)
-  const adminRoles = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
-  const userRole = user?.role?.toLowerCase() || '';
-  const isAdminTier = adminRoles.includes(userRole);
-
-  // Admin-tier users have access to everything, others need any timeline:* permission
-  const hasPermission = isAdminTier || user?.permissions?.some(p => p.startsWith(REQUIRED_PERMISSION_PREFIX));
-
-  // Organization subscription plan check
-  const TIER_ORDER = { essential: 0, professional: 1, enterprise: 2 };
-  const orgPlan = user?.subscription?.planId || 'essential';
-  const hasPlanAccess = isAdminTier || (TIER_ORDER[orgPlan] || 0) >= (TIER_ORDER[REQUIRED_PLAN] || 0);
 
   // State management
   const [projects, setProjects] = useState([]);
@@ -439,64 +419,8 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
     return stats;
   }, [projects]);
 
-  // Show loading while checking permissions
-  if (userLoading) {
-    return (
-      <Page title="Projects Timeline">
-        <MainCard>
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-            <CircularProgress />
-          </Box>
-        </MainCard>
-      </Page>
-    );
-  }
-
-  // Show upgrade required if organization plan is insufficient
-  if (!hasPlanAccess) {
-    return (
-      <Page title="Upgrade Required">
-        <MainCard>
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <LockOutlined style={{ fontSize: '4rem', color: '#faad14', marginBottom: 16 }} />
-            <Typography variant="h4" gutterBottom>
-              Professional Plan Required
-            </Typography>
-            <Typography color="textSecondary">
-              The Timeline feature is available on the Professional plan and above.
-            </Typography>
-            <Typography color="textSecondary" sx={{ mt: 1 }}>
-              Contact your administrator to upgrade your organization&apos;s subscription.
-            </Typography>
-          </Box>
-        </MainCard>
-      </Page>
-    );
-  }
-
-  // Show access denied if user lacks permission
-  if (!hasPermission) {
-    return (
-      <Page title="Access Denied">
-        <MainCard>
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <LockOutlined style={{ fontSize: '4rem', color: '#8c8c8c', marginBottom: 16 }} />
-            <Typography variant="h4" gutterBottom>
-              Access Denied
-            </Typography>
-            <Typography color="textSecondary">
-              You don&apos;t have permission to access the Projects Timeline.
-            </Typography>
-            <Typography color="textSecondary" sx={{ mt: 1 }}>
-              Please contact your administrator if you believe this is an error.
-            </Typography>
-          </Box>
-        </MainCard>
-      </Page>
-    );
-  }
-
   return (
+    <FeatureGate featureKey="timeline" pageTitle="Projects Timeline">
     <Page title="Projects Timeline">
       <Stack spacing={3}>
         {/* Header Section */}
@@ -915,6 +839,7 @@ const ProjectsTimeline = ({ googleMapsApiKey }) => {
         />
       </Stack>
     </Page>
+    </FeatureGate>
   );
 };
 

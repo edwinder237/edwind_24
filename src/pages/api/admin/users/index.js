@@ -1,9 +1,7 @@
 import { WorkOS } from '@workos-inc/node';
-import { parse } from 'cookie';
+import { createHandler } from '../../../../lib/api/createHandler';
 import prisma from '../../../../lib/prisma';
-import { getCurrentOrganization, getOrganizationContext } from '../../../../lib/session/organizationSession';
 
-// Initialize WorkOS
 let workos;
 const getWorkOS = () => {
   if (!workos) {
@@ -12,72 +10,11 @@ const getWorkOS = () => {
   return workos;
 };
 
-// Admin role check
-const ADMIN_ROLES = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
+export default createHandler({
+  scope: 'admin',
+  GET: async (req, res) => {
+    const { organizationId, subOrganizationIds } = req.orgContext;
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    // Get user from cookie
-    const cookies = parse(req.headers.cookie || '');
-    const workosUserId = cookies.workos_user_id;
-
-    if (!workosUserId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    // Get current user and verify admin role
-    const currentUser = await prisma.user.findUnique({
-      where: { workos_user_id: workosUserId },
-      include: {
-        organization_memberships: {
-          include: {
-            organization: true
-          }
-        }
-      }
-    });
-
-    if (!currentUser) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    // Check if user has admin role in any organization
-    const adminMembership = currentUser.organization_memberships.find(
-      membership => ADMIN_ROLES.includes(membership.workos_role?.toLowerCase())
-    );
-
-    if (!adminMembership) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
-    // Get current organization from session cookie
-    const currentOrgId = await getCurrentOrganization(req);
-
-    if (!currentOrgId) {
-      return res.status(400).json({ error: 'No organization selected. Please select an organization first.' });
-    }
-
-    // Get organization context with sub-organization IDs
-    const orgContext = await getOrganizationContext(currentOrgId);
-
-    if (!orgContext) {
-      return res.status(400).json({ error: 'Organization not found' });
-    }
-
-    // Verify admin has access to this organization
-    const hasAccessToOrg = currentUser.organization_memberships.some(
-      m => m.organizationId === currentOrgId && ADMIN_ROLES.includes(m.workos_role?.toLowerCase())
-    );
-
-    if (!hasAccessToOrg) {
-      return res.status(403).json({ error: 'You do not have admin access to this organization' });
-    }
-
-    // Get query parameters
     const {
       search = '',
       page = '1',
@@ -87,7 +24,7 @@ export default async function handler(req, res) {
       isActive,
       subOrgId,
       role,
-      appRole // Filter by application role (Level 2-4)
+      appRole
     } = req.query;
 
     const pageNum = parseInt(page, 10);
@@ -96,13 +33,11 @@ export default async function handler(req, res) {
 
     // Build where clause - SCOPED TO ORGANIZATION'S SUB-ORGANIZATIONS
     const where = {
-      // Only show users belonging to sub-organizations within this organization
       sub_organizationId: {
-        in: orgContext.subOrganizationIds
+        in: subOrganizationIds
       }
     };
 
-    // Search filter
     if (search) {
       where.AND = [
         {
@@ -116,44 +51,34 @@ export default async function handler(req, res) {
       ];
     }
 
-    // Active filter
     if (isActive !== undefined) {
       where.isActive = isActive === 'true';
     }
 
-    // Sub-organization filter (must be within the allowed sub-orgs)
     if (subOrgId) {
       const requestedSubOrgId = parseInt(subOrgId, 10);
-      // Verify the requested sub-org belongs to the current organization
-      if (orgContext.subOrganizationIds.includes(requestedSubOrgId)) {
+      if (subOrganizationIds.includes(requestedSubOrgId)) {
         where.sub_organizationId = requestedSubOrgId;
       }
     }
 
-    // Get users with their organization memberships and app role assignments
     const [users, totalCount] = await Promise.all([
       prisma.user.findMany({
         where,
         include: {
           sub_organization: {
-            select: {
-              id: true,
-              title: true
-            }
+            select: { id: true, title: true }
           },
           organization_memberships: {
             include: {
               organization: {
-                select: {
-                  id: true,
-                  title: true
-                }
+                select: { id: true, title: true }
               }
             }
           },
           role_assignments: {
             where: {
-              organizationId: currentOrgId,
+              organizationId,
               isActive: true
             },
             include: {
@@ -169,16 +94,13 @@ export default async function handler(req, res) {
             }
           }
         },
-        orderBy: {
-          [sortBy]: sortOrder
-        },
+        orderBy: { [sortBy]: sortOrder },
         skip,
         take: limitNum
       }),
       prisma.user.count({ where })
     ]);
 
-    // Get WorkOS memberships and user data for role information + last active
     const workosInstance = getWorkOS();
     const usersWithRoles = await Promise.all(
       users.map(async (user) => {
@@ -186,20 +108,17 @@ export default async function handler(req, res) {
         let workosStatus = null;
         let lastActiveAt = null;
 
-        // Try to get role from local cache first
         if (user.organization_memberships.length > 0) {
           const primaryMembership = user.organization_memberships[0];
           workosRole = primaryMembership.workos_role;
           workosStatus = primaryMembership.status;
         }
 
-        // Fetch WorkOS user data for lastActiveAt and fallback role
         if (user.workos_user_id) {
           try {
             const workosUser = await workosInstance.userManagement.getUser(user.workos_user_id);
             lastActiveAt = workosUser.lastActiveAt || null;
 
-            // Fallback: get role from memberships if not cached locally
             if (!workosRole) {
               const memberships = await workosInstance.userManagement.listOrganizationMemberships({
                 userId: user.workos_user_id
@@ -214,7 +133,6 @@ export default async function handler(req, res) {
           }
         }
 
-        // Get app role from role_assignments
         const appRoleAssignment = user.role_assignments?.[0];
         const userAppRole = appRoleAssignment?.role || null;
 
@@ -242,7 +160,6 @@ export default async function handler(req, res) {
       })
     );
 
-    // Filter by WorkOS role if specified
     let filteredUsers = usersWithRoles;
     if (role) {
       filteredUsers = usersWithRoles.filter(
@@ -250,7 +167,6 @@ export default async function handler(req, res) {
       );
     }
 
-    // Filter by app role if specified
     if (appRole) {
       filteredUsers = filteredUsers.filter(
         user => user.appRole?.slug?.toLowerCase() === appRole.toLowerCase()
@@ -266,12 +182,5 @@ export default async function handler(req, res) {
         totalPages: Math.ceil(totalCount / limitNum)
       }
     });
-
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    return res.status(500).json({
-      error: 'Failed to fetch users',
-      details: error.message
-    });
   }
-}
+});

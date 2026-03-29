@@ -1,42 +1,36 @@
-import { withOrgScope } from '../../../lib/middleware/withOrgScope';
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 
-export default withOrgScope(async (req, res) => {
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { orgContext } = req;
 
-  // GET - List all active organization tools for user's sub-organizations
-  if (req.method === 'GET') {
-    try {
-      const tools = await prisma.organization_tools.findMany({
-        where: {
-          sub_organizationId: { in: orgContext.subOrganizationIds },
-          isActive: true
-        },
-        orderBy: { name: 'asc' }
-      });
-      return res.json(tools);
-    } catch (error) {
-      console.error('Error fetching organization tools:', error);
-      return res.status(500).json({ error: 'Failed to fetch organization tools' });
+    const tools = await prisma.organization_tools.findMany({
+      where: {
+        sub_organizationId: { in: orgContext.subOrganizationIds },
+        isActive: true
+      },
+      orderBy: { name: 'asc' }
+    });
+    return res.json(tools);
+  },
+  POST: async (req, res) => {
+    const { orgContext } = req;
+    const { name, toolType, toolUrl, toolDescription, icon, sub_organizationId } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'Tool name is required' });
     }
-  }
 
-  // POST - Create a new organization tool template
-  if (req.method === 'POST') {
+    // Use provided sub_organizationId or fall back to first available
+    const targetSubOrgId = sub_organizationId || orgContext.subOrganizationIds[0];
+
+    if (!orgContext.subOrganizationIds.includes(targetSubOrgId)) {
+      return res.status(403).json({ error: 'Invalid sub-organization' });
+    }
+
     try {
-      const { name, toolType, toolUrl, toolDescription, icon, sub_organizationId } = req.body;
-
-      if (!name?.trim()) {
-        return res.status(400).json({ error: 'Tool name is required' });
-      }
-
-      // Use provided sub_organizationId or fall back to first available
-      const targetSubOrgId = sub_organizationId || orgContext.subOrganizationIds[0];
-
-      if (!orgContext.subOrganizationIds.includes(targetSubOrgId)) {
-        return res.status(403).json({ error: 'Invalid sub-organization' });
-      }
-
       const tool = await prisma.organization_tools.create({
         data: {
           name: name.trim(),
@@ -57,6 +51,4 @@ export default withOrgScope(async (req, res) => {
       return res.status(500).json({ error: 'Failed to create organization tool' });
     }
   }
-
-  return res.status(405).json({ error: 'Method not allowed' });
 });

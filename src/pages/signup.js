@@ -47,6 +47,7 @@ import {
 // project import
 import Layout from 'layout';
 import axios from 'utils/axios';
+import useUser from 'hooks/useUser';
 
 const headerlogo = '/assets/images/logos/edwind-color-logo.png';
 
@@ -55,10 +56,10 @@ const FALLBACK_PLANS = [
   {
     id: 'essential',
     name: 'Essential',
-    price: 'Free',
-    period: '',
+    price: '$29.95',
+    period: '/mo',
     description: 'Perfect for small teams getting started with training management.',
-    buttonText: 'Start Free',
+    buttonText: 'Start 14-Day Free Trial',
     buttonVariant: 'outlined',
     popular: false,
     features: [
@@ -98,6 +99,19 @@ const FALLBACK_PLANS = [
 
 const SignupPage = () => {
   const router = useRouter();
+  const { user, isAuthenticated, isLoading: authLoading } = useUser();
+
+  // Redirect authenticated users away from signup
+  useEffect(() => {
+    if (authLoading) return;
+    if (isAuthenticated) {
+      if (user?.subscription?.requiresCheckout) {
+        router.replace('/checkout-required');
+      } else {
+        router.replace('/projects');
+      }
+    }
+  }, [authLoading, isAuthenticated, user, router]);
 
   const [plans, setPlans] = useState(FALLBACK_PLANS);
   const [activeStep, setActiveStep] = useState(0);
@@ -263,11 +277,10 @@ const SignupPage = () => {
 
       if (response.data.success) {
         if (response.data.checkoutUrl) {
-          // Professional: redirect to Stripe Checkout
           window.location.href = response.data.checkoutUrl;
         } else {
-          // Essential: go to dashboard
-          window.location.href = '/projects?welcome=essential';
+          // Fallback: ensure payment is completed before app access
+          window.location.href = '/checkout-required';
         }
       } else {
         setCreatingAccount(false);
@@ -377,6 +390,22 @@ const SignupPage = () => {
                 <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
                   {showPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
                 </IconButton>
+              </InputAdornment>
+            )
+          }}
+        />
+      </Grid>
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          label="Organization Name (Optional)"
+          value={formData.organizationName}
+          onChange={handleChange('organizationName')}
+          placeholder="e.g., Acme Training Corp"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <BankOutlined />
               </InputAdornment>
             )
           }}

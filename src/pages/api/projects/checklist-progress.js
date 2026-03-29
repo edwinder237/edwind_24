@@ -15,35 +15,9 @@
 
 import prisma from "../../../lib/prisma";
 import { Prisma } from "@prisma/client";
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
-
-async function handler(req, res) {
-  const { method } = req;
-
-  try {
-    switch (method) {
-      case 'GET':
-        return await handleGet(req, res);
-      case 'POST':
-        return await handlePost(req, res);
-      case 'PUT':
-        return await handlePut(req, res);
-      case 'DELETE':
-        return await handleDelete(req, res);
-      default:
-        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
-        return res.status(405).json({ message: `Method ${method} not allowed` });
-    }
-  } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ 
-      message: 'Internal server error',
-      error: error.message 
-    });
-  }
-}
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
 // GET - Fetch checklist progress for a project (both course and curriculum items)
 async function handleGet(req, res) {
@@ -522,4 +496,10 @@ async function handleDelete(req, res) {
   }
 }
 
-export default withOrgScope(asyncHandler(handler));
+export default createHandler({
+  scope: 'org',
+  GET: handleGet,
+  POST: handlePost,
+  PUT: handlePut,
+  DELETE: handleDelete
+});

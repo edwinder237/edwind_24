@@ -1,12 +1,10 @@
 import prisma from '../../../lib/prisma';
 import { uploadImageToR2 } from '../../../lib/r2-client-cloudflare';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { dryRun = true } = req.body;
 
     // Find all projects with Google Maps image URLs
@@ -116,13 +114,5 @@ export default async function handler(req, res) {
         results
       }
     });
-
-  } catch (error) {
-    console.error('Migration error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to migrate Google Maps images',
-      details: error.message
-    });
   }
-}
+});

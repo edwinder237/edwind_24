@@ -1,0 +1,4 @@
+# API routes exempt from createHandler requirement.
+# Remove entries as routes are migrated to createHandler.
+# Run: bash scripts/lint-api-routes.sh
+src/pages/api/projects/queries.js

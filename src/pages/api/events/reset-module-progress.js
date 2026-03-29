@@ -1,16 +1,14 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { eventId, moduleId } = req.body;
 
     // Validate required fields
     if (!eventId || !moduleId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
         details: 'eventId and moduleId are required'
       });
@@ -57,13 +55,5 @@ export default async function handler(req, res) {
         resetActivities: activityIds.length
       }
     });
-
-  } catch (error) {
-    console.error('Error resetting module progress:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to reset module progress',
-      details: error.message
-    });
   }
-}
+});

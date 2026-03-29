@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { curriculumId, projectId, id } = req.query;
 
     let where = {};
@@ -94,12 +92,5 @@ export default async function handler(req, res) {
       success: true,
       data: trainingPlans
     });
-  } catch (error) {
-    console.error('Error fetching training plans:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to fetch training plans',
-      error: error.message 
-    });
   }
-}
+});

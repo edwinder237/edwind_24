@@ -31,7 +31,8 @@ import Page from 'components/Page';
 import AppTable, { SelectionCell, SelectionHeader } from 'components/AppTable';
 import MainCard from 'components/MainCard';
 import { openSnackbar } from 'store/reducers/snackbar';
-import { ResourceLimitDialog, isResourceLimitError } from 'components/subscription';
+import { isResourceLimitError } from 'components/subscription';
+import { useResourceLimitDialog } from 'contexts/ResourceLimitContext';
 
 // assets
 import { PlusOutlined } from '@ant-design/icons';
@@ -53,7 +54,7 @@ function ParticipantRolesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, role: null });
-  const [limitError, setLimitError] = useState(null);
+  const { showLimitDialog } = useResourceLimitDialog();
   
   // Optimistic updates cache
   const [optimisticRoles, setOptimisticRoles] = useState([]);
@@ -268,7 +269,7 @@ function ParticipantRolesPage() {
         const limitErr = isResourceLimitError(response.status, errorData);
         if (limitErr) {
           setOpen(false);
-          setLimitError(limitErr);
+          showLimitDialog(limitErr);
           return;
         }
 
@@ -609,12 +610,7 @@ function ParticipantRolesPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Resource Limit Dialog */}
-      <ResourceLimitDialog
-        open={!!limitError}
-        onClose={() => setLimitError(null)}
-        limitError={limitError}
-      />
+      {/* Resource limit dialog is now global via ResourceLimitProvider */}
     </Page>
   );
 }

@@ -5,21 +5,18 @@
  * Analyzes session notes and generates key highlights and challenges using Google Gemini AI
  */
 
+import { createHandler } from '../../../lib/api/createHandler';
 import { summarizeSessionNotes } from '../../../lib/ai/gemini';
 import { WorkOS } from '@workos-inc/node';
 import { logUsage, PROVIDERS, getOrgIdFromUser } from '../../../lib/usage/usageLogger';
-import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
-import { RESOURCES } from '../../../lib/features/featureAccess';
+import { enforceResourceLimit, getOrgSubscription, getResourceUsage } from '../../../lib/features/subscriptionService';
+import { RESOURCES, hasResourceCapacity } from '../../../lib/features/featureAccess';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
-export default async function handler(req, res) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     // Verify user session
     const userId = req.cookies.workos_user_id;
 
@@ -37,9 +34,9 @@ export default async function handler(req, res) {
     // Get user's organization for usage tracking
     const organizationId = await getOrgIdFromUser(userId);
 
-    // Check AI summarization limit
+    // Check SmartPulse daily limit
     if (organizationId) {
-      const limitCheck = await enforceResourceLimit(organizationId, RESOURCES.AI_SUMMARIZATIONS_PER_MONTH);
+      const limitCheck = await enforceResourceLimit(organizationId, RESOURCES.SMART_PULSE_PER_DAY);
       if (!limitCheck.allowed) return res.status(limitCheck.status).json(limitCheck.body);
     }
 
@@ -69,80 +66,102 @@ export default async function handler(req, res) {
     }
 
     // Call Gemini AI to summarize with optional attendance, parking lot data, and AI settings
-    const startTime = Date.now();
-    const summary = await summarizeSessionNotes(sessionNotes, attendanceData, parkingLotItems, { tone, customTone, language });
-    const durationMs = Date.now() - startTime;
+    try {
+      const startTime = Date.now();
+      const summary = await summarizeSessionNotes(sessionNotes, attendanceData, parkingLotItems, { tone, customTone, language });
+      const durationMs = Date.now() - startTime;
 
-    // Calculate output size for cost estimation
-    const outputSize = JSON.stringify(summary).length;
+      // Calculate output size for cost estimation
+      const outputSize = JSON.stringify(summary).length;
 
-    // Log usage with actual token counts from Gemini API (fire-and-forget)
-    logUsage({
-      provider: PROVIDERS.GEMINI,
-      action: 'summarize_session_notes',
-      organizationId,
-      userId,
-      inputSize: sessionNotes.length,
-      outputSize,
-      durationMs,
-      success: true,
-      inputTokens: summary.tokenUsage?.inputTokens,
-      outputTokens: summary.tokenUsage?.outputTokens,
-      totalTokens: summary.tokenUsage?.totalTokens
-    });
+      // Log usage with actual token counts from Gemini API (fire-and-forget)
+      logUsage({
+        provider: PROVIDERS.GEMINI,
+        action: 'summarize_session_notes',
+        organizationId,
+        userId,
+        inputSize: sessionNotes.length,
+        outputSize,
+        durationMs,
+        success: true,
+        inputTokens: summary.tokenUsage?.inputTokens,
+        outputTokens: summary.tokenUsage?.outputTokens,
+        totalTokens: summary.tokenUsage?.totalTokens
+      });
 
-    console.log('[AI Summarization] Generated:', {
-      highlights: summary.keyHighlights.length,
-      challenges: summary.challenges.length
-    });
+      console.log('[AI Summarization] Generated:', {
+        highlights: summary.keyHighlights.length,
+        challenges: summary.challenges.length
+      });
 
-    // Return the generated summary
-    return res.status(200).json({
-      success: true,
-      data: {
-        keyHighlights: summary.keyHighlights,
-        challenges: summary.challenges
+      // Get SmartPulse remaining count for the user
+      let smartPulseRemaining = null;
+      if (organizationId) {
+        const subscription = await getOrgSubscription(organizationId);
+        const usage = await getResourceUsage(organizationId);
+        if (subscription) {
+          const capacity = hasResourceCapacity({
+            subscription,
+            resource: RESOURCES.SMART_PULSE_PER_DAY,
+            currentUsage: (usage[RESOURCES.SMART_PULSE_PER_DAY] || 0) + 1 // +1 for this request
+          });
+          smartPulseRemaining = {
+            used: capacity.current,
+            limit: capacity.limit,
+            remaining: capacity.available
+          };
+        }
       }
-    });
 
-  } catch (error) {
-    console.error('[AI Summarization] Error:', error);
+      // Return the generated summary
+      return res.status(200).json({
+        success: true,
+        data: {
+          keyHighlights: summary.keyHighlights,
+          challenges: summary.challenges
+        },
+        smartPulse: smartPulseRemaining
+      });
 
-    // Log failed usage (organizationId may not be available in error case)
-    logUsage({
-      provider: PROVIDERS.GEMINI,
-      action: 'summarize_session_notes',
-      userId: req.cookies?.workos_user_id,
-      inputSize: req.body?.sessionNotes?.length || 0,
-      success: false,
-      errorCode: error.message?.slice(0, 100)
-    });
+    } catch (error) {
+      console.error('[AI Summarization] Error:', error);
 
-    // Determine appropriate status code based on error type
-    let statusCode = 500;
-    let userMessage = error.message || 'Failed to generate AI summary';
+      // Log failed usage (organizationId may not be available in error case)
+      logUsage({
+        provider: PROVIDERS.GEMINI,
+        action: 'summarize_session_notes',
+        userId: req.cookies?.workos_user_id,
+        inputSize: req.body?.sessionNotes?.length || 0,
+        success: false,
+        errorCode: error.message?.slice(0, 100)
+      });
 
-    // Map error messages to appropriate HTTP status codes
-    if (userMessage.includes('not configured') || userMessage.includes('access denied')) {
-      statusCode = 503; // Service Unavailable
-    } else if (userMessage.includes('quota exceeded') || userMessage.includes('Too many requests')) {
-      statusCode = 429; // Too Many Requests
-    } else if (userMessage.includes('temporarily unavailable') || userMessage.includes('experiencing issues')) {
-      statusCode = 503; // Service Unavailable
-    } else if (userMessage.includes('timed out')) {
-      statusCode = 504; // Gateway Timeout
-    } else if (userMessage.includes('Unable to connect')) {
-      statusCode = 502; // Bad Gateway
+      // Determine appropriate status code based on error type
+      let statusCode = 500;
+      let userMessage = error.message || 'Failed to generate AI summary';
+
+      // Map error messages to appropriate HTTP status codes
+      if (userMessage.includes('not configured') || userMessage.includes('access denied')) {
+        statusCode = 503; // Service Unavailable
+      } else if (userMessage.includes('quota exceeded') || userMessage.includes('Too many requests')) {
+        statusCode = 429; // Too Many Requests
+      } else if (userMessage.includes('temporarily unavailable') || userMessage.includes('experiencing issues')) {
+        statusCode = 503; // Service Unavailable
+      } else if (userMessage.includes('timed out')) {
+        statusCode = 504; // Gateway Timeout
+      } else if (userMessage.includes('Unable to connect')) {
+        statusCode = 502; // Bad Gateway
+      }
+
+      // Return user-friendly error message
+      return res.status(statusCode).json({
+        success: false,
+        error: userMessage,
+        errorType: statusCode === 429 ? 'rate_limit' :
+                   statusCode === 503 ? 'service_unavailable' :
+                   statusCode === 504 ? 'timeout' :
+                   statusCode === 502 ? 'connection_error' : 'server_error'
+      });
     }
-
-    // Return user-friendly error message
-    return res.status(statusCode).json({
-      success: false,
-      error: userMessage,
-      errorType: statusCode === 429 ? 'rate_limit' :
-                 statusCode === 503 ? 'service_unavailable' :
-                 statusCode === 504 ? 'timeout' :
-                 statusCode === 502 ? 'connection_error' : 'server_error'
-    });
   }
-}
+});

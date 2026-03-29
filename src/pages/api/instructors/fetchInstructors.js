@@ -24,18 +24,13 @@
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { orgContext } = req;
     const { instructorType, status } = req.query;
 
     // Build where clause with optional filters
@@ -95,10 +90,5 @@ async function handler(req, res) {
     }));
 
     res.status(200).json(instructorsWithCount);
-  } catch (error) {
-    console.error('Error fetching instructors:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

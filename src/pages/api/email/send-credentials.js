@@ -5,15 +5,14 @@ import {
   fetchOrganizationLogo,
   isValidEmail
 } from '../../../lib/email';
+import { logEmailBatch } from '../../../lib/email/emailLogger';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { participants, credentials, projectName } = req.body;
 
     if (!participants || !Array.isArray(participants) || participants.length === 0) {
@@ -104,6 +103,25 @@ export default async function handler(req, res) {
       errorCode: failureCount > 0 ? 'PARTIAL_FAILURE' : null
     });
 
+    // Log individual emails (fire-and-forget)
+    const subOrgId = req.orgContext?.subOrganizationIds?.[0];
+    if (subOrgId) {
+      logEmailBatch(emailResults.map(r => ({
+        sub_organizationId: subOrgId,
+        recipientEmail: r.participantEmail,
+        recipientName: r.participantName,
+        recipientType: 'participant',
+        subject: `Access Credentials - ${r.participantName}`,
+        emailType: 'credentials',
+        status: r.status === 'sent' ? 'sent' : 'failed',
+        errorMessage: r.error || null,
+        resendEmailId: r.emailId || null,
+        projectTitle: projectName || null,
+        participantId: r.participantId ? String(r.participantId) : null,
+        sentByUserId: userId || null,
+      })));
+    }
+
     res.status(200).json({
       message: `Email sending completed: ${successCount} sent, ${failureCount} failed`,
       results: emailResults,
@@ -114,12 +132,5 @@ export default async function handler(req, res) {
         credentialTypes: credentials.length
       }
     });
-
-  } catch (error) {
-    console.error('Email sending error:', error);
-    res.status(500).json({
-      message: 'Failed to send emails',
-      error: error.message
-    });
   }
-}
+});

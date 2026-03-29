@@ -1,11 +1,9 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { participantId, projectId } = req.query;
 
     if (!participantId || !projectId) {
@@ -232,12 +230,5 @@ export default async function handler(req, res) {
       activities: activities
     });
 
-  } catch (error) {
-    console.error('Error fetching learning activities:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch learning activities',
-      error: error.message
-    });
   }
-}
+});

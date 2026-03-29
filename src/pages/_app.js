@@ -24,6 +24,7 @@ import Snackbar from 'components/@extended/Snackbar';
 import Notistack from 'components/third-party/Notistack';
 import CookieConsent from 'components/CookieConsent';
 import { ConfigProvider } from 'contexts/ConfigContext';
+import { ResourceLimitProvider } from 'contexts/ResourceLimitContext';
 import { store } from 'store';
 import ThemeCustomization from 'themes';
 
@@ -43,8 +44,10 @@ export default function App({ Component, pageProps }) {
                 <ScrollTop>
                   <CookieConsent>
                     <Notistack>
-                      <Snackbar />
-                      {getLayout(<Component {...pageProps} />)}
+                      <ResourceLimitProvider>
+                        <Snackbar />
+                        {getLayout(<Component {...pageProps} />)}
+                      </ResourceLimitProvider>
                     </Notistack>
                   </CookieConsent>
                 </ScrollTop>

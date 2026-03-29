@@ -1,11 +1,9 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { eventId } = req.body;
 
     if (!eventId) {
@@ -75,13 +73,5 @@ export default async function handler(req, res) {
       participants,
       count: participants.length
     });
-
-  } catch (error) {
-    console.error('Error fetching event participants with tools:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch event participants',
-      error: error.message
-    });
   }
-}
+});

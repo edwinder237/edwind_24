@@ -1,4 +1,5 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 const { getProgressCache, getCacheDuration } = require('../../../utils/progressCache');
 
 // Use shared cache instance
@@ -187,14 +188,11 @@ async function calculateGroupCurriculumProgress(groupId, projectId) {
   }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  
-  const { groupId, projectId } = req.body;
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { groupId, projectId } = req.body;
 
-  try {
     if (!groupId || !projectId) {
       return res.status(400).json({ error: 'Group ID and Project ID are required' });
     }
@@ -284,11 +282,5 @@ export default async function handler(req, res) {
     }
 
     res.status(200).json(result);
-  } catch (error) {
-    console.error('[calculate-progress] Error:', error);
-    res.status(500).json({ 
-      error: "Internal Server Error",
-      ...(process.env.NODE_ENV === 'development' && { details: error.message })
-    });
   }
-}
+});

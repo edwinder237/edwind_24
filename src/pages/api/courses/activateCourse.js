@@ -1,17 +1,15 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Course ID is required' 
+        message: 'Course ID is required'
       });
     }
 
@@ -23,16 +21,16 @@ export default async function handler(req, res) {
     });
 
     if (!existingCourse) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Course not found' 
+        message: 'Course not found'
       });
     }
 
     // Update course to active
     const updatedCourse = await prisma.courses.update({
       where: { id: courseId },
-      data: { 
+      data: {
         isActive: true,
         lastUpdated: new Date()
       }
@@ -44,13 +42,5 @@ export default async function handler(req, res) {
       courseId: courseId,
       course: updatedCourse
     });
-
-  } catch (error) {
-    console.error('Error activating course:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to activate course',
-      error: error.message 
-    });
   }
-}
+});

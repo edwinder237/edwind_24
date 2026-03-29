@@ -1,21 +1,18 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from "../../../lib/prisma";
 
 /**
  * Bulk API endpoint for adding multiple participants and groups to an event
  * This replaces multiple individual API calls for better performance
  */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { eventId, participants = [], groups = [] } = req.body;
 
-  const { eventId, participants = [], groups = [] } = req.body;
-
-  if (!eventId) {
-    return res.status(400).json({ error: 'Event ID is required' });
-  }
-
-  try {
+    if (!eventId) {
+      return res.status(400).json({ error: 'Event ID is required' });
+    }
     const results = {
       addedParticipants: [],
       addedGroups: [],
@@ -138,12 +135,5 @@ export default async function handler(req, res) {
       data: results,
       message: `Added ${results.addedParticipants.length} participants and ${results.addedGroups.length} groups to event`
     });
-
-  } catch (error) {
-    console.error('Error in bulk add operation:', error);
-    res.status(500).json({ 
-      error: 'Failed to add participants and groups to event', 
-      details: error.message 
-    });
   }
-}
+});

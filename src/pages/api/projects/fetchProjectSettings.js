@@ -23,23 +23,21 @@
  */
 
 import prisma from "../../../lib/prisma";
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { projectId } = req.body;
+    const { orgContext } = req;
 
-  const { projectId } = req.body;
-  const { orgContext } = req;
+    if (!projectId) {
+      throw new ValidationError('Project ID is required');
+    }
 
-  if (!projectId) {
-    throw new ValidationError('Project ID is required');
-  }
-
-  try {
+    try {
     const projectIdInt = parseInt(projectId);
 
     // First verify project exists and belongs to organization
@@ -408,10 +406,9 @@ async function handler(req, res) {
     
     return res.status(200).json(settingsData);
 
-  } catch (error) {
-    console.error('Error fetching project settings:', error);
-    throw error;
+    } catch (error) {
+      console.error('Error fetching project settings:', error);
+      throw error;
+    }
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

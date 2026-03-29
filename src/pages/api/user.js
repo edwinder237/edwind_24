@@ -1,13 +1,15 @@
 import { WorkOS } from '@workos-inc/node';
 import prisma from '../../lib/prisma';
+import { createHandler } from '../../lib/api/createHandler';
 import { getCurrentOrganization } from '../../lib/session/organizationSession';
 import { getOrgSubscription } from '../../lib/features/subscriptionService';
 import { getUserPermissions } from '../../lib/auth/permissionService';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
-export default async function handler(req, res) {
-  try {
+export default createHandler({
+  scope: 'auth',
+  GET: async (req, res) => {
     const userId = req.cookies.workos_user_id;
     const accessToken = req.cookies.workos_access_token;
 
@@ -15,7 +17,6 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    // Extract permissions from stored JWT
     let jwtPermissions = [];
     if (accessToken) {
       try {
@@ -29,17 +30,15 @@ export default async function handler(req, res) {
       }
     }
 
-    // Get user from WorkOS User Management API (standard attributes)
     const workosUser = await workos.userManagement.getUser(userId);
 
     if (!workosUser) {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    // Fetch user's organization memberships for role information
     let memberships = [];
     let primaryRole = 'User';
-    let organizationName = 'EDWIND Learning Solutions';
+    let organizationName = '';
 
     try {
       const membershipResponse = await workos.userManagement.listOrganizationMemberships({
@@ -47,7 +46,6 @@ export default async function handler(req, res) {
       });
       memberships = membershipResponse.data || [];
 
-      // Get primary organization role if available
       if (memberships.length > 0) {
         const primaryMembership = memberships[0];
         primaryRole = primaryMembership.role?.slug || primaryMembership.role || 'User';
@@ -57,8 +55,8 @@ export default async function handler(req, res) {
       console.error('Error fetching memberships:', membershipError);
     }
 
-    // Get user from local database for additional cached data
     let dbUser = null;
+    let dbUnavailable = false;
     try {
       dbUser = await prisma.user.findUnique({
         where: { workos_user_id: userId },
@@ -72,11 +70,10 @@ export default async function handler(req, res) {
       });
     } catch (dbError) {
       console.error('Error fetching user from database:', dbError);
+      dbUnavailable = true;
     }
 
-    // Check if user is inactive - block access and clear session cookies
     if (dbUser && dbUser.isActive === false) {
-      // Clear auth cookies so user can login with a different account
       res.setHeader('Set-Cookie', [
         'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
         'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
@@ -88,8 +85,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get current organization from session cookie (if set)
-    // This ensures the user object reflects the currently active organization
     let currentOrgId = null;
     let currentOrgName = organizationName;
     let currentSubOrgName = dbUser?.sub_organization?.title;
@@ -99,7 +94,6 @@ export default async function handler(req, res) {
       currentOrgId = await getCurrentOrganization(req);
 
       if (currentOrgId) {
-        // Fetch current organization from session
         const currentOrg = await prisma.organizations.findUnique({
           where: { id: currentOrgId },
           select: {
@@ -111,7 +105,6 @@ export default async function handler(req, res) {
         });
 
         if (currentOrg) {
-          // Check if organization is deactivated
           if (currentOrg.status === 'inactive') {
             res.setHeader('Set-Cookie', [
               'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
@@ -126,7 +119,6 @@ export default async function handler(req, res) {
 
           currentOrgName = currentOrg.title;
 
-          // Find the user's role in the CURRENT organization
           if (currentOrg.workos_org_id && memberships.length > 0) {
             const currentOrgMembership = memberships.find(m =>
               m.organizationId === currentOrg.workos_org_id
@@ -136,27 +128,21 @@ export default async function handler(req, res) {
             }
           }
 
-          // Get all sub-organizations for this organization
           const subOrgs = await prisma.sub_organizations.findMany({
             where: { organizationId: currentOrgId },
             select: { id: true, title: true }
           });
 
-          // Use first sub-org as the current one (or the user's assigned one if it exists in this org)
           if (subOrgs.length > 0) {
             const userSubOrg = subOrgs.find(so => so.id === dbUser?.sub_organizationId);
             if (userSubOrg) {
-              // User's sub-org exists in this organization
               currentSubOrgName = userSubOrg.title;
               currentSubOrgId = userSubOrg.id;
             } else {
-              // User's sub-org not in this org, use first one from current org
               currentSubOrgName = subOrgs[0].title;
               currentSubOrgId = subOrgs[0].id;
             }
           } else {
-            // No sub-organizations in this organization - clear the sub-org context
-            // Don't inherit from a different organization
             currentSubOrgName = null;
             currentSubOrgId = null;
           }
@@ -164,29 +150,21 @@ export default async function handler(req, res) {
       }
     } catch (orgError) {
       console.error('Error fetching current organization:', orgError);
-      // Fall back to database cached values
     }
 
-    // Get subscription info for current organization
     let subscription = null;
     if (currentOrgId) {
       try {
         const subData = await getOrgSubscription(currentOrgId);
         if (subData) {
-          console.log(`🔍 [USER API] Subscription for org ${currentOrgId}:`, {
-            planId: subData.planId,
-            status: subData.status,
-            trialStart: subData.trialStart,
-            trialEnd: subData.trialEnd,
-            stripeSubscriptionId: subData.stripeSubscriptionId
-          });
           subscription = {
             planId: subData.planId,
             planName: subData.plan?.name || 'Free',
+            planFeatures: Array.isArray(subData.plan?.features) ? subData.plan.features : [],
             status: subData.status,
             trialStart: subData.trialStart || null,
             trialEnd: subData.trialEnd || null,
-            requiresCheckout: false // Trial works without upfront checkout; admin completes payment from subscription settings
+            requiresCheckout: !subData.stripeSubscriptionId
           };
         }
       } catch (subError) {
@@ -194,7 +172,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Get app role permissions from database (Level 2-4 roles with org overrides)
     let dbPermissions = [];
     let appRole = null;
     if (currentOrgId) {
@@ -207,60 +184,38 @@ export default async function handler(req, res) {
       }
     }
 
-    // Merge JWT permissions with database permissions
     const allPermissions = [...new Set([...jwtPermissions, ...dbPermissions])];
 
-    // Construct full user object with WorkOS attributes
     const fullUser = {
-      // Core identity
       id: workosUser.id,
       workos_user_id: workosUser.id,
       email: workosUser.email,
       emailVerified: workosUser.emailVerified,
-
-      // Name attributes
       firstName: workosUser.firstName,
       lastName: workosUser.lastName,
       name: `${workosUser.firstName || ''} ${workosUser.lastName || ''}`.trim() || workosUser.email,
-
-      // Profile
       avatar: workosUser.profilePictureUrl || '/assets/images/users/default.png',
       thumb: workosUser.profilePictureUrl || '/assets/images/users/default.png',
       profilePictureUrl: workosUser.profilePictureUrl,
-
-      // Role and organization (from WorkOS memberships)
       role: primaryRole,
-      permissions: allPermissions, // Merged WorkOS JWT + database permissions
-      appRole: appRole, // App role from database (Level 2-4)
-      organizationName: currentOrgName, // Use current organization name from session
+      permissions: allPermissions,
+      appRole: appRole,
+      organizationName: currentOrgName,
       memberships: memberships,
-
-      // Current organization context (from session cookie)
       sub_organizationId: currentSubOrgId,
       subOrganizationName: currentSubOrgName,
       organizationId: currentOrgId || dbUser?.sub_organization?.organization?.id,
-
-      // WorkOS metadata
       createdAt: workosUser.createdAt,
       updatedAt: workosUser.updatedAt,
-
-      // Directory Sync attributes (if available from Directory User)
-      // These would be populated if the user comes from a directory provider
-      directoryAttributes: {
-        // These fields are available when user is synced from directory
-        // We'll add them in the next step when enhancing directory sync
-      },
-
-      // Subscription info for current organization
-      subscription: subscription || { planId: 'essential', planName: 'Essential', status: 'active' },
-
-      // User info from database (includes onboarding status)
+      directoryAttributes: {},
+      subscription: subscription || (dbUnavailable
+        ? { planId: 'unknown', planName: 'Unknown', status: 'unavailable', requiresCheckout: false }
+        : { planId: 'essential', planName: 'Essential', status: 'incomplete', requiresCheckout: true }
+      ),
+      dbUnavailable,
       info: dbUser?.info || {}
     };
 
     res.status(200).json(fullUser);
-  } catch (error) {
-    console.error('Error getting user:', error);
-    res.status(401).json({ error: 'Not authenticated' });
   }
-}
+});

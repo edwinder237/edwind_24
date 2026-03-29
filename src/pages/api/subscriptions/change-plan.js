@@ -15,18 +15,17 @@
  * PROTECTED: Admin-only access via withAdminScope middleware
  */
 
-import { withAdminScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
+import { ValidationError } from '../../../lib/errors/index.js';
 import { getStripe, getPriceIdForPlan } from '../../../lib/stripe/stripeService.js';
 import prisma from '../../../lib/prisma.js';
 import { invalidateSubscriptionCache } from '../../../lib/features/subscriptionService.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'admin',
+  skipSubscriptionCheck: true,
+  POST: async (req, res) => {
+    const { orgContext } = req;
   const { planId, interval } = req.body;
   const stripe = getStripe();
 
@@ -218,23 +217,22 @@ async function handler(req, res) {
         currentPeriodEnd: currentPeriodEnd.toISOString()
       }
     });
-  } catch (err) {
-    console.error('Error changing plan:', err);
+    } catch (err) {
+      console.error('Error changing plan:', err);
 
-    // Handle specific Stripe errors
-    if (err.type === 'StripeCardError') {
-      return res.status(400).json({
+      // Handle specific Stripe errors
+      if (err.type === 'StripeCardError') {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment failed. Please update your payment method and try again.',
+          action: 'update_payment'
+        });
+      }
+
+      return res.status(500).json({
         success: false,
-        message: 'Payment failed. Please update your payment method and try again.',
-        action: 'update_payment'
+        message: 'Failed to change plan. Please try again or contact support.'
       });
     }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to change plan. Please try again or contact support.'
-    });
   }
-}
-
-export default withAdminScope(asyncHandler(handler));
+});

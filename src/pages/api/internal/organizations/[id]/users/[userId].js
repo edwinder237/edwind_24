@@ -3,6 +3,7 @@
  * DELETE /api/internal/organizations/[id]/users/[userId] — Hard delete user (Owner only)
  */
 
+import { createHandler } from '../../../../../../lib/api/createHandler';
 import prisma from '../../../../../../lib/prisma';
 import { WorkOS } from '@workos-inc/node';
 
@@ -35,42 +36,25 @@ async function revokeUserSessions(workosUserId) {
 }
 
 /**
- * Verify the caller is an owner
+ * Verify the caller is an owner. Sends error response and returns null if auth fails.
  */
-async function verifyOwner(req) {
+async function verifyOwner(req, res) {
   const userId = req.cookies.workos_user_id;
-  if (!userId) return null;
+  if (!userId) {
+    res.status(401).json({ error: 'Not authenticated' });
+    return null;
+  }
 
   const membership = await prisma.organization_memberships.findFirst({
     where: { userId },
     select: { workos_role: true, organizationId: true, userId: true }
   });
 
-  if (!membership || membership.workos_role !== 'owner') return null;
-  return membership;
-}
-
-export default async function handler(req, res) {
-  try {
-    const membership = await verifyOwner(req);
-    if (!membership) {
-      const userId = req.cookies.workos_user_id;
-      if (!userId) return res.status(401).json({ error: 'Not authenticated' });
-      return res.status(403).json({ error: 'Owner access required' });
-    }
-
-    switch (req.method) {
-      case 'PUT':
-        return handlePut(req, res, membership);
-      case 'DELETE':
-        return handleDelete(req, res, membership);
-      default:
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
-  } catch (error) {
-    console.error('Error in user management endpoint:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+  if (!membership || membership.workos_role !== 'owner') {
+    res.status(403).json({ error: 'Owner access required' });
+    return null;
   }
+  return membership;
 }
 
 // ── PUT — Edit user fields ──
@@ -225,3 +209,17 @@ async function handleDelete(req, res, membership) {
     deleted: { id: user.id, email: user.email }
   });
 }
+
+export default createHandler({
+  scope: 'public',
+  PUT: async (req, res) => {
+    const membership = await verifyOwner(req, res);
+    if (!membership) return;
+    return handlePut(req, res, membership);
+  },
+  DELETE: async (req, res) => {
+    const membership = await verifyOwner(req, res);
+    if (!membership) return;
+    return handleDelete(req, res, membership);
+  }
+});

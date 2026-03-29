@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { groupId, curriculumId, assignedBy } = req.body;
 
     // Validate required fields
@@ -53,62 +51,63 @@ export default async function handler(req, res) {
     }
 
     // Create the group-curriculum assignment
-    const assignment = await prisma.group_curriculums.create({
-      data: {
-        groupId: parseInt(groupId),
-        curriculumId: parseInt(curriculumId),
-        assignedBy: assignedBy || 'system',
-        isActive: true
-      },
-      include: {
-        group: {
-          select: {
-            id: true,
-            groupName: true,
-            chipColor: true,
-            projectId: true
-          }
+    try {
+      const assignment = await prisma.group_curriculums.create({
+        data: {
+          groupId: parseInt(groupId),
+          curriculumId: parseInt(curriculumId),
+          assignedBy: assignedBy || 'system',
+          isActive: true
         },
-        curriculum: {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            curriculum_courses: {
-              include: {
-                course: {
-                  select: {
-                    id: true,
-                    title: true
+        include: {
+          group: {
+            select: {
+              id: true,
+              groupName: true,
+              chipColor: true,
+              projectId: true
+            }
+          },
+          curriculum: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              curriculum_courses: {
+                include: {
+                  course: {
+                    select: {
+                      id: true,
+                      title: true
+                    }
                   }
                 }
               }
             }
           }
         }
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Curriculum successfully assigned to group',
+        assignment
+      });
+    } catch (error) {
+      console.error('Error assigning curriculum to group:', error);
+
+      // Handle Prisma-specific errors
+      if (error.code === 'P2002') {
+        return res.status(409).json({
+          error: 'Duplicate assignment',
+          details: 'This curriculum is already assigned to the group'
+        });
       }
-    });
 
-    res.status(201).json({
-      success: true,
-      message: 'Curriculum successfully assigned to group',
-      assignment
-    });
-
-  } catch (error) {
-    console.error('Error assigning curriculum to group:', error);
-    
-    // Handle Prisma-specific errors
-    if (error.code === 'P2002') {
-      return res.status(409).json({ 
-        error: 'Duplicate assignment',
-        details: 'This curriculum is already assigned to the group'
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: "Failed to assign curriculum to group"
       });
     }
-    
-    res.status(500).json({ 
-      error: "Internal Server Error",
-      message: "Failed to assign curriculum to group"
-    });
   }
-}
+});

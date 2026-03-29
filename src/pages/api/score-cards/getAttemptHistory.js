@@ -1,12 +1,8 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const { assessmentId, participantId } = req.query;
+export default createHandler({ scope: 'org', GET: async (req, res) => {
+  const { assessmentId, participantId } = req.query;
 
     if (!assessmentId || !participantId) {
       return res.status(400).json({
@@ -116,13 +112,5 @@ export default async function handler(req, res) {
       attempts,
       statistics
     });
-
-  } catch (error) {
-    console.error('Error fetching attempt history:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch attempt history',
-      error: error.message
-    });
-  }
 }
+});

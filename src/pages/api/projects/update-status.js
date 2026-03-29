@@ -9,18 +9,16 @@
 
 import prisma from '../../../lib/prisma';
 import { PROJECT_STATUS } from '../../../constants';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique, scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
+    const { orgContext } = req;
 
-  const { orgContext } = req;
-
-  try {
+    try {
     const { projectId, status } = req.body;
 
     if (!projectId || !status) {
@@ -60,10 +58,9 @@ async function handler(req, res) {
       }
     });
 
-  } catch (error) {
-    console.error('Error updating project status:', error);
-    throw error;
+    } catch (error) {
+      console.error('Error updating project status:', error);
+      throw error;
+    }
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

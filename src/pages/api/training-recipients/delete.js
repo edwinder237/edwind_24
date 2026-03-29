@@ -8,14 +8,13 @@
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'DELETE') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  DELETE: async (req, res) => {
 
   const { orgContext } = req;
   const { id } = req.body;
@@ -74,11 +73,10 @@ async function handler(req, res) {
     where: { id: recipientId }
   });
 
-  res.status(200).json({
+  return res.status(200).json({
     success: true,
     message: `Training recipient and ${participantIds.length} participant(s) deleted successfully`,
     deletedParticipants: participantIds.length
   });
-}
-
-export default withOrgScope(asyncHandler(handler));
+  }
+});

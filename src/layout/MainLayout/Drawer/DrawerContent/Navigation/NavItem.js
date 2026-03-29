@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { forwardRef, useEffect } from 'react';
+import { useEffect } from 'react';
 
 // next
 import { useRouter } from 'next/router';
@@ -11,9 +11,9 @@ import { Avatar, Chip, ListItemButton, ListItemIcon, ListItemText, Typography, u
 
 // project import
 import Dot from 'components/@extended/Dot';
-import FeatureBadge from 'components/@extended/FeatureBadge';
 import useConfig from 'hooks/useConfig';
 import useUser from 'hooks/useUser';
+import useFeatureAccess from 'hooks/useFeatureAccess';
 import { dispatch, useSelector } from 'store';
 import { activeItem, openDrawer } from 'store/reducers/menu';
 import { LAYOUT_CONST } from 'config';
@@ -31,6 +31,9 @@ const NavItem = ({ item, level }) => {
   const downLG = useMediaQuery(theme.breakpoints.down('lg'));
 
   const { menuOrientation } = useConfig();
+
+  // Feature access check (for items with featureKey)
+  const { canAccess: featureAllowed, reason: featureReason } = useFeatureAccess(item.featureKey || null);
 
   // Access control: permissions + subscription plan tier
   const userPermissions = user?.permissions || [];
@@ -55,15 +58,9 @@ const NavItem = ({ item, level }) => {
     if (!hasPermission) return null;
   }
 
-  // Organization subscription plan tier check
-  if (item.featureBadge && !isAdminRole) {
-    const TIER_ORDER = { essential: 0, professional: 1, enterprise: 2 };
-    const BADGE_TO_PLAN = { pro: 'professional', enterprise: 'enterprise' };
-    const requiredPlan = BADGE_TO_PLAN[item.featureBadge];
-    const orgPlan = user?.subscription?.planId || 'essential';
-    if ((TIER_ORDER[orgPlan] || 0) < (TIER_ORDER[requiredPlan] || 0)) {
-      return null;
-    }
+  // Feature-based plan check — hide item if plan doesn't include the feature
+  if (item.featureKey && !featureAllowed && featureReason === 'plan_upgrade_required') {
+    return null;
   }
 
   let itemTarget = '_self';
@@ -72,9 +69,10 @@ const NavItem = ({ item, level }) => {
   }
 
   let listItemProps = {
-    component: forwardRef((props, ref) => (
-      <NextLink {...props} href={item.url} target={itemTarget} ref={ref} style={{ textDecoration: 'none', color: 'inherit' }} />
-    ))
+    component: NextLink,
+    href: item.url,
+    target: itemTarget,
+    style: { textDecoration: 'none', color: 'inherit' }
   };
   if (item?.external) {
     listItemProps = { component: 'a', href: item.url, target: itemTarget };
@@ -194,9 +192,6 @@ const NavItem = ({ item, level }) => {
               avatar={item.chip.avatar && <Avatar>{item.chip.avatar}</Avatar>}
             />
           )}
-          {(drawerOpen || (!drawerOpen && level !== 1)) && item.featureBadge && (
-            <FeatureBadge tier={item.featureBadge} size="small" />
-          )}
         </ListItemButton>
       ) : (
         <ListItemButton
@@ -297,9 +292,6 @@ const NavItem = ({ item, level }) => {
               label={item.chip.label}
               avatar={item.chip.avatar && <Avatar>{item.chip.avatar}</Avatar>}
             />
-          )}
-          {(drawerOpen || (!drawerOpen && level !== 1)) && item.featureBadge && (
-            <FeatureBadge tier={item.featureBadge} size="small" />
           )}
         </ListItemButton>
       )}

@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { projectId } = req.query;
 
     if (!projectId) {
@@ -111,7 +109,7 @@ export default async function handler(req, res) {
     const trainingPlansWithStats = trainingPlans.map(plan => {
       const totalItems = plan.days.reduce((total, day) => total + day.modules.length, 0);
       const totalDays = plan.days.length;
-      
+
       return {
         id: plan.id,
         title: plan.title,
@@ -132,13 +130,5 @@ export default async function handler(req, res) {
       trainingPlans: trainingPlansWithStats,
       count: trainingPlansWithStats.length
     });
-
-  } catch (error) {
-    console.error('Error fetching training plans:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch training plans',
-      error: error.message
-    });
   }
-}
+});

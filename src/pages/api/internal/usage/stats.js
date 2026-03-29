@@ -9,17 +9,15 @@
  *   - organizationId: Filter by organization
  */
 
+import { createHandler } from '../../../../lib/api/createHandler';
 import prisma from '../../../../lib/prisma';
 import { WorkOS } from '@workos-inc/node';
 
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'public',
+  GET: async (req, res) => {
     // Check authentication
     const userId = req.cookies.workos_user_id;
 
@@ -276,11 +274,5 @@ export default async function handler(req, res) {
       // Include global totals when filtering by org (for proportional share calculation)
       globalTotals: globalTotals || null
     });
-  } catch (error) {
-    console.error('[Usage Stats] Error:', error);
-    return res.status(500).json({
-      error: 'Failed to fetch usage statistics',
-      details: error.message
-    });
   }
-}
+});

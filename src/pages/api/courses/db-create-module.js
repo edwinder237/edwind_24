@@ -1,15 +1,13 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { isVersionLocked } from '../../../lib/utils/versionProtection';
 import { createAuditLog } from '../../../lib/utils/auditLog';
-import { attachUserClaims } from '../../../lib/auth/middleware';
 
-export default async function handler(req, res) {
-  // Get user info for audit logging
-  await attachUserClaims(req, res);
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { module, changedByName } = req.body;
 
-  const { module, changedByName } = req.body;
-
-  try {
     // Check if the course's current version is locked before creating
     const courseForVersionCheck = await prisma.courses.findUnique({
       where: { id: parseInt(module.courseId) },
@@ -55,7 +53,7 @@ export default async function handler(req, res) {
     const currentVersion = course?.version;
 
     // Log the audit entry (no version bump for creation)
-    const userName = changedByName || req.userClaims?.name || course?.authorName || 'Author';
+    const userName = changedByName || req.orgContext?.claims?.name || course?.authorName || 'Author';
     await createAuditLog(prisma, {
       courseId: parseInt(module.courseId),
       entityType: 'module',
@@ -71,12 +69,5 @@ export default async function handler(req, res) {
       module: newModule,
       courseVersion: currentVersion,
     });
-  } catch (error) {
-    console.error('Error creating module:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal Server Error',
-      details: error.message,
-    });
   }
-}
+});

@@ -1,15 +1,29 @@
-import prisma from "../../../lib/prisma";
-import { attachUserClaims } from "../../../lib/auth/middleware";
-import { syncEventToCalendars } from "../../../lib/calendar/calendarSyncService";
+import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
+import { NotFoundError, ValidationError } from '../../../lib/errors/index.js';
+import { syncEventToCalendars } from '../../../lib/calendar/calendarSyncService';
 
-export default async function handler(req, res) {
-  await attachUserClaims(req, res);
-
-  try {
+export default createHandler({
+  POST: async (req, res) => {
     const { event, eventId } = req.body;
-    
+
+    if (!eventId) {
+      throw new ValidationError('Event ID is required');
+    }
+
+    const parsedEventId = parseInt(eventId);
+
+    // Verify the event belongs to a project in the user's org
+    const existingEvent = await prisma.events.findUnique({
+      where: { id: parsedEventId },
+      include: { project: { select: { sub_organizationId: true } } }
+    });
+
+    if (!existingEvent || !req.orgContext.subOrganizationIds.includes(existingEvent.project.sub_organizationId)) {
+      throw new NotFoundError('Event not found');
+    }
+
     // Clean the event data to only include database fields
-    // Note: 'location' is stored in extendedProps since it's not a direct DB column
     const extendedProps = {
       ...(event.extendedProps || {}),
       ...(event.location !== undefined && { location: event.location })
@@ -37,8 +51,6 @@ export default async function handler(req, res) {
       timezone: event.timezone,
       deliveryMode: event.deliveryMode,
       meetingLink: event.meetingLink,
-      // Only include courseId/supportActivityId/roomId if explicitly provided in the update
-      // This prevents accidentally unlinking courses/rooms when updating other fields
       ...(event.courseId !== undefined && { courseId: event.courseId }),
       ...(event.supportActivityId !== undefined && { supportActivityId: event.supportActivityId }),
       ...(event.roomId !== undefined && { roomId: event.roomId })
@@ -53,11 +65,8 @@ export default async function handler(req, res) {
 
     // Use transaction to update both event and groups
     const result = await prisma.$transaction(async (tx) => {
-      // Update the event
       const updatedEvent = await tx.events.update({
-        where: {
-          id: parseInt(eventId), 
-        },
+        where: { id: parsedEventId },
         data: updateData,
       });
 
@@ -65,20 +74,16 @@ export default async function handler(req, res) {
       if (event.instructor !== undefined) {
         const instructorId = event.instructor?.id ? parseInt(event.instructor.id) : null;
 
-        // Delete existing instructor assignments for this event
         await tx.event_instructors.deleteMany({
-          where: {
-            eventId: parseInt(eventId)
-          }
+          where: { eventId: parsedEventId }
         });
 
-        // Create new instructor assignment if an instructor is selected
         if (instructorId) {
           await tx.event_instructors.create({
             data: {
-              eventId: parseInt(eventId),
+              eventId: parsedEventId,
               instructorId: instructorId,
-              role: 'lead' // First/only instructor is considered lead
+              role: 'lead'
             }
           });
         }
@@ -86,48 +91,31 @@ export default async function handler(req, res) {
 
       // Handle group assignments if selectedGroups is provided
       if (event.selectedGroups !== undefined) {
-        // Get current group assignments before deleting them
         const currentGroupAssignments = await tx.event_groups.findMany({
-          where: {
-            eventsId: parseInt(eventId)
-          },
-          select: {
-            groupId: true
-          }
+          where: { eventsId: parsedEventId },
+          select: { groupId: true }
         });
 
         const currentGroupIds = currentGroupAssignments.map(eg => eg.groupId);
         const newGroupIds = event.selectedGroups.map(id => parseInt(id)).filter(id => !isNaN(id));
-        
-        // Find which groups are being removed
+
         const groupsToRemove = currentGroupIds.filter(currentId => !newGroupIds.includes(currentId));
-        
-        // Find which groups are being added
         const groupsToAdd = newGroupIds.filter(newId => !currentGroupIds.includes(newId));
 
         // Remove attendees from groups that are being removed
         if (groupsToRemove.length > 0) {
           for (const removedGroupId of groupsToRemove) {
-            // Get participants from the group being removed
             const groupParticipants = await tx.group_participants.findMany({
-              where: {
-                groupId: removedGroupId
-              },
-              select: {
-                participantId: true
-              }
+              where: { groupId: removedGroupId },
+              select: { participantId: true }
             });
 
             if (groupParticipants.length > 0) {
               const participantIds = groupParticipants.map(gp => gp.participantId);
-              
-              // Remove attendees that match the participants from this group
               await tx.event_attendees.deleteMany({
                 where: {
-                  eventsId: parseInt(eventId),
-                  enrolleeId: {
-                    in: participantIds
-                  }
+                  eventsId: parsedEventId,
+                  enrolleeId: { in: participantIds }
                 }
               });
             }
@@ -136,15 +124,12 @@ export default async function handler(req, res) {
 
         // Update group assignments
         await tx.event_groups.deleteMany({
-          where: {
-            eventsId: parseInt(eventId)
-          }
+          where: { eventsId: parsedEventId }
         });
 
-        // Create new group assignments
         if (newGroupIds.length > 0) {
           const groupAssignments = newGroupIds.map(groupId => ({
-            eventsId: parseInt(eventId),
+            eventsId: parsedEventId,
             groupId: groupId
           }));
 
@@ -154,27 +139,20 @@ export default async function handler(req, res) {
 
           // Add attendees from newly assigned groups
           for (const groupId of groupsToAdd) {
-            // Get all participants from this group
             const groupParticipants = await tx.group_participants.findMany({
-              where: {
-                groupId: groupId
-              },
-              select: {
-                participantId: true
-              }
+              where: { groupId: groupId },
+              select: { participantId: true }
             });
 
-            // Create event attendees for each group participant
             if (groupParticipants.length > 0) {
               const attendeeData = groupParticipants.map(gp => ({
-                eventsId: parseInt(eventId),
+                eventsId: parsedEventId,
                 enrolleeId: gp.participantId,
-                attendance_status: "scheduled",
+                attendance_status: 'scheduled',
                 createdBy: updatedEvent.updatedby || updatedEvent.createdBy,
                 updatedby: updatedEvent.updatedby || updatedEvent.createdBy
               }));
 
-              // Use upsert to avoid duplicate attendees
               for (const attendee of attendeeData) {
                 await tx.event_attendees.upsert({
                   where: {
@@ -200,7 +178,7 @@ export default async function handler(req, res) {
     });
 
     // Check if user has active calendar integrations
-    const userId = req.userClaims?.userId;
+    const userId = req.orgContext.userId;
     let calendarSyncTriggered = false;
     if (userId) {
       const activeIntegrations = await prisma.calendar_integrations.count({
@@ -211,22 +189,16 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       success: true,
-      message: "Event and group assignments updated successfully",
+      message: 'Event and group assignments updated successfully',
       updatedEvent: result,
       calendarSyncTriggered
     });
 
     // Calendar sync (non-blocking, fire-and-forget)
     if (calendarSyncTriggered) {
-      syncEventToCalendars(parseInt(eventId), 'update', userId).catch(err =>
+      syncEventToCalendars(parsedEventId, 'update', userId).catch(err =>
         console.error('[CALENDAR_SYNC] Update sync failed:', err.message)
       );
     }
-  } catch (error) {
-    console.error('Error updating event:', error);
-    res.status(500).json({ 
-      error: "Internal Server Error",
-      details: error.message 
-    });
   }
-}
+});

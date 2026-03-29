@@ -1,17 +1,11 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { isVersionLocked } from '../../../lib/utils/versionProtection';
 import { createAuditLog } from '../../../lib/utils/auditLog';
-import { attachUserClaims } from '../../../lib/auth/middleware';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  // Get user info for audit logging
-  await attachUserClaims(req, res);
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const {
       title,
       summary,
@@ -89,7 +83,7 @@ export default async function handler(req, res) {
       currentVersion = course?.version;
 
       // Log the audit entry (no version bump for creation)
-      const userName = changedByName || req.userClaims?.name || course?.authorName || 'Author';
+      const userName = changedByName || req.orgContext?.claims?.name || course?.authorName || 'Author';
       await createAuditLog(prisma, {
         courseId: module.courseId,
         entityType: 'activity',
@@ -107,12 +101,5 @@ export default async function handler(req, res) {
       courseId: module?.courseId || null,
       courseVersion: currentVersion,
     });
-  } catch (error) {
-    console.error('Error creating activity:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create activity',
-      error: error.message,
-    });
   }
-}
+});

@@ -1,14 +1,13 @@
 import { ConsoleSqlOutlined } from "@ant-design/icons";
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from "../../../lib/prisma";
 import { requireResourceCapacity, checkResourceCapacity } from "../../../lib/features/featureMiddleware";
 import { RESOURCES } from "../../../lib/features/featureAccess";
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { newProject } = req.body;
+const handler = createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { newProject } = req.body;
   //delete newProject.id;
 
   // Check monthly project quota if subscription context is available
@@ -16,7 +15,8 @@ async function handler(req, res) {
     const monthlyCapacity = await checkResourceCapacity(req, RESOURCES.PROJECTS_PER_MONTH, 1);
     if (!monthlyCapacity.hasCapacity) {
       return res.status(403).json({
-        error: 'Monthly project limit exceeded',
+        error: 'Resource limit exceeded',
+        resource: 'projects_per_month',
         message: `You have reached your monthly project creation limit`,
         current: monthlyCapacity.current,
         limit: monthlyCapacity.limit,
@@ -129,7 +129,8 @@ async function handler(req, res) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
-}
+  }
+});
 
 // Wrap with resource capacity check for projects
 export default requireResourceCapacity(RESOURCES.PROJECTS, 1)(handler);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
+import NextLink from 'next/link';
 import {
   Box,
   Container,
@@ -2214,7 +2215,7 @@ const CurriculumEditPage = () => {
               {courses.length === 0 ? (
                 <Alert severity="info">
                   No courses available in your organization.{' '}
-                  <Link href="/courses" underline="hover" sx={{ fontWeight: 500 }}>
+                  <Link component={NextLink} href="/courses" underline="always" sx={{ fontWeight: 600, color: 'primary.main' }}>
                     Create a new course
                   </Link>
                 </Alert>
@@ -2287,7 +2288,15 @@ const CurriculumEditPage = () => {
                 />
               )}
 
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
+                <Button
+                  component={NextLink}
+                  href="/courses"
+                  variant="outlined"
+                  startIcon={<SchoolIcon />}
+                >
+                  Go to Courses
+                </Button>
                 <Button
                   variant="contained"
                   onClick={() => setAddCourseDialogOpen(false)}

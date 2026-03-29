@@ -20,14 +20,12 @@
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
   const { orgContext } = req;
   const { participantIds, groupId, projectId } = req.body;
 
@@ -38,8 +36,6 @@ async function handler(req, res) {
   if (!projectId) {
     throw new ValidationError('projectId is required');
   }
-
-  try {
     // Verify the project belongs to the user's organization
     const project = await prisma.projects.findFirst({
       where: {
@@ -130,15 +126,9 @@ async function handler(req, res) {
       }
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       ...result
     });
-
-  } catch (error) {
-    console.error('Error bulk assigning group:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

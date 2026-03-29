@@ -1,26 +1,15 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  const { method } = req;
-
-  try {
-    switch (method) {
-      case 'GET':
-        return await getParticipantChecklistItems(req, res);
-      case 'PUT':
-        return await updateParticipantChecklistProgress(req, res);
-      default:
-        res.setHeader('Allow', ['GET', 'PUT']);
-        return res.status(405).json({ message: `Method ${method} not allowed` });
-    }
-  } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ 
-      message: 'Internal server error',
-      error: error.message 
-    });
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    return await getParticipantChecklistItems(req, res);
+  },
+  PUT: async (req, res) => {
+    return await updateParticipantChecklistProgress(req, res);
   }
-}
+});
 
 // GET - Fetch participant-only checklist items for a specific participant
 async function getParticipantChecklistItems(req, res) {

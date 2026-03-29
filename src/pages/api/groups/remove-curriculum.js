@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'DELETE') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  DELETE: async (req, res) => {
     const { groupId, curriculumId } = req.body;
 
     // Validate required fields
@@ -68,13 +66,5 @@ export default async function handler(req, res) {
         curriculumTitle: existingAssignment.curriculum.title
       }
     });
-
-  } catch (error) {
-    console.error('Error removing curriculum from group:', error);
-    
-    res.status(500).json({ 
-      error: "Internal Server Error",
-      message: "Failed to remove curriculum from group"
-    });
   }
-}
+});

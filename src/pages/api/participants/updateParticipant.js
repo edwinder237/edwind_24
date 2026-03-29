@@ -7,16 +7,11 @@
  * FIXED: Previously updated any participant without org validation.
  */
 
-import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique, scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST' && req.method !== 'PUT') {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
+async function updateHandler(req, res) {
   const { orgContext } = req;
   const { participantId, updates } = req.body;
 
@@ -90,11 +85,10 @@ async function handler(req, res) {
       }
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Participant updated successfully",
       participant: updatedParticipant
     });
-
   } catch (error) {
     console.error('Error updating participant:', error);
 
@@ -110,4 +104,8 @@ async function handler(req, res) {
   }
 }
 
-export default withOrgScope(asyncHandler(handler));
+export default createHandler({
+  scope: 'org',
+  POST: updateHandler,
+  PUT: updateHandler
+});

@@ -1,3 +1,4 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { parseISO } from 'date-fns';
 import {
@@ -8,13 +9,11 @@ import {
 } from '../../../lib/email';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
+import { logEmail } from '../../../lib/email/emailLogger';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const {
       projectId,
       eventId,
@@ -153,8 +152,27 @@ export default async function handler(req, res) {
       groupName: groupNames.length > 0 ? groupNames.join(', ') : null
     });
 
+    // Log individual email (fire-and-forget)
+    const subOrgId = req.orgContext?.subOrganizationIds?.[0];
+    const emailLogData = {
+      sub_organizationId: subOrgId,
+      recipientEmail: cleanedEmail,
+      recipientName: recipientName,
+      recipientType: 'participant',
+      subject: `Training Session: ${calendarEvent.title} | ${projectTitle || project.title}`,
+      emailType: 'calendar_invite',
+      projectId: parseInt(projectId),
+      projectTitle: projectTitle || project.title || null,
+      eventId: parseInt(eventId),
+      sentByUserId: req.orgContext?.userId || null,
+    };
+
     if (!result.success) {
       console.error('Email send error:', result.error);
+
+      if (subOrgId) {
+        logEmail({ ...emailLogData, status: 'failed', errorMessage: result.error?.message || 'Email service error' });
+      }
 
       // Provide user-friendly error messages
       let userMessage = `Failed to send calendar invite to ${recipientName}.`;
@@ -174,28 +192,15 @@ export default async function handler(req, res) {
       });
     }
 
+    if (subOrgId) {
+      logEmail({ ...emailLogData, status: 'sent', resendEmailId: result.emailId || null });
+    }
+
     res.status(200).json({
       success: true,
       message: `Calendar invite sent to ${recipientName} (${cleanedEmail})`,
       emailId: result.emailId
     });
 
-  } catch (error) {
-    console.error('Error sending single calendar invite:', error);
-
-    // Provide more specific error messages based on error type
-    let message = 'An unexpected error occurred while sending the calendar invite.';
-
-    if (error.message?.includes('email')) {
-      message = 'There was an issue with the email address. Please verify it is correct.';
-    } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-      message = 'Network error. Please check your connection and try again.';
-    }
-
-    res.status(500).json({
-      success: false,
-      message,
-      error: error.message
-    });
   }
-}
+});

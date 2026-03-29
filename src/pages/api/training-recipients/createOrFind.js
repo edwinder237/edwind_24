@@ -7,14 +7,13 @@
  * Uses org scoping for proper sub-organization assignment.
  */
 
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedCreate, scopedFindFirst } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { ValidationError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
 
   const { orgContext } = req;
   const {
@@ -65,12 +64,11 @@ async function handler(req, res) {
     createdBy: orgContext.userId
   });
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
     message: 'Training recipient created successfully',
     trainingRecipient: newRecipient,
     isNew: true
   });
-}
-
-export default withOrgScope(asyncHandler(handler));
+  }
+});

@@ -10,9 +10,7 @@ import Page from 'components/Page';
 import ProfileCard from 'sections/apps/profiles/user/ProfileCard';
 import ProfileTabs from 'sections/apps/profiles/user/ProfileTabs';
 import TabPersonal from 'sections/apps/profiles/user/TabPersonal';
-import TabPayment from 'sections/apps/profiles/user/TabPayment';
 import TabPassword from 'sections/apps/profiles/user/TabPassword';
-import TabSettings from 'sections/apps/profiles/user/TabSettings';
 import TabIntegrations from 'sections/apps/profiles/user/TabIntegrations';
 
 // ==============================|| PROFILE - USER ||============================== //
@@ -32,9 +30,7 @@ const UserProfile = () => {
         </Grid>
         <Grid item xs={12} md={9}>
           {tab === 'personal' && <TabPersonal />}
-          {tab === 'payment' && <TabPayment />}
           {tab === 'password' && <TabPassword />}
-          {tab === 'settings' && <TabSettings />}
           {tab === 'integrations' && <TabIntegrations />}
         </Grid>
       </Grid>
@@ -50,9 +46,7 @@ export async function getStaticPaths() {
   return {
     paths: [
       { params: { tab: 'personal' } },
-      { params: { tab: 'payment' } },
       { params: { tab: 'password' } },
-      { params: { tab: 'settings' } },
       { params: { tab: 'integrations' } }
     ],
     fallback: false

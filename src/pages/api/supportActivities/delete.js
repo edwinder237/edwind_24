@@ -1,17 +1,15 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'DELETE') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  DELETE: async (req, res) => {
     const { id } = req.body;
 
     if (!id) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Support activity ID is required' 
+        message: 'Support activity ID is required'
       });
     }
 
@@ -21,9 +19,9 @@ export default async function handler(req, res) {
     });
 
     if (!existingActivity) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Support activity not found' 
+        message: 'Support activity not found'
       });
     }
 
@@ -42,12 +40,5 @@ export default async function handler(req, res) {
       message: 'Support activity deleted successfully',
       supportActivity: deletedActivity
     });
-  } catch (error) {
-    console.error('Error deleting support activity:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to delete support activity',
-      error: error.message 
-    });
   }
-}
+});

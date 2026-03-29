@@ -1,19 +1,17 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const { 
-      curriculumId, 
-      projectId, 
-      title, 
-      description, 
-      totalDays, 
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const {
+      curriculumId,
+      projectId,
+      title,
+      description,
+      totalDays,
       days,
-      createdBy 
+      createdBy
     } = req.body;
 
     // Check if training plan already exists for this curriculum and project
@@ -25,8 +23,8 @@ export default async function handler(req, res) {
     });
 
     if (existingPlan) {
-      return res.status(400).json({ 
-        message: 'A training plan already exists for this curriculum and project combination' 
+      return res.status(400).json({
+        message: 'A training plan already exists for this curriculum and project combination'
       });
     }
 
@@ -87,12 +85,5 @@ export default async function handler(req, res) {
       data: trainingPlan,
       message: 'Training plan created successfully'
     });
-  } catch (error) {
-    console.error('Error creating training plan:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to create training plan',
-      error: error.message 
-    });
   }
-}
+});

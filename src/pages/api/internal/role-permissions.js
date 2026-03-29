@@ -1,12 +1,11 @@
-import { parse } from 'cookie';
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 
 /**
  * Verify owner access (Level 0 only)
  */
 async function verifyOwner(req) {
-  const cookies = parse(req.headers.cookie || '');
-  const workosUserId = cookies.workos_user_id;
+  const workosUserId = req.cookies.workos_user_id;
 
   if (!workosUserId) {
     return { error: 'Not authenticated', status: 401 };
@@ -41,26 +40,25 @@ async function verifyOwner(req) {
  *   Body: { roleId, permissionId, isEnabled }          — toggle one permission
  *   Body: { roleId, updates: [{ permissionId, isEnabled }] } — bulk update
  */
-export default async function handler(req, res) {
-  try {
+export default createHandler({
+  scope: 'public',
+  GET: async (req, res) => {
     const ownerCheck = await verifyOwner(req);
     if (ownerCheck.error) {
       return res.status(ownerCheck.status).json({ error: ownerCheck.error });
     }
 
-    switch (req.method) {
-      case 'GET':
-        return handleGet(req, res);
-      case 'PUT':
-        return handlePut(req, res);
-      default:
-        return res.status(405).json({ error: 'Method not allowed' });
+    return handleGet(req, res);
+  },
+  PUT: async (req, res) => {
+    const ownerCheck = await verifyOwner(req);
+    if (ownerCheck.error) {
+      return res.status(ownerCheck.status).json({ error: ownerCheck.error });
     }
-  } catch (error) {
-    console.error('Error in role-permissions endpoint:', error);
-    return res.status(500).json({ error: 'Internal server error', details: error.message });
+
+    return handlePut(req, res);
   }
-}
+});
 
 async function handleGet(req, res) {
   const { roleId } = req.query;

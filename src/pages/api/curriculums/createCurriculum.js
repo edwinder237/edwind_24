@@ -20,20 +20,17 @@
 
 import prisma from '../../../lib/prisma';
 import { calculateCourseDurationFromModules } from '../../../utils/durationCalculations';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedCreate } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { ValidationError } from '../../../lib/errors/index.js';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { orgContext } = req;
 
-  const { orgContext } = req;
-
-  try {
     const { name, description, difficulty, estimatedDuration, selectedCourses } = req.body;
 
     if (!name || !selectedCourses || selectedCourses.length === 0) {
@@ -98,11 +95,5 @@ async function handler(req, res) {
         courses: fullCurriculum.curriculum_courses.map(cc => cc.course)
       }
     });
-
-  } catch (error) {
-    console.error('Error creating curriculum:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

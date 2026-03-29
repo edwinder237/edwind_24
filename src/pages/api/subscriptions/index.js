@@ -10,17 +10,16 @@
  * PROTECTED: Admin-only access via withAdminScope middleware
  */
 
-import { withAdminScope } from '../../../lib/middleware/withOrgScope';
+import { createHandler } from '../../../lib/api/createHandler';
 import { getOrgSubscription, getResourceUsage } from '../../../lib/features/subscriptionService';
 import { getStripe } from '../../../lib/stripe/stripeService';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Organization context is validated by withAdminScope middleware
-  const { organizationId } = req.orgContext;
+export default createHandler({
+  scope: 'admin',
+  skipSubscriptionCheck: true,
+  GET: async (req, res) => {
+    // Organization context is validated by withAdminScope middleware
+    const { organizationId } = req.orgContext;
 
   // Get subscription with plan details and resource usage in parallel
   const [subscription, usage] = await Promise.all([
@@ -77,30 +76,29 @@ async function handler(req, res) {
     ...(subscription.customLimits || {})
   };
 
-  // Return subscription data with usage
-  return res.status(200).json({
-    subscription: {
-      id: subscription.id,
-      organizationId: subscription.organizationId,
-      planId: subscription.planId,
-      status: subscription.status,
-      currentPeriodStart: subscription.currentPeriodStart,
-      currentPeriodEnd: subscription.currentPeriodEnd,
-      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-      plan: {
-        name: subscription.plan.name,
-        description: subscription.plan.description,
-        price,
-        currency,
-        billingInterval,
-        features: subscription.plan.features,
-        resourceLimits: resourceLimits
+    // Return subscription data with usage
+    return res.status(200).json({
+      subscription: {
+        id: subscription.id,
+        organizationId: subscription.organizationId,
+        planId: subscription.planId,
+        status: subscription.status,
+        currentPeriodStart: subscription.currentPeriodStart,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        plan: {
+          name: subscription.plan.name,
+          description: subscription.plan.description,
+          price,
+          currency,
+          billingInterval,
+          features: subscription.plan.features,
+          resourceLimits: resourceLimits
+        },
+        customFeatures: subscription.customFeatures,
+        customLimits: subscription.customLimits
       },
-      customFeatures: subscription.customFeatures,
-      customLimits: subscription.customLimits
-    },
-    usage: usage
-  });
-}
-
-export default withAdminScope(handler);
+      usage: usage
+    });
+  }
+});

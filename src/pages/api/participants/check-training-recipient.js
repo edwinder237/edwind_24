@@ -1,12 +1,9 @@
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope';
+import { createHandler } from '../../../lib/api/createHandler';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { email } = req.query;
     const { orgContext } = req;
 
@@ -40,15 +37,5 @@ async function handler(req, res) {
       success: true,
       participant
     });
-
-  } catch (error) {
-    console.error('Error checking participant training recipient:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to check participant',
-      error: error.message
-    });
   }
-}
-
-export default withOrgScope(handler);
+});

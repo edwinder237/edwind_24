@@ -1,3 +1,4 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { format, parseISO } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -15,16 +16,14 @@ import {
 } from '../../../lib/email';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
+import { logEmailBatch } from '../../../lib/email/emailLogger';
 
 // Rate limiting configuration
 const RATE_LIMIT_DELAY = 600; // 600ms to be safe (slightly more than 500ms)
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { projectId, groupIds = [], events, projectTitle, dailyFocusData, includeMeetingLink = true, customMeetingLink = null, customTemplate, templateType, instructorEmails = [], timezone = 'UTC' } = req.body;
 
     // Require either groups or instructors to send to
@@ -354,6 +353,31 @@ export default async function handler(req, res) {
       errorCode: failureCount > 0 ? 'PARTIAL_FAILURE' : null
     });
 
+    // Log individual emails (fire-and-forget)
+    const subOrgId = req.orgContext?.subOrganizationIds?.[0];
+    if (subOrgId) {
+      const emailLogRecords = [];
+      for (const r of inviteResults) {
+        for (const er of (r.eventResults || [])) {
+          emailLogRecords.push({
+            sub_organizationId: subOrgId,
+            recipientEmail: r.email,
+            recipientName: r.name,
+            recipientType: r.groupName ? 'participant' : 'instructor',
+            subject: `Training Session: ${er.eventTitle} | ${projectTitle}`,
+            emailType: 'calendar_invite',
+            status: er.status === 'sent' ? 'sent' : 'failed',
+            errorMessage: er.error || null,
+            resendEmailId: er.emailId || null,
+            projectId: parseInt(projectId),
+            projectTitle: projectTitle || null,
+            sentByUserId: userId || null,
+          });
+        }
+      }
+      logEmailBatch(emailLogRecords);
+    }
+
     // Build response message
     let responseMessage = `Calendar invites processed: ${successCount} sent, ${failureCount} failed`;
     if (hasRateLimitErrors) {
@@ -381,27 +405,8 @@ export default async function handler(req, res) {
       }
     });
 
-  } catch (error) {
-    console.error('Error sending calendar invites:', error);
-
-    // Provide more specific error messages
-    let message = 'An unexpected error occurred while sending calendar invites.';
-
-    if (error.message?.includes('email')) {
-      message = 'There was an issue with one or more email addresses. Please verify all recipients have valid emails.';
-    } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
-      message = 'Network error. Please check your connection and try again.';
-    } else if (error.message?.includes('rate')) {
-      message = 'Too many requests. Please wait a moment and try again.';
-    }
-
-    res.status(500).json({
-      success: false,
-      message,
-      error: error.message
-    });
   }
-}
+});
 
 // Custom template function for advanced email customization (kept local as it's specific to this route)
 function generateCustomTemplate({ template, participantName, event, events, projectTitle, groupName, templateType, project }) {

@@ -169,9 +169,13 @@ ${hasParkingLot ? '- Include parking lot insights when relevant (e.g., "Several 
     try {
       parsed = JSON.parse(jsonText);
     } catch (parseError) {
-      console.error('[Gemini AI] Failed to parse JSON:', jsonText);
-      console.error('[Gemini AI] Parse error:', parseError);
-      throw new Error('AI returned invalid JSON format. Please try again.');
+      console.warn('[Gemini AI] Failed to parse JSON, using fallback. Raw text:', jsonText.slice(0, 200));
+      // Gemini sometimes returns conversational text instead of JSON
+      // (e.g. when notes are too short). Return a helpful fallback.
+      parsed = {
+        keyHighlights: ['Session notes recorded — add more detail for richer AI insights'],
+        challenges: ['Notes were too brief for a full analysis — try adding more context']
+      };
     }
 
     // Validate response structure

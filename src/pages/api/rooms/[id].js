@@ -1,104 +1,137 @@
-import { withOrgScope } from '../../../lib/middleware/withOrgScope';
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 
-export default withOrgScope(async (req, res) => {
-  const { id } = req.query;
-  const { orgContext } = req;
-  const roomId = parseInt(id);
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { id } = req.query;
+    const { orgContext } = req;
+    const roomId = parseInt(id);
 
-  if (isNaN(roomId)) {
-    return res.status(400).json({ error: 'Invalid room ID' });
-  }
-
-  // Verify room belongs to a training recipient in user's sub-organizations
-  const room = await prisma.rooms.findFirst({
-    where: {
-      id: roomId,
-      training_recipient: {
-        sub_organizationId: { in: orgContext.subOrganizationIds }
-      }
-    },
-    include: {
-      training_recipient: {
-        select: { id: true, name: true }
-      }
+    if (isNaN(roomId)) {
+      return res.status(400).json({ error: 'Invalid room ID' });
     }
-  });
 
-  if (!room) {
-    return res.status(404).json({ error: 'Room not found' });
-  }
+    // Verify room belongs to a training recipient in user's sub-organizations
+    const room = await prisma.rooms.findFirst({
+      where: {
+        id: roomId,
+        training_recipient: {
+          sub_organizationId: { in: orgContext.subOrganizationIds }
+        }
+      },
+      include: {
+        training_recipient: {
+          select: { id: true, name: true }
+        }
+      }
+    });
 
-  // GET - Return single room
-  if (req.method === 'GET') {
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
     return res.json(room);
-  }
+  },
+  PUT: async (req, res) => {
+    const { id } = req.query;
+    const { orgContext } = req;
+    const roomId = parseInt(id);
 
-  // PUT - Update room
-  if (req.method === 'PUT') {
-    try {
-      const { name, location, capacity, type, roomType, status, equipment, notes, trainingRecipientId } = req.body;
+    if (isNaN(roomId)) {
+      return res.status(400).json({ error: 'Invalid room ID' });
+    }
 
-      if (!name?.trim()) {
-        return res.status(400).json({ error: 'Room name is required' });
-      }
-
-      // If changing training recipient, verify access
-      if (trainingRecipientId && trainingRecipientId !== room.trainingRecipientId) {
-        const newRecipient = await prisma.training_recipients.findFirst({
-          where: {
-            id: trainingRecipientId,
-            sub_organizationId: { in: orgContext.subOrganizationIds }
-          }
-        });
-        if (!newRecipient) {
-          return res.status(403).json({ error: 'Invalid training recipient' });
+    // Verify room belongs to a training recipient in user's sub-organizations
+    const room = await prisma.rooms.findFirst({
+      where: {
+        id: roomId,
+        training_recipient: {
+          sub_organizationId: { in: orgContext.subOrganizationIds }
+        }
+      },
+      include: {
+        training_recipient: {
+          select: { id: true, name: true }
         }
       }
+    });
 
-      const updated = await prisma.rooms.update({
-        where: { id: roomId },
-        data: {
-          name: name.trim(),
-          location: location || null,
-          capacity: capacity ? parseInt(capacity) : null,
-          type: type || 'Physical',
-          roomType: roomType || 'Conference',
-          status: status || 'Available',
-          equipment: equipment || [],
-          notes: notes || null,
-          trainingRecipientId: trainingRecipientId || room.trainingRecipientId,
-          updatedBy: orgContext.userId
-        },
-        include: {
-          training_recipient: {
-            select: { id: true, name: true }
-          }
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    const { name, location, capacity, type, roomType, status, equipment, notes, trainingRecipientId } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'Room name is required' });
+    }
+
+    // If changing training recipient, verify access
+    if (trainingRecipientId && trainingRecipientId !== room.trainingRecipientId) {
+      const newRecipient = await prisma.training_recipients.findFirst({
+        where: {
+          id: trainingRecipientId,
+          sub_organizationId: { in: orgContext.subOrganizationIds }
         }
       });
-      return res.json(updated);
-    } catch (error) {
-      console.error('Error updating room:', error);
-      return res.status(500).json({ error: 'Failed to update room' });
+      if (!newRecipient) {
+        return res.status(403).json({ error: 'Invalid training recipient' });
+      }
     }
-  }
 
-  // DELETE - Soft delete
-  if (req.method === 'DELETE') {
-    try {
-      await prisma.rooms.update({
-        where: { id: roomId },
-        data: {
-          isActive: false,
-          updatedBy: orgContext.userId
+    const updated = await prisma.rooms.update({
+      where: { id: roomId },
+      data: {
+        name: name.trim(),
+        location: location || null,
+        capacity: capacity ? parseInt(capacity) : null,
+        type: type || 'Physical',
+        roomType: roomType || 'Conference',
+        status: status || 'Available',
+        equipment: equipment || [],
+        notes: notes || null,
+        trainingRecipientId: trainingRecipientId || room.trainingRecipientId,
+        updatedBy: orgContext.userId
+      },
+      include: {
+        training_recipient: {
+          select: { id: true, name: true }
         }
-      });
-      return res.json({ success: true });
-    } catch (error) {
-      console.error('Error deleting room:', error);
-      return res.status(500).json({ error: 'Failed to delete room' });
-    }
-  }
+      }
+    });
+    return res.json(updated);
+  },
+  DELETE: async (req, res) => {
+    const { id } = req.query;
+    const { orgContext } = req;
+    const roomId = parseInt(id);
 
-  return res.status(405).json({ error: 'Method not allowed' });
+    if (isNaN(roomId)) {
+      return res.status(400).json({ error: 'Invalid room ID' });
+    }
+
+    // Verify room belongs to a training recipient in user's sub-organizations
+    const room = await prisma.rooms.findFirst({
+      where: {
+        id: roomId,
+        training_recipient: {
+          sub_organizationId: { in: orgContext.subOrganizationIds }
+        }
+      }
+    });
+
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    await prisma.rooms.update({
+      where: { id: roomId },
+      data: {
+        isActive: false,
+        updatedBy: orgContext.userId
+      }
+    });
+    return res.json({ success: true });
+  }
 });

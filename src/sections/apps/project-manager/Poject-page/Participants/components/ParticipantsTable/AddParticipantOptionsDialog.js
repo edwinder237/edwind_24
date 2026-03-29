@@ -69,9 +69,19 @@ const AddParticipantOptionsDialog = ({
   const projectInfo = useSelector((state) => state.projectSettings?.projectInfo);
 
   // Fetch available roles (cached)
-  const { data: availableRoles = [] } = useGetAvailableRolesQuery(projectInfo?.id, {
+  const { data: availableRoles = [], refetch: refetchRoles } = useGetAvailableRolesQuery(projectInfo?.id, {
     skip: !projectInfo?.id
   });
+
+  // Auto-create default "Learner" role if none exist when dialog opens
+  useEffect(() => {
+    if (!open || !projectInfo?.id || availableRoles.length > 0) return;
+    axios.post('/api/participant-roles/ensure-default')
+      .then((res) => {
+        if (res.data?.created) refetchRoles();
+      })
+      .catch((err) => console.error('Failed to ensure default role:', err));
+  }, [open, projectInfo?.id, availableRoles.length, refetchRoles]);
 
   // Fetch training recipient participants (same pattern as BulkParticipantsForm)
   const {
@@ -147,7 +157,10 @@ const AddParticipantOptionsDialog = ({
   });
 
   // Get default role (prefer "Participant" role, otherwise first available)
-  const defaultRoleId = availableRoles.find(r => r.title?.toLowerCase() === 'participant')?.id || availableRoles[0]?.id || '';
+  const defaultRoleId = availableRoles.find(r => r.title?.toLowerCase() === 'learner')?.id
+    || availableRoles.find(r => r.title?.toLowerCase() === 'participant')?.id
+    || availableRoles[0]?.id
+    || '';
 
   // Formik setup
   const formik = useFormik({

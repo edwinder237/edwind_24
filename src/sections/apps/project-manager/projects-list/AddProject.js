@@ -242,6 +242,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
   const [showCreateRecipient, setShowCreateRecipient] = useState(false);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
   const [showMoreProjectTypes, setShowMoreProjectTypes] = useState(false);
+  const [manualAddressMode, setManualAddressMode] = useState(false);
   const [newRecipientData, setNewRecipientData] = useState({
     name: '',
     contactPerson: '',
@@ -444,7 +445,13 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
             }
           } catch (error) {
             console.error('Error creating training recipient:', error);
-            const errData = error.response?.data;
+            // Axios interceptor unwraps error.response.data, so error may be the data object directly
+            const errData = error.response?.data || error;
+            // Global dialog already shown by axios interceptor for limit errors
+            if (errData?._limitHandled) {
+              setSubmitting(false);
+              return;
+            }
             const errMsg = errData?.message || errData?.error || 'Failed to create training recipient. Please try again.';
             dispatch(openSnackbar({
               open: true,
@@ -909,7 +916,10 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
         });
       }
     } catch (error) {
-      const errData = error.response?.data;
+      // Axios interceptor unwraps error.response.data, so error may be the data object directly
+      const errData = error.response?.data || error;
+      // Global dialog already shown by axios interceptor for limit errors
+      if (errData?._limitHandled) return;
       const errMsg = errData?.message || errData?.error || 'Failed to create training recipient.';
       dispatch(openSnackbar({
         open: true,
@@ -1073,6 +1083,9 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                 <Typography variant="subtitle1" gutterBottom>
                   Select Training Recipient *
                 </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 1.5 }}>
+                  The company or organization whose employees will be trained in this project.
+                </Typography>
                 <TrainingRecipientPicker
                   handleTrainingRecipientChange={handleTrainingRecipientChange}
                   initialValue={selectedTrainingRecipient}
@@ -1106,6 +1119,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                   startIcon={<ArrowLeftOutlined />}
                   onClick={() => {
                     setShowCreateRecipient(false);
+                    setManualAddressMode(false);
                     setNewRecipientData({
                       name: '',
                       contactPerson: '',
@@ -1138,15 +1152,40 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                       />
                     </Grid>
                     <Grid item xs={12}>
-                      <Typography variant="subtitle2" gutterBottom sx={{ mt: 0.5 }}>
-                        Address
-                      </Typography>
-                      <GoogleMaps
-                        handleLocationChange={handleNewRecipientLocationChange}
-                      />
-                      <FormHelperText>
-                        Search to auto-fill address details and retrieve business information including logo and images
-                      </FormHelperText>
+                      {!manualAddressMode ? (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<PlusOutlined />}
+                          onClick={() => setManualAddressMode(true)}
+                          sx={{ mt: 0.5 }}
+                        >
+                          Add Address
+                        </Button>
+                      ) : (
+                        <>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5, mb: 1 }}>
+                            <Typography variant="subtitle2">Address</Typography>
+                            <Button
+                              variant="text"
+                              size="small"
+                              onClick={() => {
+                                setManualAddressMode(false);
+                                handleNewRecipientLocationChange(null);
+                              }}
+                              sx={{ color: 'text.secondary', textTransform: 'none' }}
+                            >
+                              Remove
+                            </Button>
+                          </Stack>
+                          <GoogleMaps
+                            handleLocationChange={handleNewRecipientLocationChange}
+                          />
+                          <FormHelperText>
+                            Search to auto-fill address details and retrieve business information including logo and images
+                          </FormHelperText>
+                        </>
+                      )}
                     </Grid>
 
                     {/* Optional fields toggle */}

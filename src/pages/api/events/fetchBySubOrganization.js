@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { sub_organizationId } = req.query;
 
     if (!sub_organizationId) {
@@ -104,12 +102,5 @@ console.log("SUB ID",sub_organizationId)
       events: transformedEvents,
       count: transformedEvents.length
     });
-
-  } catch (error) {
-    console.error('Error fetching events by sub-organization:', error);
-    res.status(500).json({ 
-      error: "Internal Server Error",
-      message: "Failed to fetch events for sub-organization"
-    });
   }
-}
+});

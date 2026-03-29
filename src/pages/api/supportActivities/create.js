@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const {
       title,
       description,
@@ -16,9 +14,9 @@ export default async function handler(req, res) {
     } = req.body;
 
     if (!title || !curriculumId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Title and curriculum ID are required' 
+        message: 'Title and curriculum ID are required'
       });
     }
 
@@ -28,9 +26,9 @@ export default async function handler(req, res) {
     });
 
     if (!curriculum) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Curriculum not found' 
+        message: 'Curriculum not found'
       });
     }
 
@@ -58,12 +56,5 @@ export default async function handler(req, res) {
       message: 'Support activity created successfully',
       supportActivity
     });
-  } catch (error) {
-    console.error('Error creating support activity:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to create support activity',
-      error: error.message 
-    });
   }
-}
+});

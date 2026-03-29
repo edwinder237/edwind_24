@@ -41,6 +41,19 @@ async function main() {
     }
   });
 
+  // Create default participant role
+  console.log('🏷️ Creating default participant role...');
+  const learnerRole = await prisma.sub_organization_participant_role.create({
+    data: {
+      title: 'Learner',
+      description: 'Default participant role',
+      sub_organizationId: subOrganization.id,
+      isActive: true,
+      isSystemDefault: true,
+      createdBy: 'system'
+    }
+  });
+
   // Create system user
   console.log('👤 Creating system user...');
   const systemUser = await prisma.user.upsert({
@@ -931,7 +944,7 @@ async function main() {
         participantStatus: 'active',
         participantType: 'learner',
         derpartement: 'Engineering',
-        roleId: null,
+        roleId: learnerRole.id,
         notes: 'Experienced frontend developer looking to expand skills',
         profilePrefs: {
           notification_email: true,
@@ -954,7 +967,7 @@ async function main() {
         participantStatus: 'active',
         participantType: 'learner',
                 derpartement: 'Management',
-        roleId: null,
+        roleId: learnerRole.id,
         notes: 'Team lead seeking leadership development',
         profilePrefs: {
           notification_email: true,
@@ -977,7 +990,7 @@ async function main() {
         participantStatus: 'active',
         participantType: 'learner',
         derpartement: 'Design',
-        roleId: null,
+        roleId: learnerRole.id,
         notes: 'UX designer interested in full-stack development',
         profilePrefs: {
           notification_email: true,
@@ -1000,7 +1013,7 @@ async function main() {
         participantStatus: 'active',
         participantType: 'learner',
                 derpartement: 'Operations',
-        roleId: null,
+        roleId: learnerRole.id,
         notes: 'Business analyst transitioning to technical roles',
         profilePrefs: {
           notification_email: true,
@@ -1023,7 +1036,7 @@ async function main() {
         participantStatus: 'active',
         participantType: 'learner',
                 derpartement: 'IT',
-        roleId: null,
+        roleId: learnerRole.id,
         notes: 'DevOps engineer expanding cloud knowledge',
         profilePrefs: {
           notification_email: true,

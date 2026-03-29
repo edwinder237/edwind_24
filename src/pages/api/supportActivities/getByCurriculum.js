@@ -1,17 +1,15 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { curriculumId } = req.body;
 
     if (!curriculumId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Curriculum ID is required' 
+        message: 'Curriculum ID is required'
       });
     }
 
@@ -38,13 +36,5 @@ export default async function handler(req, res) {
       success: true,
       supportActivities
     });
-
-  } catch (error) {
-    console.error('Error fetching support activities:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to fetch support activities',
-      error: error.message 
-    });
   }
-}
+});

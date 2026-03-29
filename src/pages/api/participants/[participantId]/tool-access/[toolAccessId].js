@@ -1,31 +1,27 @@
 import prisma from '../../../../../lib/prisma';
+import { createHandler } from '../../../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  const { method, query } = req;
-  const { participantId, toolAccessId } = query;
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
+    const { participantId, toolAccessId } = req.query;
 
-  if (!participantId || !toolAccessId) {
-    return res.status(400).json({ error: 'Participant ID and Tool Access ID are required' });
-  }
-
-  try {
-    switch (method) {
-      case 'PUT':
-        return await updateToolAccess(req, res);
-      case 'DELETE':
-        return await deleteToolAccess(req, res);
-      default:
-        res.setHeader('Allow', ['PUT', 'DELETE']);
-        return res.status(405).end(`Method ${method} Not Allowed`);
+    if (!participantId || !toolAccessId) {
+      return res.status(400).json({ error: 'Participant ID and Tool Access ID are required' });
     }
-  } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ 
-      error: 'Internal Server Error',
-      message: error.message 
-    });
+
+    return await updateToolAccess(req, res);
+  },
+  DELETE: async (req, res) => {
+    const { participantId, toolAccessId } = req.query;
+
+    if (!participantId || !toolAccessId) {
+      return res.status(400).json({ error: 'Participant ID and Tool Access ID are required' });
+    }
+
+    return await deleteToolAccess(req, res);
   }
-}
+});
 
 async function updateToolAccess(req, res) {
   const { participantId, toolAccessId } = req.query;

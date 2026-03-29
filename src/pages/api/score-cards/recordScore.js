@@ -1,12 +1,58 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+// Helper function to recalculate current score based on strategy
+async function recalculateCurrentScore(courseAssessmentId, participantId, strategy) {
+  const allAttempts = await prisma.participant_assessment_scores.findMany({
+    where: {
+      courseAssessmentId,
+      participantId
+    },
+    orderBy: { attemptNumber: 'asc' }
+  });
+
+  if (allAttempts.length === 0) return;
+
+  let currentScoreId;
+
+  switch (strategy) {
+    case 'latest':
+      currentScoreId = allAttempts[allAttempts.length - 1].id;
+      break;
+    case 'highest':
+      currentScoreId = allAttempts.reduce((max, curr) =>
+        curr.scorePercentage > max.scorePercentage ? curr : max
+      ).id;
+      break;
+    case 'first':
+      currentScoreId = allAttempts[0].id;
+      break;
+    case 'average':
+      // For average, mark the latest as current but percentage calculation happens in queries
+      currentScoreId = allAttempts[allAttempts.length - 1].id;
+      break;
+    default:
+      currentScoreId = allAttempts[allAttempts.length - 1].id;
   }
 
-  try {
-    const {
+  // Update all to isCurrent: false
+  await prisma.participant_assessment_scores.updateMany({
+    where: {
+      courseAssessmentId,
+      participantId
+    },
+    data: { isCurrent: false }
+  });
+
+  // Mark the selected one as current
+  await prisma.participant_assessment_scores.update({
+    where: { id: currentScoreId },
+    data: { isCurrent: true }
+  });
+}
+
+export default createHandler({ scope: 'org', POST: async (req, res) => {
+  const {
       courseAssessmentId,
       participantId,
       instructorId,
@@ -185,63 +231,5 @@ export default async function handler(req, res) {
       totalAttempts: allAttempts.length,
       allAttempts
     });
-
-  } catch (error) {
-    console.error('Error recording score:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to record score',
-      error: error.message
-    });
-  }
 }
-
-// Helper function to recalculate current score based on strategy
-async function recalculateCurrentScore(courseAssessmentId, participantId, strategy) {
-  const allAttempts = await prisma.participant_assessment_scores.findMany({
-    where: {
-      courseAssessmentId,
-      participantId
-    },
-    orderBy: { attemptNumber: 'asc' }
-  });
-
-  if (allAttempts.length === 0) return;
-
-  let currentScoreId;
-
-  switch (strategy) {
-    case 'latest':
-      currentScoreId = allAttempts[allAttempts.length - 1].id;
-      break;
-    case 'highest':
-      currentScoreId = allAttempts.reduce((max, curr) =>
-        curr.scorePercentage > max.scorePercentage ? curr : max
-      ).id;
-      break;
-    case 'first':
-      currentScoreId = allAttempts[0].id;
-      break;
-    case 'average':
-      // For average, mark the latest as current but percentage calculation happens in queries
-      currentScoreId = allAttempts[allAttempts.length - 1].id;
-      break;
-    default:
-      currentScoreId = allAttempts[allAttempts.length - 1].id;
-  }
-
-  // Update all to isCurrent: false
-  await prisma.participant_assessment_scores.updateMany({
-    where: {
-      courseAssessmentId,
-      participantId
-    },
-    data: { isCurrent: false }
-  });
-
-  // Mark the selected one as current
-  await prisma.participant_assessment_scores.update({
-    where: { id: currentScoreId },
-    data: { isCurrent: true }
-  });
-}
+});

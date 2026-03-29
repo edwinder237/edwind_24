@@ -10,10 +10,11 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
 
-async function handler(req, res) {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
   const { participants, newParticipant, groups, index, projectParticipant, projectId } = req.body;
 
   // Validate input data
@@ -95,6 +96,5 @@ async function handler(req, res) {
     success: true,
     ...result
   });
-}
-
-export default withOrgScope(asyncHandler(handler));
+  }
+});

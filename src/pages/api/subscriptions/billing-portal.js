@@ -13,17 +13,15 @@
  * }
  */
 
-import { withAdminScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { createBillingPortalSession, getOrCreateCustomer } from '../../../lib/stripe/stripeService.js';
 import prisma from '../../../lib/prisma.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'admin',
+  skipSubscriptionCheck: true,
+  POST: async (req, res) => {
+    const { orgContext } = req;
 
   // Check if organization has a Stripe customer
   let subscription = await prisma.subscriptions.findUnique({
@@ -44,17 +42,16 @@ async function handler(req, res) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 8081}`;
   const returnUrl = `${baseUrl}/organization-settings`;
 
-  // Create billing portal session
-  const session = await createBillingPortalSession({
-    organizationId: orgContext.organizationId,
-    returnUrl,
-    customerId
-  });
+    // Create billing portal session
+    const session = await createBillingPortalSession({
+      organizationId: orgContext.organizationId,
+      returnUrl,
+      customerId
+    });
 
-  return res.status(200).json({
-    success: true,
-    url: session.url
-  });
-}
-
-export default withAdminScope(asyncHandler(handler));
+    return res.status(200).json({
+      success: true,
+      url: session.url
+    });
+  }
+});

@@ -105,6 +105,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customFormState, setCustomFormState] = useState({ handleSubmit: null, canSubmit: false });
 
   // Use the reusable time range hook with auto-adjustment
   const {
@@ -1174,6 +1175,8 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
           borderRadius: 2,
           height: 'auto',
           maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
           p: 0,
           m: { xs: 1, sm: 2 },
           width: { xs: 'calc(100% - 16px)', sm: 'auto' },
@@ -1360,8 +1363,14 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         }
         sx={{
           m: 0,
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
           '& .MuiCardContent-root': {
-            p: 0
+            p: 0,
+            flex: 1,
+            overflowY: 'auto'
           }
         }}
       >
@@ -1575,6 +1584,7 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
                 onCancel={() => setShowCustomForm(false)}
                 isSubmitting={isCreatingEvent}
                 theme={theme}
+                onFormStateChange={setCustomFormState}
               />
             ) : (
               <Box>
@@ -1640,6 +1650,36 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
           </Stack>
         </Backdrop>
       </MainCard>
+
+      {/* Fixed footer for custom event form */}
+      {tabValue === 2 && showCustomForm && (
+        <Stack
+          direction="row"
+          spacing={2}
+          justifyContent="flex-end"
+          sx={{
+            px: 3,
+            py: 2,
+            bgcolor: theme.palette.background.default,
+            borderTop: `1px solid ${theme.palette.divider}`
+          }}
+        >
+          <Button
+            variant="outlined"
+            onClick={() => setShowCustomForm(false)}
+            disabled={isCreatingEvent}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => customFormState.handleSubmit?.()}
+            disabled={!customFormState.canSubmit || isCreatingEvent}
+          >
+            {isCreatingEvent ? 'Creating...' : 'Create Event'}
+          </Button>
+        </Stack>
+      )}
     </Dialog>
   );
 };

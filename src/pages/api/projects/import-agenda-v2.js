@@ -1,99 +1,94 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 import { v4 as uuidv4 } from 'uuid';
 
 // In-memory job tracking (in production, use Redis or database)
 const jobStore = new Map();
 
-export default async function handler(req, res) {
-  if (req.method === 'POST') {
-    return handleImportAgenda(req, res);
-  } else if (req.method === 'GET') {
-    return handleJobStatus(req, res);
-  } else {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-}
+export default createHandler({
+  scope: 'org',
 
-async function handleJobStatus(req, res) {
-  const { jobId } = req.query;
-  
-  if (!jobId) {
-    return res.status(400).json({ error: 'Job ID is required' });
-  }
-  
-  const job = jobStore.get(jobId);
-  if (!job) {
-    return res.status(404).json({ error: 'Job not found' });
-  }
-  
-  return res.status(200).json(job);
-}
+  GET: async (req, res) => {
+    const { jobId } = req.query;
 
-async function handleImportAgenda(req, res) {
-  const { 
-    projectId, 
-    trainingPlanId, 
-    selectedGroups = [], 
-    includeAllParticipants = false,
-    followProjectHours = true,
-    assignByRole = false,
-    selectedRoles = [],
-    preserveExistingEvents = true
-  } = req.body;
+    if (!jobId) {
+      return res.status(400).json({ error: 'Job ID is required' });
+    }
 
-  if (!projectId || !trainingPlanId) {
-    return res.status(400).json({
-      success: false,
-      message: 'Project ID and Training Plan ID are required'
+    const job = jobStore.get(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    return res.status(200).json(job);
+  },
+
+  POST: async (req, res) => {
+    const {
+      projectId,
+      trainingPlanId,
+      selectedGroups = [],
+      includeAllParticipants = false,
+      followProjectHours = true,
+      assignByRole = false,
+      selectedRoles = [],
+      preserveExistingEvents = true
+    } = req.body;
+
+    if (!projectId || !trainingPlanId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Project ID and Training Plan ID are required'
+      });
+    }
+
+    // Create job ID for progress tracking
+    const jobId = uuidv4();
+
+    // Initialize job status
+    const initialJobStatus = {
+      jobId,
+      processed: 0,
+      total: 0,
+      warnings: 0,
+      status: 'starting',
+      message: 'Initializing import process...',
+      events: [],
+      startedAt: new Date().toISOString()
+    };
+
+    jobStore.set(jobId, initialJobStatus);
+
+    // Return job ID immediately for client to track progress
+    res.status(202).json({
+      success: true,
+      jobId,
+      message: 'Import process started. Use jobId to track progress.'
+    });
+
+    // Start background processing
+    processImportAgenda({
+      projectId,
+      trainingPlanId,
+      selectedGroups,
+      includeAllParticipants,
+      followProjectHours,
+      assignByRole,
+      selectedRoles,
+      preserveExistingEvents,
+      jobId
+    }).catch(error => {
+      console.error('Import agenda error:', error);
+      const job = jobStore.get(jobId);
+      if (job) {
+        job.status = 'failed';
+        job.error = error.message;
+        job.completedAt = new Date().toISOString();
+        jobStore.set(jobId, job);
+      }
     });
   }
-
-  // Create job ID for progress tracking
-  const jobId = uuidv4();
-  
-  // Initialize job status
-  const initialJobStatus = {
-    jobId,
-    processed: 0,
-    total: 0,
-    warnings: 0,
-    status: 'starting',
-    message: 'Initializing import process...',
-    events: [],
-    startedAt: new Date().toISOString()
-  };
-  
-  jobStore.set(jobId, initialJobStatus);
-  
-  // Return job ID immediately for client to track progress
-  res.status(202).json({ 
-    success: true, 
-    jobId,
-    message: 'Import process started. Use jobId to track progress.'
-  });
-  
-  // Start background processing
-  processImportAgenda({
-    projectId,
-    trainingPlanId,
-    selectedGroups,
-    includeAllParticipants,
-    followProjectHours,
-    assignByRole,
-    selectedRoles,
-    preserveExistingEvents,
-    jobId
-  }).catch(error => {
-    console.error('Import agenda error:', error);
-    const job = jobStore.get(jobId);
-    if (job) {
-      job.status = 'failed';
-      job.error = error.message;
-      job.completedAt = new Date().toISOString();
-      jobStore.set(jobId, job);
-    }
-  });
-}
+});
 
 async function processImportAgenda(options) {
   const {
@@ -109,7 +104,7 @@ async function processImportAgenda(options) {
   } = options;
 
   let job = jobStore.get(jobId);
-  
+
   try {
     // Update job status
     job.status = 'in-progress';
@@ -229,35 +224,35 @@ async function processImportAgenda(options) {
         select: { start: true, end: true }
       });
     }
-    
+
     // Helper function to ensure date is on a working day
     const ensureWorkingDayHelper = (date, workingDays) => {
       const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       let current = new Date(date);
-      
+
       while (!workingDays.includes(dayNames[current.getDay()])) {
         current.setDate(current.getDate() + 1);
       }
-      
+
       return current;
     };
 
     // Initialize scheduling
     const workingHours = parseWorkingHours(projectSettings);
-    
+
     // Start at the project start date and time
     let currentScheduleTime = new Date(projectSettings.startDate);
-    
+
     // Set the time to the start of the working day
     const [startHour, startMinute] = projectSettings.startOfDayTime.split(':').map(Number);
     currentScheduleTime.setHours(startHour, startMinute, 0, 0);
-    
+
     // Ensure we start on a working day
     currentScheduleTime = ensureWorkingDayHelper(currentScheduleTime, workingHours.workingDays);
-    
-    console.log('Starting schedule at:', currentScheduleTime.toISOString(), 
+
+    console.log('Starting schedule at:', currentScheduleTime.toISOString(),
                 'Working hours:', projectSettings.startOfDayTime, '-', projectSettings.endOfDayTime);
-    
+
     const createdEvents = [];
     const warnings = [];
 
@@ -339,21 +334,21 @@ async function processImportAgenda(options) {
             item: courseInfo.course,
             modules: courseInfo.modules
           };
-          
+
           const duration = resolveDuration(itemInfo);
-          
+
           console.log(`Scheduling ${itemInfo.title} for all ${targetGroups.length} groups back-to-back`);
-          
+
           // Get required roles for this course
           const requiredRoles = getRequiredRoles(itemInfo, assignByRole, selectedRoles);
-          
+
           // Schedule this course for ALL groups back-to-back
           for (let i = 0; i < targetGroups.length; i++) {
             const assignedGroup = targetGroups[i];
-            
+
             // Check if group has participants with required roles
             const eligibleParticipants = getEligibleParticipants(assignedGroup, requiredRoles);
-            
+
             if (eligibleParticipants.length === 0 && requiredRoles.length > 0) {
               warnings.push(`No participants in group "${assignedGroup.groupName}" match required roles for "${itemInfo.title}"`);
             }
@@ -373,7 +368,7 @@ async function processImportAgenda(options) {
             // Create event(s)
             for (const { start, end } of eventDates) {
               const eventTitle = `${itemInfo.title} - ${assignedGroup.groupName}`;
-              
+
               const event = await createEvent({
                 projectId: parseInt(projectId),
                 title: eventTitle,
@@ -387,7 +382,7 @@ async function processImportAgenda(options) {
               });
 
               createdEvents.push(event);
-              
+
               // Update existing events list for future conflict detection
               if (preserveExistingEvents) {
                 existingEvents.push({ start, end });
@@ -423,9 +418,9 @@ async function processImportAgenda(options) {
             duration: supportActivity.customDuration || supportActivity.supportActivity?.duration,
             item: supportActivity.supportActivity
           };
-          
+
           const duration = resolveDuration(itemInfo);
-          
+
           console.log('Processing support activity:', {
             title: itemInfo.title,
             duration,
@@ -457,7 +452,7 @@ async function processImportAgenda(options) {
             });
 
             createdEvents.push(event);
-            
+
             if (preserveExistingEvents) {
               existingEvents.push({ start, end });
             }
@@ -504,7 +499,7 @@ async function processImportAgenda(options) {
 function parseWorkingHours(projectSettings) {
   const [startHour, startMinute] = projectSettings.startOfDayTime.split(':').map(Number);
   const [endHour, endMinute] = projectSettings.endOfDayTime.split(':').map(Number);
-  
+
   return {
     startOfDay: startHour * 60 + startMinute, // minutes from midnight
     endOfDay: endHour * 60 + endMinute,
@@ -524,13 +519,13 @@ function getRequiredRoles(itemInfo, assignByRole, selectedRoles) {
   }
 
   let itemRoles = [];
-  
+
   // Only courses have role assignments
   if (itemInfo.type === 'course') {
     // Check if we have course_participant_roles directly on the item
     if (itemInfo.item?.course_participant_roles) {
       itemRoles = itemInfo.item.course_participant_roles.map(cpr => cpr.role);
-    } 
+    }
     // Or if this was originally a module, check its parent course
     else if (itemInfo.item?.course?.course_participant_roles) {
       itemRoles = itemInfo.item.course.course_participant_roles.map(cpr => cpr.role);
@@ -563,10 +558,10 @@ async function scheduleEvent({ startTime, duration, workingHours, existingEvents
   while (remaining > 0) {
     // Ensure we're on a working day
     currentStart = ensureWorkingDay(currentStart, workingHours.workingDays);
-    
+
     // Ensure we're within working hours
     currentStart = ensureWorkingHours(currentStart, workingHours);
-    
+
     // Check for conflicts with existing events
     if (preserveExistingEvents) {
       currentStart = findNextAvailableSlot(currentStart, duration, existingEvents, workingHours);
@@ -583,7 +578,7 @@ async function scheduleEvent({ startTime, duration, workingHours, existingEvents
     if (todayDuration > 0) {
       const eventEnd = new Date(currentStart);
       eventEnd.setMinutes(eventEnd.getMinutes() + todayDuration);
-      
+
       events.push({
         start: new Date(currentStart),
         end: eventEnd
@@ -606,18 +601,18 @@ async function scheduleEvent({ startTime, duration, workingHours, existingEvents
 function ensureWorkingDay(date, workingDays) {
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   let current = new Date(date);
-  
+
   while (!workingDays.includes(dayNames[current.getDay()])) {
     current.setDate(current.getDate() + 1);
   }
-  
+
   return current;
 }
 
 function ensureWorkingHours(date, workingHours) {
   const current = new Date(date);
   const currentMinutes = current.getHours() * 60 + current.getMinutes();
-  
+
   if (currentMinutes < workingHours.startOfDay) {
     current.setHours(0, 0, 0, 0);
     current.setMinutes(workingHours.startOfDay);
@@ -628,20 +623,20 @@ function ensureWorkingHours(date, workingHours) {
     current.setMinutes(workingHours.startOfDay);
     return ensureWorkingDay(current, workingHours.workingDays);
   }
-  
+
   return current;
 }
 
 function findNextAvailableSlot(startTime, duration, existingEvents, workingHours) {
   let current = new Date(startTime);
-  
+
   // Simple conflict detection - in production, use more sophisticated algorithm
   for (const existing of existingEvents) {
     const existingStart = new Date(existing.start);
     const existingEnd = new Date(existing.end);
     const proposedEnd = new Date(current);
     proposedEnd.setMinutes(proposedEnd.getMinutes() + duration);
-    
+
     // Check for overlap
     if (current < existingEnd && proposedEnd > existingStart) {
       // Move start time to after the existing event
@@ -649,7 +644,7 @@ function findNextAvailableSlot(startTime, duration, existingEvents, workingHours
       current = ensureWorkingHours(current, workingHours);
     }
   }
-  
+
   return current;
 }
 
@@ -657,11 +652,11 @@ function getNextWorkingDay(date, workingDays) {
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   let next = new Date(date);
   next.setDate(next.getDate() + 1);
-  
+
   while (!workingDays.includes(dayNames[next.getDay()])) {
     next.setDate(next.getDate() + 1);
   }
-  
+
   return next;
 }
 

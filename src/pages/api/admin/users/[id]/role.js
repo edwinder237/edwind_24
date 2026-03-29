@@ -1,9 +1,7 @@
 import { WorkOS } from '@workos-inc/node';
-import { parse } from 'cookie';
+import { createHandler } from '../../../../../lib/api/createHandler';
 import prisma from '../../../../../lib/prisma';
-import { getCurrentOrganization, getOrganizationContext } from '../../../../../lib/session/organizationSession';
 
-// Initialize WorkOS
 let workos;
 const getWorkOS = () => {
   if (!workos) {
@@ -12,69 +10,15 @@ const getWorkOS = () => {
   return workos;
 };
 
-// Admin role check
-const ADMIN_ROLES = ['owner', 'admin', 'organization admin', 'org admin', 'org-admin', 'administrator'];
-
-// Valid roles that can be assigned
 const VALID_ROLES = ['admin', 'member', 'owner'];
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    // Get user from cookie
-    const cookies = parse(req.headers.cookie || '');
-    const workosUserId = cookies.workos_user_id;
-
-    if (!workosUserId) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    // Get current user and verify admin role
-    const currentUser = await prisma.user.findUnique({
-      where: { workos_user_id: workosUserId },
-      include: {
-        organization_memberships: {
-          include: {
-            organization: true
-          }
-        }
-      }
-    });
-
-    if (!currentUser) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    // Get current organization from session
-    const currentOrgId = await getCurrentOrganization(req);
-    if (!currentOrgId) {
-      return res.status(400).json({ error: 'No organization selected. Please select an organization first.' });
-    }
-
-    // Get organization context
-    const orgContext = await getOrganizationContext(currentOrgId);
-    if (!orgContext) {
-      return res.status(400).json({ error: 'Organization not found' });
-    }
-
-    // Check if user has admin role in the CURRENT organization
-    const isAdmin = currentUser.organization_memberships.some(
-      membership =>
-        membership.organizationId === currentOrgId &&
-        ADMIN_ROLES.includes(membership.workos_role?.toLowerCase())
-    );
-
-    if (!isAdmin) {
-      return res.status(403).json({ error: 'Admin access required for this organization' });
-    }
-
+export default createHandler({
+  scope: 'admin',
+  PUT: async (req, res) => {
+    const { subOrganizationIds } = req.orgContext;
     const { id } = req.query;
     const { role } = req.body;
 
-    // Validate role
     if (!role) {
       return res.status(400).json({ error: 'Role is required' });
     }
@@ -85,14 +29,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get target user
     const targetUser = await prisma.user.findUnique({
       where: { id },
       include: {
         organization_memberships: {
-          include: {
-            organization: true
-          }
+          include: { organization: true }
         }
       }
     });
@@ -101,8 +42,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Verify target user belongs to admin's organization (by sub-organization)
-    if (!orgContext.subOrganizationIds.includes(targetUser.sub_organizationId)) {
+    if (!subOrganizationIds.includes(targetUser.sub_organizationId)) {
       return res.status(403).json({ error: 'User does not belong to your organization' });
     }
 
@@ -112,17 +52,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get WorkOS instance
     const workosInstance = getWorkOS();
 
-    // Find the user's organization membership in WorkOS
     let membershipToUpdate = null;
-
     try {
       const memberships = await workosInstance.userManagement.listOrganizationMemberships({
         userId: targetUser.workos_user_id
       });
-
       if (memberships.data?.length > 0) {
         membershipToUpdate = memberships.data[0];
       }
@@ -139,13 +75,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // Update role in WorkOS
     try {
       await workosInstance.userManagement.updateOrganizationMembership(
         membershipToUpdate.id,
         { roleSlug: role.toLowerCase() }
       );
-
       console.log(`✅ Updated WorkOS role for user ${targetUser.email} to ${role}`);
     } catch (workosError) {
       console.error('WorkOS role update error:', workosError);
@@ -155,7 +89,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Update local cache of the role
     if (targetUser.organization_memberships.length > 0) {
       await prisma.organization_memberships.updateMany({
         where: { userId: targetUser.id },
@@ -164,7 +97,6 @@ export default async function handler(req, res) {
           cached_at: new Date()
         }
       });
-
       console.log(`✅ Updated local role cache for user ${targetUser.email}`);
     }
 
@@ -177,12 +109,5 @@ export default async function handler(req, res) {
         role: role.toLowerCase()
       }
     });
-
-  } catch (error) {
-    console.error('Error updating user role:', error);
-    return res.status(500).json({
-      error: 'Failed to update user role',
-      details: error.message
-    });
   }
-}
+});

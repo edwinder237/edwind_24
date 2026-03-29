@@ -1,15 +1,15 @@
 // third-party
 
+import { createHandler } from '../../../lib/api/createHandler';
+
 // ==============================|| CALENDAR - EVENT DELETE ||============================== //
 
-export default async function handler(req, res) {
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { eventId,events } = req.body;
     const filteredEvents = events.filter(event => event.id !== eventId);
 
     res.status(200).json(eventId);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Internal server error' });
   }
-}
+});

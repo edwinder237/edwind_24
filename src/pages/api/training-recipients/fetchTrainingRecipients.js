@@ -7,14 +7,12 @@
  * Uses org scoping to filter by sub-organization.
  */
 
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
 
   const { orgContext } = req;
 
@@ -36,7 +34,6 @@ async function handler(req, res) {
     }
   });
 
-  res.status(200).json(trainingRecipients);
-}
-
-export default withOrgScope(asyncHandler(handler));
+  return res.status(200).json(trainingRecipients);
+  }
+});

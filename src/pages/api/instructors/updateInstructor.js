@@ -8,18 +8,14 @@
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique, scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
-
-  try {
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
+    const { orgContext } = req;
     const {
       id,
       firstName,
@@ -112,11 +108,5 @@ async function handler(req, res) {
       message: 'Instructor updated successfully',
       data: instructor
     });
-
-  } catch (error) {
-    console.error('Error updating instructor:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

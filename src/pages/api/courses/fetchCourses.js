@@ -17,40 +17,40 @@
  * ]
  */
 
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindMany } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
+    const { orgContext } = req;
 
-  // Fetch courses filtered by organization's sub-organizations
-  const courses = await scopedFindMany(orgContext, 'courses', {
-    where: {
-      isActive: true
-    },
-    include: {
-      course_instructors: {
-        include: {
-          instructor: true
-        }
+    // Fetch courses filtered by organization's sub-organizations
+    const courses = await scopedFindMany(orgContext, 'courses', {
+      where: {
+        isActive: true
       },
-      modules: {
-        orderBy: {
-          moduleOrder: 'asc'
+      include: {
+        course_instructors: {
+          include: {
+            instructor: true
+          }
         },
-        include: {
-          activities: {
-            orderBy: {
-              ActivityOrder: 'asc'
+        modules: {
+          orderBy: {
+            moduleOrder: 'asc'
+          },
+          include: {
+            activities: {
+              orderBy: {
+                ActivityOrder: 'asc'
+              }
             }
           }
         }
       }
-    }
-  });
+    });
 
-  return res.status(200).json(courses);
-}
-
-export default withOrgScope(asyncHandler(handler));
+    return res.status(200).json(courses);
+  }
+});

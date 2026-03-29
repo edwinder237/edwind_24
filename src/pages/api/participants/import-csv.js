@@ -8,18 +8,14 @@
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
   const { orgContext } = req;
-
-  try {
     const { participants, projectId } = req.body;
 
     if (!participants || !Array.isArray(participants) || participants.length === 0) {
@@ -240,7 +236,7 @@ async function handler(req, res) {
 
     const result = { createdParticipants, errors };
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: `Successfully processed ${result.createdParticipants.length} participants`,
       data: {
@@ -255,11 +251,5 @@ async function handler(req, res) {
         }
       }
     });
-
-  } catch (error) {
-    console.error('Error importing participants:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

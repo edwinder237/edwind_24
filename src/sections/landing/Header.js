@@ -15,14 +15,17 @@ import { motion } from 'framer-motion';
 // project import
 import AnimateButton from 'components/@extended/AnimateButton';
 import Logo from 'components/logo';
+import useUser from 'hooks/useUser';
 
 // assets
-import { EyeOutlined } from '@ant-design/icons';
+import { EyeOutlined, DashboardOutlined, ToolOutlined } from '@ant-design/icons';
 
 // ==============================|| LANDING - HEADER PAGE ||============================== //
 
 const HeaderPage = () => {
   const theme = useTheme();
+  const { user, isAuthenticated } = useUser();
+  const requiresCheckout = user?.subscription?.requiresCheckout;
 
   return (
     <Container sx={{ minHeight: '50vh', display: 'flex', alignItems: 'center', py: 4 }}>
@@ -122,19 +125,30 @@ const HeaderPage = () => {
                       <Button
                         size="large"
                         variant="contained"
-                        startIcon={<EyeOutlined style={{ fontSize: '1.15rem' }} />}
+                        startIcon={
+                          isAuthenticated
+                            ? (requiresCheckout ? <ToolOutlined style={{ fontSize: '1.15rem' }} /> : <DashboardOutlined style={{ fontSize: '1.15rem' }} />)
+                            : <EyeOutlined style={{ fontSize: '1.15rem' }} />
+                        }
                         onClick={() => {
-                          window.location.href = '/signup';
+                          if (isAuthenticated) {
+                            window.location.href = requiresCheckout ? '/checkout-required' : '/projects';
+                          } else {
+                            window.location.href = '/signup';
+                          }
                         }}
                         sx={{
-                          backgroundColor: '#1976d2',
+                          backgroundColor: isAuthenticated && requiresCheckout ? '#ed6c02' : '#1976d2',
                           color: 'white',
                           '&:hover': {
-                            backgroundColor: '#1565c0'
+                            backgroundColor: isAuthenticated && requiresCheckout ? '#e65100' : '#1565c0'
                           }
                         }}
                       >
-                        <FormattedMessage id="landing.nav.getStarted" />
+                        {isAuthenticated
+                          ? (requiresCheckout ? 'Complete Setup' : 'Go to Dashboard')
+                          : <FormattedMessage id="landing.nav.getStarted" />
+                        }
                       </Button>
                     </AnimateButton>
                   </Grid>

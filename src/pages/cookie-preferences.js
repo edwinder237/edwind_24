@@ -50,8 +50,8 @@ const CookiePreferencesPage = () => {
   return (
     <>
       <Head>
-        <title>Cookie Preferences - EDWIND</title>
-        <meta name="description" content="Manage your cookie preferences for the EDWIND training platform. Control which cookies we can use to improve your experience." />
+        <title>Cookie Preferences - EDBAHN</title>
+        <meta name="description" content="Manage your cookie preferences for the EDBAHN training platform. Control which cookies we can use to improve your experience." />
       </Head>
 
       <Container maxWidth="md" sx={{ py: 4 }}>

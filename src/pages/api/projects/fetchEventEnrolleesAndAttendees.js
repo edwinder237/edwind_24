@@ -1,14 +1,16 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 
-export default async function handler(req, res) {
-  const { courseId,eventId } = req.body;
-  if (!courseId) {
-    return res.status(400).json({ error: "Missing courseId " });
-  }
-  if (!eventId) {
-    return res.status(400).json({ error: "Missing eventId " });
-  }
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { courseId,eventId } = req.body;
+    if (!courseId) {
+      return res.status(400).json({ error: "Missing courseId " });
+    }
+    if (!eventId) {
+      return res.status(400).json({ error: "Missing eventId " });
+    }
     const enrolledNotCompleted =
       await prisma.courses_enrollee_progress.findMany({
         where: {
@@ -66,8 +68,5 @@ export default async function handler(req, res) {
     };
 
     res.status(200).json(event);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error " });
   }
-}
+});

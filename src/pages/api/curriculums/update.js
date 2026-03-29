@@ -7,39 +7,36 @@
  * Verifies curriculum belongs to user's organization before updating.
  */
 
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedUpdate } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
+import { ValidationError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
+    const { orgContext } = req;
+    const { id, title, description } = req.body;
 
-  const { orgContext } = req;
-  const { id, title, description } = req.body;
-
-  if (!id || !title || !title.trim()) {
-    throw new ValidationError('ID and title are required');
-  }
-
-  const curriculumId = parseInt(id);
-
-  // Update with org scoping - scopedUpdate verifies ownership first
-  const updatedCurriculum = await scopedUpdate(orgContext, 'curriculums',
-    { id: curriculumId },
-    {
-      title: title.trim(),
-      description: description?.trim() || null,
-      updatedAt: new Date()
+    if (!id || !title || !title.trim()) {
+      throw new ValidationError('ID and title are required');
     }
-  );
 
-  res.status(200).json({
-    success: true,
-    message: 'Curriculum updated successfully',
-    curriculum: updatedCurriculum
-  });
-}
+    const curriculumId = parseInt(id);
 
-export default withOrgScope(asyncHandler(handler));
+    // Update with org scoping - scopedUpdate verifies ownership first
+    const updatedCurriculum = await scopedUpdate(orgContext, 'curriculums',
+      { id: curriculumId },
+      {
+        title: title.trim(),
+        description: description?.trim() || null,
+        updatedAt: new Date()
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Curriculum updated successfully',
+      curriculum: updatedCurriculum
+    });
+  }
+});

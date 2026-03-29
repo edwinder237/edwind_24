@@ -1,12 +1,8 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const {
+export default createHandler({ scope: 'org', PUT: async (req, res) => {
+  const {
       id,
       title,
       description,
@@ -94,13 +90,5 @@ export default async function handler(req, res) {
       message: 'Assessment updated successfully',
       assessment: updatedAssessment
     });
-
-  } catch (error) {
-    console.error('Error updating assessment:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update assessment',
-      error: error.message
-    });
-  }
 }
+});

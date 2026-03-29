@@ -1,11 +1,10 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from "../../../lib/prisma";
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
+    try {
     const {
       projectId,
       startDate,
@@ -63,6 +62,16 @@ export default async function handler(req, res) {
       updateData.workingDays = Array.isArray(workingDays) ? workingDays : [];
     }
 
+    // Capture old timezone before updating so we can cascade to events
+    let oldTimezone = null;
+    if (timezone !== undefined) {
+      const existing = await prisma.project_settings.findUnique({
+        where: { projectId: parseInt(projectId) },
+        select: { timezone: true }
+      });
+      oldTimezone = existing?.timezone;
+    }
+
     // Upsert project settings (create if doesn't exist, update if exists)
     const projectSettings = await prisma.project_settings.upsert({
       where: { projectId: parseInt(projectId) },
@@ -80,6 +89,19 @@ export default async function handler(req, res) {
       }
     });
 
+    // Cascade timezone change to events that still have the old timezone
+    let affectedEvents = 0;
+    if (timezone && oldTimezone && oldTimezone !== timezone) {
+      const result = await prisma.events.updateMany({
+        where: {
+          projectId: parseInt(projectId),
+          timezone: oldTimezone
+        },
+        data: { timezone }
+      });
+      affectedEvents = result.count;
+    }
+
     res.status(200).json({
       success: true,
       message: 'Project settings updated successfully',
@@ -87,23 +109,25 @@ export default async function handler(req, res) {
         id: project.id,
         title: project.title
       },
-      settings: projectSettings
+      settings: projectSettings,
+      affectedEvents
     });
 
   } catch (error) {
     console.error('Error updating project settings:', error);
-    
+
     // Handle Prisma-specific errors
     if (error.code === 'P2002') {
-      return res.status(409).json({ 
+      return res.status(409).json({
         error: 'Duplicate constraint violation',
         details: 'Project settings already exist for this project'
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: "Internal Server Error",
       message: "Failed to update project settings"
     });
   }
-}
+  }
+});

@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { moduleId } = req.body;
 
     if (!moduleId) {
@@ -95,14 +93,5 @@ export default async function handler(req, res) {
         }
       });
     }
-
-  } catch (error) {
-    console.error('Error duplicating module:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to duplicate module',
-      error: error.message 
-    });
-  } finally {
   }
-}
+});

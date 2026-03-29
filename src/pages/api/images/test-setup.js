@@ -1,9 +1,8 @@
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+import { createHandler } from '../../../lib/api/createHandler';
 
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     // Test Google Maps API access
     const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
     
@@ -73,13 +72,5 @@ export default async function handler(req, res) {
         r2Ready: !!(r2AccessKey && r2SecretKey)
       }
     });
-
-  } catch (error) {
-    console.error('Setup test error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to test setup',
-      details: error.message
-    });
   }
-}
+});

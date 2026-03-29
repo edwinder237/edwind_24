@@ -1,18 +1,12 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { bumpVersion } from '../../../lib/utils/versionUtils';
 import { isVersionLocked } from '../../../lib/utils/versionProtection';
 import { createAuditLog, calculateFieldChanges, TRACKED_FIELDS } from '../../../lib/utils/auditLog';
-import { attachUserClaims } from '../../../lib/auth/middleware';
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  // Get user info for audit logging
-  await attachUserClaims(req, res);
-
-  try {
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
     const { id, title, summary, activityType, duration, content, contentUrl, changedByName } = req.body;
 
     if (!id) {
@@ -90,7 +84,7 @@ export default async function handler(req, res) {
       });
 
       // Log the audit entry
-      const userName = changedByName || req.userClaims?.name || course?.authorName || 'Author';
+      const userName = changedByName || req.orgContext?.claims?.name || course?.authorName || 'Author';
       await createAuditLog(prisma, {
         courseId: module.courseId,
         entityType: 'activity',
@@ -112,12 +106,5 @@ export default async function handler(req, res) {
       courseId: module?.courseId || null,
       courseVersion: newVersion,
     });
-  } catch (error) {
-    console.error('Error updating activity:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update activity',
-      error: error.message,
-    });
   }
-}
+});

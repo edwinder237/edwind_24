@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 import puppeteer from 'puppeteer';
 import {
   isValidEmail,
@@ -313,21 +314,21 @@ function getDefaultProfessionalTemplate() {
  * POST /api/projects/trainer-schedule
  * Body: { action: 'preview' | 'send', ...params }
  */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
 
-  const { action = 'preview' } = req.body;
+  POST: async (req, res) => {
+    const { action = 'preview' } = req.body;
 
-  if (action === 'preview') {
-    return handlePreview(req, res);
-  } else if (action === 'send') {
-    return handleSend(req, res);
-  } else {
-    return res.status(400).json({ message: 'Invalid action. Use "preview" or "send".' });
+    if (action === 'preview') {
+      return handlePreview(req, res);
+    } else if (action === 'send') {
+      return handleSend(req, res);
+    } else {
+      return res.status(400).json({ message: 'Invalid action. Use "preview" or "send".' });
+    }
   }
-}
+});
 
 /**
  * Handle preview action - generates HTML preview

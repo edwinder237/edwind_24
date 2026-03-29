@@ -1,9 +1,14 @@
-export default function handler(req, res) {
-  const { projectCUID, projects } = req.body;
+import { createHandler } from '../../../lib/api/createHandler';
 
-  const updatedProjects = projects.filter(
-    (project) => project.id !== projectCUID
-  );
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { projectCUID, projects } = req.body;
 
-  return res.status(200).json(updatedProjects);
-}
+    const updatedProjects = projects.filter(
+      (project) => project.id !== projectCUID
+    );
+
+    return res.status(200).json(updatedProjects);
+  }
+});

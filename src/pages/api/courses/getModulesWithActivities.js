@@ -1,26 +1,24 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { courseId } = req.query;
 
     if (!courseId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Course ID is required' 
+        message: 'Course ID is required'
       });
     }
 
     const parsedCourseId = parseInt(courseId);
 
     if (isNaN(parsedCourseId)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Invalid course ID' 
+        message: 'Invalid course ID'
       });
     }
 
@@ -39,14 +37,5 @@ export default async function handler(req, res) {
       success: true,
       modules: modules
     });
-
-  } catch (error) {
-    console.error('Error fetching modules with activities:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch modules',
-      error: error.message 
-    });
-  } finally {
   }
-}
+});

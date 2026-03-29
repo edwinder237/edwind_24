@@ -6,15 +6,14 @@
  */
 
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 import { WorkOS } from '@workos-inc/node';
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'org',
 
-  try {
+  GET: async (req, res) => {
     const userId = req.cookies.workos_user_id;
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
 
@@ -195,9 +194,5 @@ export default async function handler(req, res) {
         }))
       }
     });
-
-  } catch (error) {
-    console.error('[Training Report Data] Error:', error);
-    return res.status(500).json({ error: 'Failed to generate report data' });
   }
-}
+});

@@ -92,6 +92,7 @@ export function requireFeature(featureKey) {
         if (!accessCheck.canAccess) {
           return res.status(403).json({
             error: 'Feature not available',
+            featureKey,
             message: accessCheck.message,
             reason: accessCheck.reason,
             requiredPlan: accessCheck.requiredPlan,
@@ -284,6 +285,7 @@ export function requireResourceCapacity(resource, amount = 1) {
         if (!capacityCheck.hasCapacity) {
           return res.status(403).json({
             error: 'Resource limit exceeded',
+            resource,
             message: `You have reached your ${resource} limit`,
             current: capacityCheck.current,
             limit: capacityCheck.limit,

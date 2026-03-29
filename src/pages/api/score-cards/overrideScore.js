@@ -1,12 +1,8 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const {
+export default createHandler({ scope: 'org', PUT: async (req, res) => {
+  const {
       scoreId,
       passed,
       overrideReason,
@@ -107,13 +103,5 @@ export default async function handler(req, res) {
         reason: overrideReason.trim()
       }
     });
-
-  } catch (error) {
-    console.error('Error overriding score:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to override score',
-      error: error.message
-    });
-  }
 }
+});

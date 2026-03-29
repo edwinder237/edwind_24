@@ -216,6 +216,7 @@ const OrganizationDetailPage = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [reactivatingSubscription, setReactivatingSubscription] = useState(false);
 
   const isOwner = user?.role?.toLowerCase() === 'owner';
 
@@ -318,6 +319,28 @@ const OrganizationDetailPage = () => {
       setActionError(err.message);
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  // ── Reactivate Subscription ──
+  const handleReactivateSubscription = async () => {
+    setReactivatingSubscription(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const res = await fetch(`/api/internal/organizations/${id}/reactivate-subscription`, {
+        method: 'PUT'
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to reactivate subscription');
+      }
+      setActionSuccess('Subscription reactivated successfully');
+      await fetchOrg();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setReactivatingSubscription(false);
     }
   };
 
@@ -585,6 +608,19 @@ const OrganizationDetailPage = () => {
                             <Typography variant="body2" color="error">{new Date(org.subscription.canceledAt).toLocaleString()}</Typography>
                           </Stack>
                         )}
+                        {['canceled', 'suspended'].includes(org.subscription.status) && (
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            onClick={handleReactivateSubscription}
+                            disabled={reactivatingSubscription}
+                            startIcon={reactivatingSubscription ? <CircularProgress size={16} /> : <CheckCircleOutlined />}
+                            sx={{ mt: 2 }}
+                          >
+                            {reactivatingSubscription ? 'Reactivating...' : 'Reactivate Subscription'}
+                          </Button>
+                        )}
                       </>
                     )}
                   </Grid>
@@ -761,6 +797,19 @@ const OrganizationDetailPage = () => {
                               {new Date(org.subscription.canceledAt).toLocaleString()}
                             </Typography>
                           </Stack>
+                        )}
+                        {['canceled', 'suspended'].includes(org.subscription.status) && (
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            onClick={handleReactivateSubscription}
+                            disabled={reactivatingSubscription}
+                            startIcon={reactivatingSubscription ? <CircularProgress size={16} /> : <CheckCircleOutlined />}
+                            sx={{ mt: 2 }}
+                          >
+                            {reactivatingSubscription ? 'Reactivating...' : 'Reactivate Subscription'}
+                          </Button>
                         )}
                       </Stack>
                     </Grid>

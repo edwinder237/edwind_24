@@ -193,164 +193,8 @@ const transformEventsToMockDailyNotes = (events, project) => {
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort newest first
 
-  return dailyNotes.length > 0 ? dailyNotes : generateMockDailyNotes();
+  return dailyNotes;
 };
-
-// Mock data for daily notes (fallback)
-const generateMockDailyNotes = () => [
-  {
-    id: 1,
-    date: '2024-01-19',
-    title: 'Day 5 - Strong Progress in CRM Training',
-    author: 'Sarah Martinez',
-    authorRole: 'Lead Instructor',
-    mood: 'positive',
-    attendance: 18,
-    totalParticipants: 20,
-    keyHighlights: [
-      'Participants completed hands-on CRM data entry exercises',
-      'Strong engagement during Q&A session',
-      'Thomas Desgagnés showed exceptional understanding of pipeline management'
-    ],
-    challenges: [
-      'Two participants struggling with report generation module',
-      'Technical issues with demo environment for 30 minutes'
-    ],
-    sessionNotes: '[9:00 AM] CRM Data Entry Module: The hands-on exercises were well-received by the majority of participants. Thomas demonstrated exceptional grasp of the material and assisted peers during group work.\n\n[2:00 PM] Q&A Session: Strong engagement with excellent questions about pipeline management. The demo environment issues were resolved by switching to backup servers. Overall energy remained high despite technical setbacks.',
-    nextSteps: [
-      'Schedule additional support session for struggling participants',
-      'Prepare advanced scenarios for quick learners'
-    ],
-    metrics: {
-      overallProgress: 38,
-      participantEngagement: 85,
-      contentCompletion: 40
-    },
-    tags: ['milestone', 'technical-issues', 'high-engagement']
-  },
-  {
-    id: 2,
-    date: '2024-01-18',
-    title: 'Day 4 - Module 2 Completed Successfully',
-    author: 'Michael Chen',
-    authorRole: 'Technical Trainer',
-    mood: 'positive',
-    attendance: 19,
-    totalParticipants: 20,
-    keyHighlights: [
-      'Successfully completed Module 2: Customer Data Management',
-      'All participants passed the module quiz with scores above 75%',
-      'Group exercise on data segmentation went exceptionally well'
-    ],
-    challenges: [
-      'One participant absent due to illness',
-      'Some confusion around data privacy regulations'
-    ],
-    sessionNotes: '[9:00 AM] Customer Data Management: Module 2 completion marks a significant milestone. The group demonstrated solid understanding during the quiz, with most participants scoring above 85%.\n\n[1:00 PM] Data Segmentation Exercise: Strong analytical thinking demonstrated. Need to provide additional clarity on GDPR and local privacy laws in next session.',
-    nextSteps: [
-      'Begin Module 3: Sales Pipeline tomorrow',
-      'Send recap materials to absent participant'
-    ],
-    metrics: {
-      overallProgress: 32,
-      participantEngagement: 90,
-      contentCompletion: 35
-    },
-    tags: ['module-complete', 'assessment-passed']
-  },
-  {
-    id: 3,
-    date: '2024-01-17',
-    title: 'Day 3 - Mixed Progress, Additional Support Needed',
-    author: 'Sarah Martinez',
-    authorRole: 'Lead Instructor',
-    mood: 'neutral',
-    attendance: 17,
-    totalParticipants: 20,
-    keyHighlights: [
-      'Good understanding of basic CRM concepts',
-      'Practical exercises showing improvement',
-      'Peer learning sessions proving effective'
-    ],
-    challenges: [
-      'Three participants consistently late (10+ minutes)',
-      'Varying skill levels causing pacing issues',
-      'Need for more individualized attention'
-    ],
-    sessionNotes: '[9:15 AM] Basic CRM Concepts: Started noticing clear skill level differentiation within the group. Some participants are grasping concepts quickly while others need more time.\n\n[2:30 PM] Practical Exercises: The peer learning approach is showing promise - advanced learners are naturally helping those struggling. Punctuality issues need to be addressed diplomatically in tomorrow\'s session.',
-    nextSteps: [
-      'Implement buddy system for peer support',
-      'Consider splitting group for certain activities',
-      'Address punctuality in tomorrow\'s session'
-    ],
-    metrics: {
-      overallProgress: 25,
-      participantEngagement: 70,
-      contentCompletion: 28
-    },
-    tags: ['attendance-issue', 'support-needed', 'pacing-adjustment']
-  },
-  {
-    id: 4,
-    date: '2024-01-16',
-    title: 'Day 2 - Technical Challenges Resolved',
-    author: 'Michael Chen',
-    authorRole: 'Technical Trainer',
-    mood: 'neutral',
-    attendance: 20,
-    totalParticipants: 20,
-    keyHighlights: [
-      'Full attendance achieved',
-      'Successfully resolved login issues from Day 1',
-      'Completed introduction to CRM interface'
-    ],
-    challenges: [
-      'Initial 45 minutes lost to technical setup',
-      'Some participants need basic computer skills support'
-    ],
-    sessionNotes: '[9:45 AM] Technical Setup: Successfully overcame the technical hurdles from Day 1. Full attendance is encouraging.\n\n[11:00 AM] CRM Interface Introduction: Noticed a few participants struggling with basic navigation - will need to incorporate more foundational computer literacy support. The introduction was well-paced once we got started.',
-    nextSteps: [
-      'Provide additional resources for basic computer skills',
-      'Ensure all technical requirements met before sessions'
-    ],
-    metrics: {
-      overallProgress: 15,
-      participantEngagement: 75,
-      contentCompletion: 18
-    },
-    tags: ['technical-resolved', 'full-attendance']
-  },
-  {
-    id: 5,
-    date: '2024-01-15',
-    title: 'Day 1 - Kickoff Session',
-    author: 'Sarah Martinez',
-    authorRole: 'Lead Instructor',
-    mood: 'positive',
-    attendance: 20,
-    totalParticipants: 20,
-    keyHighlights: [
-      'Successful project kickoff with all participants present',
-      'Strong enthusiasm and engagement from the group',
-      'Clear expectations set for the training program'
-    ],
-    challenges: [
-      'Some participants had login issues with training platform',
-      'Room temperature complaints - too cold'
-    ],
-    sessionNotes: '[9:00 AM] Kickoff & Icebreakers: Fantastic energy in the room! Participants are clearly motivated and eager to learn. The icebreaker activities worked well to build rapport.\n\n[10:30 AM] Platform Setup: Login issues affected about 30% of participants but IT support was responsive. Room environment feedback noted for future sessions.',
-    nextSteps: [
-      'Resolve platform access issues before Day 2',
-      'Adjust room temperature settings'
-    ],
-    metrics: {
-      overallProgress: 5,
-      participantEngagement: 95,
-      contentCompletion: 8
-    },
-    tags: ['kickoff', 'high-enthusiasm', 'technical-issues']
-  }
-];
 
 const DailyNotes = ({ project }) => {
   const theme = useTheme();
@@ -437,6 +281,7 @@ const DailyNotes = ({ project }) => {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
+  const [smartPulseInfo, setSmartPulseInfo] = useState(null);
 
   // AI Settings state
   const [aiSettingsAnchor, setAiSettingsAnchor] = useState(null);
@@ -859,7 +704,7 @@ const DailyNotes = ({ project }) => {
       // Include parking lot items in the AI summarization
       const parkingLotData = parkingLotItems.length > 0 ? parkingLotItems : null;
 
-      await dispatch(summarizeWithAI({
+      const result = await dispatch(summarizeWithAI({
         projectId: project.id,
         date: currentNote.date,
         sessionNotes: currentNote.sessionNotes,
@@ -869,6 +714,9 @@ const DailyNotes = ({ project }) => {
         customTone: aiSettings.customTone,
         language: aiSettings.language
       })).unwrap();
+      if (result?.smartPulse) {
+        setSmartPulseInfo(result.smartPulse);
+      }
     } catch (error) {
       console.error('Failed to summarize with AI:', error);
     } finally {
@@ -881,11 +729,24 @@ const DailyNotes = ({ project }) => {
   // Check if current note has existing AI-generated content
   const hasExistingAIContent = currentNote?.keyHighlights?.length > 0 || currentNote?.challenges?.length > 0;
 
+  // Fetch SmartPulse usage info
+  const fetchSmartPulseUsage = async () => {
+    try {
+      const res = await axios.get('/api/ai/smartpulse-usage');
+      if (res.data?.smartPulse) {
+        setSmartPulseInfo(res.data.smartPulse);
+      }
+    } catch (e) {
+      // Non-critical, silently ignore
+    }
+  };
+
   // Handle click on summarize button - show dialog if content exists
   const handleSummarizeClick = () => {
     if (isSummarizing || !currentNote?.sessionNotes) return;
 
     if (hasExistingAIContent) {
+      fetchSmartPulseUsage();
       setRegenerateDialogOpen(true);
     } else {
       handleSummarizeWithAI();
@@ -2031,6 +1892,11 @@ const DailyNotes = ({ project }) => {
           <Typography variant="body2" color="text.secondary">
             This will replace the existing Key Highlights and Challenges with new AI-generated content. This action cannot be undone.
           </Typography>
+          {smartPulseInfo && smartPulseInfo.limit !== -1 && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+              SmartPulse usage: {smartPulseInfo.used}/{smartPulseInfo.limit} today ({smartPulseInfo.remaining} remaining)
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRegenerateDialogOpen(false)}>Cancel</Button>

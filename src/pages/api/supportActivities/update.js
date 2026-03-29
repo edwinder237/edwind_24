@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
     const {
       id,
       title,
@@ -17,9 +15,9 @@ export default async function handler(req, res) {
     } = req.body;
 
     if (!id) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Support activity ID is required' 
+        message: 'Support activity ID is required'
       });
     }
 
@@ -29,9 +27,9 @@ export default async function handler(req, res) {
     });
 
     if (!existingActivity) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Support activity not found' 
+        message: 'Support activity not found'
       });
     }
 
@@ -62,12 +60,5 @@ export default async function handler(req, res) {
       message: 'Support activity updated successfully',
       supportActivity: updatedActivity
     });
-  } catch (error) {
-    console.error('Error updating support activity:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to update support activity',
-      error: error.message 
-    });
   }
-}
+});

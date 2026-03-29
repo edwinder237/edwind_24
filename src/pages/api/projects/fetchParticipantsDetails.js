@@ -22,27 +22,29 @@
  */
 
 import prisma from '../../../lib/prisma';
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  const { projectId } = req.body;
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { projectId } = req.body;
+    const { orgContext } = req;
 
-  // Validate projectId
-  if (!projectId || isNaN(parseInt(projectId))) {
-    throw new ValidationError('Invalid project ID');
-  }
+    // Validate projectId
+    if (!projectId || isNaN(parseInt(projectId))) {
+      throw new ValidationError('Invalid project ID');
+    }
 
-  // First verify project exists and belongs to organization
-  const project = await scopedFindUnique(orgContext, 'projects', {
-    where: { id: parseInt(projectId) }
-  });
+    // First verify project exists and belongs to organization
+    const project = await scopedFindUnique(orgContext, 'projects', {
+      where: { id: parseInt(projectId) }
+    });
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
-  }
+    if (!project) {
+      throw new NotFoundError('Project not found');
+    }
 
   // Fetch project participants (already org-scoped through project validation)
   const projectParticipants = await prisma.project_participants.findMany({
@@ -78,9 +80,8 @@ async function handler(req, res) {
   });
 
   // Set cache headers for better performance
-  res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate');
+    res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate');
 
-  return res.status(200).json(projectParticipants);
-}
-
-export default withOrgScope(asyncHandler(handler));
+    return res.status(200).json(projectParticipants);
+  }
+});

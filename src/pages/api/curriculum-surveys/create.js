@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const {
       curriculumId,
       title,
@@ -68,12 +66,5 @@ export default async function handler(req, res) {
       message: 'Survey created successfully',
       survey
     });
-  } catch (error) {
-    console.error('Error creating survey:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create survey',
-      error: error.message
-    });
   }
-}
+});

@@ -6,6 +6,7 @@
  * Reactivation restores org status but does NOT auto-reactivate users.
  */
 
+import { createHandler } from '../../../../../lib/api/createHandler';
 import prisma from '../../../../../lib/prisma';
 import { WorkOS } from '@workos-inc/node';
 import { cancelSubscription as cancelStripeSubscription } from '../../../../../lib/stripe/stripeService';
@@ -39,12 +40,9 @@ async function revokeUserSessions(workosUserId) {
   }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'public',
+  PUT: async (req, res) => {
     // Auth: verify owner
     const userId = req.cookies.workos_user_id;
     if (!userId) {
@@ -200,8 +198,5 @@ export default async function handler(req, res) {
       warning: 'Users have NOT been automatically reactivated. Subscription must be re-established manually.'
     });
 
-  } catch (error) {
-    console.error('Error toggling organization status:', error);
-    return res.status(500).json({ error: 'Failed to update organization status' });
   }
-}
+});

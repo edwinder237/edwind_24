@@ -58,10 +58,10 @@ const FALLBACK_PLANS = [
   {
     id: 'essential',
     name: 'Essential',
-    price: 'Free',
-    period: '',
+    price: '$29.95',
+    period: '/mo',
     description: 'Perfect for small teams getting started with training management.',
-    buttonText: 'Start Free',
+    buttonText: 'Start 14-Day Free Trial',
     buttonVariant: 'outlined',
     popular: false,
     features: [
@@ -109,7 +109,7 @@ const OnboardingPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
-  const [checkoutCanceled, setCheckoutCanceled] = useState(false);
+  const [redirectingToPayment, setRedirectingToPayment] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -125,14 +125,34 @@ const OnboardingPage = () => {
   // Handle Stripe checkout return
   useEffect(() => {
     if (checkout === 'success') {
-      setFormData(prev => ({ ...prev, selectedPlan: 'professional' }));
-      setShowWelcome(true);
-    } else if (checkout === 'canceled') {
-      setFormData(prev => ({ ...prev, selectedPlan: 'professional' }));
-      setCheckoutCanceled(true);
       setShowWelcome(true);
     }
   }, [checkout]);
+
+  // Detect if user already onboarded but needs payment
+  const alreadyOnboarded = user?.info?.onboardingComplete || user?.sub_organizationId;
+  const needsPayment = user?.subscription?.requiresCheckout;
+  const showPaymentStep = alreadyOnboarded && needsPayment && checkout !== 'success';
+
+  const handleGoToPayment = async () => {
+    setRedirectingToPayment(true);
+    setError('');
+    const planId = user?.subscription?.planId || 'essential';
+
+    try {
+      const response = await axios.post('/api/subscriptions/checkout', { planId, interval: 'monthly' });
+      if (response.data?.url) {
+        window.location.href = response.data.url;
+      } else {
+        setError('Failed to create payment session. Please try again.');
+        setRedirectingToPayment(false);
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError(err.response?.data?.error || 'Failed to redirect to payment. Please try again.');
+      setRedirectingToPayment(false);
+    }
+  };
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -259,10 +279,10 @@ const OnboardingPage = () => {
 
       if (response.data.success) {
         if (response.data.checkoutUrl) {
-          // Professional plan: redirect to Stripe Checkout
+          // Redirect to Stripe Checkout for payment
           window.location.href = response.data.checkoutUrl;
         } else {
-          // Essential plan: show welcome page
+          // Stripe not configured — show welcome page as fallback
           setShowWelcome(true);
         }
       } else {
@@ -284,6 +304,85 @@ const OnboardingPage = () => {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show payment step for users who onboarded but haven't completed payment
+  if (showPaymentStep) {
+    const planName = user?.subscription?.planName || 'Essential';
+    const hasTrial = user?.subscription?.planId === 'professional';
+
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 3
+        }}
+      >
+        <Container maxWidth="sm">
+          <Box sx={{ textAlign: 'center', mb: 4 }}>
+            <Image src={headerlogo} alt="EDBAHN" width={200} height={84} />
+          </Box>
+
+          <Card sx={{ borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <CardContent sx={{ p: { xs: 3, md: 5 }, textAlign: 'center' }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                Complete Your Setup
+              </Typography>
+
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+                You selected the <strong>{planName}</strong> plan.
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                {hasTrial
+                  ? "Add your payment details to activate your 14-day free trial. You won\u2019t be charged until the trial ends."
+                  : 'Add your payment details to activate your subscription.'}
+              </Typography>
+
+              {error && (
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  {error}
+                </Alert>
+              )}
+
+              <Button
+                variant="contained"
+                size="large"
+                fullWidth
+                onClick={handleGoToPayment}
+                disabled={redirectingToPayment}
+                sx={{
+                  py: 1.5,
+                  mb: 2,
+                  fontSize: '1rem',
+                  backgroundColor: '#1976d2',
+                  '&:hover': { backgroundColor: '#1565c0' }
+                }}
+              >
+                {redirectingToPayment ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Continue to Payment'
+                )}
+              </Button>
+
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => { window.location.href = '/api/auth/logout'; }}
+                sx={{ color: 'text.secondary' }}
+              >
+                Log out
+              </Button>
+            </CardContent>
+          </Card>
+        </Container>
       </Box>
     );
   }
@@ -311,24 +410,14 @@ const OnboardingPage = () => {
               <CheckCircleOutlined style={{ fontSize: 64, color: '#52c41a', marginBottom: 24 }} />
 
               <Typography variant="h3" gutterBottom>
-                Welcome to EDWIND!
+                Welcome to EDBAHN!
               </Typography>
 
-              {isPro && !checkoutCanceled && (
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  Your 14-day Professional trial has started.
-                </Typography>
-              )}
-              {isPro && checkoutCanceled && (
-                <Alert severity="info" sx={{ mb: 2, mx: 'auto', maxWidth: 500 }}>
-                  Your Professional trial is active. You can add a payment method anytime from Organization Settings.
-                </Alert>
-              )}
-              {!isPro && (
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  You&apos;re on the Essential plan.
-                </Typography>
-              )}
+              <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                {isPro
+                  ? 'Your 14-day Professional trial has started.'
+                  : 'Your Essential subscription is active.'}
+              </Typography>
 
               <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
                 Here are a few things to get you started:
@@ -859,7 +948,7 @@ const OnboardingPage = () => {
                     {loading ? (
                       <CircularProgress size={24} color="inherit" />
                     ) : isLastStep ? (
-                      formData.selectedPlan === 'professional' ? 'Continue to Payment' : 'Complete Setup'
+                      'Continue to Payment'
                     ) : (
                       'Continue'
                     )}

@@ -10,16 +10,15 @@ import {
   createAntiCollapseHeaders,
   EMAIL_SENDERS
 } from '../../../lib/email';
+import { logEmailBatch } from '../../../lib/email/emailLogger';
+import { createHandler } from '../../../lib/api/createHandler';
 
 // Rate limiting configuration
 const RATE_LIMIT_DELAY = 600;
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { eventId, projectId, projectTitle } = req.body;
 
     if (!eventId) {
@@ -231,6 +230,27 @@ export default async function handler(req, res) {
       errorCode: failureCount > 0 ? 'PARTIAL_FAILURE' : null
     });
 
+    // Log individual emails (fire-and-forget)
+    const subOrgId = req.orgContext?.subOrganizationIds?.[0];
+    if (subOrgId) {
+      logEmailBatch(emailResults.map(r => ({
+        sub_organizationId: subOrgId,
+        recipientEmail: r.participantEmail,
+        recipientName: r.participantName,
+        recipientType: 'participant',
+        subject: `Training Session: ${event.title} - ${formattedDate}`,
+        emailType: 'event_access',
+        status: r.status === 'sent' ? 'sent' : 'failed',
+        errorMessage: r.error || null,
+        resendEmailId: r.emailId || null,
+        projectId: projectId ? parseInt(projectId) : null,
+        projectTitle: projectTitle || null,
+        eventId: parseInt(eventId),
+        participantId: r.participantId ? String(r.participantId) : null,
+        sentByUserId: userId || null,
+      })));
+    }
+
     res.status(200).json({
       success: successCount > 0,
       message: `Event access sent to ${successCount} participant(s)`,
@@ -244,16 +264,8 @@ export default async function handler(req, res) {
         invalidEmailRecipients: invalidEmailRecipients.length > 0 ? invalidEmailRecipients : undefined
       }
     });
-
-  } catch (error) {
-    console.error('Event access sending error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to send event access notifications',
-      error: error.message
-    });
   }
-}
+});
 
 function buildPlainTextEmail({
   participantName,

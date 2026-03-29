@@ -28,6 +28,7 @@
  * Options:
  * - requireOrg: true (default) - Throw error if no org selected
  * - requireAdmin: false - Require admin role
+ * - skipSubscriptionCheck: false - Skip subscription status validation (for billing routes)
  */
 
 import { WorkOS } from '@workos-inc/node';
@@ -66,7 +67,8 @@ export function withOrgScope(handler, options = {}) {
   const {
     requireOrg = true,
     requireAdmin = false,
-    allowPublic = false
+    allowPublic = false,
+    skipSubscriptionCheck = false
   } = options;
 
   return async (req, res) => {
@@ -150,6 +152,21 @@ export function withOrgScope(handler, options = {}) {
       }
 
       // ============================================
+      // 4.5 Check Subscription Status
+      // ============================================
+      if (!skipSubscriptionCheck) {
+        const { getOrgSubscription } = await import('../features/subscriptionService.js');
+        const orgSubscription = await getOrgSubscription(currentOrgId);
+        if (orgSubscription && ['canceled', 'suspended'].includes(orgSubscription.status)) {
+          return res.status(403).json({
+            error: 'Subscription inactive',
+            code: 'SUBSCRIPTION_INACTIVE',
+            message: 'Your organization\'s subscription is inactive. Please reactivate to continue.'
+          });
+        }
+      }
+
+      // ============================================
       // 5. Build Organization Context
       // ============================================
       const normalizedUserRole = normalizeRole(userOrg.role);
@@ -228,6 +245,15 @@ export function withAdminScope(handler) {
 }
 
 /**
+ * Shortcut for admin routes that skip subscription status check (e.g. billing/checkout routes)
+ * @param {Function} handler - API route handler
+ * @returns {Function} Wrapped handler requiring admin, skipping subscription check
+ */
+export function withAdminScopeSkipSubCheck(handler) {
+  return withOrgScope(handler, { requireAdmin: true, skipSubscriptionCheck: true });
+}
+
+/**
  * Shortcut for routes where org is optional
  * @param {Function} handler - API route handler
  * @returns {Function} Wrapped handler with optional org
@@ -251,6 +277,7 @@ export function withPublicScope(handler) {
 export default {
   withOrgScope,
   withAdminScope,
+  withAdminScopeSkipSubCheck,
   withOptionalOrgScope,
   withPublicScope
 };

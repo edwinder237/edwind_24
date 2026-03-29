@@ -20,17 +20,16 @@
  * }
  */
 
-import { withAdminScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler, ValidationError } from '../../../lib/errors/index.js';
-import { createCheckoutSession, getPriceIdForPlan } from '../../../lib/stripe/stripeService.js';
+import { createHandler } from '../../../lib/api/createHandler';
+import { ValidationError } from '../../../lib/errors/index.js';
+import { createCheckoutSession, getPriceIdForPlan, getStripe } from '../../../lib/stripe/stripeService.js';
 import prisma from '../../../lib/prisma.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'admin',
+  skipSubscriptionCheck: true,
+  POST: async (req, res) => {
+    const { orgContext } = req;
   const { planId, interval = 'monthly' } = req.body;
 
   // Validate input
@@ -58,38 +57,68 @@ async function handler(req, res) {
   // Check if organization already has an active Stripe subscription
   const currentSubscription = await prisma.subscriptions.findUnique({
     where: { organizationId: orgContext.organizationId },
-    select: { stripeSubscriptionId: true, status: true, planId: true }
+    select: { id: true, stripeSubscriptionId: true, status: true, planId: true }
   });
 
   if (currentSubscription?.stripeSubscriptionId && currentSubscription.status === 'active') {
-    // Already has active subscription - redirect to billing portal instead
-    return res.status(400).json({
-      error: 'Already subscribed',
-      message: 'Your organization already has an active subscription. Use the billing portal to make changes.',
-      currentPlan: currentSubscription.planId,
-      action: 'use_billing_portal'
-    });
+    // Verify the actual Stripe subscription status — DB may say "active" (e.g. after
+    // L0 admin reactivation) while the Stripe subscription is actually canceled.
+    const stripe = getStripe();
+    let stripeSubActive = true;
+    try {
+      const stripeSub = await stripe.subscriptions.retrieve(currentSubscription.stripeSubscriptionId);
+      if (stripeSub.status === 'canceled' || stripeSub.status === 'incomplete_expired') {
+        stripeSubActive = false;
+        // Clear the stale Stripe subscription ID so future flows are clean
+        await prisma.subscriptions.update({
+          where: { id: currentSubscription.id },
+          data: { stripeSubscriptionId: null }
+        });
+        console.log(`💳 [CHECKOUT] Cleared stale stripeSubscriptionId for org ${orgContext.organizationId} (Stripe sub was ${stripeSub.status})`);
+      }
+    } catch (err) {
+      // If Stripe can't find the subscription, it's gone — allow new checkout
+      if (err.code === 'resource_missing') {
+        stripeSubActive = false;
+        await prisma.subscriptions.update({
+          where: { id: currentSubscription.id },
+          data: { stripeSubscriptionId: null }
+        });
+        console.log(`💳 [CHECKOUT] Cleared missing stripeSubscriptionId for org ${orgContext.organizationId}`);
+      } else {
+        console.error('Error verifying Stripe subscription:', err.message);
+      }
+    }
+
+    if (stripeSubActive) {
+      // Truly active in Stripe — redirect to billing portal instead
+      return res.status(400).json({
+        error: 'Already subscribed',
+        message: 'Your organization already has an active subscription. Use the billing portal to make changes.',
+        currentPlan: currentSubscription.planId,
+        action: 'use_billing_portal'
+      });
+    }
   }
 
   // Build URLs — success goes through verify endpoint to sync Stripe data before landing
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 8081}`;
   const successUrl = `${baseUrl}/api/subscriptions/verify-checkout?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${baseUrl}/checkout-required`;
+  const cancelUrl = `${baseUrl}/`;
 
-  // Create checkout session
-  const session = await createCheckoutSession({
-    organizationId: orgContext.organizationId,
-    priceId,
-    successUrl,
-    cancelUrl,
-    interval
-  });
+    // Create checkout session
+    const session = await createCheckoutSession({
+      organizationId: orgContext.organizationId,
+      priceId,
+      successUrl,
+      cancelUrl,
+      interval
+    });
 
-  return res.status(200).json({
-    success: true,
-    url: session.url,
-    sessionId: session.id
-  });
-}
-
-export default withAdminScope(asyncHandler(handler));
+    return res.status(200).json({
+      success: true,
+      url: session.url,
+      sessionId: session.id
+    });
+  }
+});

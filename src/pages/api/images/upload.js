@@ -1,4 +1,5 @@
 import { uploadBase64ImageToR2 } from '../../../lib/r2-client-cloudflare';
+import { createHandler } from '../../../lib/api/createHandler';
 
 export const config = {
   api: {
@@ -8,12 +9,9 @@ export const config = {
   },
 };
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { image, fileName, prefix = 'training-recipients' } = req.body;
 
     if (!image) {
@@ -39,12 +37,5 @@ export default async function handler(req, res) {
         contentType: result.contentType
       }
     });
-  } catch (error) {
-    console.error('❌ Image upload error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload image',
-      error: error.message
-    });
   }
-}
+});

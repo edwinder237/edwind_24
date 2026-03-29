@@ -1,12 +1,8 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'DELETE') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
-    const { id } = req.query;
+export default createHandler({ scope: 'org', DELETE: async (req, res) => {
+  const { id } = req.query;
 
     if (!id) {
       return res.status(400).json({
@@ -51,13 +47,5 @@ export default async function handler(req, res) {
       success: true,
       message: 'Assessment deleted successfully'
     });
-
-  } catch (error) {
-    console.error('Error deleting assessment:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete assessment',
-      error: error.message
-    });
-  }
 }
+});

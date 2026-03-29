@@ -9,17 +9,16 @@
  * PROTECTED: Admin-only access via withAdminScope middleware
  */
 
-import { withAdminScope } from '../../../lib/middleware/withOrgScope';
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Fetch all active subscription plans from database
+export default createHandler({
+  scope: 'admin',
+  skipSubscriptionCheck: true,
+  GET: async (req, res) => {
+    // Fetch all active subscription plans from database
   const dbPlans = await prisma.subscription_plans.findMany({
     where: {
       isActive: true,
@@ -87,9 +86,8 @@ async function handler(req, res) {
         highlightText: plan.highlightText
       };
     })
-  );
+    );
 
-  return res.status(200).json({ plans });
-}
-
-export default withAdminScope(handler);
+    return res.status(200).json({ plans });
+  }
+});

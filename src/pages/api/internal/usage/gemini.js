@@ -9,6 +9,7 @@
  * - Usage trends
  */
 
+import { createHandler } from '../../../../lib/api/createHandler';
 import prisma from '../../../../lib/prisma';
 
 // Gemini 2.5 Flash Lite Pricing (as of 2024)
@@ -20,12 +21,9 @@ const GEMINI_PRICING = {
   model: 'gemini-2.5-flash-lite'
 };
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'public',
+  GET: async (req, res) => {
     // Check authentication (owner only)
     const userId = req.cookies.workos_user_id;
     if (!userId) {
@@ -301,8 +299,5 @@ export default async function handler(req, res) {
       pricing: GEMINI_PRICING
     });
 
-  } catch (error) {
-    console.error('[Gemini Usage] Error:', error);
-    return res.status(500).json({ error: 'Failed to fetch Gemini usage data' });
   }
-}
+});

@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { id } = req.body;
 
     if (!id) {
@@ -138,18 +136,10 @@ export default async function handler(req, res) {
       checklistCount: completeDuplicatedCourse.course_checklist_items.length
     };
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: 'Course duplicated successfully',
       course: formattedCourse
     });
-
-  } catch (error) {
-    console.error('Duplicate course error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to duplicate course',
-      error: error.message 
-    });
   }
-}
+});

@@ -1,16 +1,5 @@
-/**
- * Manual WorkOS User Refresh Endpoint
- *
- * Allows users to manually sync their profile and permissions from WorkOS:
- * 1. Fetches fresh user data from WorkOS User Management API
- * 2. Fetches fresh organization memberships
- * 3. Updates local database with latest WorkOS data
- * 4. Invalidates claims cache
- * 5. Rebuilds and caches fresh claims
- * 6. Returns updated user object
- */
-
 import { WorkOS } from '@workos-inc/node';
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { invalidateClaims, buildAndCacheClaims } from '../../../lib/auth/claimsManager';
 
@@ -22,12 +11,9 @@ const getWorkOS = () => {
   return workos;
 };
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'public',
+  POST: async (req, res) => {
     const workosUserId = req.cookies.workos_user_id;
 
     if (!workosUserId) {
@@ -37,12 +23,8 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`🔄 Manual refresh requested for user: ${workosUserId}`);
-
     const workosClient = getWorkOS();
 
-    // Step 1: Fetch fresh user profile from WorkOS
-    console.log('📥 Fetching fresh user profile from WorkOS...');
     const workosUser = await workosClient.userManagement.getUser(workosUserId);
 
     if (!workosUser) {
@@ -52,15 +34,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // Step 2: Fetch fresh organization memberships
-    console.log('📥 Fetching fresh organization memberships from WorkOS...');
     const { data: memberships } = await workosClient.userManagement.listOrganizationMemberships({
       userId: workosUserId,
       limit: 100
     });
 
-    // Step 3: Update local database user record
-    console.log('💾 Updating local database with fresh WorkOS data...');
     const dbUser = await prisma.user.findUnique({
       where: { workos_user_id: workosUserId },
       include: {
@@ -84,10 +62,8 @@ export default async function handler(req, res) {
           emailVerified: workosUser.emailVerified ? new Date() : null
         }
       });
-      console.log('✅ Local database updated successfully');
     }
 
-    // Step 4: Extract JWT permissions from stored access token
     let jwtPermissions = [];
     if (req.cookies.workos_access_token) {
       try {
@@ -96,29 +72,19 @@ export default async function handler(req, res) {
         if (tokenParts.length === 3) {
           const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
           jwtPermissions = payload.permissions || [];
-          if (jwtPermissions.length > 0) {
-            console.log(`✅ Extracted ${jwtPermissions.length} permissions from stored JWT`);
-          }
         }
       } catch (jwtError) {
         console.warn('Could not extract permissions from JWT:', jwtError.message);
       }
     }
 
-    // Step 5: Invalidate old claims cache
-    console.log('🗑️  Invalidating old claims cache...');
     await invalidateClaims(workosUserId);
-
-    // Step 6: Rebuild and cache fresh claims with JWT permissions
-    console.log('🔨 Building and caching fresh claims...');
     await buildAndCacheClaims(workosUserId, memberships, jwtPermissions);
 
-    // Step 7: Get primary organization and role
     const primaryMembership = memberships.find(m => m.status === 'active') || memberships[0];
     const primaryRole = primaryMembership?.role?.slug || 'member';
     const organizationName = primaryMembership?.organizationName || primaryMembership?.organization?.name || 'Unknown Organization';
 
-    // Step 8: Build complete refreshed user object
     const refreshedUser = {
       id: workosUser.id,
       workos_user_id: workosUser.id,
@@ -142,8 +108,6 @@ export default async function handler(req, res) {
       refreshedAt: new Date().toISOString()
     };
 
-    console.log(`✅ Refresh complete for user: ${workosUserId}`);
-
     res.status(200).json({
       success: true,
       message: 'Successfully synced with WorkOS',
@@ -153,25 +117,5 @@ export default async function handler(req, res) {
         refreshedAt: new Date().toISOString()
       }
     });
-
-  } catch (error) {
-    console.error('❌ Error refreshing user from WorkOS:', error);
-
-    // Provide specific error messages for different scenarios
-    let errorMessage = 'Failed to sync with WorkOS';
-
-    if (error.message?.includes('API')) {
-      errorMessage = 'WorkOS API is temporarily unavailable';
-    } else if (error.message?.includes('network')) {
-      errorMessage = 'Network error connecting to WorkOS';
-    } else if (error.message?.includes('database')) {
-      errorMessage = 'Database error during sync';
-    }
-
-    res.status(500).json({
-      success: false,
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
   }
-}
+});

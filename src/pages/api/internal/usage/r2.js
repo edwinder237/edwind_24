@@ -8,6 +8,7 @@
  * - Estimated costs
  */
 
+import { createHandler } from '../../../../lib/api/createHandler';
 import prisma from '../../../../lib/prisma';
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 
@@ -32,12 +33,9 @@ const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_ENDPOINT = `https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'public',
+  GET: async (req, res) => {
     // Check authentication (owner only)
     const userId = req.cookies.workos_user_id;
     if (!userId) {
@@ -252,8 +250,5 @@ export default async function handler(req, res) {
       pricing: R2_PRICING
     });
 
-  } catch (error) {
-    console.error('[R2 Usage] Error:', error);
-    return res.status(500).json({ error: 'Failed to fetch R2 usage data' });
   }
-}
+});

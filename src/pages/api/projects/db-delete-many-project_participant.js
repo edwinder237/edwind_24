@@ -1,11 +1,9 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from "../../../lib/prisma";
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { participantIds } = req.body;
 
     if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
@@ -45,8 +43,5 @@ export default async function handler(req, res) {
       count: updatedProjectParticipants.count,
       eventAttendeesRemoved: deletedAttendees.count
     });
-  } catch (error) {
-    console.error('Error marking participants as removed:', error);
-    res.status(500).json({ error: error.message });
   }
-}
+});

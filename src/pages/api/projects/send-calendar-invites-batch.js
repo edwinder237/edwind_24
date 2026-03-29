@@ -1,3 +1,4 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 import { parseISO } from 'date-fns';
 import { logUsage, getOrgIdFromProject, PROVIDERS } from '../../../lib/usage/usageLogger';
@@ -14,16 +15,14 @@ import {
 } from '../../../lib/email';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
+import { logEmailBatch } from '../../../lib/email/emailLogger';
 
 // Rate limiting configuration
 const RATE_LIMIT_DELAY = 600;
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const {
       projectId,
       eventId,
@@ -274,6 +273,27 @@ export default async function handler(req, res) {
       });
     }
 
+    // Log individual emails (fire-and-forget)
+    const subOrgId = req.orgContext?.subOrganizationIds?.[0];
+    if (subOrgId) {
+      logEmailBatch(emailResults.filter(r => r.participantEmail).map(r => ({
+        sub_organizationId: subOrgId,
+        recipientEmail: r.participantEmail,
+        recipientName: r.participantName,
+        recipientType: 'participant',
+        subject: `Training Session: ${calendarEvent.title} | ${finalProjectTitle}`,
+        emailType: 'calendar_invite',
+        status: r.status === 'sent' ? 'sent' : r.status === 'skipped' ? 'skipped' : 'failed',
+        errorMessage: r.error || null,
+        resendEmailId: r.emailId || null,
+        projectId: parseInt(projectId),
+        projectTitle: finalProjectTitle || null,
+        eventId: parseInt(eventId),
+        participantId: r.participantId ? String(r.participantId) : null,
+        sentByUserId: req.orgContext?.userId || null,
+      })));
+    }
+
     res.status(200).json({
       success: successCount > 0,
       message: `Calendar invites sent to ${successCount} participant(s)`,
@@ -286,13 +306,5 @@ export default async function handler(req, res) {
         invalidEmailRecipients: invalidEmailRecipients.length > 0 ? invalidEmailRecipients : undefined
       }
     });
-
-  } catch (error) {
-    console.error('Error sending batch calendar invites:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
   }
-}
+});

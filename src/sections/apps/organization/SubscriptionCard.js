@@ -10,6 +10,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Collapse,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -38,12 +39,13 @@ import {
   CreditCardOutlined,
   CrownOutlined,
   DownloadOutlined,
+  DownOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
   ReloadOutlined,
+  RightOutlined,
   RocketOutlined,
-  StarOutlined,
-  SwapOutlined
+  StarOutlined
 } from '@ant-design/icons';
 
 // subscription components
@@ -66,6 +68,8 @@ const SubscriptionCard = () => {
   const [invoices, setInvoices] = useState([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [invoicesOpen, setInvoicesOpen] = useState(false);
 
   useEffect(() => {
     // Check if returning from Stripe checkout
@@ -280,6 +284,21 @@ const SubscriptionCard = () => {
     } catch (err) {
       console.error('Error changing plan:', err);
 
+      // If subscription is canceled in Stripe, fall back to checkout for a new subscription
+      if (err.response?.data?.action === 'use_checkout') {
+        try {
+          const checkoutResponse = await axios.post('/api/subscriptions/checkout', { planId, interval });
+          if (checkoutResponse.data?.url) {
+            window.location.href = checkoutResponse.data.url;
+            return;
+          }
+        } catch (checkoutErr) {
+          console.error('Error creating checkout session:', checkoutErr);
+          alert(checkoutErr.response?.data?.message || 'Failed to create checkout session');
+          return;
+        }
+      }
+
       // If sync is recommended, trigger sync automatically
       if (err.response?.data?.action === 'sync_recommended') {
         const shouldSync = window.confirm(
@@ -445,390 +464,191 @@ const SubscriptionCard = () => {
     (new Date(subscription.currentPeriodEnd) - new Date()) / (1000 * 60 * 60 * 24)
   );
 
+  const formatLimit = (val) => (val === -1 ? 'Unlimited' : val);
+
   return (
     <>
-      <Stack spacing={3}>
-        {/* Subscription Plan Card */}
+      <Stack spacing={2}>
+        {/* Cancellation warning */}
+        {subscription.cancelAtPeriodEnd && (
+          <Alert
+            severity="warning"
+            icon={<ExclamationCircleOutlined />}
+            action={
+              <Button color="inherit" size="small" onClick={handleReactivateSubscription}>
+                Reactivate
+              </Button>
+            }
+          >
+            Cancels on {new Date(subscription.currentPeriodEnd).toLocaleDateString()} — you'll lose access after this date.
+          </Alert>
+        )}
+
+        {/* Plan Summary Card — compact single card */}
         <Card>
-          <CardContent>
-            <Stack spacing={3}>
-              {/* Header */}
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h5">Subscription Plan</Typography>
-              <Chip
-                label={subscription.status.toUpperCase()}
-                color={statusColor}
-                size="small"
-              />
-            </Stack>
-
-            <Divider />
-
-            {/* Current Plan */}
+          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
             <Stack spacing={2}>
-              <Stack direction="row" spacing={2} alignItems="center">
+              {/* Plan header row */}
+              <Stack direction="row" alignItems="center" spacing={2}>
                 <Box
                   sx={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 2,
+                    width: 42,
+                    height: 42,
+                    borderRadius: 1.5,
                     bgcolor: theme.palette[getPlanColor(subscription.planId)]?.lighter || theme.palette.primary.lighter,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: theme.palette[getPlanColor(subscription.planId)]?.main || theme.palette.primary.main
+                    color: theme.palette[getPlanColor(subscription.planId)]?.main || theme.palette.primary.main,
+                    flexShrink: 0
                   }}
                 >
                   {getPlanIcon(subscription.planId)}
                 </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h4">{subscription.plan.name}</Typography>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="h5" noWrap>{subscription.plan.name}</Typography>
+                    <Chip label={subscription.status.toUpperCase()} color={statusColor} size="small" />
+                  </Stack>
                   <Typography variant="body2" color="textSecondary">
-                    {subscription.plan.description}
+                    {subscription.planId !== 'enterprise' ? (
+                      <>
+                        <strong>${subscription.plan.price}</strong>/{subscription.plan.billingInterval}
+                        {' · '}
+                      </>
+                    ) : (
+                      <>Custom pricing · </>
+                    )}
+                    Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                    {' · '}{daysRemaining}d remaining
                   </Typography>
                 </Box>
-              </Stack>
-
-              {/* Pricing */}
-              {subscription.planId !== 'enterprise' ? (
-                <Stack direction="row" spacing={1} alignItems="baseline">
-                  <Typography variant="h3">
-                    ${subscription.plan.price}
-                  </Typography>
-                  <Typography variant="body1" color="textSecondary">
-                    / {subscription.plan.billingInterval}
-                  </Typography>
-                </Stack>
-              ) : (
-                <Typography variant="h5" color="textSecondary">
-                  Custom Pricing
-                </Typography>
-              )}
-
-              {/* Period Info */}
-              <Stack spacing={0.5}>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="textSecondary">
-                    Current Period
-                  </Typography>
-                  <Typography variant="body2">
-                    {daysRemaining} days remaining
-                  </Typography>
-                </Stack>
-                <Typography variant="caption" color="textSecondary">
-                  Renews on {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                </Typography>
-              </Stack>
-            </Stack>
-
-            <Divider />
-
-            {/* Features */}
-            <Stack spacing={1.5}>
-              <Typography variant="subtitle1" fontWeight={600}>
-                Plan Features
-              </Typography>
-              <Grid container spacing={1}>
-                {subscription.plan.features.slice(0, 6).map((feature, index) => (
-                  <Grid item xs={12} sm={6} key={index}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <CheckCircleOutlined
-                        style={{
-                          color: theme.palette.success.main,
-                          fontSize: '1rem'
-                        }}
-                      />
-                      <Typography variant="body2">
-                        {feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-                ))}
-              </Grid>
-              {subscription.plan.features.length > 6 && (
-                <Typography variant="caption" color="textSecondary">
-                  + {subscription.plan.features.length - 6} more features
-                </Typography>
-              )}
-            </Stack>
-
-            <Divider />
-
-            {/* Resource Limits */}
-            <Stack spacing={1.5}>
-              <Typography variant="subtitle1" fontWeight={600}>
-                Resource Limits
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" color="textSecondary">
-                      Projects
-                    </Typography>
-                    <Typography variant="h6">
-                      {subscription.plan.resourceLimits.maxProjects === -1
-                        ? 'Unlimited'
-                        : subscription.plan.resourceLimits.maxProjects}
-                    </Typography>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" color="textSecondary">
-                      Participants
-                    </Typography>
-                    <Typography variant="h6">
-                      {subscription.plan.resourceLimits.maxParticipants === -1
-                        ? 'Unlimited'
-                        : subscription.plan.resourceLimits.maxParticipants}
-                    </Typography>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" color="textSecondary">
-                      Sub-Organizations
-                    </Typography>
-                    <Typography variant="h6">
-                      {subscription.plan.resourceLimits.maxSubOrganizations === -1
-                        ? 'Unlimited'
-                        : subscription.plan.resourceLimits.maxSubOrganizations}
-                    </Typography>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" color="textSecondary">
-                      Storage
-                    </Typography>
-                    <Typography variant="h6">
-                      {subscription.plan.resourceLimits.maxStorageGB} GB
-                    </Typography>
-                  </Stack>
-                </Grid>
-              </Grid>
-            </Stack>
-
-            {/* Actions */}
-            <Divider />
-            <Stack direction="row" spacing={2}>
-              {subscription.planId !== 'enterprise' && (
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={handleViewPlans}
-                  startIcon={<CrownOutlined />}
-                >
-                  Upgrade Plan
-                </Button>
-              )}
-              <BillingPortalButton
-                fullWidth
-                variant={subscription.planId === 'enterprise' ? 'contained' : 'outlined'}
-              >
-                Manage Billing
-              </BillingPortalButton>
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
-
-        {/* Payment Method Card */}
-        <Card>
-          <CardContent>
-            <Stack spacing={3}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h5">Payment Method</Typography>
-                {paymentMethod && (
-                  <Chip
-                    label={getCardBrandIcon(paymentMethod.brand)}
-                    size="small"
-                    color="default"
-                  />
-                )}
-              </Stack>
-
-              <Divider />
-
-              {paymentMethodLoading ? (
-                <LinearProgress />
-              ) : paymentMethod ? (
-                <Stack spacing={2}>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Box
-                      sx={{
-                        width: 60,
-                        height: 40,
-                        borderRadius: 1,
-                        bgcolor: theme.palette.grey[100],
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: `1px solid ${theme.palette.divider}`
-                      }}
-                    >
-                      <CreditCardOutlined style={{ fontSize: '1.5rem', color: theme.palette.text.secondary }} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="h6">
-                        {getCardBrandIcon(paymentMethod.brand)} ending in {paymentMethod.last4}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        Expires {paymentMethod.expMonth}/{paymentMethod.expYear}
-                      </Typography>
-                    </Box>
-                  </Stack>
-
-                  <Button
-                    variant="outlined"
-                    onClick={handleManagePaymentMethod}
-                    startIcon={<CreditCardOutlined />}
-                  >
-                    Update Payment Method
-                  </Button>
-                </Stack>
-              ) : (
-                <Stack spacing={2}>
-                  <Alert severity="warning">
-                    No payment method on file
-                  </Alert>
-                  <Button
-                    variant="contained"
-                    onClick={handleManagePaymentMethod}
-                    startIcon={<CreditCardOutlined />}
-                  >
-                    Add Payment Method
-                  </Button>
-                </Stack>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {/* Billing Details Card */}
-        <Card>
-          <CardContent>
-            <Stack spacing={3}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h5">Billing Details</Typography>
-                <CalendarOutlined style={{ fontSize: '1.25rem', color: theme.palette.text.secondary }} />
-              </Stack>
-
-              <Divider />
-
-              <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" color="textSecondary">
-                      Billing Cycle
-                    </Typography>
-                    <Typography variant="h6" sx={{ textTransform: 'capitalize' }}>
-                      {subscription.plan.billingInterval || 'Monthly'}
-                    </Typography>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" color="textSecondary">
-                      Start Date
-                    </Typography>
-                    <Typography variant="h6">
-                      {new Date(subscription.currentPeriodStart).toLocaleDateString()}
-                    </Typography>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" color="textSecondary">
-                      Next Billing Date
-                    </Typography>
-                    <Typography variant="h6">
-                      {subscription.cancelAtPeriodEnd
-                        ? 'N/A'
-                        : new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                    </Typography>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2" color="textSecondary">
-                      Status
-                    </Typography>
-                    <Chip
-                      label={subscription.cancelAtPeriodEnd ? 'CANCELS AT PERIOD END' : subscription.status.toUpperCase()}
-                      color={subscription.cancelAtPeriodEnd ? 'warning' : (subscription.status === 'active' ? 'success' : 'default')}
-                      size="small"
-                    />
-                  </Stack>
-                </Grid>
-              </Grid>
-
-              {subscription.cancelAtPeriodEnd && (
-                <Alert
-                  severity="warning"
-                  icon={<ExclamationCircleOutlined />}
-                  action={
-                    <Button color="inherit" size="small" onClick={handleReactivateSubscription}>
-                      Reactivate
+                <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                  {subscription.planId !== 'enterprise' && (
+                    <Button size="small" variant="contained" onClick={handleViewPlans} startIcon={<CrownOutlined />}>
+                      Upgrade
                     </Button>
-                  }
-                >
-                  Your subscription will be cancelled on {new Date(subscription.currentPeriodEnd).toLocaleDateString()}.
-                  You will lose access to all features after this date.
-                </Alert>
-              )}
+                  )}
+                  <BillingPortalButton size="small" variant="outlined">
+                    Manage Billing
+                  </BillingPortalButton>
+                </Stack>
+              </Stack>
 
-              <Divider />
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              {/* Collapsible plan details */}
+              <Box>
                 <Button
-                  variant="outlined"
-                  startIcon={<SwapOutlined />}
-                  onClick={handleViewPlans}
-                  fullWidth
+                  size="small"
+                  color="inherit"
+                  onClick={() => setDetailsOpen(!detailsOpen)}
+                  startIcon={detailsOpen ? <DownOutlined style={{ fontSize: '0.75rem' }} /> : <RightOutlined style={{ fontSize: '0.75rem' }} />}
+                  sx={{ color: 'text.secondary', textTransform: 'none', px: 0, '&:hover': { bgcolor: 'transparent' } }}
                 >
-                  Change Plan
+                  Plan details & limits
                 </Button>
-                <Tooltip title="Sync subscription data from Stripe">
-                  <Button
-                    variant="outlined"
-                    startIcon={syncing ? null : <ReloadOutlined />}
-                    onClick={() => syncSubscription(true)}
-                    disabled={syncing}
-                    fullWidth
-                  >
-                    {syncing ? 'Syncing...' : 'Sync'}
-                  </Button>
-                </Tooltip>
-                {!subscription.cancelAtPeriodEnd && (
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<CloseCircleOutlined />}
-                    onClick={() => setCancelDialogOpen(true)}
-                    fullWidth
-                  >
-                    Cancel Subscription
-                  </Button>
+                <Collapse in={detailsOpen}>
+                  <Stack spacing={2} sx={{ pt: 1 }}>
+                    {/* Resource limits — inline chips */}
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      <Chip size="small" variant="outlined" label={`Projects: ${formatLimit(subscription.plan.resourceLimits.maxProjects)}`} />
+                      <Chip size="small" variant="outlined" label={`Participants: ${formatLimit(subscription.plan.resourceLimits.maxParticipants)}`} />
+                      <Chip size="small" variant="outlined" label={`Sub-Orgs: ${formatLimit(subscription.plan.resourceLimits.maxSubOrganizations)}`} />
+                    </Stack>
+
+                    {/* Features grid */}
+                    <Grid container spacing={0.5}>
+                      {subscription.plan.features.map((feature, index) => (
+                        <Grid item xs={12} sm={6} key={index}>
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <CheckCircleOutlined style={{ color: theme.palette.success.main, fontSize: '0.85rem' }} />
+                            <Typography variant="caption">
+                              {feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </Typography>
+                          </Stack>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Stack>
+                </Collapse>
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {/* Payment & Billing — compact combined row */}
+        <Card>
+          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} divider={<Divider orientation="vertical" flexItem />}>
+              {/* Payment method */}
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                <CreditCardOutlined style={{ fontSize: '1.25rem', color: theme.palette.text.secondary, flexShrink: 0 }} />
+                {paymentMethodLoading ? (
+                  <LinearProgress sx={{ flex: 1 }} />
+                ) : paymentMethod ? (
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" noWrap>
+                      {getCardBrandIcon(paymentMethod.brand)} ····{paymentMethod.last4}
+                      <Typography component="span" variant="caption" color="textSecondary" sx={{ ml: 1 }}>
+                        exp {paymentMethod.expMonth}/{paymentMethod.expYear}
+                      </Typography>
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="warning.main">No payment method</Typography>
                 )}
+                <Button size="small" variant="text" onClick={handleManagePaymentMethod} sx={{ flexShrink: 0 }}>
+                  {paymentMethod ? 'Update' : 'Add'}
+                </Button>
+              </Stack>
+
+              {/* Billing info */}
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                <CalendarOutlined style={{ fontSize: '1.25rem', color: theme.palette.text.secondary, flexShrink: 0 }} />
+                <Typography variant="body2" sx={{ flex: 1 }}>
+                  <Typography component="span" sx={{ textTransform: 'capitalize' }}>
+                    {subscription.plan.billingInterval || 'Monthly'}
+                  </Typography>
+                  <Typography component="span" variant="caption" color="textSecondary" sx={{ ml: 1 }}>
+                    since {new Date(subscription.currentPeriodStart).toLocaleDateString()}
+                  </Typography>
+                </Typography>
+                <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                  <Tooltip title="Sync from Stripe">
+                    <IconButton size="small" onClick={() => syncSubscription(true)} disabled={syncing}>
+                      <ReloadOutlined style={{ fontSize: '0.9rem' }} />
+                    </IconButton>
+                  </Tooltip>
+                  {!subscription.cancelAtPeriodEnd && (
+                    <Button size="small" color="error" variant="text" onClick={() => setCancelDialogOpen(true)}>
+                      Cancel
+                    </Button>
+                  )}
+                </Stack>
               </Stack>
             </Stack>
           </CardContent>
         </Card>
 
-        {/* Invoices Card */}
+        {/* Invoices — collapsible */}
         <Card>
-          <CardContent>
-            <Stack spacing={3}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h5">Invoices</Typography>
-                <FileTextOutlined style={{ fontSize: '1.25rem', color: theme.palette.text.secondary }} />
-              </Stack>
-
-              <Divider />
-
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: invoicesOpen && invoices.length > 0 ? 0 : 1.5 } }}>
+            <Button
+              fullWidth
+              color="inherit"
+              onClick={() => setInvoicesOpen(!invoicesOpen)}
+              startIcon={invoicesOpen ? <DownOutlined style={{ fontSize: '0.75rem' }} /> : <RightOutlined style={{ fontSize: '0.75rem' }} />}
+              endIcon={
+                invoices.length > 0 ? (
+                  <Chip label={invoices.length} size="small" sx={{ height: 20, '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' } }} />
+                ) : null
+              }
+              sx={{ justifyContent: 'flex-start', textTransform: 'none', color: 'text.primary', px: 0, '&:hover': { bgcolor: 'transparent' } }}
+            >
+              <Typography variant="body2" fontWeight={500}>Invoices</Typography>
+            </Button>
+            <Collapse in={invoicesOpen}>
               {invoicesLoading ? (
-                <LinearProgress />
+                <LinearProgress sx={{ my: 1 }} />
               ) : invoices.length > 0 ? (
                 <TableContainer>
                   <Table size="small">
@@ -838,21 +658,14 @@ const SubscriptionCard = () => {
                         <TableCell>Date</TableCell>
                         <TableCell>Amount</TableCell>
                         <TableCell>Status</TableCell>
-                        <TableCell align="right">Actions</TableCell>
+                        <TableCell align="right" />
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {invoices.map((invoice) => (
                         <TableRow key={invoice.id} hover>
                           <TableCell>
-                            <Stack>
-                              <Typography variant="body2" fontWeight={500}>
-                                {invoice.number || 'Draft'}
-                              </Typography>
-                              <Typography variant="caption" color="textSecondary">
-                                {invoice.description}
-                              </Typography>
-                            </Stack>
+                            <Typography variant="body2">{invoice.number || 'Draft'}</Typography>
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2">
@@ -860,36 +673,25 @@ const SubscriptionCard = () => {
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" fontWeight={500}>
+                            <Typography variant="body2">
                               ${invoice.amount.toFixed(2)} {invoice.currency}
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Chip
-                              label={invoice.status.toUpperCase()}
-                              color={getInvoiceStatusColor(invoice.status)}
-                              size="small"
-                            />
+                            <Chip label={invoice.status.toUpperCase()} color={getInvoiceStatusColor(invoice.status)} size="small" />
                           </TableCell>
                           <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                               {invoice.invoicePdf && (
                                 <Tooltip title="Download PDF">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleDownloadInvoice(invoice.invoicePdf)}
-                                    color="primary"
-                                  >
+                                  <IconButton size="small" onClick={() => handleDownloadInvoice(invoice.invoicePdf)} color="primary">
                                     <DownloadOutlined />
                                   </IconButton>
                                 </Tooltip>
                               )}
                               {invoice.hostedInvoiceUrl && (
                                 <Tooltip title="View Invoice">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => window.open(invoice.hostedInvoiceUrl, '_blank')}
-                                  >
+                                  <IconButton size="small" onClick={() => window.open(invoice.hostedInvoiceUrl, '_blank')}>
                                     <FileTextOutlined />
                                   </IconButton>
                                 </Tooltip>
@@ -902,11 +704,11 @@ const SubscriptionCard = () => {
                   </Table>
                 </TableContainer>
               ) : (
-                <Alert severity="info">
-                  No invoices found. Invoices will appear here after your first payment.
-                </Alert>
+                <Typography variant="caption" color="textSecondary" sx={{ py: 1, display: 'block' }}>
+                  No invoices yet
+                </Typography>
               )}
-            </Stack>
+            </Collapse>
           </CardContent>
         </Card>
       </Stack>

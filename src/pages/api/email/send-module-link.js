@@ -1,15 +1,14 @@
 import prisma from '../../../lib/prisma';
 import { logUsage, PROVIDERS } from '../../../lib/usage/usageLogger';
 import { sendModuleLink, isValidEmail } from '../../../lib/email';
+import { logEmailBatch } from '../../../lib/email/emailLogger';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { eventId, moduleTitle, moduleUrl, activityTitle, participantIds = [] } = req.body;
 
     if (!eventId || !moduleTitle || !moduleUrl || !activityTitle) {
@@ -149,6 +148,27 @@ export default async function handler(req, res) {
       errorCode: failureCount > 0 ? 'PARTIAL_FAILURE' : null
     });
 
+    // Log individual emails (fire-and-forget)
+    const subOrgId = req.orgContext?.subOrganizationIds?.[0];
+    if (subOrgId) {
+      logEmailBatch(emailResults.filter(r => r.participantEmail).map(r => ({
+        sub_organizationId: subOrgId,
+        recipientEmail: r.participantEmail,
+        recipientName: r.participantName,
+        recipientType: 'participant',
+        subject: `Module: ${moduleTitle} - ${activityTitle}`,
+        emailType: 'module_link',
+        status: r.status === 'sent' ? 'sent' : r.status === 'skipped' ? 'skipped' : 'failed',
+        errorMessage: r.error || null,
+        resendEmailId: r.emailId || null,
+        projectId: event?.project?.id || null,
+        projectTitle: event?.project?.title || null,
+        eventId: parseInt(eventId),
+        participantId: r.participantId ? String(r.participantId) : null,
+        sentByUserId: userId || null,
+      })));
+    }
+
     res.status(200).json({
       message: `Module link sent to ${successCount} participant(s)`,
       results: emailResults,
@@ -159,12 +179,5 @@ export default async function handler(req, res) {
         emailsSkipped: skippedCount
       }
     });
-
-  } catch (error) {
-    console.error('Module link sending error:', error);
-    res.status(500).json({
-      message: 'Failed to send module links',
-      error: error.message
-    });
   }
-}
+});

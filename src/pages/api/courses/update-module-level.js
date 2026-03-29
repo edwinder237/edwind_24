@@ -1,11 +1,9 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
     const { moduleId, level } = req.body;
 
     if (!moduleId) {
@@ -19,8 +17,8 @@ export default async function handler(req, res) {
     // Validate level value
     const validLevels = ['Beginner', 'Intermediate', 'Advanced'];
     if (!validLevels.includes(level)) {
-      return res.status(400).json({ 
-        message: 'Invalid level. Must be one of: Beginner, Intermediate, Advanced' 
+      return res.status(400).json({
+        message: 'Invalid level. Must be one of: Beginner, Intermediate, Advanced'
       });
     }
 
@@ -36,7 +34,7 @@ export default async function handler(req, res) {
     // Update the module level
     const updatedModule = await prisma.modules.update({
       where: { id: parseInt(moduleId) },
-      data: { 
+      data: {
         level: level,
         lastUpdated: new Date()
       },
@@ -52,14 +50,5 @@ export default async function handler(req, res) {
       message: `Module level updated to ${level}`,
       module: updatedModule
     });
-
-  } catch (error) {
-    console.error('Error updating module level:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update module level',
-      error: error.message 
-    });
-  } finally {
   }
-}
+});

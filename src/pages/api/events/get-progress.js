@@ -1,16 +1,14 @@
 import prisma from '../../../lib/prisma';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { eventId } = req.query;
 
     // Validate required fields
     if (!eventId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
         details: 'eventId is required as query parameter'
       });
@@ -73,13 +71,5 @@ export default async function handler(req, res) {
       success: true,
       data: progressData
     });
-
-  } catch (error) {
-    console.error('Error fetching event progress:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch event progress',
-      details: error.message
-    });
   }
-}
+});

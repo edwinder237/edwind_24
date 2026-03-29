@@ -7,18 +7,14 @@
  * Only deletes instructors belonging to the user's organization.
  */
 
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique, scopedDelete } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  if (req.method !== 'DELETE') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
-
-  try {
+export default createHandler({
+  scope: 'org',
+  DELETE: async (req, res) => {
+    const { orgContext } = req;
     const { id } = req.query;
 
     if (!id) {
@@ -43,11 +39,5 @@ async function handler(req, res) {
       success: true,
       message: 'Instructor deleted successfully'
     });
-
-  } catch (error) {
-    console.error('Error deleting instructor:', error);
-    throw error;
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

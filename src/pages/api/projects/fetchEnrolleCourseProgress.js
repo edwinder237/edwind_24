@@ -8,19 +8,21 @@
  */
 
 import prisma from "../../../lib/prisma";
-import { withOrgScope } from '../../../lib/middleware/withOrgScope.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
-import { asyncHandler, ValidationError, NotFoundError } from '../../../lib/errors/index.js';
+import { ValidationError, NotFoundError } from '../../../lib/errors/index.js';
 
-async function handler(req, res) {
-  const { orgContext } = req;
-  const { courseId } = req.body;
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
+    const { orgContext } = req;
+    const { courseId } = req.body;
 
-  if (!courseId) {
-    throw new ValidationError('Course ID is required');
-  }
+    if (!courseId) {
+      throw new ValidationError('Course ID is required');
+    }
 
-  try {
+    try {
     // Verify course ownership
     const course = await scopedFindUnique(orgContext, 'courses', {
       where: { id: courseId }
@@ -62,10 +64,9 @@ async function handler(req, res) {
     const enrollees = enrolledNotCompleted.map(i => i.enrollee).map(i => i.participant);
 
     res.status(200).json(enrollees);
-  } catch (error) {
-    console.error('Error fetching course progress:', error);
-    throw error;
+    } catch (error) {
+      console.error('Error fetching course progress:', error);
+      throw error;
+    }
   }
-}
-
-export default withOrgScope(asyncHandler(handler));
+});

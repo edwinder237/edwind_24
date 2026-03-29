@@ -9,17 +9,15 @@
  * PROTECTED: Admin-only access via withAdminScope middleware
  */
 
-import { withAdminScope } from '../../../lib/middleware/withOrgScope.js';
-import { asyncHandler } from '../../../lib/errors/index.js';
+import { createHandler } from '../../../lib/api/createHandler';
 import { getStripe } from '../../../lib/stripe/stripeService.js';
 import prisma from '../../../lib/prisma.js';
 
-async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { orgContext } = req;
+export default createHandler({
+  scope: 'admin',
+  skipSubscriptionCheck: true,
+  POST: async (req, res) => {
+    const { orgContext } = req;
   const stripe = getStripe();
 
   // Get subscription from database
@@ -92,13 +90,12 @@ async function handler(req, res) {
       success: true,
       message: 'Subscription reactivated successfully'
     });
-  } catch (err) {
-    console.error('Error reactivating subscription:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to reactivate subscription'
-    });
+    } catch (err) {
+      console.error('Error reactivating subscription:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to reactivate subscription'
+      });
+    }
   }
-}
-
-export default withAdminScope(asyncHandler(handler));
+});

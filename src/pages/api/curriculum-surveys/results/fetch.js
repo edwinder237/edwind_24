@@ -1,16 +1,10 @@
 import prisma from "../../../../lib/prisma";
 import { google } from 'googleapis';
+import { createHandler } from '../../../../lib/api/createHandler';
 
-/**
- * Fetch survey results from external providers
- * Currently supports: Google Forms API
- */
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  GET: async (req, res) => {
     const { surveyId } = req.query;
 
     if (!surveyId) {
@@ -59,15 +53,13 @@ export default async function handler(req, res) {
       },
       ...results
     });
-  } catch (error) {
-    console.error('Error fetching survey results:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch survey results',
-      error: error.message
-    });
   }
-}
+});
+
+/**
+ * Fetch survey results from external providers
+ * Currently supports: Google Forms API
+ */
 
 /**
  * Extract form ID from Google Forms URL

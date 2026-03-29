@@ -1,9 +1,5 @@
-/**
- * Debug endpoint to view current user's claims
- * TEMPORARY - For testing WorkOS integration
- */
-
 import { WorkOS } from '@workos-inc/node';
+import { createHandler } from '../../../lib/api/createHandler';
 import { getClaimsFromRequest } from '../../../lib/auth/claimsManager';
 import { getStatus } from '../../../lib/auth/cache';
 import prisma from '../../../lib/prisma';
@@ -16,12 +12,9 @@ const getWorkOS = () => {
   return workos;
 };
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'public',
+  GET: async (req, res) => {
     const workosUserId = req.cookies.workos_user_id;
 
     if (!workosUserId) {
@@ -31,7 +24,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get user's claims
     const claims = await getClaimsFromRequest(req, getWorkOS());
 
     if (!claims) {
@@ -43,10 +35,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get cache status
     const cacheStatus = getStatus();
 
-    // Fetch user's organization and sub-organization names from database
     const dbUser = await prisma.user.findUnique({
       where: { workos_user_id: workosUserId },
       include: {
@@ -58,7 +48,6 @@ export default async function handler(req, res) {
       }
     });
 
-    // Get organization name from WorkOS memberships
     const workosClient = getWorkOS();
     const { data: memberships } = await workosClient.userManagement.listOrganizationMemberships({
       userId: workosUserId,
@@ -69,8 +58,6 @@ export default async function handler(req, res) {
     const organizationName = primaryMembership?.organizationName || primaryMembership?.organization?.name || 'Unknown Organization';
     const primaryRole = primaryMembership?.role?.slug || primaryMembership?.role || 'User';
 
-    // Extract JWT permissions from stored access token
-    // This is the ONLY way to get permissions from WorkOS - they don't have an API for it
     let jwtPermissions = [];
     let jwtSource = 'none';
     if (req.cookies.workos_access_token) {
@@ -81,14 +68,12 @@ export default async function handler(req, res) {
           const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
           jwtPermissions = payload.permissions || [];
           jwtSource = 'jwt';
-          console.log(`✅ Extracted ${jwtPermissions.length} permissions from JWT`);
         }
       } catch (jwtError) {
         console.warn('Could not extract permissions from JWT:', jwtError.message);
       }
     }
 
-    // Format response for easy viewing
     const response = {
       authenticated: true,
       cacheType: cacheStatus.type,
@@ -114,13 +99,11 @@ export default async function handler(req, res) {
         note: 'Permissions are extracted from JWT access token. WorkOS does not provide a direct API to fetch role permissions.'
       },
       organizations: await Promise.all(claims.organizations.map(async (org) => {
-        // Fetch organization title from database
         const dbOrg = await prisma.organizations.findUnique({
           where: { id: org.orgId },
           select: { title: true }
         });
 
-        // Fetch sub-organization names from database
         let subOrgDetails = [];
         if (org.sub_organizations && org.sub_organizations.length > 0) {
           const subOrgs = await prisma.sub_organizations.findMany({
@@ -152,11 +135,5 @@ export default async function handler(req, res) {
     };
 
     res.status(200).json(response);
-  } catch (error) {
-    console.error('Error in debug-claims:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
   }
-}
+});

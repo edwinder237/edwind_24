@@ -7,16 +7,15 @@ import {
 } from '../../../lib/email';
 import { enforceResourceLimit } from '../../../lib/features/subscriptionService';
 import { RESOURCES } from '../../../lib/features/featureAccess';
+import { logEmailBatch } from '../../../lib/email/emailLogger';
+import { createHandler } from '../../../lib/api/createHandler';
 
 // Rate limiting configuration
 const RATE_LIMIT_DELAY = 600;
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { participants, surveyUrl, surveyTitle, projectName, projectId, instructorName } = req.body;
 
     if (!participants || !Array.isArray(participants) || participants.length === 0) {
@@ -177,6 +176,26 @@ export default async function handler(req, res) {
       });
     }
 
+    // Log individual emails (fire-and-forget)
+    const subOrgId = req.orgContext?.subOrganizationIds?.[0];
+    if (subOrgId) {
+      logEmailBatch(emailResults.filter(r => r.participantEmail).map(r => ({
+        sub_organizationId: subOrgId,
+        recipientEmail: r.participantEmail,
+        recipientName: r.participantName,
+        recipientType: 'participant',
+        subject: `Survey: ${surveyTitle}`,
+        emailType: 'survey',
+        status: r.status === 'sent' ? 'sent' : r.status === 'skipped' ? 'skipped' : 'failed',
+        errorMessage: r.error || null,
+        resendEmailId: r.emailId || null,
+        projectId: projectId ? parseInt(projectId) : null,
+        projectTitle: projectName || null,
+        participantId: r.participantId ? String(r.participantId) : null,
+        sentByUserId: userId || null,
+      })));
+    }
+
     res.status(200).json({
       message: `Survey emails completed: ${successCount} sent, ${failureCount} failed, ${skippedCount} skipped`,
       results: emailResults,
@@ -187,12 +206,5 @@ export default async function handler(req, res) {
         emailsSkipped: skippedCount
       }
     });
-
-  } catch (error) {
-    console.error('Survey email sending error:', error);
-    res.status(500).json({
-      message: 'Failed to send survey emails',
-      error: error.message
-    });
   }
-}
+});

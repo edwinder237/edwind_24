@@ -1,7 +1,9 @@
+import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
 
-export default async function handler(req, res) {
-  try {
+export default createHandler({
+  scope: 'org',
+  POST: async (req, res) => {
     const { projectId } = req.body;
     const count = await prisma.project_participants.count({});
 
@@ -9,8 +11,5 @@ export default async function handler(req, res) {
       message: "Participant successfully added to database ",
       count: count,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json(error.message);
   }
-}
+});

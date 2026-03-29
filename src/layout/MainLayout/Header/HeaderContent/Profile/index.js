@@ -523,7 +523,7 @@ const Profile = () => {
                       </ListItemIcon>
                       <ListItemText primary="Feedback & Support" />
                     </ListItemButton>
-                    {hasAdminAccess && (
+                    {user?.role?.toLowerCase().trim() === 'owner' && (
                       <ListItemButton selected={selectedIndex === 5} onClick={handleOpenDebugDialog}>
                         <ListItemIcon>
                           <BugOutlined />

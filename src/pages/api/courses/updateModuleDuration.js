@@ -1,11 +1,9 @@
 import prisma from "../../../lib/prisma";
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  if (req.method !== 'PUT') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  try {
+export default createHandler({
+  scope: 'org',
+  PUT: async (req, res) => {
     const { moduleId, customDuration } = req.body;
 
     if (!moduleId) {
@@ -13,7 +11,7 @@ export default async function handler(req, res) {
     }
 
     // If customDuration is null or undefined, we're resetting to calculated duration
-    const updateData = customDuration !== null && customDuration !== undefined 
+    const updateData = customDuration !== null && customDuration !== undefined
       ? { customDuration: parseInt(customDuration) }
       : { customDuration: null };
 
@@ -25,19 +23,10 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       success: true,
-      message: customDuration !== null && customDuration !== undefined 
+      message: customDuration !== null && customDuration !== undefined
         ? 'Module duration updated successfully'
         : 'Module duration reset to calculated value',
       module: updatedModule
     });
-
-  } catch (error) {
-    console.error('Error updating module duration:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update module duration',
-      error: error.message 
-    });
-  } finally {
   }
-}
+});

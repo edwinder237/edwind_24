@@ -12,31 +12,28 @@ import {
   checkRateLimit,
   sendFeedback
 } from '../../../lib/email';
+import { createHandler } from '../../../lib/api/createHandler';
 
-export default async function handler(req, res) {
-  // Only allow POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+export default createHandler({
+  scope: 'public',
+  POST: async (req, res) => {
+    // Check email service configuration
+    if (!isEmailServiceConfigured()) {
+      console.error('RESEND_API_KEY not configured');
+      return res.status(500).json({ error: 'Email service not configured' });
+    }
 
-  // Check email service configuration
-  if (!isEmailServiceConfigured()) {
-    console.error('RESEND_API_KEY not configured');
-    return res.status(500).json({ error: 'Email service not configured' });
-  }
+    // Check authentication
+    const userId = req.cookies.workos_user_id;
+    if (!userId || userId === 'undefined') {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
 
-  // Check authentication
-  const userId = req.cookies.workos_user_id;
-  if (!userId || userId === 'undefined') {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
+    // Rate limiting
+    if (checkRateLimit(req, res)) {
+      return; // Response already sent by checkRateLimit
+    }
 
-  // Rate limiting
-  if (checkRateLimit(req, res)) {
-    return; // Response already sent by checkRateLimit
-  }
-
-  try {
     const { type, message, userName, userEmail, organizationName } = req.body;
 
     // Validate required fields
@@ -68,9 +65,5 @@ export default async function handler(req, res) {
 
     console.log(`Feedback submitted: ${type} from ${userEmail}`);
     return res.status(200).json({ success: true, message: 'Feedback submitted successfully' });
-
-  } catch (error) {
-    console.error('Error submitting feedback:', error);
-    return res.status(500).json({ error: 'Internal server error' });
   }
-}
+});
