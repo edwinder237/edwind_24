@@ -214,24 +214,7 @@ const GroupCurriculumWidget = ({ groupId, projectId, onManageCurriculums, refres
                       </Box>
                     </Stack>
                   }
-                  secondary={
-                    curriculum.description && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{
-                          ml: 4,
-                          display: { xs: 'none', md: 'block' },
-                          mt: 0.5,
-                          wordBreak: 'break-word',
-                          overflowWrap: 'break-word',
-                          hyphens: 'auto'
-                        }}
-                      >
-                        {curriculum.description}
-                      </Typography>
-                    )
-                  }
+                  secondary={null}
                 />
                 <ListItemSecondaryAction>
                   <IconButton

@@ -6,12 +6,13 @@
 
 import { createHandler } from '../../../../lib/api/createHandler';
 import { disconnectIntegration } from '../../../../lib/calendar/calendarSyncService';
+import prisma from '../../../../lib/prisma';
 
 export default createHandler({
-  scope: 'org',
+  scope: 'auth',
   POST: async (req, res) => {
-    const userId = req.userClaims?.userId;
-    if (!userId) {
+    const workosUserId = req.orgContext?.userId;
+    if (!workosUserId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
@@ -21,7 +22,15 @@ export default createHandler({
     }
 
     try {
-      await disconnectIntegration(userId, integrationId);
+      const user = await prisma.user.findUnique({
+        where: { workos_user_id: workosUserId },
+        select: { id: true },
+      });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      await disconnectIntegration(user.id, integrationId);
       res.status(200).json({ success: true, message: 'Calendar integration disconnected' });
     } catch (error) {
       console.error('[CALENDAR_INTEGRATIONS] Disconnect error:', error.message);

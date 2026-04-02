@@ -9,16 +9,24 @@ import prisma from '../../../lib/prisma';
 import { createHandler } from '../../../lib/api/createHandler';
 
 export default createHandler({
-  scope: 'org',
+  scope: 'auth',
   GET: async (req, res) => {
-    const userId = req.userClaims?.userId;
-    if (!userId) {
+    const workosUserId = req.orgContext?.userId;
+    if (!workosUserId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
     try {
+      const user = await prisma.user.findUnique({
+        where: { workos_user_id: workosUserId },
+        select: { id: true },
+      });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
       const integrations = await prisma.calendar_integrations.findMany({
-        where: { userId },
+        where: { userId: user.id },
         select: {
           id: true,
           provider: true,

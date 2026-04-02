@@ -7,20 +7,29 @@
 
 import { createHandler } from '../../../lib/api/createHandler';
 import { syncAllProjectEvents } from '../../../lib/calendar/calendarSyncService';
+import prisma from '../../../lib/prisma';
 
 export default createHandler({
-  scope: 'org',
+  scope: 'auth',
   POST: async (req, res) => {
-    const userId = req.userClaims?.userId;
-    if (!userId) {
+    const workosUserId = req.orgContext?.userId;
+    if (!workosUserId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const { projectId, syncScope = 'future' } = req.body || {};
-    const futureOnly = syncScope !== 'all';
-
     try {
-      const result = await syncAllProjectEvents(userId, projectId, { futureOnly });
+      const user = await prisma.user.findUnique({
+        where: { workos_user_id: workosUserId },
+        select: { id: true },
+      });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const { projectId, syncScope = 'future' } = req.body || {};
+      const futureOnly = syncScope !== 'all';
+
+      const result = await syncAllProjectEvents(user.id, projectId, { futureOnly });
       const scopeLabel = futureOnly ? 'upcoming' : '';
       res.status(200).json({
         success: true,

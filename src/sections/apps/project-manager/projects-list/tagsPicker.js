@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 
 // material-ui
-import { 
-  Autocomplete, 
-  TextField, 
-  Chip, 
-  Box, 
-  Typography, 
-  CircularProgress, 
+import {
+  Autocomplete,
+  TextField,
+  Chip,
+  Box,
+  Typography,
+  Skeleton,
   Stack,
-  createFilterOptions 
+  createFilterOptions
 } from '@mui/material';
 
 // assets
@@ -49,7 +49,7 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
   })();
   
   const [topics, setTopics] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedTopics, setSelectedTopics] = useState([]);
 
   // Load topics from database
@@ -158,13 +158,26 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
     .filter(topic => !selectedTopics.includes(topic))
     .slice(0, 8); // Show max 8 suggestions
 
+  if (loading) {
+    return (
+      <Box>
+        <Skeleton variant="rounded" height={52} animation="wave" sx={{ borderRadius: 1 }} />
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
+          <Skeleton animation="wave" height={16} width={70} />
+          {[55, 65, 48, 60, 52].map((width, i) => (
+            <Skeleton key={i} animation="wave" height={24} width={width} sx={{ borderRadius: 3 }} />
+          ))}
+        </Stack>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Autocomplete
         multiple
         id="topics-picker"
         options={topics}
-        loading={loading}
         value={selectedTopics}
         freeSolo
         autoHighlight
@@ -225,12 +238,6 @@ export default function TagsPicker({ handleTagsChange, initialValue = [] }) {
             placeholder="Add topics for your project"
             InputProps={{
               ...params.InputProps,
-              endAdornment: (
-                <>
-                  {loading ? <CircularProgress color="inherit" size={20} /> : null}
-                  {params.InputProps.endAdornment}
-                </>
-              ),
             }}
           />
         )}

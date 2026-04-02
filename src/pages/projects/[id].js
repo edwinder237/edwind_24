@@ -190,6 +190,11 @@ function ProjectDefault() {
     return <ProjectAccessDenied projectId={projectId} />;
   }
 
+  // Block access to archived projects
+  if (settingsData?.project?.status === 'archived') {
+    return <ProjectAccessDenied projectId={projectId} />;
+  }
+
   // Show error if any query failed
   const error = participantsError || settingsError || agendaError;
   if (error) {

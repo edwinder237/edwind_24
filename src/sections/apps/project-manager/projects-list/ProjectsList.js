@@ -173,6 +173,7 @@ const ProjectsList = () => {
   const [subOrganizationFilter, setSubOrganizationFilter] = useState([]);
   const [dateRange, setDateRange] = useState({ start: null, end: null });
   const [hideCompleted, setHideCompleted] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
   const handleChange = (event) => {
     setSortBy(event.target.value);
   };
@@ -217,6 +218,7 @@ const ProjectsList = () => {
     setSubOrganizationFilter([]);
     setDateRange({ start: null, end: null });
     setHideCompleted(true);
+    setShowArchived(false);
     setGlobalFilter("");
   };
 
@@ -312,6 +314,11 @@ const ProjectsList = () => {
 
       // Hide completed projects
       if (hideCompleted && project.projectStatus === 'completed') {
+        return false;
+      }
+
+      // Hide archived projects unless explicitly shown
+      if (!showArchived && project.projectStatus === 'archived') {
         return false;
       }
 
@@ -460,6 +467,7 @@ const ProjectsList = () => {
     subOrganizationFilter,
     dateRange,
     hideCompleted,
+    showArchived,
     sortBy,
     sortOrder,
     projects,
@@ -541,7 +549,7 @@ const ProjectsList = () => {
                 maxWidth: matchDownSM ? '100%' : '50%'
               }}>
                 <GlobalFilter
-                  preGlobalFilteredRows={projects || []}
+                  preGlobalFilteredRows={userCard || []}
                   globalFilter={globalFilter}
                   setGlobalFilter={setGlobalFilter}
                 />
@@ -551,7 +559,7 @@ const ProjectsList = () => {
               {matchDownSM && (
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
                   <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
-                    {userCard.length}/{projects?.length || 0}
+                    {userCard.length}{getActiveFilterCount() > 0 ? `/${projects?.length || 0}` : ''} projects
                   </Typography>
                   {!showFilters && (
                     <IconButton
@@ -737,6 +745,21 @@ const ProjectsList = () => {
                     label={
                       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
                         Hide Completed
+                      </Typography>
+                    }
+                    sx={{ mr: 1 }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={showArchived}
+                        onChange={(e) => setShowArchived(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                        Show Archived
                       </Typography>
                     }
                     sx={{ mr: 1 }}
@@ -961,7 +984,7 @@ const ProjectsList = () => {
           {!matchDownSM && (
             <Box sx={{ textAlign: 'right' }}>
               <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                <strong>{userCard.length}</strong> of <strong>{projects?.length || 0}</strong> projects
+                <strong>{userCard.length}</strong> {getActiveFilterCount() > 0 ? `of ${projects?.length || 0}` : ''} projects
                 {getActiveFilterCount() > 0 && (
                   <span style={{ color: 'var(--mui-palette-primary-main)' }}>
                     {' '}• {getActiveFilterCount()} filter{getActiveFilterCount() !== 1 ? 's' : ''} active

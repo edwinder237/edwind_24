@@ -10,7 +10,7 @@ import useUser from "hooks/useUser";
 import { useDispatch } from "store";
 import { updateProject, getProjects } from "store/reducers/project";
 import { openSnackbar } from "store/reducers/snackbar";
-import { deleteProject } from "store/commands";
+import { deleteProject, archiveProject, restoreProject } from "store/commands";
 
 // Material-UI
 import {
@@ -39,7 +39,7 @@ import {
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
-import { EditOutlined, CheckOutlined, CloseOutlined, DeleteOutline, SwapHoriz } from "@mui/icons-material";
+import { EditOutlined, CheckOutlined, CloseOutlined, DeleteOutline, SwapHoriz, RestoreOutlined } from "@mui/icons-material";
 import { MoreOutlined } from "@ant-design/icons";
 
 // Project Components
@@ -147,25 +147,36 @@ const getStatusConfig = (status) => {
  */
 const useStatusEditor = (project, dispatch) => {
   const [isEditingStatus, setIsEditingStatus] = useState(false);
-  const [statusValue, setStatusValue] = useState(project?.projectStatus || PROJECT_STATUS.ACTIVE);
+  const [statusValue, setStatusValue] = useState(project?.projectStatus || PROJECT_STATUS.IN_PROGRESS);
 
   useEffect(() => {
-    setStatusValue(project?.projectStatus || PROJECT_STATUS.ACTIVE);
+    setStatusValue(project?.projectStatus || PROJECT_STATUS.IN_PROGRESS);
   }, [project?.projectStatus]);
 
   const handleStartEdit = useCallback(() => {
     setIsEditingStatus(true);
-    setStatusValue(project?.projectStatus || PROJECT_STATUS.ACTIVE);
+    setStatusValue(project?.projectStatus || PROJECT_STATUS.IN_PROGRESS);
   }, [project?.projectStatus]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditingStatus(false);
-    setStatusValue(project?.projectStatus || PROJECT_STATUS.ACTIVE);
+    setStatusValue(project?.projectStatus || PROJECT_STATUS.IN_PROGRESS);
   }, [project?.projectStatus]);
 
   const handleSave = useCallback(async () => {
     if (statusValue === project?.projectStatus) {
       setIsEditingStatus(false);
+      return;
+    }
+
+    // Redirect to archiveProject command for consistent behavior
+    if (statusValue === 'archived') {
+      setIsEditingStatus(false);
+      dispatch(archiveProject({
+        projectId: project.id,
+        projectTitle: project.title,
+        previousStatus: project.projectStatus
+      }));
       return;
     }
 
@@ -185,7 +196,7 @@ const useStatusEditor = (project, dispatch) => {
         }));
       }
     } catch (error) {
-      setStatusValue(project?.projectStatus || PROJECT_STATUS.ACTIVE);
+      setStatusValue(project?.projectStatus || PROJECT_STATUS.IN_PROGRESS);
       dispatch(openSnackbar({
         open: true,
         message: 'Failed to update project status',
@@ -193,7 +204,7 @@ const useStatusEditor = (project, dispatch) => {
         alert: { color: 'error' }
       }));
     }
-  }, [dispatch, project?.id, project?.projectStatus, statusValue]);
+  }, [dispatch, project?.id, project?.title, project?.projectStatus, statusValue]);
 
   return {
     isEditingStatus,
@@ -519,17 +530,36 @@ const ProjectCard = ({ Project, projectId }) => {
   const handleMenuClick = useCallback((event) => setAnchorEl(event.currentTarget), []);
   const handleMenuClose = useCallback(() => setAnchorEl(null), []);
 
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
   const handleAlertClose = useCallback((action) => {
-    setOpenAlert(!openAlert);
+    setOpenAlert(false);
     handleMenuClose();
-    if (action === true && Project?.id) {
-      // Use the deleteProject command which handles success/error toasts internally
+    if (!Project?.id) return;
+
+    if (action === 'archive') {
+      dispatch(archiveProject({
+        projectId: Project.id,
+        projectTitle: Project.title,
+        previousStatus: Project.projectStatus
+      }));
+    } else if (action === 'delete') {
       dispatch(deleteProject({
         projectId: Project.id,
         projectTitle: Project.title
       }));
     }
-  }, [openAlert, handleMenuClose, Project?.id, Project?.title, dispatch]);
+  }, [handleMenuClose, Project?.id, Project?.title, Project?.projectStatus, dispatch]);
+
+  const handleRestore = useCallback(() => {
+    handleMenuClose();
+    if (!Project?.id) return;
+    dispatch(restoreProject({
+      projectId: Project.id,
+      projectTitle: Project.title,
+      restoreToStatus: 'planning'
+    }));
+  }, [handleMenuClose, Project?.id, Project?.title, dispatch]);
 
   // Reassign handlers
   const handleOpenReassignDialog = useCallback(async () => {
@@ -611,6 +641,7 @@ const ProjectCard = ({ Project, projectId }) => {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          opacity: Project?.projectStatus === 'archived' ? 0.6 : 1,
           "&:hover": {
             transform: "scale3d(1.02, 1.02, 1)",
             transition: "all .4s ease-in-out",
@@ -654,11 +685,19 @@ const ProjectCard = ({ Project, projectId }) => {
                 </ListItemIcon>
                 <ListItemText>Reassign</ListItemText>
               </MenuItem>
-              <MenuItem onClick={handleAlertClose}>
+              {Project?.projectStatus === 'archived' && (
+                <MenuItem onClick={handleRestore}>
+                  <ListItemIcon>
+                    <RestoreOutlined fontSize="small" color="success" />
+                  </ListItemIcon>
+                  <ListItemText>Restore</ListItemText>
+                </MenuItem>
+              )}
+              <MenuItem onClick={() => setOpenAlert(true)}>
                 <ListItemIcon>
                   <DeleteOutline fontSize="small" color="error" />
                 </ListItemIcon>
-                <ListItemText>Delete</ListItemText>
+                <ListItemText>Remove</ListItemText>
               </MenuItem>
             </Menu>
           </Box>
@@ -827,7 +866,7 @@ const ProjectCard = ({ Project, projectId }) => {
               Created: {formattedDates.creation}  by: {Project?.user?.name}
             </Typography>
           </Stack>
-          {canOpenProject && (
+          {canOpenProject && Project?.projectStatus !== 'archived' && (
             <Stack direction="row" spacing={1}>
               <NextLink href={`/projects/${projectId}`} passHref>
                 <Button variant="contained" size="small">
@@ -843,6 +882,7 @@ const ProjectCard = ({ Project, projectId }) => {
         title={Project.title}
         open={openAlert}
         handleClose={handleAlertClose}
+        isAdmin={isAdmin}
       />
 
       {/* Reassign Project Dialog */}

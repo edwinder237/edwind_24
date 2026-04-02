@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 
 // material-ui
-import { 
-  Autocomplete, 
-  TextField, 
-  Typography, 
+import {
+  Autocomplete,
+  TextField,
+  Typography,
   Box,
-  CircularProgress,
-  Chip
+  Skeleton,
+  Chip,
+  Stack
 } from '@mui/material';
 
 // project imports
@@ -16,14 +17,15 @@ import axios from 'utils/axios';
 
 // ==============================|| AUTOCOMPLETE - CURRICULUM ||============================== //
 
-export default function CurriculumPicker({ 
-  handleCurriculumChange, 
+export default function CurriculumPicker({
+  handleCurriculumChange,
   initialValue = null,
   error = false,
-  helperText = ''
+  helperText = '',
+  projectTitle = ''
 }) {
   const [curriculums, setCurriculums] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedCurriculum, setSelectedCurriculum] = useState(initialValue);
 
   // Fetch curriculums on component mount
@@ -71,6 +73,25 @@ export default function CurriculumPicker({
     handleCurriculumChange(value);
   };
 
+  if (loading) {
+    return (
+      <Stack spacing={1.5}>
+        <Skeleton variant="rounded" height={52} animation="wave" sx={{ borderRadius: 1 }} />
+        <Stack spacing={0.75} sx={{ px: 1 }}>
+          {[80, 65, 50].map((width, i) => (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Skeleton animation="wave" height={20} width={width} />
+                {i === 0 && <Skeleton animation="wave" height={20} width={48} sx={{ borderRadius: 3 }} />}
+              </Box>
+              <Skeleton animation="wave" height={22} width={72} sx={{ borderRadius: 3 }} />
+            </Box>
+          ))}
+        </Stack>
+      </Stack>
+    );
+  }
+
   return (
     <Autocomplete
       id="curriculum-autocomplete"
@@ -78,11 +99,13 @@ export default function CurriculumPicker({
       value={selectedCurriculum}
       onChange={handleChange}
       getOptionLabel={(option) => {
-        // Handle string inputs (when user types)
         if (typeof option === 'string') {
           return option;
         }
-        // Handle object options (existing curriculums)
+        // Show project-specific name for the default curriculum
+        if (option?.isDefault && projectTitle) {
+          return `${projectTitle} - Curriculum`;
+        }
         return option?.title || '';
       }}
       isOptionEqualToValue={(option, value) => {
@@ -171,12 +194,6 @@ export default function CurriculumPicker({
           helperText={helperText}
           InputProps={{
             ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? <CircularProgress color="inherit" size={20} /> : null}
-                {params.InputProps.endAdornment}
-              </>
-            ),
           }}
         />
       )}
@@ -188,5 +205,6 @@ CurriculumPicker.propTypes = {
   handleCurriculumChange: PropTypes.func.isRequired,
   initialValue: PropTypes.object,
   error: PropTypes.bool,
-  helperText: PropTypes.string
+  helperText: PropTypes.string,
+  projectTitle: PropTypes.string
 };

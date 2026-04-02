@@ -37,16 +37,20 @@ export default createHandler({
       throw new NotFoundError('Curriculum not found');
     }
 
+    // Prevent deletion if curriculum is used in any projects
+    if (existingCurriculum.project_curriculums.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot delete curriculum. It is currently used in ${existingCurriculum.project_curriculums.length} project(s). Please remove the curriculum from those projects first.`
+      });
+    }
+
     // Delete related records first (cascade should handle this, but being explicit)
     await prisma.curriculum_courses.deleteMany({
       where: { curriculumId }
     });
 
     await prisma.supportActivities.deleteMany({
-      where: { curriculumId }
-    });
-
-    await prisma.project_curriculums.deleteMany({
       where: { curriculumId }
     });
 

@@ -1,10 +1,15 @@
 import prisma from '../../../lib/prisma';
 import { createHandler } from '../../../lib/api/createHandler';
-import { NotFoundError, ValidationError } from '../../../lib/errors/index.js';
+import { NotFoundError, ValidationError, AdminRequiredError } from '../../../lib/errors/index.js';
 import { scopedFindUnique } from '../../../lib/prisma/scopedQueries.js';
 
 export default createHandler({
   POST: async (req, res) => {
+    // Only admins can permanently delete projects
+    if (!req.orgContext.isAdmin) {
+      throw new AdminRequiredError('Only administrators can permanently delete projects');
+    }
+
     const { projectCUID } = req.body;
 
     if (!projectCUID) {

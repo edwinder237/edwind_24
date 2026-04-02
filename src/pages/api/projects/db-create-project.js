@@ -100,12 +100,62 @@ const handler = createHandler({
       });
     }
 
-    // If curriculumId is provided, create project_curriculum relationship
+    // If curriculumId is provided, handle curriculum linking
     if (newProject.curriculumId) {
+      let curriculumIdToLink = newProject.curriculumId;
+
+      // If the default curriculum was selected, clone it with a project-specific name
+      if (newProject.isDefaultCurriculum) {
+        const projectTitle = (newProject.title || 'Untitled Project').substring(0, 200);
+        const curriculumTitle = `${projectTitle} - Curriculum`;
+
+        const defaultCurriculum = await prisma.curriculums.findUnique({
+          where: { id: newProject.curriculumId },
+          include: {
+            curriculum_courses: true,
+            supportActivities: true
+          }
+        });
+
+        if (defaultCurriculum) {
+          const newCurriculum = await prisma.curriculums.create({
+            data: {
+              title: curriculumTitle,
+              description: defaultCurriculum.description,
+              isDefault: false,
+              sub_organizationId: newProject.sub_organizationId
+            }
+          });
+
+          if (defaultCurriculum.curriculum_courses.length > 0) {
+            await prisma.curriculum_courses.createMany({
+              data: defaultCurriculum.curriculum_courses.map(cc => ({
+                curriculumId: newCurriculum.id,
+                courseId: cc.courseId
+              }))
+            });
+          }
+
+          if (defaultCurriculum.supportActivities.length > 0) {
+            await prisma.supportActivities.createMany({
+              data: defaultCurriculum.supportActivities.map(sa => ({
+                title: sa.title,
+                description: sa.description,
+                duration: sa.duration,
+                materials: sa.materials,
+                curriculumId: newCurriculum.id
+              }))
+            });
+          }
+
+          curriculumIdToLink = newCurriculum.id;
+        }
+      }
+
       await prisma.project_curriculums.create({
         data: {
           projectId: createdProject.id,
-          curriculumId: newProject.curriculumId
+          curriculumId: curriculumIdToLink
         }
       });
     }

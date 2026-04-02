@@ -6,35 +6,25 @@
 
 // Project Status Options - Normalized values
 export const PROJECT_STATUS = {
-  ACTIVE: 'active',
-  INACTIVE: 'inactive',
-  PENDING: 'pending',
-  ONGOING: 'ongoing',
-  STARTED: 'started',
+  PLANNING: 'planning',
+  SCHEDULED: 'scheduled',
+  IN_PROGRESS: 'in_progress',
   COMPLETED: 'completed',
-  DRAFT: 'draft',
-  ARCHIVED: 'archived',
+  ON_HOLD: 'on_hold',
   CANCELLED: 'cancelled',
-  POSTPONED: 'postponed',
-  SUSPENDED: 'suspended',
-  ON_HOLD: 'on_hold'
+  ARCHIVED: 'archived'
 };
 
 // Project Status Configuration - Single source of truth
 // Contains value (for DB/logic), label (for display), and color (for UI)
 export const PROJECT_STATUS_CONFIG = [
-  { value: 'active', label: 'Active', color: 'success' },
-  { value: 'ongoing', label: 'Ongoing', color: 'primary' },
-  { value: 'pending', label: 'Pending', color: 'warning' },
-  { value: 'completed', label: 'Completed', color: 'default' },
-  { value: 'cancelled', label: 'Cancelled', color: 'error' },
-  { value: 'postponed', label: 'Postponed', color: 'warning' },
-  { value: 'suspended', label: 'Suspended', color: 'error' },
+  { value: 'planning', label: 'Planning', color: 'info' },
+  { value: 'scheduled', label: 'Scheduled', color: 'warning' },
+  { value: 'in_progress', label: 'In Progress', color: 'primary' },
+  { value: 'completed', label: 'Completed', color: 'success' },
   { value: 'on_hold', label: 'On Hold', color: 'warning' },
-  { value: 'draft', label: 'Draft', color: 'info' },
-  { value: 'archived', label: 'Archived', color: 'default' },
-  { value: 'inactive', label: 'Inactive', color: 'error' },
-  { value: 'started', label: 'Started', color: 'primary' }
+  { value: 'cancelled', label: 'Cancelled', color: 'error' },
+  { value: 'archived', label: 'Archived', color: 'default' }
 ];
 
 // Participant Status Options
@@ -156,7 +146,7 @@ export const CURRICULUM_STATUS = {
 // Default Values
 export const DEFAULTS = {
   USER_STATUS: USER_STATUS.ACTIVE,
-  PROJECT_STATUS: PROJECT_STATUS.ACTIVE,
+  PROJECT_STATUS: PROJECT_STATUS.PLANNING,
   PARTICIPANT_STATUS: PARTICIPANT_STATUS.ACTIVE,
   COURSE_STATUS: COURSE_STATUS.DRAFT,
   MODULE_STATUS: MODULE_STATUS.DRAFT,

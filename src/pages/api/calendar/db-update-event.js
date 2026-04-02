@@ -177,15 +177,12 @@ export default createHandler({
       return updatedEvent;
     });
 
-    // Check if user has active calendar integrations
-    const userId = req.orgContext.userId;
-    let calendarSyncTriggered = false;
-    if (userId) {
-      const activeIntegrations = await prisma.calendar_integrations.count({
-        where: { userId, isActive: true }
-      });
-      calendarSyncTriggered = activeIntegrations > 0;
-    }
+    // Single query: resolve user and check for active calendar integrations
+    const dbUser = await prisma.user.findUnique({
+      where: { workos_user_id: req.orgContext.userId },
+      select: { id: true, calendar_integrations: { where: { isActive: true }, select: { id: true }, take: 1 } },
+    });
+    const calendarSyncTriggered = dbUser?.calendar_integrations?.length > 0;
 
     res.status(200).json({
       success: true,
@@ -196,7 +193,7 @@ export default createHandler({
 
     // Calendar sync (non-blocking, fire-and-forget)
     if (calendarSyncTriggered) {
-      syncEventToCalendars(parsedEventId, 'update', userId).catch(err =>
+      syncEventToCalendars(parsedEventId, 'update', dbUser.id).catch(err =>
         console.error('[CALENDAR_SYNC] Update sync failed:', err.message)
       );
     }

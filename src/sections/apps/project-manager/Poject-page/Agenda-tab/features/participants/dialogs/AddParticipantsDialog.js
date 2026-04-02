@@ -489,6 +489,20 @@ const AddParticipantsDialog = ({
                               • {participant.participant?.role?.title || 'Participant'}
                             </Typography>
                           </Typography>
+                          {participant.participant?.tag && (
+                            <Chip
+                              label={participant.participant.tag}
+                              size="small"
+                              variant="outlined"
+                              color="info"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                fontWeight: 500,
+                                '& .MuiChip-label': { px: 0.75 }
+                              }}
+                            />
+                          )}
                           {isRequired && (
                             <Chip
                               label="Required"

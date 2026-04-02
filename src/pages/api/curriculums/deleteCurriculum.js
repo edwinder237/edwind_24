@@ -27,11 +27,20 @@ export default createHandler({
 
     // Verify curriculum ownership
     const curriculum = await scopedFindUnique(orgContext, 'curriculums', {
-      where: { id: curriculumId }
+      where: { id: curriculumId },
+      include: { project_curriculums: true }
     });
 
     if (!curriculum) {
       throw new NotFoundError('Curriculum not found');
+    }
+
+    // Prevent deletion if curriculum is used in any projects
+    if (curriculum.project_curriculums.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot delete curriculum. It is currently used in ${curriculum.project_curriculums.length} project(s). Please remove the curriculum from those projects first.`
+      });
     }
 
     // Use transaction for atomicity

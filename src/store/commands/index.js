@@ -28,7 +28,7 @@ export { settingsCommands } from './settingsCommands';
 export { calendarCommands } from './calendarCommands';
 export { assessmentCommands } from './assessmentCommands';
 export { dailyNotesCommands } from './dailyNotesCommands';
-export { projectCommands, deleteProject } from './projectCommands';
+export { projectCommands, deleteProject, archiveProject, restoreProject } from './projectCommands';
 
 // Export command dispatcher utilities
 export { createCommandDispatcher, useCommands, CommandShortcuts } from './commandDispatcher';

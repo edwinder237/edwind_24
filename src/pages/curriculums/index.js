@@ -5,9 +5,6 @@ import {
   Box,
   Typography,
   Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   IconButton,
   Stack,
@@ -39,7 +36,8 @@ import {
   Edit as EditIcon,
   Visibility as VisibilityIcon,
   ContentCopy as CopyIcon,
-  MoreVert as MoreVertIcon
+  MoreVert as MoreVertIcon,
+  RestoreFromTrash as RestoreIcon
 } from '@mui/icons-material';
 import { useDispatch } from 'react-redux';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -106,7 +104,7 @@ const DateCell = ({ value }) => (
 
 // ==============================|| ACTION CELL ||============================== //
 
-const ActionCell = ({ row, onEdit, onDelete, onDuplicate, duplicatingId }) => {
+const ActionCell = ({ row, onEdit, onDelete, onDuplicate, onRestore, duplicatingId }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
   const item = row.original;
@@ -194,12 +192,21 @@ const ActionCell = ({ row, onEdit, onDelete, onDuplicate, duplicatingId }) => {
           <MuiListItemText>Duplicate</MuiListItemText>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={() => { handleClose(); onDelete(item); }} sx={{ color: 'error.main' }}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          <MuiListItemText>Delete</MuiListItemText>
-        </MenuItem>
+        {item.status === 'archived' ? (
+          <MenuItem onClick={() => { handleClose(); onRestore(item); }} sx={{ color: 'success.main' }}>
+            <ListItemIcon>
+              <RestoreIcon fontSize="small" color="success" />
+            </ListItemIcon>
+            <MuiListItemText>Restore</MuiListItemText>
+          </MenuItem>
+        ) : (
+          <MenuItem onClick={() => { handleClose(); onDelete(item); }} sx={{ color: 'error.main' }}>
+            <ListItemIcon>
+              <DeleteIcon fontSize="small" color="error" />
+            </ListItemIcon>
+            <MuiListItemText>Delete</MuiListItemText>
+          </MenuItem>
+        )}
       </Menu>
     </Stack>
   );
@@ -218,6 +225,7 @@ const CurriculumsPage = () => {
   const [selectedCurriculum, setSelectedCurriculum] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -234,6 +242,9 @@ const CurriculumsPage = () => {
   // Filter curriculums based on filter state
   const filteredCurriculums = useMemo(() => {
     return curriculums.filter(curriculum => {
+      // Hide archived by default
+      if (curriculum.status === 'archived' && !showArchived) return false;
+
       // Course count filter
       if (filters.courseCount !== 'all') {
         const count = curriculum.courseCount || 0;
@@ -259,7 +270,7 @@ const CurriculumsPage = () => {
 
       return true;
     });
-  }, [curriculums, filters]);
+  }, [curriculums, filters, showArchived]);
 
   // Check if any filters are active
   const hasActiveFilters = filters.courseCount !== 'all' || filters.hasProjects !== 'all' || filters.hasSupportActivities !== 'all';
@@ -560,6 +571,10 @@ const CurriculumsPage = () => {
 
       const result = await response.json();
 
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to delete curriculum');
+      }
+
       if (result.success) {
         dispatch(openSnackbar({
           open: true,
@@ -584,6 +599,79 @@ const CurriculumsPage = () => {
       }));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Archive curriculum
+  const handleArchiveCurriculum = async () => {
+    try {
+      setActionLoading(true);
+      const response = await fetch('/api/curriculums/archive', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedCurriculum.id, action: 'archive' })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to archive curriculum');
+      }
+
+      dispatch(openSnackbar({
+        open: true,
+        message: `"${selectedCurriculum.title}" has been archived`,
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+
+      setDeleteDialogOpen(false);
+      setSelectedCurriculum(null);
+      fetchCurriculums();
+    } catch (error) {
+      console.error('Error archiving curriculum:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: error.message || 'Failed to archive curriculum',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Restore curriculum from archive
+  const handleRestoreCurriculum = async (curriculum) => {
+    try {
+      const response = await fetch('/api/curriculums/archive', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: curriculum.id, action: 'restore' })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to restore curriculum');
+      }
+
+      dispatch(openSnackbar({
+        open: true,
+        message: `"${curriculum.title}" has been restored`,
+        variant: 'alert',
+        alert: { color: 'success' }
+      }));
+
+      fetchCurriculums();
+    } catch (error) {
+      console.error('Error restoring curriculum:', error);
+      dispatch(openSnackbar({
+        open: true,
+        message: error.message || 'Failed to restore curriculum',
+        variant: 'alert',
+        alert: { color: 'error' }
+      }));
     }
   };
 
@@ -625,6 +713,7 @@ const CurriculumsPage = () => {
       onEdit={handleOpenEditDialog}
       onDelete={handleOpenDeleteDialog}
       onDuplicate={handleDuplicateCurriculum}
+      onRestore={handleRestoreCurriculum}
       duplicatingId={duplicatingId}
     />
   );
@@ -707,12 +796,20 @@ const CurriculumsPage = () => {
                       variant="text"
                       size="small"
                       startIcon={<ClearIcon />}
-                      onClick={clearFilters}
-                      disabled={!hasActiveFilters}
+                      onClick={() => { clearFilters(); setShowArchived(false); }}
+                      disabled={!hasActiveFilters && !showArchived}
                     >
                       Clear
                     </Button>
-                    {hasActiveFilters && (
+                    <Button
+                      variant={showArchived ? 'outlined' : 'text'}
+                      size="small"
+                      color={showArchived ? 'warning' : 'inherit'}
+                      onClick={() => setShowArchived(!showArchived)}
+                    >
+                      {showArchived ? 'Hide Archived' : 'Show Archived'}
+                    </Button>
+                    {(hasActiveFilters || showArchived) && (
                       <Typography variant="caption" color="text.secondary">
                         {filteredCurriculums.length} of {curriculums.length}
                       </Typography>
@@ -958,41 +1055,81 @@ const CurriculumsPage = () => {
           open={deleteDialogOpen}
           onClose={() => setDeleteDialogOpen(false)}
           maxWidth="sm"
+          fullWidth
+          sx={{
+            '& .MuiDialog-paper': {
+              maxWidth: '500px',
+              width: '100%'
+            }
+          }}
         >
-          <DialogTitle>
-            <Typography variant="h6" color="error">
-              Delete Curriculum
-            </Typography>
-          </DialogTitle>
+          <MainCard
+            title={selectedCurriculum?.projectCount > 0 ? 'Archive or Delete Curriculum' : 'Delete Curriculum'}
+            secondary={
+              <IconButton onClick={() => setDeleteDialogOpen(false)} size="small">
+                <CloseIcon />
+              </IconButton>
+            }
+            content={false}
+          >
+            <Box sx={{ p: 3 }}>
+              <Stack spacing={3}>
+                {selectedCurriculum?.projectCount > 0 ? (
+                  <>
+                    <Typography variant="body1">
+                      This curriculum is currently used in {selectedCurriculum.projectCount} project(s) and cannot be permanently deleted.
+                    </Typography>
+                    <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                      {selectedCurriculum.project_curriculums?.map((pc) => (
+                        <Typography component="li" variant="body2" key={pc.id} sx={{ color: 'text.secondary' }}>
+                          {pc.project?.title}
+                        </Typography>
+                      ))}
+                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Archiving "{selectedCurriculum?.title}" will hide it from active views. You can restore it later.
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="body1">
+                      Are you sure you want to delete "{selectedCurriculum?.title}"?
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      This action cannot be undone. All associated support activities will also be deleted.
+                    </Typography>
+                  </>
+                )}
 
-          <DialogContent>
-            <Typography variant="body1" gutterBottom>
-              Are you sure you want to delete "{selectedCurriculum?.title}"?
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              This action cannot be undone. All associated support activities will also be deleted.
-              {selectedCurriculum?.projectCount > 0 && (
-                <span style={{ color: 'orange', fontWeight: 'bold' }}>
-                  <br />Warning: This curriculum is currently used in {selectedCurriculum.projectCount} project(s).
-                </span>
-              )}
-            </Typography>
-          </DialogContent>
-
-          <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDeleteCurriculum}
-              variant="contained"
-              color="error"
-              startIcon={actionLoading ? <CircularProgress size={20} /> : <DeleteIcon />}
-              disabled={actionLoading}
-            >
-              Delete Curriculum
-            </Button>
-          </DialogActions>
+                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                  <Button onClick={() => setDeleteDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  {selectedCurriculum?.projectCount > 0 ? (
+                    <Button
+                      onClick={handleArchiveCurriculum}
+                      variant="contained"
+                      color="warning"
+                      disabled={actionLoading}
+                      startIcon={actionLoading ? <CircularProgress size={20} /> : null}
+                    >
+                      Archive
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleDeleteCurriculum}
+                      variant="contained"
+                      color="error"
+                      startIcon={actionLoading ? <CircularProgress size={20} /> : <DeleteIcon />}
+                      disabled={actionLoading}
+                    >
+                      Delete Curriculum
+                    </Button>
+                  )}
+                </Stack>
+              </Stack>
+            </Box>
+          </MainCard>
         </Dialog>
       </Box>
     </Container>

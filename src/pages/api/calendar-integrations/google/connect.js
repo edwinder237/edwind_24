@@ -8,19 +8,29 @@
 import { createHandler } from '../../../../lib/api/createHandler';
 import { getAuthUrl } from '../../../../lib/calendar/googleCalendarService';
 import { encrypt } from '../../../../lib/calendar/encryption';
+import prisma from '../../../../lib/prisma';
 
 export default createHandler({
-  scope: 'org',
+  scope: 'auth',
   GET: async (req, res) => {
-    const userId = req.userClaims?.userId;
-    if (!userId) {
+    const workosUserId = req.orgContext?.userId;
+    if (!workosUserId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
     try {
+      // Resolve WorkOS user ID to database User ID
+      const user = await prisma.user.findUnique({
+        where: { workos_user_id: workosUserId },
+        select: { id: true },
+      });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
       // Encode user ID and a timestamp in the state parameter for CSRF protection
       const statePayload = JSON.stringify({
-        userId,
+        userId: user.id,
         timestamp: Date.now(),
         returnUrl: req.query.returnUrl || '/apps/profiles/user/integrations',
       });

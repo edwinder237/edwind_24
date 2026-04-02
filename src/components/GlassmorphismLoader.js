@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Fade,
-  CircularProgress,
   Stack,
   useTheme,
   alpha,
@@ -12,8 +11,8 @@ import { keyframes } from '@mui/system';
 
 // Animation keyframes
 const float = keyframes`
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(180deg); }
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
 `;
 
 const pulse = keyframes`
@@ -94,52 +93,22 @@ const GlassmorphismLoader = ({
           }}
         >
           <Stack spacing={3} alignItems="center">
-            {/* Animated Progress Indicator */}
+            {/* EDBAHN Logo */}
             <Box
               sx={{
-                position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                animation: `${float} 3s ease-in-out infinite`,
+                animation: `${float} 2.5s ease-in-out infinite`,
               }}
             >
-              {/* Outer Ring */}
-              <CircularProgress
-                size={80}
-                thickness={2}
-                sx={{
-                  color: theme.palette.primary.main,
-                  opacity: 0.3,
-                  position: 'absolute',
-                }}
-              />
-              
-              {/* Inner Ring */}
-              <CircularProgress
-                size={60}
-                thickness={3}
-                sx={{
-                  color: theme.palette.primary.light,
-                  opacity: 0.7,
-                }}
-              />
-              
-              {/* Center Dot */}
-              <Box
-                sx={{
-                  position: 'absolute',
-                  width: 12,
-                  height: 12,
-                  borderRadius: '50%',
-                  background: `linear-gradient(
-                    45deg,
-                    ${theme.palette.primary.main},
-                    ${theme.palette.primary.light}
-                  )`,
-                  animation: `${pulse} 1.5s ease-in-out infinite`,
-                }}
-              />
+              <svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 114 77" fill="none">
+                <rect width="114" height="77" rx="10" fill="white" />
+                <g transform="matrix(-1.6018306636155604,0,0,1.6018306636155604,95.28604118993134,0.1029745228503316)" fill={theme.palette.primary.main}>
+                  <g><polygon points="1,9.3 47,18.4 32.2,20.9 17.1,15.8 27.7,21.9 11.1,24.6" /></g>
+                  <g><polygon points="37.4,21.9 20.2,24.6 35.6,38.7" /></g>
+                </g>
+              </svg>
             </Box>
 
             {/* Text Content */}

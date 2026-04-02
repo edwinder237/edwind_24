@@ -35,21 +35,22 @@ export default createHandler({
       where: { id }
     });
 
-    // Check if user has active calendar integrations
-    const userId = req.orgContext.userId;
+    // Only check for calendar sync if there are mappings to clean up
     let calendarSyncTriggered = false;
-    if (userId) {
-      const activeIntegrations = await prisma.calendar_integrations.count({
-        where: { userId, isActive: true }
+    let dbUser = null;
+    if (mappings.length > 0) {
+      dbUser = await prisma.user.findUnique({
+        where: { workos_user_id: req.orgContext.userId },
+        select: { id: true, calendar_integrations: { where: { isActive: true }, select: { id: true }, take: 1 } },
       });
-      calendarSyncTriggered = activeIntegrations > 0 && mappings.length > 0;
+      calendarSyncTriggered = dbUser?.calendar_integrations?.length > 0;
     }
 
     res.status(200).json({ message: 'Event deleted and removed from database', success: true, calendarSyncTriggered });
 
     // Calendar sync — delete from external calendars (non-blocking, fire-and-forget)
     if (calendarSyncTriggered) {
-      syncEventToCalendars(id, 'delete', userId, mappings).catch(err =>
+      syncEventToCalendars(id, 'delete', dbUser.id, mappings).catch(err =>
         console.error('[CALENDAR_SYNC] Delete sync failed:', err.message)
       );
     }

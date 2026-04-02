@@ -5,15 +5,33 @@ import DeleteCard from 'components/cards/DeleteCard';
 
 // ==============================|| PROJECT - DELETE ||============================== //
 
-export default function AlertProjectDelete({ title, open, handleClose }) {
+export default function AlertProjectDelete({ title, open, handleClose, isAdmin }) {
+  if (isAdmin) {
+    return (
+      <DeleteCard
+        open={open}
+        onClose={() => handleClose(false)}
+        onDelete={() => handleClose('delete')}
+        onArchive={() => handleClose('archive')}
+        showArchive
+        title="Archive or Delete Project?"
+        itemName={title}
+        message={`Archiving "${title}" will hide it from active views. You can restore it later. Permanently deleting will remove the project and all related data.`}
+        deleteLabel="Permanently Delete"
+        archiveLabel="Archive"
+      />
+    );
+  }
+
   return (
     <DeleteCard
       open={open}
       onClose={() => handleClose(false)}
-      onDelete={() => handleClose(true)}
-      title="Are you sure you want to delete?"
+      onDelete={() => handleClose('archive')}
+      title="Archive Project?"
       itemName={title}
-      message={`By deleting "${title}" user, all task assigned to that user will also be deleted.`}
+      message={`Archiving "${title}" will hide it from active views. You can restore it later.`}
+      deleteLabel="Archive"
     />
   );
 }
@@ -21,5 +39,6 @@ export default function AlertProjectDelete({ title, open, handleClose }) {
 AlertProjectDelete.propTypes = {
   title: PropTypes.string,
   open: PropTypes.bool,
-  handleClose: PropTypes.func
+  handleClose: PropTypes.func,
+  isAdmin: PropTypes.bool
 };

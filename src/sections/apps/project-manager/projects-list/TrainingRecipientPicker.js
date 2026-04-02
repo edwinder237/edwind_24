@@ -6,7 +6,7 @@ import {
   TextField,
   Typography,
   Box,
-  CircularProgress,
+  Skeleton,
   Chip,
   ListItem,
   ListItemText,
@@ -26,7 +26,7 @@ export default function TrainingRecipientPicker({
   helperText = ''
 }) {
   const [trainingRecipients, setTrainingRecipients] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedRecipient, setSelectedRecipient] = useState(initialValue);
 
   // Fetch training recipients on component mount
@@ -61,6 +61,28 @@ export default function TrainingRecipientPicker({
       handleTrainingRecipientChange(value);
     }
   };
+
+  if (loading) {
+    return (
+      <Stack spacing={1.5}>
+        <Skeleton variant="rounded" height={52} animation="wave" sx={{ borderRadius: 1 }} />
+        <Stack spacing={0.75} sx={{ px: 1 }}>
+          {[85, 65, 50].map((width, i) => (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{ flex: 1 }}>
+                <Skeleton animation="wave" height={20} width={`${width}%`} />
+                <Skeleton animation="wave" height={14} width={`${width - 25}%`} />
+              </Box>
+              <Stack direction="row" spacing={0.5}>
+                <Skeleton animation="wave" height={22} width={68} sx={{ borderRadius: 3 }} />
+                <Skeleton animation="wave" height={22} width={82} sx={{ borderRadius: 3 }} />
+              </Stack>
+            </Box>
+          ))}
+        </Stack>
+      </Stack>
+    );
+  }
 
   return (
     <EnhancedAutocomplete
@@ -191,12 +213,6 @@ export default function TrainingRecipientPicker({
           helperText={helperText}
           InputProps={{
             ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? <CircularProgress color="inherit" size={20} /> : null}
-                {params.InputProps.endAdornment}
-              </>
-            ),
           }}
           inputProps={{
             ...params.inputProps,

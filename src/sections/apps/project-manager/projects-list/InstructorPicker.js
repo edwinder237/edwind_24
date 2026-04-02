@@ -7,10 +7,11 @@ import {
   TextField,
   Typography,
   Box,
-  CircularProgress,
+  Skeleton,
   Chip,
   ListItem,
-  ListItemText
+  ListItemText,
+  Stack
 } from '@mui/material';
 
 // project imports
@@ -25,7 +26,7 @@ export default function InstructorPicker({
   helperText = ''
 }) {
   const [instructors, setInstructors] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedInstructor, setSelectedInstructor] = useState(initialValue);
 
   // Fetch instructors on component mount
@@ -110,6 +111,25 @@ export default function InstructorPicker({
       handleInstructorChange(value);
     }
   };
+
+  if (loading) {
+    return (
+      <Stack spacing={1.5}>
+        <Skeleton variant="rounded" height={52} animation="wave" sx={{ borderRadius: 1 }} />
+        <Stack spacing={0.75} sx={{ px: 1 }}>
+          {[80, 60, 45].map((width, i) => (
+            <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Skeleton animation="wave" variant="circular" width={32} height={32} />
+              <Box sx={{ flex: 1 }}>
+                <Skeleton animation="wave" height={20} width={`${width}%`} />
+                <Skeleton animation="wave" height={14} width={`${width - 20}%`} />
+              </Box>
+            </Box>
+          ))}
+        </Stack>
+      </Stack>
+    );
+  }
 
   return (
     <Autocomplete
@@ -252,12 +272,6 @@ export default function InstructorPicker({
           helperText={helperText}
           InputProps={{
             ...params.InputProps,
-            endAdornment: (
-              <>
-                {loading ? <CircularProgress color="inherit" size={20} /> : null}
-                {params.InputProps.endAdornment}
-              </>
-            ),
           }}
           inputProps={{
             ...params.inputProps,

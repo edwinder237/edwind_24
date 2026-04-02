@@ -513,6 +513,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
           trainingRecipientId: trainingRecipientId,
           instructorId: selectedInstructor ? selectedInstructor.id : null,
           curriculumId: selectedCurriculum ? selectedCurriculum.id : null,
+          isDefaultCurriculum: selectedCurriculum?.isDefault === true,
           timezone: projectTimezone,
         };
         if (project) {
@@ -1369,11 +1370,12 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
               initialValue={selectedCurriculum}
               error={Boolean(touched.curriculum && errors.curriculum)}
               helperText={touched.curriculum && errors.curriculum}
+              projectTitle={formik.values.title}
             />
             {selectedCurriculum?.isDefault && (
               <Alert severity="info" sx={{ mt: 1.5 }}>
-                <AlertTitle>Custom Training Selected</AlertTitle>
-                You'll need to add courses to this curriculum to use the project calendar's full scheduling features.
+                <AlertTitle>Custom Curriculum</AlertTitle>
+                A curriculum named &quot;{formik.values.title || 'Your Project'} - Curriculum&quot; will be created for this project. You can add courses to it later to use the calendar&apos;s full scheduling features.
               </Alert>
             )}
           </Grid>
@@ -1510,7 +1512,11 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Curriculum:</Typography>
-                  <Typography variant="body1">{selectedCurriculum?.title || 'Not selected'}</Typography>
+                  <Typography variant="body1">
+                    {selectedCurriculum?.isDefault
+                      ? `${formik.values.title || 'Untitled'} - Curriculum`
+                      : selectedCurriculum?.title || 'Not selected'}
+                  </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Instructor:</Typography>
