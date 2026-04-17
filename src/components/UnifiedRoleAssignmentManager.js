@@ -14,26 +14,19 @@ class APICache {
 
   registerInstance(id) {
     this.instances.add(id);
-    console.log('🔗 Registered instance:', id, 'Total instances:', this.instances.size);
   }
 
   unregisterInstance(id) {
     this.instances.delete(id);
-    console.log('🔗 Unregistered instance:', id, 'Total instances:', this.instances.size);
   }
 
   async get(url) {
     // Track request count
     const count = this.requestCount.get(url) || 0;
     this.requestCount.set(url, count + 1);
-    
-    if (count > 0) {
-      console.log(`⚠️  DUPLICATE REQUEST #${count + 1} for:`, url);
-    }
 
     // Check if request is already pending
     if (this.pendingRequests.has(url)) {
-      console.log('🔄 Returning pending request:', url);
       return this.pendingRequests.get(url);
     }
 
@@ -41,13 +34,11 @@ class APICache {
     if (this.cache.has(url)) {
       const cached = this.cache.get(url);
       if (Date.now() - cached.timestamp < 30000) { // Increased to 30 second cache
-        console.log('✅ Cache hit:', url);
         return cached.data;
       }
       this.cache.delete(url);
     }
 
-    console.log('🌐 Making new API request:', url);
     // Make request and cache promise
     const promise = axios.get(url).then(response => {
       this.cache.set(url, {
@@ -87,11 +78,6 @@ class APICache {
   }
 
   getStats() {
-    console.log('📊 API Cache Stats:');
-    console.log('  - Cache entries:', this.cache.size);
-    console.log('  - Pending requests:', this.pendingRequests.size);
-    console.log('  - Active instances:', this.instances.size);
-    console.log('  - Request counts:', Object.fromEntries(this.requestCount));
   }
 }
 
@@ -169,12 +155,10 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [], onRefresh }) => 
     // Prevent multiple simultaneous calls and too frequent calls (min 2 seconds between calls)
     const now = Date.now();
     if (loadingRef.current || !courseId || (now - lastLoadTime.current < 2000)) {
-      console.log('⚡ loadData blocked:', { loading: loadingRef.current, courseId, timeSinceLastLoad: now - lastLoadTime.current });
       return;
     }
-    
+
     try {
-      console.log('🚀 Starting BULK loadData for course:', courseId, 'modules:', modules.length);
       loadingRef.current = true;
       lastLoadTime.current = now;
       setLoading(true);
@@ -185,14 +169,7 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [], onRefresh }) => 
         // 🎯 MAJOR OPTIMIZATION: Use new bulk endpoint to get ALL data in one request
         const bulkResponse = await apiCache.get(`/api/courses/bulk-role-assignments?courseId=${courseId}`);
         const { course, modules: moduleData, availableRoles: roles } = bulkResponse.data;
-        
-        console.log('✨ Bulk API response received:', {
-          courseAssignments: course.assignments.length,
-          moduleCount: moduleData.length,
-          availableRoles: roles.length,
-          totalQueries: bulkResponse.data.totalQueries
-        });
-        
+
         // Set course data
         courseAssignments = course.assignments;
         availableRoles = roles;
@@ -225,7 +202,6 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [], onRefresh }) => 
         });
         
       } catch (bulkError) {
-        console.warn('⚠️ Bulk endpoint failed, falling back to individual requests:', bulkError.message);
         
         // FALLBACK: Use original individual requests
         const courseResponse = await apiCache.get(`/api/courses/manage-role-assignments?courseId=${courseId}`);
@@ -238,7 +214,6 @@ const UnifiedRoleAssignmentManager = ({ courseId, modules = [], onRefresh }) => 
             const moduleResponse = await apiCache.get(`/api/courses/manage-module-role-assignments?moduleId=${module.id}`);
             return { moduleId: module.id, response: moduleResponse, error: null };
           } catch (error) {
-            console.error(`Error loading assignments for module ${module.id}:`, error);
             return { moduleId: module.id, response: null, error };
           }
         });

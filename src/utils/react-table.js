@@ -55,7 +55,6 @@ export function DefaultColumnFilter({ column: { filterValue, Header, setFilter }
       fullWidth
       value={filterValue || ''}
       onChange={(e) => {
-        console.log(e.target.value);
         setFilter(e.target.value || undefined);
       }}
       placeholder={Header}

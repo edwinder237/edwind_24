@@ -51,9 +51,7 @@ const CurriculumManageDialog = ({ open, onClose, group, projectId, onRefresh }) 
   const refreshGroupsData = async () => {
     if (onRefresh) {
       try {
-        console.log('Notifying parent to refresh groups data after curriculum change...');
         await onRefresh(); // Parent component handles refresh via RTK Query
-        console.log('Parent refresh callback completed');
       } catch (error) {
         console.error('Error in parent refresh callback:', error);
       }
@@ -124,7 +122,6 @@ const CurriculumManageDialog = ({ open, onClose, group, projectId, onRefresh }) 
           fetchAssignedCurriculums()
         ]);
         // Then refresh groups data with progress recalculation
-        console.log('Curriculum added successfully, refreshing groups data...');
         await refreshGroupsData();
       } else {
         showNotification(result.error || 'Failed to assign curriculum', 'error');
@@ -157,7 +154,6 @@ const CurriculumManageDialog = ({ open, onClose, group, projectId, onRefresh }) 
           fetchAssignedCurriculums()
         ]);
         // Then refresh groups data with progress recalculation
-        console.log('Curriculum removed successfully, refreshing groups data...');
         await refreshGroupsData();
       } else {
         showNotification(result.error || 'Failed to remove curriculum', 'error');

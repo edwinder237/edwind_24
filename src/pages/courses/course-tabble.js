@@ -254,14 +254,6 @@ const CoursesTable = () => {
   const dispatch = useDispatch();
 
   const { courses, modules, response } = useSelector((store) => store.courses);
-  console.log("from coures-table",courses.filter((course)=>course.id === 1)[0]);
-  console.log("All courses with maxParticipants:", courses.map(course => ({ 
-    id: course.id, 
-    title: course.title, 
-    maxParticipants: course.maxParticipants 
-  })));
-
-
 
   const [data, setData] = useState([{ name: "name" }]);
   const [open, setOpen] = useState(false);
@@ -761,6 +753,28 @@ const CoursesTable = () => {
             {value || 'Unlimited'}
           </Typography>
         ),
+      },
+      {
+        Header: "Modified",
+        accessor: "lastUpdated",
+        className: "cell-center",
+        Cell: ({ row }) => {
+          const { createdAt, lastUpdated, authorName } = row.original;
+          const date = lastUpdated || createdAt;
+          const isModified = lastUpdated && createdAt && new Date(lastUpdated).getTime() !== new Date(createdAt).getTime();
+          return (
+            <Stack spacing={0} alignItems="center">
+              <Typography variant="caption" color="text.secondary">
+                {date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+              </Typography>
+              {authorName && (
+                <Typography variant="caption" color="text.disabled" noWrap sx={{ maxWidth: 120 }}>
+                  {isModified ? 'edited' : 'by'} {authorName}
+                </Typography>
+              )}
+            </Stack>
+          );
+        },
       },
       {
         Header: "Actions",

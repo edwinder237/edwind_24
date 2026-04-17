@@ -14,9 +14,9 @@ export default createHandler({
       const returnTo = customReturnTo ? `${baseUrl}${customReturnTo}` : defaultReturnTo;
 
       res.setHeader('Set-Cookie', [
-        'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-        'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-        'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+        'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+        'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+        'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
       ]);
 
       if (sessionId) {
@@ -31,9 +31,9 @@ export default createHandler({
     } catch (error) {
       console.error('Logout error:', error);
       res.setHeader('Set-Cookie', [
-        'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-        'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-        'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+        'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+        'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+        'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
       ]);
       res.redirect(302, '/auth/post-logout');
     }

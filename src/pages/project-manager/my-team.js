@@ -224,7 +224,8 @@ const MyTeam = () => {
     },
     {
       Header: "Instructor",
-      accessor: "fullName",
+      id: "fullName",
+      accessor: row => `${row.firstName || ''} ${row.lastName || ''}`.trim(),
       Cell: ({ row }) => {
         const { firstName, lastName } = row.original;
         return (
@@ -264,7 +265,8 @@ const MyTeam = () => {
     },
     {
       Header: "Sub-Organization",
-      accessor: "sub_organization.title",
+      id: "sub_organization_title",
+      accessor: row => row.sub_organization?.title ?? '',
       Cell: ({ row }) => {
         const subOrg = row.original.sub_organization;
         return subOrg ? (
@@ -376,7 +378,7 @@ const MyTeam = () => {
               handleAdd={handleClickOpen}
               addButtonText="Add Instructor"
               initialSortBy={{ id: "fullName", desc: false }}
-              initialHiddenColumns={["id", "expertise", "sub_organization.title"]}
+              initialHiddenColumns={["id", "expertise", "sub_organization_title"]}
               responsiveHiddenColumns={["email", "expertise"]}
               csvFilename="instructors-list.csv"
               emptyMessage="No instructors found"

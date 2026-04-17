@@ -80,11 +80,11 @@ END:VTIMEZONE
  * @param {string} attendee.email - Attendee email
  * @param {string} attendee.firstName - Attendee first name
  * @param {string} attendee.lastName - Attendee last name
- * @param {string} [organizerName='EDWIND Training'] - Organizer name
+ * @param {string} [organizerName='EDBAHN Training'] - Organizer name
  * @param {string} [organizerEmail] - Organizer email (defaults to RESEND_FROM_EMAIL env var)
  * @returns {string} ICS file content
  */
-export function generateSingleEventICS(event, attendee, organizerName = 'EDWIND Training', organizerEmail = ADMIN_EMAIL) {
+export function generateSingleEventICS(event, attendee, organizerName = 'EDBAHN Training', organizerEmail = ADMIN_EMAIL) {
   const now = new Date();
   const timestamp = formatDateUTC(now);
   const uid = generateUID();
@@ -105,7 +105,7 @@ export function generateSingleEventICS(event, attendee, organizerName = 'EDWIND 
 
   const ical = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//EDWIND//Training Event Invitation//EN
+PRODID:-//EDBAHN//Training Event Invitation//EN
 CALSCALE:GREGORIAN
 METHOD:REQUEST
 ${vtimezone}BEGIN:VEVENT
@@ -132,10 +132,10 @@ END:VCALENDAR`;
  *
  * @param {Array} events - Array of event objects
  * @param {Object} attendee - Attendee data
- * @param {string} [organizerName='EDWIND Training'] - Organizer name
+ * @param {string} [organizerName='EDBAHN Training'] - Organizer name
  * @returns {string} ICS file content with all events
  */
-export function generateMultiEventICS(events, attendee, organizerName = 'EDWIND Training') {
+export function generateMultiEventICS(events, attendee, organizerName = 'EDBAHN Training') {
   const now = new Date();
   const timestamp = formatDateUTC(now);
   const attendeeName = `${attendee.firstName} ${attendee.lastName}`.trim();
@@ -183,7 +183,7 @@ END:VEVENT`;
 
   return `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//EDWIND//Training Event Invitation//EN
+PRODID:-//EDBAHN//Training Event Invitation//EN
 CALSCALE:GREGORIAN
 METHOD:REQUEST
 ${vtimezoneComponents}${vevents}

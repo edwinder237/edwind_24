@@ -1,7 +1,7 @@
 /**
  * Domain Event Bus
  * 
- * Centralized event bus for domain events in the EDWIND application.
+ * Centralized event bus for domain events in the EDBAHN application.
  * This provides a publish-subscribe pattern for decoupled communication
  * between different parts of the application.
  * 

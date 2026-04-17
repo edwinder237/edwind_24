@@ -20,35 +20,28 @@ export const useGroupSubmission = (
 
   const handleSubmit = useCallback(async (values, { setSubmitting }) => {
     try {
-      console.log('Form submission started:', values);
       setSubmitting(true);
-      
+
       if (isMultipleMode) {
         // Handle multiple groups creation
         const groupNamesToCreate = processGroupNames(values, groupsInState);
-        console.log('Group names to create:', groupNamesToCreate);
-        
+
         const newGroups = createGroupsFromNames(
-          groupNamesToCreate, 
+          groupNamesToCreate,
           values.bulkChipColor || theme.palette.primary.main
         );
-        
-        console.log('Groups to be created:', newGroups);
-        
+
         // Add groups sequentially to prevent database race conditions
         for (let i = 0; i < newGroups.length; i++) {
           const newGroup = newGroups[i];
-          console.log(`About to add group ${i + 1}:`, newGroup.groupName);
-          
+
           try {
             await handleAddParticipant(newGroup);
-            console.log(`Successfully added group ${i + 1}:`, newGroup.groupName);
           } catch (error) {
             console.error(`Failed to add group ${i + 1}:`, newGroup.groupName, error);
             // Continue with next group even if one fails
           }
         }
-        console.log('All groups added');
         
         dispatch(
           openSnackbar({

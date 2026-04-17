@@ -119,7 +119,6 @@ export default createHandler({
         }
       });
 
-      console.log(`Updated ${updateResult.count} enrollments to trainingRecipientId: ${trainingRecipientId}`);
     }
 
     // Handle curriculum update

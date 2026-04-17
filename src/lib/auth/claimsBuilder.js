@@ -32,7 +32,6 @@ export async function buildUserClaims(workosUserId, workOSMemberships, jwtPermis
     });
 
     if (!dbUser) {
-      console.warn(`User not found in database for WorkOS user: ${workosUserId}`);
       return null;
     }
 
@@ -78,7 +77,6 @@ async function processOrganizationMembership(dbUser, workOSMembership, jwtPermis
     });
 
     if (!organization) {
-      console.warn(`Organization not found for WorkOS org: ${workOSMembership.organizationId}`);
       return null;
     }
 
@@ -86,11 +84,9 @@ async function processOrganizationMembership(dbUser, workOSMembership, jwtPermis
     let permissions;
     if (jwtPermissions && jwtPermissions.length > 0) {
       permissions = jwtPermissions;
-      console.log(`✅ Using ${jwtPermissions.length} permissions from WorkOS JWT for role: ${role}`);
     } else {
       // Fallback to local policyMap
       permissions = mapRoleToPermissions(role);
-      console.log(`⚠️  No JWT permissions, using ${permissions.length} permissions from policyMap for role: ${role}`);
     }
 
     // 3. Determine accessible sub_organizations
@@ -193,12 +189,9 @@ export async function rebuildClaimsFromWorkOS(workosUserId, workosClient, req = 
         if (tokenParts.length === 3) {
           const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
           jwtPermissions = payload.permissions || [];
-          if (jwtPermissions.length > 0) {
-            console.log(`✅ Extracted ${jwtPermissions.length} permissions from stored JWT`);
-          }
         }
       } catch (jwtError) {
-        console.warn('Could not extract permissions from JWT:', jwtError.message);
+        // Could not extract permissions from JWT
       }
     }
 
@@ -229,7 +222,6 @@ export async function syncMembershipsToDatabase(workosUserId, workOSMemberships)
     });
 
     if (!dbUser) {
-      console.warn(`Cannot sync memberships: User not found for ${workosUserId}`);
       return;
     }
 
@@ -241,7 +233,6 @@ export async function syncMembershipsToDatabase(workosUserId, workOSMemberships)
       });
 
       if (!organization) {
-        console.warn(`Cannot sync membership: Organization not found for ${membership.organizationId}`);
         continue;
       }
 
@@ -299,7 +290,6 @@ export async function syncMembershipsToDatabase(workosUserId, workOSMemberships)
       }
     });
 
-    console.log(`Synced ${workOSMemberships.length} memberships for user ${dbUser.email}`);
   } catch (error) {
     console.error('Error syncing memberships to database:', error);
     throw error;

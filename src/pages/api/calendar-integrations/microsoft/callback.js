@@ -9,7 +9,6 @@ export default createHandler({
     const { code, state, error: oauthError, error_description } = req.query;
 
     if (oauthError) {
-      console.log('[MICROSOFT_CALENDAR] OAuth denied:', oauthError, error_description);
       return res.redirect('/apps/profiles/user/integrations?error=microsoft_denied');
     }
 
@@ -37,8 +36,6 @@ export default createHandler({
         expiry_date: tokens.expiry_date,
         email: tokens.email,
       });
-
-      console.log(`[MICROSOFT_CALENDAR] Connected for user ${stateData.userId} (${tokens.email})`);
 
       const returnUrl = stateData.returnUrl || '/apps/profiles/user/integrations';
       res.redirect(`${returnUrl}?success=microsoft_connected`);

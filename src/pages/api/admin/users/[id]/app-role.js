@@ -71,7 +71,6 @@ export default createHandler({
         where: { userId, organizationId }
       });
 
-      console.log(`Removed app role assignment for user ${userId}`);
       return res.status(200).json({
         success: true,
         message: 'Role assignment removed',
@@ -118,8 +117,6 @@ export default createHandler({
         }
       }
     });
-
-    console.log(`Updated app role for user ${userId} to ${role.name}`);
 
     return res.status(200).json({
       success: true,

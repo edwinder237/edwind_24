@@ -63,7 +63,6 @@ export default createHandler({
       return res.status(500).json({ error: 'Failed to send feedback' });
     }
 
-    console.log(`Feedback submitted: ${type} from ${userEmail}`);
     return res.status(200).json({ success: true, message: 'Feedback submitted successfully' });
   }
 });

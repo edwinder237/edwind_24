@@ -133,20 +133,16 @@ const AgendaTabRTK = React.memo(() => {
 
     // Subscribe to event-related events
     const handleEventCreated = (event) => {
-      console.log('[AgendaTabRTK] Event created:', event);
       // RTK Query will automatically refetch due to cache invalidation
     };
 
     const handleEventUpdated = (event) => {
-      console.log('[AgendaTabRTK] Event updated:', event);
     };
 
     const handleEventDeleted = (event) => {
-      console.log('[AgendaTabRTK] Event deleted:', event);
     };
 
     const handleAttendanceUpdated = (event) => {
-      console.log('[AgendaTabRTK] Attendance updated:', event);
     };
 
     // Subscribe to events
@@ -199,10 +195,6 @@ const AgendaTabRTK = React.memo(() => {
   // Handle import completion
   const handleImportCompletion = useCallback(async (result) => {
     if (result.success) {
-      console.log(`Import completed: ${result.events?.length || 0} events created`);
-      if (result.warnings > 0) {
-        console.warn(`Import completed with ${result.warnings} warnings`);
-      }
       // Data will be automatically updated via RTK Query cache invalidation
     }
   }, []);

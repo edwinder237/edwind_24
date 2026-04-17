@@ -36,8 +36,6 @@ export default createHandler({
       }
     });
 
-    console.log(`Removed ${updatedProjectParticipants.count} participants from project. Also removed ${deletedAttendees.count} event attendee records.`);
-
     res.status(200).json({
       message: `${updatedProjectParticipants.count} participants successfully marked as removed`,
       count: updatedProjectParticipants.count,

@@ -179,7 +179,6 @@ export function getProjects(forceRefresh = false) {
       const hasProjects = currentState.projects?.projects?.length > 0;
       
       if (hasProjects && !forceRefresh) {
-        console.log('Fetching Cached Projects, skipping API call');
         return;
       }
       

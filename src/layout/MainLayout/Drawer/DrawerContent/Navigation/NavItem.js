@@ -35,6 +35,31 @@ const NavItem = ({ item, level }) => {
   // Feature access check (for items with featureKey)
   const { canAccess: featureAllowed, reason: featureReason } = useFeatureAccess(item.featureKey || null);
 
+  const isSelected = openItem.findIndex((id) => id === item.id) > -1;
+  const location = useRouter();
+  const { asPath } = location;
+
+  // active menu item on page load
+  useEffect(() => {
+    if (asPath && asPath.includes('product-details')) {
+      if (item.url && item.url.includes('product-details')) {
+        dispatch(activeItem({ openItem: [item.id] }));
+      }
+    }
+
+    if (asPath && asPath.includes('kanban')) {
+      if (item.url && item.url.includes('kanban')) {
+        dispatch(activeItem({ openItem: [item.id] }));
+      }
+    }
+
+    if (asPath === item.url) {
+      dispatch(activeItem({ openItem: [item.id] }));
+    }
+
+    // eslint-disable-next-line
+  }, [asPath]);
+
   // Access control: permissions + subscription plan tier
   const userPermissions = user?.permissions || [];
   const userRole = user?.role?.toLowerCase() || '';
@@ -80,31 +105,6 @@ const NavItem = ({ item, level }) => {
 
   const Icon = item.icon;
   const itemIcon = item.icon ? <Icon style={{ fontSize: drawerOpen ? '1rem' : '1.25rem' }} /> : false;
-
-  const isSelected = openItem.findIndex((id) => id === item.id) > -1;
-  const location = useRouter();
-  const { asPath } = location;
-
-  // active menu item on page load
-  useEffect(() => {
-    if (asPath && asPath.includes('product-details')) {
-      if (item.url && item.url.includes('product-details')) {
-        dispatch(activeItem({ openItem: [item.id] }));
-      }
-    }
-
-    if (asPath && asPath.includes('kanban')) {
-      if (item.url && item.url.includes('kanban')) {
-        dispatch(activeItem({ openItem: [item.id] }));
-      }
-    }
-
-    if (asPath === item.url) {
-      dispatch(activeItem({ openItem: [item.id] }));
-    }
-
-    // eslint-disable-next-line
-  }, [asPath]);
 
   const textColor = theme.palette.mode === 'dark' ? 'grey.400' : 'text.primary';
   const iconSelectedColor = theme.palette.mode === 'dark' && drawerOpen ? 'text.primary' : 'primary.main';

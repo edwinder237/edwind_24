@@ -70,8 +70,6 @@ export default createHandler({
 
     invalidateSubscriptionCache(orgId);
 
-    console.log(`✅ Subscription reactivated for org ${orgId} (${subscription.organization?.title})`);
-
     return res.status(200).json({
       success: true,
       message: `Subscription reactivated for "${subscription.organization?.title}"`

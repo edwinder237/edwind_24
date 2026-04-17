@@ -22,20 +22,24 @@ export default createHandler({
       throw new NotFoundError('Participant not found');
     }
 
-    // Mark participant as removed instead of deleting
-    const updatedProjectParticipant = await prisma.project_participants.update({
-      where: { id: enrolleeId },
-      data: { status: 'removed' }
-    });
-
-    // Also remove this participant from all event attendees
-    const deletedAttendees = await prisma.event_attendees.deleteMany({
-      where: { enrolleeId: enrolleeId }
-    });
+    // Remove from groups, events, and mark as removed — all atomically
+    const [deletedGroups, deletedAttendees, updatedProjectParticipant] = await prisma.$transaction([
+      prisma.group_participants.deleteMany({
+        where: { participantId: enrolleeId }
+      }),
+      prisma.event_attendees.deleteMany({
+        where: { enrolleeId: enrolleeId }
+      }),
+      prisma.project_participants.update({
+        where: { id: enrolleeId },
+        data: { status: 'removed' }
+      })
+    ]);
 
     res.status(200).json({
       message: 'Participant successfully marked as removed',
       participant: updatedProjectParticipant,
+      groupMembershipsRemoved: deletedGroups.count,
       eventAttendeesRemoved: deletedAttendees.count
     });
   }

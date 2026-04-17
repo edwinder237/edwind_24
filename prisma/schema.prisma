@@ -20,6 +20,8 @@ model User {
   midName                 String?
   lastName                String
   isActive                Boolean                     @default(true)
+  deletedAt               DateTime?
+  deletedBy               String?
   info                    Json
   createdAt               DateTime                    @default(now())
   updatedAt               DateTime?                   @updatedAt
@@ -32,6 +34,7 @@ model User {
   calendar_integrations   calendar_integrations[]
 
   @@index([sub_organizationId])
+  @@index([deletedAt])
   @@map("users")
 }
 
@@ -50,6 +53,8 @@ model organizations {
   type                    String?
   notes                   String?
   published               Boolean
+  deletedAt               DateTime?
+  deletedBy               String?
   sub_organizations       sub_organizations[]
   organization_memberships organization_memberships[]
   subscription            subscriptions?
@@ -57,6 +62,7 @@ model organizations {
   organization_role_overrides organization_role_overrides[]
   user_permission_overrides user_permission_overrides[]
 
+  @@index([deletedAt])
 }
 
 model sub_organizations {
@@ -114,7 +120,6 @@ model training_recipients {
   address              String?
   website              String?
   industry             String?
-  taxId                String?
   notes                String?
   location             Json?
   img                  String?
@@ -128,10 +133,13 @@ model training_recipients {
   projects             projects[]
   project_participants project_participants[]
   rooms                rooms[]
+  deletedAt            DateTime?
+  deletedBy            String?
   sub_organization     sub_organizations          @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 
   @@index([sub_organizationId])
   @@index([status])
+  @@index([deletedAt])
 }
 
 model projects {
@@ -157,6 +165,8 @@ model projects {
   language                           String                                        @default("English")
   location                           Json?
   trainingRecipientId                Int?
+  deletedAt                          DateTime?
+  deletedBy                          String?
   assessment_configs                 project_assessment_config[]
   daily_focus                        daily_focus[]
   daily_training_notes               daily_training_notes[]
@@ -175,10 +185,13 @@ model projects {
   training_recipient                 training_recipients?                          @relation(fields: [trainingRecipientId], references: [id])
   training_plans                     training_plans[]
   parking_lot_items                  parking_lot_items[]
+  needs_analysis                     project_needs_analysis?
 
   @@index([CreatedBy])
   @@index([sub_organizationId, createdAt])
   @@index([trainingRecipientId])
+  @@index([deletedAt])
+  @@index([sub_organizationId, deletedAt])
 }
 
 model parking_lot_items {
@@ -226,12 +239,15 @@ model instructors {
   assessment_scores   participant_assessment_scores[]
   course_instructors  course_instructors[]
   event_instructors   event_instructors[]
+  deletedAt           DateTime?
+  deletedBy           String?
   sub_organization    sub_organizations             @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
   project_instructors project_instructors[]
 
   @@index([sub_organizationId])
   @@index([instructorType])
   @@index([status])
+  @@index([deletedAt])
 }
 
 model project_instructors {
@@ -289,6 +305,8 @@ model participants {
   lastUpdated         DateTime?                          @default(now())
   updatedby           String?
   createdBy           String?
+  deletedAt           DateTime?
+  deletedBy           String?
   role                sub_organization_participant_role? @relation(fields: [roleId], references: [id])
   training_recipient  training_recipients?               @relation(fields: [trainingRecipientId], references: [id])
   projects            project_participants[]
@@ -299,6 +317,8 @@ model participants {
   @@index([trainingRecipientId])
   @@index([roleId])
   @@index([sub_organization])
+  @@index([deletedAt])
+  @@index([sub_organization, deletedAt])
 }
 
 model project_curriculums {
@@ -333,6 +353,7 @@ model project_participants {
 
   @@unique([projectId, participantId])
   @@index([projectId, status])
+  @@index([projectId, participantId, status])
   @@index([participantId])
   @@index([trainingRecipientId])
 }
@@ -435,9 +456,13 @@ model courses {
   training_plan_modules     training_plan_modules[]
   versions                  course_versions[]
   audit_logs                course_audit_logs[]
+  deletedAt                 DateTime?
+  deletedBy                 String?
 
   @@index([sub_organizationId, isActive])
+  @@index([sub_organizationId, published])
   @@index([currentVersionId])
+  @@index([deletedAt])
 }
 
 model courses_enrollee_progress {
@@ -458,6 +483,7 @@ model courses_enrollee_progress {
   @@index([courseId])
   @@index([courseVersionId])
   @@index([enrolleeId])
+  @@index([enrolleeId, completed])
 }
 
 model modules {
@@ -486,6 +512,7 @@ model modules {
   versions                 module_versions[]
 
   @@index([courseId])
+  @@index([courseId, moduleOrder])
 }
 
 model curriculums {
@@ -543,6 +570,7 @@ model activities {
   versions                  activity_versions[]
 
   @@index([moduleId])
+  @@index([moduleId, ActivityOrder])
 }
 
 model events {
@@ -579,6 +607,8 @@ model events {
   room                    rooms?                      @relation(fields: [roomId], references: [id])
   event_module_progress   event_module_progress[]
   calendar_event_mappings calendar_event_mappings[]
+  deletedAt               DateTime?
+  deletedBy               String?
 
   @@index([projectId, start])
   @@index([eventType])
@@ -586,6 +616,9 @@ model events {
   @@index([courseVersionId])
   @@index([supportActivityId])
   @@index([roomId])
+  @@index([deletedAt])
+  @@index([projectId, deletedAt])
+  @@index([projectId, eventStatus])
 }
 
 model event_attendees {
@@ -653,6 +686,23 @@ model daily_training_notes {
   @@unique([projectId, date])
   @@index([projectId])
   @@index([date])
+}
+
+model project_needs_analysis {
+  id               Int      @id @default(autoincrement())
+  projectId        Int      @unique
+  problemStatement String?  @db.Text
+  rootCauses       Json     @default("[]")
+  desiredOutcome   String?  @db.Text
+  successMetrics   Json     @default("[]")
+  status           String   @default("draft")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        String
+  updatedBy        String?
+  project          projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 model supportActivities {
@@ -953,6 +1003,7 @@ model training_plans {
   @@index([curriculumId])
   @@index([projectId])
   @@index([status])
+  @@index([projectId, status])
 }
 
 model training_plan_days {
@@ -1026,6 +1077,7 @@ model event_activity_progress {
   @@unique([eventId, activityId])
   @@index([eventId])
   @@index([activityId])
+  @@index([eventId, completed])
 }
 
 model event_module_progress {
@@ -1042,6 +1094,7 @@ model event_module_progress {
   @@unique([eventId, moduleId])
   @@index([eventId])
   @@index([moduleId])
+  @@index([eventId, completed])
 }
 
 model course_assessments {

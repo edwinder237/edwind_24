@@ -98,9 +98,9 @@ export function withOrgScope(handler, options = {}) {
       if (dbUser && dbUser.isActive === false) {
         // Clear auth cookies
         res.setHeader('Set-Cookie', [
-          'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-          'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-          'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+          'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+          'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+          'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
         ]);
         throw new AccountInactiveError('Your account has been deactivated');
       }

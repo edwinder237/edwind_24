@@ -136,9 +136,6 @@ export const syncInstructorsToStores = (dispatch, instructors) => {
  * @param {Object} data - The data being synchronized
  */
 export const logSync = (operation, data) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[ProjectSync] ${operation}:`, data);
-  }
 };
 
 /**

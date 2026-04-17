@@ -74,7 +74,6 @@ export default createHandler({
           where: { id: currentSubscription.id },
           data: { stripeSubscriptionId: null }
         });
-        console.log(`💳 [CHECKOUT] Cleared stale stripeSubscriptionId for org ${orgContext.organizationId} (Stripe sub was ${stripeSub.status})`);
       }
     } catch (err) {
       // If Stripe can't find the subscription, it's gone — allow new checkout
@@ -84,7 +83,6 @@ export default createHandler({
           where: { id: currentSubscription.id },
           data: { stripeSubscriptionId: null }
         });
-        console.log(`💳 [CHECKOUT] Cleared missing stripeSubscriptionId for org ${orgContext.organizationId}`);
       } else {
         console.error('Error verifying Stripe subscription:', err.message);
       }

@@ -49,7 +49,6 @@ export default createHandler({
         expiresInDays: 7
       });
 
-      console.log(`✅ WorkOS invitation sent to ${email}:`, invitation.id);
     } catch (workosError) {
       console.error('WorkOS invitation error:', workosError);
       const msg = workosError.message || '';
@@ -97,7 +96,6 @@ export default createHandler({
       finalSubOrgId = sub_organizationId;
     } else if (subOrganizationIds.length > 0) {
       finalSubOrgId = subOrganizationIds[0];
-      console.log(`📋 No sub-org specified, defaulting to first: ${finalSubOrgId}`);
     }
 
     if (!finalSubOrgId) {
@@ -144,10 +142,7 @@ export default createHandler({
           assignedBy: workosUserId
         }
       });
-      console.log(`✅ Assigned role ${appRoleId} to pending user ${pendingUser.email}`);
     }
-
-    console.log(`✅ Created pending user: ${pendingUser.email}`);
 
     return res.status(200).json({
       success: true,

@@ -48,7 +48,15 @@ export default function CurriculumPicker({
           curriculumsList = updatedResponse.data;
         }
 
-        setCurriculums(curriculumsList);
+        // Add group labels: default → "Suggested", next 3 → "Recent", rest → "All Curriculums"
+        let recentCount = 0;
+        const grouped = curriculumsList.map(c => {
+          if (c.isDefault) return { ...c, group: 'Suggested' };
+          if (recentCount < 3) { recentCount++; return { ...c, group: 'Recent' }; }
+          return { ...c, group: 'All Curriculums' };
+        });
+
+        setCurriculums(grouped);
 
         // Auto-select the default curriculum if no initial value was provided
         if (!initialValue && curriculumsList.length > 0) {
@@ -96,6 +104,7 @@ export default function CurriculumPicker({
     <Autocomplete
       id="curriculum-autocomplete"
       options={curriculums}
+      groupBy={(option) => option.group}
       value={selectedCurriculum}
       onChange={handleChange}
       getOptionLabel={(option) => {

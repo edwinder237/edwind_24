@@ -137,21 +137,8 @@ const GroupDetails = ({ Group, onProgressLoad, projectId }) => {
 
   const availableParticipants = useMemo(() => {
     if (!project_participants || !groups || groups.length === 0) {
-      console.log('[GroupDetails] No data for availableParticipants:', {
-        hasParticipants: !!project_participants,
-        participantCount: project_participants?.length,
-        hasGroups: !!groups,
-        groupCount: groups?.length
-      });
       return [];
     }
-
-    console.log('[GroupDetails] Computing available participants:', {
-      totalParticipants: project_participants.length,
-      totalGroups: groups.length,
-      currentGroup: Group?.id,
-      currentGroupParticipants: Group?.participants?.length
-    });
 
     const result = project_participants.map(pp => {
       // Find which group this participant is in
@@ -186,15 +173,6 @@ const GroupDetails = ({ Group, onProgressLoad, projectId }) => {
       }
       return unique;
     }, []);
-
-    console.log('[GroupDetails] Available participants result:', {
-      count: result.length,
-      participants: result.map(p => ({
-        id: p.id,
-        name: `${p.participant?.firstName} ${p.participant?.lastName}`,
-        currentGroup: p.currentGroup?.groupName
-      }))
-    });
 
     return result;
   }, [project_participants?.length, groups?.length, Group?.participants?.length, Group?.id]);

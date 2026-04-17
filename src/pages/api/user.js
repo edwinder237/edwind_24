@@ -75,9 +75,9 @@ export default createHandler({
 
     if (dbUser && dbUser.isActive === false) {
       res.setHeader('Set-Cookie', [
-        'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-        'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-        'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+        'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+        'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+        'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
       ]);
       return res.status(401).json({
         error: 'Your account has been deactivated',
@@ -107,9 +107,9 @@ export default createHandler({
         if (currentOrg) {
           if (currentOrg.status === 'inactive') {
             res.setHeader('Set-Cookie', [
-              'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-              'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-              'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+              'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+              'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+              'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
             ]);
             return res.status(401).json({
               error: 'Your organization has been deactivated',

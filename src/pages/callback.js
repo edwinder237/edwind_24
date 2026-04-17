@@ -5,6 +5,7 @@ import { serialize } from 'cookie';
 import prisma from '../lib/prisma';
 import { buildAndCacheClaims } from '../lib/auth/claimsManager';
 import { encrypt } from '../lib/crypto/index.js';
+import { generateCsrfToken, csrfCookieHeader } from '../lib/security/csrf';
 
 // Initialize WorkOS only when needed to avoid build-time errors
 let workos;
@@ -67,12 +68,6 @@ export async function getServerSideProps(context) {
 
     const { user, accessToken, organizationId: workosOrgId } = authResult;
 
-    console.log('🔐 Auth result:', {
-      userId: user.id,
-      email: user.email,
-      organizationId: workosOrgId || 'none selected'
-    });
-
     // Extract session ID and permissions from the access token JWT
     const tokenParts = accessToken.split('.');
     let sessionId = null;
@@ -85,15 +80,6 @@ export async function getServerSideProps(context) {
       // WorkOS includes permissions in the JWT token
       jwtPermissions = payload.permissions || [];
 
-      console.log('🔑 JWT Payload:', JSON.stringify(payload, null, 2));
-      console.log(`🔑 Permissions in JWT: ${jwtPermissions.length} permissions`);
-      if (jwtPermissions.length > 0) {
-        console.log('   ✅ Permissions:', jwtPermissions);
-      } else {
-        console.log('   ⚠️  NO PERMISSIONS IN JWT!');
-        console.log('   💡 You need to assign permissions to the role in WorkOS dashboard');
-        console.log('   📋 Go to: WorkOS Dashboard → Roles & Permissions → Select Role → Assign Permissions');
-      }
     }
 
     // Fetch user's organization memberships from WorkOS
@@ -103,7 +89,6 @@ export async function getServerSideProps(context) {
         userId: user.id
       });
       memberships = membershipResponse.data || [];
-      console.log(`✅ Fetched ${memberships.length} organization memberships for user ${user.email}`);
     } catch (membershipError) {
       console.error('Error fetching memberships:', membershipError);
       // Continue without memberships - will be handled during sync
@@ -124,10 +109,6 @@ export async function getServerSideProps(context) {
         existingUser = await prisma.user.findUnique({
           where: { email: user.email }
         });
-
-        if (existingUser) {
-          console.log(`🔗 Found invited user by email: ${user.email}, linking WorkOS ID`);
-        }
       }
 
       // Check if this is a pending invited user accepting their invitation
@@ -141,23 +122,20 @@ export async function getServerSideProps(context) {
           data: { isActive: true }
         });
         existingUser.isActive = true;
-        console.log(`✅ Activated invited user on first login: ${user.email}`);
       }
 
       // Block inactive users from logging in (but not pending invites — they were just activated above)
       if (existingUser && existingUser.isActive === false) {
-        console.log(`⛔ Inactive user attempted login: ${user.email}`);
-
         // Store the session ID in a cookie temporarily so logout API can use it
         // Then redirect through logout API to properly clear WorkOS session
         const cookiesToSet = [
-          'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
-          'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax',
+          'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+          'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
         ];
 
         // Keep session ID temporarily for logout, it will be cleared by logout API
         if (sessionId) {
-          cookiesToSet.push(`workos_session_id=${sessionId}; HttpOnly; Path=/; Max-Age=60; SameSite=Lax`);
+          cookiesToSet.push(`workos_session_id=${sessionId}; HttpOnly; Path=/; Max-Age=60; SameSite=Strict`);
         }
 
         context.res.setHeader('Set-Cookie', cookiesToSet);
@@ -195,7 +173,6 @@ export async function getServerSideProps(context) {
             sub_organizationId: null // Will be set during onboarding
           }
         });
-        console.log(`✅ Created new user: ${user.email}`);
         needsOnboarding = true;
       } else {
         // Check if this is an invited user being linked (had no workos_user_id before)
@@ -207,7 +184,6 @@ export async function getServerSideProps(context) {
         if (!userInfo.onboardingComplete && !existingUser.sub_organizationId) {
           // User exists but hasn't completed onboarding
           needsOnboarding = true;
-          console.log(`⚠️ Existing user needs onboarding: ${user.email}`);
         }
 
         // Update existing user's profile from WorkOS on every login
@@ -230,12 +206,6 @@ export async function getServerSideProps(context) {
           }
         });
 
-        if (wasInvitedUser) {
-          console.log(`✅ Linked invited user to WorkOS: ${user.email} -> ${user.id}`);
-        } else {
-          console.log(`✅ Synced user profile from WorkOS: ${user.email}`);
-        }
-        console.log(`   Updated name to: ${updatedName}`);
       }
     } catch (dbError) {
       console.error('Database sync error:', dbError);
@@ -244,17 +214,7 @@ export async function getServerSideProps(context) {
 
     // Build and cache permission claims with JWT permissions
     try {
-      const claims = await buildAndCacheClaims(user.id, memberships, jwtPermissions);
-      if (claims) {
-        console.log(`✅ Built and cached claims for user ${user.email}`);
-        console.log(`   - ${claims.organizations.length} organizations`);
-        claims.organizations.forEach(org => {
-          console.log(`   - ${org.role} in org ${org.orgId} with ${org.permissions.length} permissions`);
-          console.log(`   - Permissions:`, org.permissions);
-        });
-      } else {
-        console.warn(`⚠️  Could not build claims for user ${user.email}`);
-      }
+      await buildAndCacheClaims(user.id, memberships, jwtPermissions);
     } catch (claimsError) {
       console.error('Error building claims:', claimsError);
       // Continue with authentication even if claims building fails
@@ -276,9 +236,6 @@ export async function getServerSideProps(context) {
             title: true
           }
         });
-        if (selectedOrg) {
-          console.log(`🏢 Setting organization from WorkOS selection: ${selectedOrg.title}`);
-        }
       }
 
       // 2. If no org from WorkOS, try to get from user's sub_organization
@@ -307,7 +264,6 @@ export async function getServerSideProps(context) {
 
         if (dbUser?.sub_organization?.organization) {
           selectedOrg = dbUser.sub_organization.organization;
-          console.log(`🏢 Setting organization from user's sub-organization: ${selectedOrg.title}`);
         }
       }
 
@@ -322,9 +278,6 @@ export async function getServerSideProps(context) {
             title: true
           }
         });
-        if (selectedOrg) {
-          console.log(`🏢 Setting organization from first membership: ${selectedOrg.title}`);
-        }
       }
 
       // Create the cookie if we found an organization
@@ -343,9 +296,6 @@ export async function getServerSideProps(context) {
           maxAge: 30 * 24 * 60 * 60, // 30 days
           path: '/'
         });
-        console.log(`✅ Organization cookie set for: ${selectedOrg.title}`);
-      } else {
-        console.warn(`⚠️  Could not determine organization for user ${user.email}`);
       }
     } catch (orgError) {
       console.error('Error setting organization cookie:', orgError);
@@ -353,10 +303,13 @@ export async function getServerSideProps(context) {
     }
 
     // Set session cookies including session ID for logout
+    const isProduction = process.env.NODE_ENV === 'production';
+    const secureSuffix = isProduction ? '; Secure' : '';
     const cookies = [
-      `workos_user_id=${user.id}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}`, // 7 days
-      `workos_access_token=${accessToken}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}`, // 7 days
-      `workos_session_id=${sessionId}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}`, // 7 days
+      `workos_user_id=${user.id}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Strict${secureSuffix}`,
+      `workos_access_token=${accessToken}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Strict${secureSuffix}`,
+      `workos_session_id=${sessionId}; HttpOnly; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Strict${secureSuffix}`,
+      csrfCookieHeader(generateCsrfToken()),
     ];
 
     // Add organization cookie if we have one
@@ -369,8 +322,6 @@ export async function getServerSideProps(context) {
 
     // Redirect based on onboarding status
     const redirectDestination = needsOnboarding ? '/onboarding' : '/projects';
-
-    console.log(`🔀 Redirecting to: ${redirectDestination} (isNewUser: ${isNewUser}, needsOnboarding: ${needsOnboarding})`);
 
     return {
       redirect: {

@@ -37,6 +37,21 @@ const nextConfig = {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
           },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: blob: https://flagcdn.com https://images.unsplash.com https://i.ibb.co https://maps.googleapis.com https://lh3.googleusercontent.com https://places.googleapis.com https://pub-34f9e757e51b451ea7060249e757957c.r2.dev https://i.pravatar.cc https://d1oco4z2z1fhwp.cloudfront.net https://d15k2d11r6t6rl.cloudfront.net",
+              "connect-src 'self'",
+              "frame-src 'self' https://www.youtube.com",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
         ],
       },
     ];

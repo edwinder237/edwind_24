@@ -217,6 +217,10 @@ const OrganizationDetailPage = () => {
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
   const [reactivatingSubscription, setReactivatingSubscription] = useState(false);
+  const [changePlanDialogOpen, setChangePlanDialogOpen] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [changingPlan, setChangingPlan] = useState(false);
 
   const isOwner = user?.role?.toLowerCase() === 'owner';
 
@@ -341,6 +345,47 @@ const OrganizationDetailPage = () => {
       setActionError(err.message);
     } finally {
       setReactivatingSubscription(false);
+    }
+  };
+
+  // ── Change Plan ──
+  const handleOpenChangePlan = async () => {
+    setChangePlanDialogOpen(true);
+    setPlansLoading(true);
+    try {
+      const res = await fetch('/api/subscriptions/plans');
+      if (res.ok) {
+        const data = await res.json();
+        setPlans(data.plans || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const handleChangePlan = async (planId) => {
+    setChangingPlan(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const res = await fetch(`/api/internal/organizations/${id}/change-plan`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to change plan');
+      }
+      setActionSuccess(data.message || 'Plan changed successfully');
+      setChangePlanDialogOpen(false);
+      await fetchOrg();
+    } catch (err) {
+      setActionError(err.message);
+    } finally {
+      setChangingPlan(false);
     }
   };
 
@@ -752,6 +797,16 @@ const OrganizationDetailPage = () => {
 
               {/* ── Subscription & Billing Tab ── */}
               <TabPanel value={activeTab} index={2}>
+                {actionError && (
+                  <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>
+                    {actionError}
+                  </Alert>
+                )}
+                {actionSuccess && (
+                  <Alert severity="success" sx={{ mb: 2 }} onClose={() => setActionSuccess('')}>
+                    {actionSuccess}
+                  </Alert>
+                )}
                 {!org.subscription ? (
                   <Alert severity="info">This organization has no subscription.</Alert>
                 ) : (
@@ -809,6 +864,18 @@ const OrganizationDetailPage = () => {
                             sx={{ mt: 2 }}
                           >
                             {reactivatingSubscription ? 'Reactivating...' : 'Reactivate Subscription'}
+                          </Button>
+                        )}
+                        {['active', 'trialing'].includes(org.subscription.status) && (
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            size="small"
+                            onClick={handleOpenChangePlan}
+                            startIcon={<EditOutlined />}
+                            sx={{ mt: 2 }}
+                          >
+                            Change Plan
                           </Button>
                         )}
                       </Stack>
@@ -993,6 +1060,91 @@ const OrganizationDetailPage = () => {
             </MainCard>
           </>
         )}
+        {/* ── Change Plan Dialog ── */}
+        <Dialog
+          open={changePlanDialogOpen}
+          onClose={() => !changingPlan && setChangePlanDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Change Subscription Plan</DialogTitle>
+          <DialogContent>
+            {actionError && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>
+                {actionError}
+              </Alert>
+            )}
+            {plansLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                {plans.map((plan) => {
+                  const isCurrent = plan.planId === org?.subscription?.planId;
+                  const iconMap = {
+                    enterprise: <CrownOutlined style={{ fontSize: 24 }} />,
+                    professional: <StarOutlined style={{ fontSize: 24 }} />,
+                    essential: <RocketOutlined style={{ fontSize: 24 }} />
+                  };
+                  return (
+                    <Paper
+                      key={plan.planId}
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        borderColor: isCurrent ? 'primary.main' : 'divider',
+                        borderWidth: isCurrent ? 2 : 1,
+                        opacity: changingPlan && !isCurrent ? 0.6 : 1
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" justifyContent="space-between">
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          <Box
+                            sx={{
+                              p: 1,
+                              borderRadius: 1,
+                              bgcolor: alpha(theme.palette.primary.main, 0.1)
+                            }}
+                          >
+                            {iconMap[plan.planId] || iconMap.essential}
+                          </Box>
+                          <Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                              {plan.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {plan.description || `${plan.planId} plan`}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        {isCurrent ? (
+                          <Chip label="Current Plan" color="primary" size="small" variant="outlined" />
+                        ) : (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleChangePlan(plan.planId)}
+                            disabled={changingPlan}
+                            startIcon={changingPlan ? <CircularProgress size={14} /> : null}
+                          >
+                            {changingPlan ? 'Changing...' : 'Select'}
+                          </Button>
+                        )}
+                      </Stack>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setChangePlanDialogOpen(false)} disabled={changingPlan}>
+              Cancel
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         {/* ── Edit User Dialog ── */}
         <Dialog
           open={editDialog.open}

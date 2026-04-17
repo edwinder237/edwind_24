@@ -631,7 +631,6 @@ const CourseSyllabus = ({ course, modules }) => {
     
     try {
       // PDF export functionality temporarily disabled
-      console.log('PDF export is currently disabled');
       alert('PDF export functionality is currently being updated. Please check back later.');
     } catch (error) {
       console.error('Error generating PDF:', error);

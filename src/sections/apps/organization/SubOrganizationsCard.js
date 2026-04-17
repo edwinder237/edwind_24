@@ -78,7 +78,6 @@ const SubOrganizationsCard = () => {
       if (!response.ok) {
         // 403/401 means org context issue - don't show as error
         if (response.status === 403 || response.status === 401) {
-          console.log('Sub-organizations not available (may require proper org context)');
           setSubOrganizations([]);
           setLimits({ current: 0, max: 1 });
           setError(null);

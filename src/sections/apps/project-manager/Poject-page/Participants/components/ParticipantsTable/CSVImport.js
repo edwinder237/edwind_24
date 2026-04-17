@@ -220,7 +220,7 @@ const CSVImport = ({ open, onClose, onImport, loading = false }) => {
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth PaperProps={{ sx: { maxHeight: '90vh' } }}>
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
           <UploadOutlined />

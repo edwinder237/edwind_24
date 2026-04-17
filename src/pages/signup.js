@@ -908,7 +908,7 @@ const SignupPage = () => {
               {activeStep === 0 && (
                 <>
                   <Typography variant="h4" textAlign="center" sx={{ fontWeight: 700, mb: 0.5 }}>
-                    Get Started with EDWIND
+                    Get Started with EDBAHN
                   </Typography>
                   <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
                     Set up your training platform in just a few steps.

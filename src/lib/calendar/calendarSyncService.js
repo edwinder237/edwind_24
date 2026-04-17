@@ -1,7 +1,7 @@
 /**
  * Calendar Sync Service
  *
- * Orchestrates one-way push sync from EDWIND events to external calendars
+ * Orchestrates one-way push sync from EDBAHN events to external calendars
  * (Google Calendar, Microsoft Outlook). This is the main entry point
  * called by event CRUD operations.
  */
@@ -16,7 +16,7 @@ import * as microsoftService from './microsoftCalendarService.js';
  * Sync a single event to all of a user's connected external calendars.
  * This is fire-and-forget — errors are logged but never thrown.
  *
- * @param {number} eventId - EDWIND event ID
+ * @param {number} eventId - EDBAHN event ID
  * @param {'create'|'update'|'delete'} action - The CRUD action that triggered sync
  * @param {string} userId - User ID who performed the action
  * @param {Object} [preDeleteMappings] - Pre-captured mappings for delete actions (since event is gone)
@@ -31,12 +31,13 @@ export async function syncEventToCalendars(eventId, action, userId, preDeleteMap
     if (integrations.length === 0) return;
 
     // Fetch event data (not needed for delete if we have pre-captured mappings)
+    const SYNCABLE_STATUSES = ['Planning', 'Scheduled', 'In Progress'];
     let event = null;
     if (action !== 'delete') {
       event = await prisma.events.findUnique({
         where: { id: eventId },
         include: {
-          project: { select: { title: true } },
+          project: { select: { title: true, projectStatus: true } },
           course: { select: { title: true } },
           room: { select: { name: true, location: true, capacity: true } },
         },
@@ -44,6 +45,11 @@ export async function syncEventToCalendars(eventId, action, userId, preDeleteMap
 
       if (!event) {
         console.error(`[CALENDAR_SYNC] Event ${eventId} not found`);
+        return;
+      }
+
+      // Skip sync for projects not in an active status
+      if (event.project && !SYNCABLE_STATUSES.includes(event.project.projectStatus)) {
         return;
       }
     }
@@ -231,7 +237,6 @@ async function getValidAccessToken(integration) {
     },
   });
 
-  console.log(`[CALENDAR_SYNC] Refreshed ${integration.provider} token for integration ${integration.id}`);
   return newTokens.access_token;
 }
 
@@ -253,10 +258,12 @@ export async function syncAllProjectEvents(userId, projectId, { futureOnly = tru
     return { synced: 0, errors: 0 };
   }
 
-  // Find events to sync (default: future events only for speed)
+  // Find events to sync — only from active project statuses
+  const SYNCABLE_STATUSES = ['Planning', 'Scheduled', 'In Progress'];
   const whereClause = {
     ...(projectId ? { projectId: parseInt(projectId) } : {}),
     ...(futureOnly ? { end: { gte: new Date() } } : {}),
+    project: { projectStatus: { in: SYNCABLE_STATUSES } },
   };
   const events = await prisma.events.findMany({
     where: whereClause,
@@ -366,5 +373,4 @@ export async function disconnectIntegration(userId, integrationId) {
     data: { isActive: false },
   });
 
-  console.log(`[CALENDAR_SYNC] Disconnected ${integration.provider} integration ${integrationId} for user ${userId}`);
 }

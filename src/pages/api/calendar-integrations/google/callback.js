@@ -9,7 +9,6 @@ export default createHandler({
     const { code, state, error: oauthError } = req.query;
 
     if (oauthError) {
-      console.log('[GOOGLE_CALENDAR] OAuth denied:', oauthError);
       return res.redirect('/apps/profiles/user/integrations?error=google_denied');
     }
 
@@ -31,8 +30,6 @@ export default createHandler({
     try {
       const tokens = await exchangeCodeForTokens(code);
       await storeIntegration(stateData.userId, 'google', tokens);
-
-      console.log(`[GOOGLE_CALENDAR] Connected for user ${stateData.userId} (${tokens.email})`);
 
       const returnUrl = stateData.returnUrl || '/apps/profiles/user/integrations';
       res.redirect(`${returnUrl}?success=google_connected`);

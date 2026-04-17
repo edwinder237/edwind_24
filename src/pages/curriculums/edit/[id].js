@@ -72,7 +72,7 @@ import {
   Forum as ForumIcon,
   Science as ScienceIcon,
   Slideshow as SlideshowIcon,
-  RadioButtonCheckedIcon,
+  RadioButtonChecked as RadioButtonCheckedIcon,
   Search as SearchIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,

@@ -1,11 +1,14 @@
 import { PrismaClient } from '@prisma/client';
+import { softDeleteMiddleware } from './prisma/softDelete.js';
 
 const globalForPrisma = globalThis;
 
-const prisma = globalForPrisma.prisma || new PrismaClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
+if (!globalForPrisma.prisma) {
+  const client = new PrismaClient();
+  client.$use(softDeleteMiddleware);
+  globalForPrisma.prisma = client;
 }
+
+const prisma = globalForPrisma.prisma;
 
 export default prisma;

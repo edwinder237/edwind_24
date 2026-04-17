@@ -78,7 +78,6 @@ export function requireFeature(featureKey) {
             customLimits: null,
             customFeatures: null
           };
-          console.log(`⚠️ No subscription found for org ${org.id}, defaulting to essential plan`);
         }
 
         // Check feature access
@@ -184,7 +183,6 @@ export async function checkFeatureAccess(req, res, featureKey) {
         customLimits: null,
         customFeatures: null
       };
-      console.log(`⚠️ No subscription found for org ${org.id}, defaulting to essential plan`);
     }
 
     // Check access
@@ -266,7 +264,6 @@ export function requireResourceCapacity(resource, amount = 1) {
             customLimits: null,
             customFeatures: null
           };
-          console.log(`⚠️ No subscription found for org ${org.id}, defaulting to essential plan`);
         }
 
         // Get current usage

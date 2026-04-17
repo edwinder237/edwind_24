@@ -149,7 +149,6 @@ export async function getCachedClaims(req, workos) {
     }
 
     // L3: Fetch from WorkOS API (via claimsManager)
-    console.log(`🔄 Cache miss, fetching from WorkOS for user: ${workosUserId}`);
     const freshClaims = await getClaimsFromRequestOriginal(req, workos);
 
     if (!freshClaims) {
@@ -184,8 +183,6 @@ export async function invalidateClaimsCache(workosUserId) {
 
     // Clear L2 (Redis)
     await cache.del(cacheKey);
-
-    console.log(`✅ Invalidated claims cache for user: ${workosUserId}`);
   } catch (error) {
     console.error('Error invalidating claims cache:', error);
     throw error;
@@ -202,11 +199,9 @@ export async function invalidateAllClaimsCache() {
   try {
     // Clear L1
     l1Cache.clear();
-    console.log('✅ Cleared L1 claims cache');
 
     // Clear L2
     const deletedCount = await cache.deletePattern('claims:*');
-    console.log(`✅ Cleared ${deletedCount} L2 claims cache entries`);
 
     return deletedCount;
   } catch (error) {
@@ -243,8 +238,6 @@ export async function warmClaimsCache(req, workos) {
     // Warm both caches
     l1Cache.set(cacheKey, freshClaims);
     await cache.set(cacheKey, JSON.stringify(freshClaims), 15 * 60);
-
-    console.log(`✅ Warmed cache for user: ${workosUserId}`);
 
     return freshClaims;
   } catch (error) {

@@ -2,8 +2,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { logUsage, PROVIDERS } from './usage/usageLogger';
 
 // Cloudflare R2 Configuration
-const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '923f49e1995e9f5e3f85d8b7ea48047a';
-const R2_TOKEN = process.env.R2_TOKEN || 'UQEAEo20xjkvrBnDpWzfVXZ_KQGHoYpf1XgKTA7p';
+const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+const R2_TOKEN = process.env.R2_TOKEN;
 const BUCKET_NAME = 'edwindblobs';
 const PUBLIC_URL_BASE = `https://pub-34f9e757e51b451ea7060249e757957c.r2.dev`;
 
@@ -32,7 +32,7 @@ export async function uploadImageToR2(imageUrl, prefix = 'images') {
     // Fetch image with optimized headers and timeout
     const fetchResponse = await fetch(imageUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; EDWIND/1.0; +https://edwind.app)',
+        'User-Agent': 'Mozilla/5.0 (compatible; EDBAHN/1.0; +https://edwind.app)',
         'Accept': 'image/*',
         'Cache-Control': 'no-cache'
       },
@@ -78,7 +78,6 @@ export async function uploadImageToR2(imageUrl, prefix = 'images') {
     }
 
     const publicUrl = `${PUBLIC_URL_BASE}/${key}`;
-    console.log(`✅ Image uploaded successfully: ${key} (${Math.round(fileSize / 1024)}KB)`);
 
     // Log R2 usage (fire-and-forget)
     logUsage({
@@ -173,7 +172,6 @@ export async function uploadBase64ImageToR2(base64Data, prefix = 'images', fileN
     }
 
     const publicUrl = `${PUBLIC_URL_BASE}/${key}`;
-    console.log(`✅ Base64 image uploaded successfully: ${key} (${Math.round(fileSize / 1024)}KB)`);
 
     // Log R2 usage (fire-and-forget)
     logUsage({
@@ -222,9 +220,7 @@ export async function uploadMultipleImagesToR2(imageUrls, prefix = 'images', con
     const batch = imageUrls.slice(i, i + concurrency);
     const batchPromises = batch.map(async (url, index) => {
       try {
-        const result = await uploadImageToR2(url, prefix);
-        console.log(`✅ Batch upload ${i + index + 1}/${imageUrls.length} completed`);
-        return result;
+        return await uploadImageToR2(url, prefix);
       } catch (error) {
         console.error(`❌ Batch upload ${i + index + 1}/${imageUrls.length} failed:`, error.message);
         return null;
@@ -260,7 +256,6 @@ export async function deleteImageFromR2(key) {
     );
 
     if (response.ok) {
-      console.log(`✅ Image deleted successfully: ${key}`);
       return true;
     } else {
       console.error(`❌ Failed to delete image: ${key} (${response.status})`);

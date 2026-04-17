@@ -250,9 +250,6 @@ async function processImportAgenda(options) {
     // Ensure we start on a working day
     currentScheduleTime = ensureWorkingDayHelper(currentScheduleTime, workingHours.workingDays);
 
-    console.log('Starting schedule at:', currentScheduleTime.toISOString(),
-                'Working hours:', projectSettings.startOfDayTime, '-', projectSettings.endOfDayTime);
-
     const createdEvents = [];
     const warnings = [];
 
@@ -277,8 +274,6 @@ async function processImportAgenda(options) {
       const [startHour, startMinute] = projectSettings.startOfDayTime.split(':').map(Number);
       currentScheduleTime.setHours(startHour, startMinute, 0, 0);
 
-      console.log(`Training plan day ${planDay.dayNumber} scheduled for:`, currentScheduleTime.toISOString());
-
       // Track if this day has any events (for lunch break creation)
       let dayHasEvents = false;
 
@@ -289,21 +284,6 @@ async function processImportAgenda(options) {
 
       // Group modules by course and track the sequence
       for (const planModule of planDay.modules) {
-        console.log('Processing planModule:', {
-          id: planModule.id,
-          moduleOrder: planModule.moduleOrder,
-          moduleId: planModule.moduleId,
-          courseId: planModule.courseId,
-          supportActivityId: planModule.supportActivityId,
-          customTitle: planModule.customTitle,
-          hasModule: !!planModule.module,
-          hasCourse: !!planModule.course,
-          moduleTitle: planModule.module?.title,
-          moduleParentCourseId: planModule.module?.courseId,
-          moduleParentCourseTitle: planModule.module?.course?.title,
-          directCourseTitle: planModule.course?.title
-        });
-
         if (planModule.supportActivity || planModule.supportActivityId) {
           // Support activity - add directly to sequence
           sequencedItems.push({
@@ -377,16 +357,6 @@ async function processImportAgenda(options) {
       // Sort items by their sequence order
       sequencedItems.sort((a, b) => a.order - b.order);
 
-      console.log('Sequenced items for day', planDay.dayNumber, ':',
-        sequencedItems.map(item => ({
-          type: item.type,
-          order: item.order,
-          title: item.type === 'course' ? item.data.customTitle :
-                 item.type === 'supportActivity' ? (item.data.customTitle || item.data.supportActivity?.title) :
-                 item.data.customTitle
-        }))
-      );
-
       // Process each item in sequence
       for (const sequencedItem of sequencedItems) {
         if (sequencedItem.type === 'course') {
@@ -406,8 +376,6 @@ async function processImportAgenda(options) {
 
           const duration = resolveDuration(itemInfo);
 
-          console.log(`Scheduling ${itemInfo.title} for all ${targetGroups.length} groups back-to-back`);
-
           // Get required roles for this course
           const requiredRoles = getRequiredRoles(itemInfo, assignByRole, selectedRoles);
 
@@ -420,11 +388,8 @@ async function processImportAgenda(options) {
 
             if (eligibleParticipants.length === 0 && requiredRoles.length > 0) {
               warnings.push(`No participants in group "${assignedGroup.groupName}" match required roles for "${itemInfo.title}" - skipping group`);
-              console.log(`Skipping ${itemInfo.title} for ${assignedGroup.groupName} - no eligible participants`);
               continue; // Skip this group and don't create events for it
             }
-
-            console.log(`Scheduling ${itemInfo.title} for ${assignedGroup.groupName} at ${currentScheduleTime.toISOString()}`);
 
             // Schedule the event(s) - may split across days
             const eventDates = await scheduleEvent({
@@ -494,13 +459,6 @@ async function processImportAgenda(options) {
 
             const duration = resolveDuration(itemInfo);
 
-            console.log('Processing support activity:', {
-              title: itemInfo.title,
-              duration,
-              day: planDay.dayNumber,
-              order: sequencedItem.order
-            });
-
             // Schedule the support activity
             const eventDates = await scheduleEvent({
               startTime: currentScheduleTime,
@@ -552,15 +510,8 @@ async function processImportAgenda(options) {
       }
 
       // Create lunch break event if this day has training events
-      console.log(`Day ${planDay.dayNumber} summary:`, {
-        dayHasEvents,
-        lunchTime: projectSettings.lunchTime,
-        eventsCount: existingEvents.length
-      });
-
       if (dayHasEvents && projectSettings.lunchTime) {
         try {
-          console.log(`Attempting to create lunch break for day ${planDay.dayNumber}`);
           const lunchEvent = await createLunchBreakEvent({
             projectId: parseInt(projectId),
             projectSettings,
@@ -579,24 +530,11 @@ async function processImportAgenda(options) {
                 end: lunchEvent.end
               });
             }
-
-            console.log(`Created lunch break for day ${planDay.dayNumber}:`, {
-              title: lunchEvent.title,
-              start: lunchEvent.start,
-              end: lunchEvent.end
-            });
-          } else {
-            console.log(`No lunch break created for day ${planDay.dayNumber}`);
           }
         } catch (lunchError) {
           console.error(`Error creating lunch break for day ${planDay.dayNumber}:`, lunchError);
           warnings.push(`Failed to create lunch break for day ${planDay.dayNumber}: ${lunchError.message}`);
         }
-      } else {
-        console.log(`Skipping lunch break for day ${planDay.dayNumber}:`, {
-          dayHasEvents,
-          hasLunchTime: !!projectSettings.lunchTime
-        });
       }
 
     }
@@ -852,7 +790,6 @@ async function createLunchBreakEvent({ projectId, projectSettings, planDay, trai
   // Parse lunch time (format: "12:00-13:00")
   const lunchTimeMatch = projectSettings.lunchTime.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
   if (!lunchTimeMatch) {
-    console.warn('Invalid lunch time format:', projectSettings.lunchTime);
     return null;
   }
 
@@ -896,11 +833,6 @@ async function createLunchBreakEvent({ projectId, projectSettings, planDay, trai
   });
 
   if (hasConflict) {
-    console.log(`Preferred lunch time conflicts with existing events for day ${planDay.dayNumber}, skipping lunch break`);
-    console.log(`Existing events on this day:`, dayEvents.map(e => ({
-      start: new Date(e.start).toISOString(),
-      end: new Date(e.end).toISOString()
-    })));
     return null; // Don't create lunch break if it conflicts
   }
 
@@ -969,7 +901,6 @@ function avoidLunchTime(startTime, duration, projectSettings) {
   const eventOverlapsLunch = (startTime < lunchEnd && proposedEnd > lunchStart);
 
   if (eventOverlapsLunch) {
-    console.log(`Event would overlap with lunch time, moving to after lunch`);
     // Move the start time to after lunch
     return new Date(lunchEnd);
   }

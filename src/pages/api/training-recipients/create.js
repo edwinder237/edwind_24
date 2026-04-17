@@ -27,7 +27,6 @@ export default createHandler({
     address,
     website,
     industry,
-    taxId,
     notes,
     location,
     img
@@ -48,17 +47,6 @@ export default createHandler({
       subscription,
       userClaims: orgContext,
       featureKey: 'training_recipients'
-    });
-    console.log('🔍 training_recipients feature check:', {
-      planId: subscription.planId,
-      canAccess: featureCheck.canAccess,
-      reason: featureCheck.reason,
-      hierarchyLevel: orgContext.hierarchyLevel,
-      appRole: orgContext.appRole,
-      isClientAdmin: orgContext.isClientAdmin,
-      permissionsCount: orgContext.permissions?.length,
-      hasCreatePerm: orgContext.permissions?.includes('training_recipients:create'),
-      hasWildcard: orgContext.permissions?.includes('*:*')
     });
     if (!featureCheck.canAccess) {
       return res.status(403).json({
@@ -95,7 +83,6 @@ export default createHandler({
     address: address || null,
     website: website || null,
     industry: industry || null,
-    taxId: taxId || null,
     notes: notes || null,
     location: location ? JSON.stringify(location) : null,
     img: img || null,

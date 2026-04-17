@@ -34,11 +34,6 @@ const ProjectManagerDashboard = () => {
     setQuantity(e.target.value);
   };
 
-  useEffect(() => {
-    console.log('Start Date:', startDate);
-    console.log('End Date:', endDate);
-  }, [startDate, endDate]);
-
   return (
     <FeatureGate featureKey="dashboard" pageTitle="Project Manager Dashboard">
     <LocalizationProvider dateAdapter={AdapterDateFns}>

@@ -1,7 +1,7 @@
 /**
  * Domain Event Definitions
  * 
- * This file contains all domain event type definitions for the EDWIND application.
+ * This file contains all domain event type definitions for the EDBAHN application.
  * Domain events represent significant business moments that have occurred.
  * 
  * Event Naming Convention:

@@ -29,7 +29,7 @@ const LegalModal = ({ open, onClose, type }) => {
                   1. Introduction
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  EDWIND by Lumeve is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our training management platform.
+                  EDBAHN by Lumeve is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our training management platform.
                 </Typography>
               </Box>
 
@@ -111,7 +111,7 @@ const LegalModal = ({ open, onClose, type }) => {
                   1. Acceptance of Terms
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  By accessing EDWIND training management platform, you accept and agree to be bound by these terms and conditions.
+                  By accessing EDBAHN training management platform, you accept and agree to be bound by these terms and conditions.
                 </Typography>
               </Box>
 
@@ -122,7 +122,7 @@ const LegalModal = ({ open, onClose, type }) => {
                   2. Service Description
                 </Typography>
                 <Typography variant="body2" component="div">
-                  EDWIND provides:<br />
+                  EDBAHN provides:<br />
                   • Course creation and management tools<br />
                   • Participant enrollment and tracking<br />
                   • Progress monitoring and reporting<br />
@@ -190,7 +190,7 @@ const LegalModal = ({ open, onClose, type }) => {
                   1. Grant of License
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  Lumeve grants you a limited, non-exclusive, non-transferable, revocable license to access and use EDWIND for your internal business purposes.
+                  Lumeve grants you a limited, non-exclusive, non-transferable, revocable license to access and use EDBAHN for your internal business purposes.
                 </Typography>
               </Box>
 
@@ -262,7 +262,7 @@ const LegalModal = ({ open, onClose, type }) => {
                   4. Intellectual Property
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  Lumeve retains all rights to the EDWIND platform. You retain ownership of your training content and data.
+                  Lumeve retains all rights to the EDBAHN platform. You retain ownership of your training content and data.
                 </Typography>
               </Box>
 

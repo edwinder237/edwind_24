@@ -99,8 +99,6 @@ const slice = createSlice({
     // CLEAR PROGRESS CACHE
     clearProgressCache(state, action) {
       // Clear progress data from Redux state to force re-fetch
-      const projectId = action.payload;
-      console.log('Clearing progress cache for project:', projectId);
       // This will cause components to re-fetch progress data
     },
     
@@ -156,7 +154,6 @@ const slice = createSlice({
     // ADD GROUP
     addGroupSuccess(state, action) {
       const { newGroupsArray, projectIndex, createdGroup, projectId } = action.payload;
-      console.log('Add group success:', newGroupsArray, projectIndex, createdGroup);
       
       // Update the groups array in state
       state.groups = newGroupsArray;
@@ -180,7 +177,6 @@ const slice = createSlice({
     // UPDATE GROUP
     updateGroupSuccess(state, action) {
       const { updatedGroup, allProjectGroups, projectId } = action.payload;
-      console.log('Update group success:', updatedGroup, allProjectGroups);
       
       // Helper function to update group in array while preserving order
       const updateGroupInArray = (groups) => {
@@ -331,13 +327,11 @@ const slice = createSlice({
     },
     // ADD PARTICIPANT
     addParticipantSuccess(state, action) {
-      console.log("Participants added", action.payload.participants);
       state.project_participants = action.payload.participants;
     },
     // UPDATE PARTICIPANT
     updateParticipantSuccess(state, action) {
       const { projectIndex, participantsArray, groups } = action.payload;
-      console.log("sclice to be done");
     },
     // REMOVOVE PARTICIPANT
     removeParticipantSuccess(state, action) {
@@ -349,7 +343,6 @@ const slice = createSlice({
       state.loading = false;
       state.error = null;
       // The actual participant data will be updated via getSingleProject
-      console.log('Import success:', action.payload);
     },
 
     // PROJECT CHECKLIST ACTIONS
@@ -525,10 +518,8 @@ export function getSingleProject(id) {
       dispatch(slice.actions.hasError(false));
       
       const response = await axios.post(dataRoutes.fetchSingleProject, { id });
-      console.log(response)
       dispatch(slice.actions.getSingleProjectSuccess(response.data.project));
     } catch (error) {
-      console.log(error)
       dispatch(slice.actions.hasError(getErrorMessage(error, 'Failed to fetch single project')));
     } finally {
       dispatch(slice.actions.setLoading(false));
@@ -565,7 +556,6 @@ export function addProject(newProject, Projects, isAdding) {
           newProject,
         }
       );
-      console.log(serverResponse.data);
       dispatch(slice.actions.isAdding(!isAdding));
       
       // Return the project ID for redirect purposes
@@ -619,8 +609,6 @@ export function removeProject(projectCUID, projects) {
         projects,
       });
 
-      console.log(serverResOnDelete.data);
-
       // dispatch(slice.actions.hasSuccess(serverResOnDelete.data));
       dispatch(slice.actions.removeProjectSuccess(response.data));
     } catch (error) {
@@ -667,9 +655,7 @@ export function clearProgressCache(projectId) {
       // Clear client-side cache
       dispatch(slice.actions.clearProgressCache(projectId));
       
-      console.log('Progress cache cleared for project:', projectId);
     } catch (error) {
-      console.warn('Failed to clear progress cache:', error);
     }
   };
 }
@@ -745,7 +731,6 @@ export function getEmployees(projectId) {
 }
 
 export function addEmployees(newEmployee, employees) {
-  console.log(newEmployee);
   return async () => {
     try {
       const response = await axios.post(dataRoutes.addEmployees, {
@@ -829,9 +814,7 @@ export function addParticipant(
         projectId,
       });
       await dispatch(slice.actions.addParticipantSuccess(response.data));
-      console.log(serverResponse.data.message);
     } catch (error) {
-      await console.log("internal server error =>", error);
       await dispatch(slice.actions.hasError(getErrorMessage(error)));
       throw error; // Re-throw to allow form to handle it
     }
@@ -849,11 +832,8 @@ export function addManyParticipants(projectId, newParticipants, participants) {
       //  participants,
       //   newParticipants
       //  });
-      console.log(serverResponse.data.participants);
       await dispatch(slice.actions.addParticipantSuccess(serverResponse.data));
-      console.log(serverResponse.data.message);
     } catch (error) {
-      await console.log("internal server error =>", error);
       await dispatch(slice.actions.hasError(getErrorMessage(error)));
     }
   };
@@ -875,7 +855,6 @@ export function importParticipantsFromCSV(projectId, participants) {
         
         dispatch(slice.actions.importParticipantsSuccess(response.data));
         dispatch(slice.actions.setLoading(false));
-        console.log('CSV Import completed:', response.data.message);
         return response.data;
       } else {
         throw new Error(response.data.error || 'Import failed');
@@ -911,7 +890,6 @@ export function removeParticipant(
   projectId,
   participantId
 ) {
-  console.log(remainingParticipants);
   return async () => {
     try {
       const serverResponse = await axios.post(
@@ -921,8 +899,6 @@ export function removeParticipant(
       const response = await axios.post(dataRoutes.removeParticipant, {
         remainingParticipants,
       });
-      console.log(response.data);
-      await console.log(serverResponse.data);
       dispatch(slice.actions.removeParticipantSuccess(response.data));
     } catch (error) {
       dispatch(slice.actions.hasError(getErrorMessage(error)));
@@ -931,7 +907,6 @@ export function removeParticipant(
 }
 
 export function removeManyParticipant(remainingParticipants, selectedIds) {
-  console.log(remainingParticipants);
   return async () => {
     try {
       const serverResponse = await axios.post(
@@ -941,8 +916,6 @@ export function removeManyParticipant(remainingParticipants, selectedIds) {
       const response = await axios.post(dataRoutes.removeParticipant, {
         remainingParticipants,
       });
-      console.log(response.data);
-      await console.log(serverResponse.data);
       dispatch(slice.actions.removeParticipantSuccess(response.data));
     } catch (error) {
       dispatch(slice.actions.hasError(getErrorMessage(error)));

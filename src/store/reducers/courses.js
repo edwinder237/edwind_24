@@ -668,7 +668,6 @@ export function editModule(editedModule, moduleId, modules) {
         modules,
       });
       dispatch(slice.actions.editModuleSuccess(response.data));
-      console.log('TO DB:', editedModule);
       // Save to database
       const serverResponse = await axios.post("/api/courses/db-update-module", {
         editedModule,

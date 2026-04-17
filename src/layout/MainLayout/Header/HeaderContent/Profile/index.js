@@ -865,7 +865,7 @@ const Profile = () => {
         <DialogTitle>
           <Typography variant="h5">Send Feedback</Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mt: 0.5 }}>
-            Help us improve EDWIND by sharing your thoughts
+            Help us improve EDBAHN by sharing your thoughts
           </Typography>
         </DialogTitle>
         <DialogContent>

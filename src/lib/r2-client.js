@@ -1,11 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
 
 // R2 Configuration with your credentials
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || 'bdd838062a3ffeafbc786b5bfbef14b8';
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '8f5c92b0b898401456006e72942bb8123e2a05c487709a7e3cf59be46a48426b';
-const R2_TOKEN = process.env.R2_TOKEN || 'UQEAEo20xjkvrBnDpWzfVXZ_KQGHoYpf1XgKTA7p';
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_TOKEN = process.env.R2_TOKEN;
 const BUCKET_NAME = 'edwindblobs';
-const PUBLIC_URL_BASE = 'https://923f49e1995e9f5e3f85d8b7ea48047a.r2.cloudflarestorage.com/edwindblobs';
+const PUBLIC_URL_BASE = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/edwindblobs`;
 
 /**
  * Upload an image from a URL to R2 bucket using AWS SDK
@@ -15,8 +15,6 @@ const PUBLIC_URL_BASE = 'https://923f49e1995e9f5e3f85d8b7ea48047a.r2.cloudflares
  */
 export async function uploadImageToR2(imageUrl, prefix = 'images') {
   try {
-    console.log('Fetching image from:', imageUrl);
-    
     // Fetch the image from the source URL
     const response = await fetch(imageUrl);
     
@@ -31,9 +29,7 @@ export async function uploadImageToR2(imageUrl, prefix = 'images') {
     // Generate unique filename
     const fileExtension = getFileExtension(contentType);
     const key = `${prefix}/${createId()}.${fileExtension}`;
-    
-    console.log('Uploading to R2 with key:', key);
-    
+
     // Upload to R2
     const uploadParams = {
       Bucket: BUCKET_NAME,
@@ -48,9 +44,7 @@ export async function uploadImageToR2(imageUrl, prefix = 'images') {
     
     // Return the public URL (using our custom domain structure)
     const publicUrl = `${PUBLIC_URL_BASE}/${key}`;
-    
-    console.log('Image uploaded successfully to:', publicUrl);
-    
+
     return {
       url: publicUrl,
       key: key,
@@ -89,7 +83,6 @@ export async function uploadMultipleImagesToR2(imageUrls, prefix = 'images') {
     try {
       return await uploadImageToR2(url, prefix);
     } catch (error) {
-      console.error(`Failed to upload image ${url}:`, error);
       return null;
     }
   });
@@ -110,7 +103,6 @@ export async function deleteImageFromR2(key) {
     };
 
     await r2Client.deleteObject(deleteParams).promise();
-    console.log('Image deleted successfully from R2:', key);
     return true;
   } catch (error) {
     console.error('Error deleting image from R2:', error);

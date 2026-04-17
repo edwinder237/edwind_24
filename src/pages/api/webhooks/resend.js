@@ -61,7 +61,7 @@ export default createHandler({
     if (newStatus) {
       const resendEmailId = event.data?.email_id;
       if (!resendEmailId) {
-        console.warn('[RESEND WEBHOOK] No email_id in payload for event:', eventType);
+        // no-op: no email_id in payload
       } else {
         try {
           const existing = await prisma.email_logs.findFirst({

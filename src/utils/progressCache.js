@@ -8,7 +8,6 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 // Helper function to clear cache for specific project
 function clearProgressCacheForProject(projectId) {
   if (!projectId) {
-    console.warn('No projectId provided for cache clearing');
     return;
   }
 
@@ -19,10 +18,9 @@ function clearProgressCacheForProject(projectId) {
       keysToDelete.push(key);
     }
   }
-  
+
   keysToDelete.forEach(key => progressCache.delete(key));
-  console.log(`Cleared ${keysToDelete.length} progress cache entries for project ${projectId}`);
-  
+
   return keysToDelete.length;
 }
 

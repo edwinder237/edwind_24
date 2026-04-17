@@ -13,7 +13,7 @@ const getWorkOS = () => {
 };
 
 export default createHandler({
-  scope: 'public',
+  scope: 'admin',
   GET: async (req, res) => {
     const workosUserId = req.cookies.workos_user_id;
 
@@ -70,7 +70,6 @@ export default createHandler({
           jwtSource = 'jwt';
         }
       } catch (jwtError) {
-        console.warn('Could not extract permissions from JWT:', jwtError.message);
       }
     }
 

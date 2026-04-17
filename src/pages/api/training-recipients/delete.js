@@ -45,37 +45,27 @@ export default createHandler({
     });
   }
 
-  // Delete all participants associated with this training recipient
+  // Soft delete participants associated with this training recipient
   const participantIds = existingRecipient.participants.map(p => p.id);
+  const now = new Date();
+  const deletedBy = orgContext.userId;
 
   if (participantIds.length > 0) {
-    // First, delete all project_participants records for these participants
-    await prisma.project_participants.deleteMany({
-      where: {
-        participantId: {
-          in: participantIds
-        }
-      }
-    });
-
-    // Then delete the participants themselves
-    await prisma.participants.deleteMany({
-      where: {
-        id: {
-          in: participantIds
-        }
-      }
+    await prisma.participants.updateMany({
+      where: { id: { in: participantIds }, deletedAt: null },
+      data: { deletedAt: now, deletedBy },
     });
   }
 
-  // Finally, delete the training recipient
-  await prisma.training_recipients.delete({
-    where: { id: recipientId }
+  // Soft delete the training recipient
+  await prisma.training_recipients.update({
+    where: { id: recipientId },
+    data: { deletedAt: now, deletedBy, status: 'deleted' },
   });
 
   return res.status(200).json({
     success: true,
-    message: `Training recipient and ${participantIds.length} participant(s) deleted successfully`,
+    message: `Training recipient and ${participantIds.length} participant(s) archived successfully`,
     deletedParticipants: participantIds.length
   });
   }

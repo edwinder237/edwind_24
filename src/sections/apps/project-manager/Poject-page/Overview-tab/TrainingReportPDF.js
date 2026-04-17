@@ -717,7 +717,7 @@ const TrainingReportPDF = ({ data, language = 'en' }) => {
   const l = labels[language] || labels.en;
 
   return (
-    <Document title={`${data.project.title} - ${l.trainingReport}`} author={data.organization?.title || 'EDWIND'}>
+    <Document title={`${data.project.title} - ${l.trainingReport}`} author={data.organization?.title || 'EDBAHN'}>
       <CoverPage data={data} l={l} language={language} />
       <ExecutiveSummaryPage data={data} l={l} language={language} />
       <LearningSummaryPage data={data} l={l} />

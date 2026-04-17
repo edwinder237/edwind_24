@@ -30,7 +30,6 @@ async function calculateIndividualParticipantProgress(participantId, projectPart
   try {
     // Ensure we have valid parameters
     if (!groupId || !participantId) {
-      console.warn('Missing required parameters for progress calculation');
       return { totalActivities: 0, completedActivities: 0, overallProgress: 0 };
     }
 

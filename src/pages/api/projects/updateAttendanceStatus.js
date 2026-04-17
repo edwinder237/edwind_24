@@ -5,9 +5,7 @@ import { WorkOS } from '@workos-inc/node';
 // Simple cache clearing function - inline to avoid import issues
 function clearProgressCacheForProject(projectId) {
   // Since we can't reliably import the shared cache in Turbopack,
-  // we'll just log the cache clearing attempt
-  // The client-side will handle the actual cache invalidation
-  console.log(`Progress cache clearing requested for project ${projectId}`);
+  // the client-side will handle the actual cache invalidation
   return true;
 }
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
@@ -68,9 +66,7 @@ export default createHandler({
     // Clear progress cache for this project since attendance affects progress calculations
     try {
       clearProgressCacheForProject(event.projectId);
-      console.log(`Progress cache cleared for project ${event.projectId}`);
     } catch (cacheError) {
-      console.warn('Failed to clear progress cache:', cacheError);
       // Don't fail the request if cache clearing fails
     }
 

@@ -117,19 +117,6 @@ class CommandDispatcher {
       this.commandHistory = this.commandHistory.slice(-this.maxHistorySize);
     }
 
-    // Console logging for development
-    if (process.env.NODE_ENV === 'development') {
-      const { command, status, payload } = commandExecution;
-      console.group(`🎯 Command: ${command} (${status})`);
-      console.log('Payload:', payload);
-      if (commandExecution.result) {
-        console.log('Result:', commandExecution.result);
-      }
-      if (commandExecution.error) {
-        console.error('Error:', commandExecution.error);
-      }
-      console.groupEnd();
-    }
   }
 }
 

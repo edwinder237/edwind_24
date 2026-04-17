@@ -30,7 +30,6 @@ const AuthGuard = ({ children }) => {
       const needsOnboarding = !userInfo.onboardingComplete && !user.sub_organizationId;
 
       if (needsOnboarding && router.pathname !== '/onboarding') {
-        console.log('🔀 User needs onboarding, redirecting...');
         setCheckingOnboarding(true);
         router.push('/onboarding');
         return;
@@ -57,7 +56,6 @@ const AuthGuard = ({ children }) => {
 
     const blockedStatuses = ['canceled', 'suspended'];
     if (blockedStatuses.includes(subscription.status)) {
-      console.log('🔀 Subscription inactive, redirecting to subscription-inactive...');
       window.location.href = '/subscription-inactive';
     }
   }, [isAuthenticated, user, router, router.isReady, redirecting]);
@@ -97,7 +95,6 @@ const AuthGuard = ({ children }) => {
     const subscription = user.subscription;
     // Skip checkout redirect for canceled/suspended — the subscription-inactive gate handles those
     if (subscription?.requiresCheckout && !['canceled', 'suspended'].includes(subscription?.status)) {
-      console.log('🔀 Subscription requires checkout, redirecting to checkout-required...');
       window.location.href = '/checkout-required';
     }
   }, [isAuthenticated, user, router, router.isReady, redirecting, refetchUser]);
@@ -124,11 +121,8 @@ const AuthGuard = ({ children }) => {
         });
 
         if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Organization session initialized:', data.organization?.title);
           setSessionInitialized(true);
         } else {
-          console.warn('⚠️  Failed to initialize organization session');
           // Still allow access - user might not have org membership
           setSessionInitialized(true);
         }

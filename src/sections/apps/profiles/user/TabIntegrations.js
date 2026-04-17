@@ -48,14 +48,14 @@ const PROVIDERS = [
     name: 'Google Calendar',
     icon: GoogleOutlined,
     color: '#4285F4',
-    description: 'Sync your EDWIND training events to Google Calendar',
+    description: 'Sync your EDBAHN training events to Google Calendar',
   },
   {
     key: 'microsoft',
     name: 'Microsoft Outlook',
     icon: WindowsOutlined,
     color: '#0078D4',
-    description: 'Sync your EDWIND training events to Microsoft Outlook Calendar',
+    description: 'Sync your EDBAHN training events to Microsoft Outlook Calendar',
   },
 ];
 
@@ -303,9 +303,9 @@ const TabIntegrations = () => {
 
       {/* Info */}
       <Typography variant="body2" color="text.secondary">
-        Events created, updated, or deleted in your EDWIND projects will automatically sync to your
+        Events created, updated, or deleted in your EDBAHN projects will automatically sync to your
         connected calendars. This is a one-way sync — changes made directly in Google Calendar or
-        Outlook will not sync back to EDWIND.
+        Outlook will not sync back to EDBAHN.
       </Typography>
 
       {/* Disconnect Confirmation Dialog */}

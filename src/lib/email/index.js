@@ -1,5 +1,5 @@
 /**
- * EDWIND Email Service
+ * EDBAHN Email Service
  *
  * Centralized email service for all email operations.
  * Provides a unified API for sending various types of emails
@@ -122,7 +122,7 @@ export async function sendEmail(options) {
  * @returns {Promise<Object>} Send result
  */
 export async function sendCalendarInvite(options) {
-  const { event, recipient, projectTitle, organizerName = 'EDWIND Training', groupName } = options;
+  const { event, recipient, projectTitle, organizerName = 'EDBAHN Training', groupName } = options;
 
   // Validate email
   if (!isValidEmail(recipient.email)) {
@@ -404,7 +404,7 @@ export async function sendContactForm(formData) {
   const adminHtml = generateContactAdminTemplate(formData);
   results.adminNotification = await sendEmail({
     to: process.env.RESEND_TO_EMAIL || ADMIN_EMAIL,
-    subject: `EDWIND Contact Form: ${formData.subject}`,
+    subject: `EDBAHN Contact Form: ${formData.subject}`,
     html: adminHtml,
     from: process.env.RESEND_FROM_EMAIL || EMAIL_SENDERS.default
   });
@@ -413,7 +413,7 @@ export async function sendContactForm(formData) {
   const autoReplyHtml = generateContactAutoReplyTemplate(formData);
   results.autoReply = await sendEmail({
     to: formData.email,
-    subject: "Thank you for contacting EDWIND - We'll be in touch soon!",
+    subject: "Thank you for contacting EDBAHN - We'll be in touch soon!",
     html: autoReplyHtml,
     from: process.env.RESEND_FROM_EMAIL || EMAIL_SENDERS.default
   });

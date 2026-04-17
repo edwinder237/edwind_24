@@ -109,7 +109,6 @@ export default createHandler({
         });
 
         if (!roleExists) {
-          console.warn(`Role with ID ${roleId} not found in sub-organization, setting to null`);
           roleId = null;
         }
       }
@@ -218,7 +217,6 @@ export default createHandler({
           }
         });
 
-        console.log(`Participant ${participant.firstName} ${participant.lastName} assigned to group ${group.groupName}`);
       } catch (groupError) {
         console.error('Error assigning participant to group:', groupError);
         // Don't fail the entire operation if group assignment fails

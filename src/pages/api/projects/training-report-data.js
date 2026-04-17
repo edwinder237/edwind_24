@@ -137,7 +137,6 @@ export default createHandler({
           logoDataUrl = `data:${contentType};base64,${base64}`;
         }
       } catch (e) {
-        console.warn('[Training Report] Failed to fetch logo:', e.message);
       }
     }
 

@@ -7,9 +7,9 @@ export default createHandler({
     const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
     
     // Test R2 credentials
-    const r2AccessKey = process.env.R2_ACCESS_KEY_ID || 'bdd838062a3ffeafbc786b5bfbef14b8';
-    const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY || '8f5c92b0b898401456006e72942bb8123e2a05c487709a7e3cf59be46a48426b';
-    const r2Token = process.env.R2_TOKEN || 'UQEAEo20xjkvrBnDpWzfVXZ_KQGHoYpf1XgKTA7p';
+    const r2AccessKey = process.env.R2_ACCESS_KEY_ID;
+    const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY;
+    const r2Token = process.env.R2_TOKEN;
 
     // Check AWS SDK availability
     let awsSdkAvailable = false;
@@ -66,7 +66,7 @@ export default createHandler({
       data: {
         ...status,
         testImageUrl: googleMapsApiKey ? testImageUrl : 'Google Maps API key not configured',
-        bucketUrl: 'https://923f49e1995e9f5e3f85d8b7ea48047a.r2.cloudflarestorage.com/edwindblobs',
+        bucketUrl: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/edwindblobs`,
         setupComplete: !!(googleMapsApiKey && r2AccessKey && r2SecretKey),
         productionReady: !!(googleMapsApiKey && r2AccessKey && r2SecretKey), // No AWS SDK required
         r2Ready: !!(r2AccessKey && r2SecretKey)

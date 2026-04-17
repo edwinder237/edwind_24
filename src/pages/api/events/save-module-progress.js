@@ -21,8 +21,6 @@ export default createHandler({
       });
     }
 
-    console.log('Saving module progress for event:', { eventId, moduleId, activities });
-
     const completionTime = new Date();
     const results = [];
 
@@ -160,8 +158,6 @@ export default createHandler({
  * When all modules of a course are completed for an event, update courses_enrollee_progress
  */
 async function syncCourseProgressForEvent(eventId, courseId, completionTime) {
-  console.log('syncCourseProgressForEvent called:', { eventId, courseId });
-
   // Get the event with its participants
   const event = await prisma.events.findUnique({
     where: { id: parseInt(eventId) },
@@ -188,15 +184,8 @@ async function syncCourseProgressForEvent(eventId, courseId, completionTime) {
   });
 
   if (!event) {
-    console.log('Event not found:', eventId);
     return;
   }
-
-  console.log('Event found:', {
-    eventId: event.id,
-    attendeesCount: event.event_attendees?.length || 0,
-    groupsCount: event.event_groups?.length || 0
-  });
 
   // Get all modules for this course
   const courseModules = await prisma.modules.findMany({
@@ -205,7 +194,6 @@ async function syncCourseProgressForEvent(eventId, courseId, completionTime) {
   });
 
   const totalModules = courseModules.length;
-  console.log('Course modules:', { courseId, totalModules, moduleIds: courseModules.map(m => m.id) });
 
   if (totalModules === 0) return;
 
@@ -221,14 +209,11 @@ async function syncCourseProgressForEvent(eventId, courseId, completionTime) {
   const completedCount = completedModules.length;
   const isFullyCompleted = completedCount >= totalModules;
 
-  console.log('Module progress:', { completedCount, totalModules, isFullyCompleted });
-
   // Collect all enrollee IDs from direct attendees and groups
   const enrolleeIds = new Set();
 
   // Direct attendees
   event.event_attendees?.forEach(attendee => {
-    console.log('Direct attendee:', { enrolleeId: attendee.enrolleeId, enrollee: attendee.enrollee });
     if (attendee.enrolleeId) {
       enrolleeIds.add(attendee.enrolleeId);
     }
@@ -236,16 +221,12 @@ async function syncCourseProgressForEvent(eventId, courseId, completionTime) {
 
   // Group participants
   event.event_groups?.forEach(eventGroup => {
-    console.log('Event group:', { groupId: eventGroup.groupId });
     eventGroup.groups?.participants?.forEach(groupParticipant => {
-      console.log('Group participant:', { participantId: groupParticipant.participant?.id });
       if (groupParticipant.participant?.id) {
         enrolleeIds.add(groupParticipant.participant.id);
       }
     });
   });
-
-  console.log('Enrollee IDs to update:', Array.from(enrolleeIds));
 
   // Update courses_enrollee_progress for each enrollee
   for (const enrolleeId of enrolleeIds) {
@@ -282,6 +263,4 @@ async function syncCourseProgressForEvent(eventId, courseId, completionTime) {
       console.error(`Error updating progress for enrollee ${enrolleeId}:`, enrolleeError);
     }
   }
-
-  console.log(`Course progress synced: ${completedCount}/${totalModules} modules completed for ${enrolleeIds.size} participants`);
 }

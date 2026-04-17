@@ -80,8 +80,6 @@ const calendarSlice = createSlice({
       state.viewMode = viewMode;
       state.activeProjectId = projectId;
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] View mode changed:', { projectId, viewMode });
     },
 
     // ===== Date Navigation =====
@@ -90,8 +88,6 @@ const calendarSlice = createSlice({
       const { date } = action.payload;
       state.selectedDate = typeof date === 'string' ? date : date.toISOString();
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Date selected:', state.selectedDate);
     },
 
     viewRangeSet: (state, action) => {
@@ -99,15 +95,11 @@ const calendarSlice = createSlice({
       state.viewStart = typeof start === 'string' ? start : start.toISOString();
       state.viewEnd = typeof end === 'string' ? end : end.toISOString();
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] View range set:', { start: state.viewStart, end: state.viewEnd });
     },
 
     navigatedToToday: (state) => {
       state.selectedDate = new Date().toISOString();
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Navigated to today');
     },
 
     navigatedToPrevious: (state) => {
@@ -132,8 +124,6 @@ const calendarSlice = createSlice({
 
       state.selectedDate = newDate.toISOString();
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Navigated to previous:', state.viewMode);
     },
 
     navigatedToNext: (state) => {
@@ -158,8 +148,6 @@ const calendarSlice = createSlice({
 
       state.selectedDate = newDate.toISOString();
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Navigated to next:', state.viewMode);
     },
 
     // ===== Display Preferences =====
@@ -173,8 +161,6 @@ const calendarSlice = createSlice({
       if (slotMaxTime !== undefined) state.slotMaxTime = slotMaxTime;
 
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Display preferences updated:', action.payload);
     },
 
     // ===== Filters =====
@@ -182,8 +168,6 @@ const calendarSlice = createSlice({
     filtersSet: (state, action) => {
       state.filters = { ...state.filters, ...action.payload };
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Filters set:', state.filters);
     },
 
     filterCleared: (state, action) => {
@@ -192,8 +176,6 @@ const calendarSlice = createSlice({
         state.filters[filterType] = [];
       }
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Filter cleared:', filterType);
     },
 
     allFiltersCleared: (state) => {
@@ -204,8 +186,6 @@ const calendarSlice = createSlice({
         participants: []
       };
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] All filters cleared');
     },
 
     // ===== Event Selection =====
@@ -224,37 +204,27 @@ const calendarSlice = createSlice({
       }
 
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Event selected:', { eventId, selectedCount: state.selectedEventIds.length });
     },
 
     eventDeselected: (state, action) => {
       const { eventId } = action.payload;
       state.selectedEventIds = state.selectedEventIds.filter(id => id !== eventId);
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] Event deselected:', eventId);
     },
 
     allEventsDeselected: (state) => {
       state.selectedEventIds = [];
       state.lastUpdated = new Date().toISOString();
-
-      console.log('[CalendarSlice] All events deselected');
     },
 
     // ===== Drag & Drop =====
 
     eventDragStarted: (state, action) => {
       state.draggedEvent = action.payload;
-
-      console.log('[CalendarSlice] Event drag started:', action.payload.eventId);
     },
 
     eventDragEnded: (state) => {
       state.draggedEvent = null;
-
-      console.log('[CalendarSlice] Event drag ended');
     },
 
     // ===== Layout Cache =====
@@ -262,14 +232,10 @@ const calendarSlice = createSlice({
     layoutCacheUpdated: (state, action) => {
       const { viewMode, layout } = action.payload;
       state.layoutCache[viewMode] = layout;
-
-      console.log('[CalendarSlice] Layout cache updated:', viewMode);
     },
 
     layoutCacheCleared: (state) => {
       state.layoutCache = {};
-
-      console.log('[CalendarSlice] Layout cache cleared');
     },
 
     // ===== Project-specific Calendar State =====
@@ -284,8 +250,6 @@ const calendarSlice = createSlice({
       });
 
       state.activeProjectId = projectId;
-
-      console.log('[CalendarSlice] Project calendar state set:', projectId);
     },
 
     projectCalendarStateRemoved: (state, action) => {
@@ -295,8 +259,6 @@ const calendarSlice = createSlice({
       if (state.activeProjectId === projectId) {
         state.activeProjectId = null;
       }
-
-      console.log('[CalendarSlice] Project calendar state removed:', projectId);
     },
 
     // ===== State Management =====
@@ -312,7 +274,6 @@ const calendarSlice = createSlice({
 
     calendarReset: (state) => {
       Object.assign(state, initialState);
-      console.log('[CalendarSlice] Calendar reset to initial state');
     }
   },
 

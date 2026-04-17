@@ -114,27 +114,12 @@ export default createHandler({
       })
     ]);
 
-    // Debug logging
-    console.log('Learning activities debug:', {
-      participantId,
-      projectId,
-      participantDbId: participant.id,
-      allParticipantProgressCount: allParticipantProgress.length,
-      eventCoursesCount: eventCourses.length
-    });
-
     // Combine and deduplicate courses
     const courseMap = new Map();
 
     // Add enrolled courses with progress from courses_enrollee_progress
     allParticipantProgress.forEach((courseProgress) => {
       const course = courseProgress.course;
-      console.log('Found enrollee progress:', {
-        courseId: course.id,
-        courseTitle: course.title,
-        completed: courseProgress.completed,
-        enrolleeId: courseProgress.enrolleeId
-      });
       courseMap.set(course.id, {
         id: course.id,
         title: course.title,
@@ -169,19 +154,6 @@ export default createHandler({
         // If course has no modules with activities, consider it complete ONLY if participant attended
         const hasNoActivitiesToComplete = totalModules === 0;
         const isCompleteNoActivities = hasNoActivitiesToComplete && hasAttended;
-
-        console.log('Event course check:', {
-          eventId: event.id,
-          courseId: event.course.id,
-          courseTitle: event.course.title,
-          totalModulesRaw: event.course.modules?.length || 0,
-          totalModulesWithActivities: totalModules,
-          completedModulesInEvent,
-          hasNoActivitiesToComplete,
-          attendanceStatus,
-          hasAttended,
-          existingProgressCompleted: existingProgress?.completed
-        });
 
         const isCompletedFromModules = totalModules > 0 && completedModulesInEvent >= totalModules;
         // Course is complete if: already marked complete, all modules done, OR (no activities AND attended)

@@ -47,7 +47,6 @@ const attendanceSlice = createSlice({
         updatedAt: new Date().toISOString()
       };
       attendanceAdapter.addOne(state, record);
-      console.log('[AttendanceSlice] Record added:', record);
     },
 
     attendanceRecordUpdated: (state, action) => {
@@ -57,12 +56,10 @@ const attendanceSlice = createSlice({
         updatedAt: new Date().toISOString()
       };
       attendanceAdapter.updateOne(state, { id, changes: updatedChanges });
-      console.log('[AttendanceSlice] Record updated:', id, updatedChanges);
     },
 
     attendanceRecordRemoved: (state, action) => {
       attendanceAdapter.removeOne(state, action.payload);
-      console.log('[AttendanceSlice] Record removed:', action.payload);
     },
 
     // Batch operations
@@ -75,7 +72,6 @@ const attendanceSlice = createSlice({
         }
       }));
       attendanceAdapter.updateMany(state, updates);
-      console.log('[AttendanceSlice] Batch update:', updates.length, 'records');
     },
 
     // Mark all present for an event
@@ -89,7 +85,6 @@ const attendanceSlice = createSlice({
         }
       }));
       attendanceAdapter.updateMany(state, updates);
-      console.log('[AttendanceSlice] All marked present for event:', eventId);
     },
 
     // Clear attendance for an event
@@ -97,7 +92,6 @@ const attendanceSlice = createSlice({
       const eventId = action.payload;
       const idsToRemove = state.ids.filter(id => id.startsWith(`${eventId}-`));
       attendanceAdapter.removeMany(state, idsToRemove);
-      console.log('[AttendanceSlice] Cleared attendance for event:', eventId);
     },
 
     // State management
@@ -150,7 +144,6 @@ const attendanceSlice = createSlice({
           syncedWithServer: true
         });
 
-        console.log('[AttendanceSlice] RTK Query: Status updated', { id, status: attendance_status });
       }
     );
 
@@ -169,7 +162,6 @@ const attendanceSlice = createSlice({
           syncedWithServer: true
         });
 
-        console.log('[AttendanceSlice] RTK Query: Participant added', { id });
       }
     );
 
@@ -182,7 +174,6 @@ const attendanceSlice = createSlice({
 
         attendanceAdapter.removeOne(state, id);
 
-        console.log('[AttendanceSlice] RTK Query: Participant removed', { id });
       }
     );
   }

@@ -136,7 +136,7 @@ const EnterprisePage = () => {
       <Container maxWidth="lg">
         {/* Logo */}
         <Box sx={{ textAlign: 'center', mb: 4, cursor: 'pointer' }} onClick={() => router.push('/')}>
-          <Image src={headerlogo} alt="EDWIND" width={180} height={76} />
+          <Image src={headerlogo} alt="EDBAHN" width={180} height={76} />
         </Box>
 
         {success ? (
@@ -286,7 +286,7 @@ const EnterprisePage = () => {
                           rows={4}
                           value={formData.message}
                           onChange={handleChange('message')}
-                          placeholder="What are you looking to achieve with EDWIND? Any specific requirements like SSO, compliance, custom integrations?"
+                          placeholder="What are you looking to achieve with EDBAHN? Any specific requirements like SSO, compliance, custom integrations?"
                         />
                       </Grid>
                       <Grid item xs={12}>

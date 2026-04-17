@@ -233,7 +233,6 @@ const GroupEnrolledTable = ({ Enrolled, onRefresh, currentGroup, progressData, p
 
     // Prevent double actions - check if any action is already in progress
     if (movingParticipants.size > 0) {
-      console.log('[GroupEnrolledTable] Action blocked - another action is in progress');
       return;
     }
 

@@ -39,8 +39,6 @@ export const changeCalendarView = createAsyncThunk(
     // Update the calendar state
     dispatch(viewModeChanged({ projectId, viewMode }));
 
-    console.log(`[CalendarCommands] View changed to ${viewMode} for project ${projectId}`);
-
     return { command };
   }
 );
@@ -58,8 +56,6 @@ export const goToToday = createAsyncThunk(
     };
 
     dispatch(navigatedToToday());
-
-    console.log('[CalendarCommands] Navigated to today');
 
     return { command };
   }
@@ -81,8 +77,6 @@ export const goToPrevious = createAsyncThunk(
 
     dispatch(navigatedToPrevious());
 
-    console.log(`[CalendarCommands] Navigated to previous ${viewMode}`);
-
     return { command };
   }
 );
@@ -102,8 +96,6 @@ export const goToNext = createAsyncThunk(
     };
 
     dispatch(navigatedToNext());
-
-    console.log(`[CalendarCommands] Navigated to next ${viewMode}`);
 
     return { command };
   }
@@ -126,8 +118,6 @@ export const goToDate = createAsyncThunk(
 
     dispatch(dateSelected({ date: dateString }));
 
-    console.log(`[CalendarCommands] Navigated to date: ${dateString}`);
-
     return { command };
   }
 );
@@ -148,8 +138,6 @@ export const toggleWeekends = createAsyncThunk(
     };
 
     dispatch(displayPreferencesUpdated({ showWeekends }));
-
-    console.log(`[CalendarCommands] Weekends ${showWeekends ? 'shown' : 'hidden'}`);
 
     return { command };
   }
@@ -174,8 +162,6 @@ export const updateTimeSlotSettings = createAsyncThunk(
 
     dispatch(displayPreferencesUpdated({ slotDuration, slotMinTime, slotMaxTime }));
 
-    console.log('[CalendarCommands] Time slot settings updated');
-
     return { command };
   }
 );
@@ -198,8 +184,6 @@ export const applyCalendarFilters = createAsyncThunk(
 
     dispatch(filtersSet(filters));
 
-    console.log(`[CalendarCommands] Applied ${command.filterCount} filters`);
-
     return { command };
   }
 );
@@ -218,8 +202,6 @@ export const filterByInstructor = createAsyncThunk(
     };
 
     dispatch(filtersSet({ instructors: instructorIds }));
-
-    console.log(`[CalendarCommands] Filtered by ${instructorIds.length} instructors`);
 
     return { command };
   }
@@ -240,8 +222,6 @@ export const filterByGroup = createAsyncThunk(
 
     dispatch(filtersSet({ groups: groupIds }));
 
-    console.log(`[CalendarCommands] Filtered by ${groupIds.length} groups`);
-
     return { command };
   }
 );
@@ -258,8 +238,6 @@ export const clearAllFilters = createAsyncThunk(
     };
 
     dispatch(allFiltersCleared());
-
-    console.log('[CalendarCommands] All filters cleared');
 
     return { command };
   }
@@ -284,8 +262,6 @@ export const selectEvent = createAsyncThunk(
 
     dispatch(eventSelected({ eventId, multiSelect }));
 
-    console.log(`[CalendarCommands] Event ${eventId} selected (multi: ${multiSelect})`);
-
     return { command };
   }
 );
@@ -302,8 +278,6 @@ export const clearEventSelection = createAsyncThunk(
     };
 
     dispatch(allEventsDeselected());
-
-    console.log('[CalendarCommands] Event selection cleared');
 
     return { command };
   }
@@ -330,8 +304,6 @@ export const selectMultipleEvents = createAsyncThunk(
     eventIds.forEach(eventId => {
       dispatch(eventSelected({ eventId, multiSelect: true }));
     });
-
-    console.log(`[CalendarCommands] Selected ${eventIds.length} events`);
 
     return { command };
   }

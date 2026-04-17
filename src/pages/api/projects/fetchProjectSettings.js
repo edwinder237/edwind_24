@@ -152,120 +152,128 @@ export default createHandler({
       });
     }
     
-    // Get available roles for the organization
-    const availableRoles = await prisma.sub_organization_participant_role.findMany({
-      where: {
-        sub_organizationId: project.sub_organizationId,
-        isActive: true
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-      },
-      orderBy: {
-        title: 'asc'
-      }
-    });
-    
-    // Get training plans for the project
-    const trainingPlans = await prisma.training_plans.findMany({
-      where: {
-        projectId: projectIdInt
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        totalDays: true,
-        curriculumId: true,
-        _count: {
-          select: {
-            days: true
-          }
+    // Fetch all available resources in parallel (no dependencies between them)
+    const [
+      availableRoles,
+      trainingPlans,
+      availableTrainingRecipients,
+      availableTopics,
+      availableCurriculums,
+      availableInstructors
+    ] = await Promise.all([
+      prisma.sub_organization_participant_role.findMany({
+        where: {
+          sub_organizationId: project.sub_organizationId,
+          isActive: true
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+        },
+        orderBy: {
+          title: 'asc'
         }
-      },
-      orderBy: {
-        title: 'asc'
-      }
-    });
-    
-    // Get available training recipients for the organization
-    const availableTrainingRecipients = await prisma.training_recipients.findMany({
-      where: {
-        sub_organizationId: project.sub_organizationId
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        contactPerson: true,
-        email: true,
-        phone: true,
-        address: true,
-        website: true,
-        industry: true,
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
-    
-    // Get available topics for the organization
-    const availableTopics = await prisma.topics.findMany({
-      where: {
-        sub_organizationId: project.sub_organizationId,
-        isActive: true
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        color: true,
-        icon: true,
-        isActive: true,
-      },
-      orderBy: {
-        title: 'asc'
-      }
-    });
-    
-    // Get available curriculums for the organization
-    const availableCurriculums = await prisma.curriculums.findMany({
-      select: {
-        id: true,
-        cuid: true,
-        title: true,
-        description: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: {
-        title: 'asc'
-      }
-    });
-    
-    // Get available instructors for the organization
-    const availableInstructors = await prisma.instructors.findMany({
-      where: {
-        sub_organizationId: project.sub_organizationId,
-        status: 'active'
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        bio: true,
-        profileImage: true,
-        status: true,
-      },
-      orderBy: {
-        firstName: 'asc'
-      }
-    });
+      }),
+      prisma.training_plans.findMany({
+        where: {
+          projectId: projectIdInt
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          totalDays: true,
+          curriculumId: true,
+          _count: {
+            select: {
+              days: true
+            }
+          }
+        },
+        orderBy: {
+          title: 'asc'
+        }
+      }),
+      prisma.training_recipients.findMany({
+        where: {
+          sub_organizationId: project.sub_organizationId
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          contactPerson: true,
+          email: true,
+          phone: true,
+          address: true,
+          website: true,
+          industry: true,
+        },
+        orderBy: {
+          name: 'asc'
+        }
+      }),
+      prisma.topics.findMany({
+        where: {
+          sub_organizationId: project.sub_organizationId,
+          isActive: true
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          color: true,
+          icon: true,
+          isActive: true,
+        },
+        orderBy: {
+          title: 'asc'
+        }
+      }),
+      prisma.curriculums.findMany({
+        where: {
+          sub_organizationId: project.sub_organizationId
+        },
+        select: {
+          id: true,
+          cuid: true,
+          title: true,
+          description: true,
+          createdAt: true,
+          updatedAt: true,
+          curriculum_courses: {
+            select: { id: true }
+          },
+          project_curriculums: {
+            select: { id: true }
+          }
+        },
+        orderBy: {
+          title: 'asc'
+        }
+      }),
+      prisma.instructors.findMany({
+        where: {
+          sub_organizationId: project.sub_organizationId,
+          status: 'active'
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          bio: true,
+          profileImage: true,
+          status: true,
+        },
+        orderBy: {
+          firstName: 'asc'
+        }
+      })
+    ]);
     
     // Format the response
     const settingsData = {
@@ -310,7 +318,16 @@ export default createHandler({
         availableTopics: availableTopics,
         
         // Available curriculums
-        availableCurriculums: availableCurriculums,
+        availableCurriculums: availableCurriculums.map(c => ({
+          id: c.id,
+          cuid: c.cuid,
+          title: c.title,
+          description: c.description,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+          courseCount: c.curriculum_courses?.length || 0,
+          projectCount: c.project_curriculums?.length || 0
+        })),
         
         // Available instructors
         availableInstructors: availableInstructors.map(instructor => ({

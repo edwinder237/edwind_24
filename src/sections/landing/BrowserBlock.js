@@ -13,7 +13,7 @@ const BrowserBlock = () => (
               Works Everywhere
             </Typography>
             <Typography variant="body1">
-              Access EDWIND from any modern browser on desktop, tablet, or mobile devices.
+              Access EDBAHN from any modern browser on desktop, tablet, or mobile devices.
             </Typography>
           </Grid>
         </Grid>

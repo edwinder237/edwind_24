@@ -304,7 +304,7 @@ Meeting Link: ${meetingLink}`;
   text += `
 
 ---
-This is an automated message from EDWIND Training Management System.
+This is an automated message from EDBAHN Training Management System.
 If you have questions, please contact your instructor or training coordinator.`;
 
   return text;

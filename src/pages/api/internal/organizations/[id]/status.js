@@ -165,8 +165,6 @@ export default createHandler({
       // 6. Invalidate subscription cache
       invalidateSubscriptionCache(orgId);
 
-      console.log(`🔒 Deactivated org ${orgId} (${org.title}): ${activeUsers.length} users affected`);
-
       return res.status(200).json({
         success: true,
         message: `Organization "${org.title}" deactivated`,
@@ -189,8 +187,6 @@ export default createHandler({
     });
 
     invalidateSubscriptionCache(orgId);
-
-    console.log(`🔓 Reactivated org ${orgId} (${org.title})`);
 
     return res.status(200).json({
       success: true,

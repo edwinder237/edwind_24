@@ -23,7 +23,7 @@ import {
 import {
   Refresh as RefreshIcon,
   Speed as SpeedIcon,
-  Cache as CacheIcon,
+  Cached as CacheIcon,
   CloudSync as CloudSyncIcon,
   Timeline as TimelineIcon,
   PersonAdd,

@@ -82,7 +82,6 @@ ProgressCell.propTypes = {
 };
 
 const GroupCurriculumTable = ({ data, striped, title }) => {
-  console.log(data)
   const columns = useMemo(
     () => [
       {

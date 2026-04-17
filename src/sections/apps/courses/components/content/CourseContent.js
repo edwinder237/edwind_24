@@ -1162,7 +1162,6 @@ const CourseContent = ({ courseId }) => {
   const handleCancelModuleEdit = (id) => {
     // Since modules are now computed from Redux, cancel edit operations
     // should be handled by the Redux state. For now, this is a no-op.
-    console.log('Cancel edit for module:', id);
   };
 
   const handleOpenAddActivityDialog = () => {

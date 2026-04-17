@@ -74,7 +74,6 @@ export default createHandler({
           jwtPermissions = payload.permissions || [];
         }
       } catch (jwtError) {
-        console.warn('Could not extract permissions from JWT:', jwtError.message);
       }
     }
 

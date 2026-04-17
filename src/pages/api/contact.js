@@ -58,10 +58,6 @@ const innerHandler = createHandler({
       });
     }
 
-    if (result.autoReply?.error) {
-      console.warn('[contact] Failed to send auto-reply:', result.autoReply.error);
-    }
-
     return res.status(200).json({
       success: true,
       message: "Message sent successfully. We'll get back to you soon!",

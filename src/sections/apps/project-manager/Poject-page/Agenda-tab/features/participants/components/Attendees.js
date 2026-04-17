@@ -108,9 +108,6 @@ const AttendeesRTK = ({
   }, [selectedEvent?.id]);
 
   useDomainEvent(DomainEvents.EVENT_CAPACITY_WARNING, (event) => {
-    if (event.payload?.eventId === selectedEvent?.id) {
-      console.warn('Event capacity warning:', event.payload);
-    }
   }, [selectedEvent?.id]);
 
   // Custom hooks with RTK Query
@@ -209,8 +206,6 @@ const AttendeesRTK = ({
       // CQRS: Use RTK Query refetch to update data automatically via cache invalidation
       // The moveParticipantBetweenEvents command handles tag invalidation
       await refetchAgenda();
-
-      console.log(`Participant moved from event ${selectedEvent?.id} to event ${targetEvent.id} using semantic command`);
     } catch (error) {
       console.error('Error moving participant to event:', error);
       // Error notification is handled by the semantic command

@@ -80,7 +80,6 @@ const FullCalendarMonthView = ({ project, events, onEventSelect }) => {
 
     // If already refetching, queue this refetch for later
     if (isRefetching) {
-      console.log('[FullCalendarMonthView] Refetch already in progress, queuing...');
       refetchTimeoutRef.current = setTimeout(() => {
         safeRefetch();
       }, 1000);
@@ -89,9 +88,7 @@ const FullCalendarMonthView = ({ project, events, onEventSelect }) => {
 
     setIsRefetching(true);
     try {
-      console.log('[FullCalendarMonthView] Safe refetch starting...');
       await refetchAgenda();
-      console.log('[FullCalendarMonthView] Safe refetch completed');
     } catch (error) {
       console.error('[FullCalendarMonthView] Refetch error:', error);
     } finally {

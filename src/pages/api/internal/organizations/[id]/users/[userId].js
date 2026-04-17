@@ -164,16 +164,6 @@ async function handleDelete(req, res, membership) {
     return res.status(400).json({ error: 'User does not belong to this organization' });
   }
 
-  // Audit log before deletion
-  console.log(`[AUDIT] Hard-deleting user "${user.name || user.email}"`, {
-    dbUserId: user.id,
-    workosUserId: user.workos_user_id || null,
-    email: user.email,
-    orgId,
-    deletedBy: membership.userId,
-    deletedByWorkosId: req.cookies.workos_user_id
-  });
-
   // 1. Resolve WorkOS user ID (fall back to email lookup if not in DB)
   let workosUserId = user.workos_user_id;
   if (!workosUserId && user.email) {
@@ -182,7 +172,6 @@ async function handleDelete(req, res, membership) {
       const match = workosUsers.data?.[0];
       if (match) {
         workosUserId = match.id;
-        console.log(`[AUDIT] Resolved WorkOS user by email: ${user.email} → ${workosUserId}`);
       }
     } catch (lookupError) {
       console.error('WorkOS user lookup by email failed:', lookupError.message);

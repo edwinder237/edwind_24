@@ -17,8 +17,6 @@ export default createHandler({
       });
     }
 
-    console.log('Force syncing course progress for event:', eventId);
-
     // Get the event with its course
     const event = await prisma.events.findUnique({
       where: { id: parseInt(eventId) },
@@ -76,8 +74,6 @@ export default createHandler({
     const completedCount = completedModules.length;
     const isFullyCompleted = completedCount >= totalModules;
 
-    console.log('Module progress:', { completedCount, totalModules, isFullyCompleted });
-
     // Collect all enrollee IDs from direct attendees and groups
     const enrolleeIds = new Set();
 
@@ -96,8 +92,6 @@ export default createHandler({
         }
       });
     });
-
-    console.log('Enrollee IDs to update:', Array.from(enrolleeIds));
 
     const completionTime = new Date();
     const results = [];

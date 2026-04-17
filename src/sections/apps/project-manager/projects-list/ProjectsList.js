@@ -102,7 +102,6 @@ const ProjectsList = () => {
   const fetchProjects = async () => {
     try {
       setLocalError(null);
-      console.log("calling project Store ")
       await dispatch(getProjects());
     } catch (err) {
       setLocalError('Failed to load projects. Please try again.');

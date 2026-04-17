@@ -27,7 +27,6 @@ export default createHandler({
     address,
     website,
     industry,
-    taxId,
     notes,
     location,
     img,
@@ -87,7 +86,6 @@ export default createHandler({
   if (address !== undefined) updateData.address = address;
   if (website !== undefined) updateData.website = website;
   if (industry !== undefined) updateData.industry = industry;
-  if (taxId !== undefined) updateData.taxId = taxId;
   if (notes !== undefined) updateData.notes = notes;
   if (location !== undefined) updateData.location = location ? JSON.stringify(location) : null;
   if (img !== undefined) updateData.img = img;

@@ -84,8 +84,6 @@ export default createHandler({
       }
     });
 
-    console.log(`💳 [REACTIVATE] Subscription for org ${orgContext.organizationId} reactivated`);
-
     return res.status(200).json({
       success: true,
       message: 'Subscription reactivated successfully'

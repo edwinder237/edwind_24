@@ -95,7 +95,7 @@ export function generateModuleLinkTemplate({
 
       <div style="text-align: center; color: #999999; font-size: 12px; border-top: 1px solid #e0e0e0; padding-top: 20px;">
         <p style="margin: 0;">
-          This is an automated message from EDWIND Training System.
+          This is an automated message from EDBAHN Training System.
           <br>
           Please do not reply to this email.
         </p>

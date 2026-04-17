@@ -35,15 +35,10 @@ export const addGroup = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Adding group to project:', command);
-      console.log('[Command] Calling API with:', { projectId, groupData });
-
       const result = await dispatch(projectApi.endpoints.addGroup.initiate({
         projectId,
         groupData
       })).unwrap();
-
-      console.log('[Command] API call successful, result:', result);
 
       const groupName = groupData.groupName || 'Group';
       dispatch(openSnackbar({
@@ -61,14 +56,6 @@ export const addGroup = createAsyncThunk(
       };
 
     } catch (error) {
-      console.error('[Command] Failed to add group:', error);
-      console.error('[Command] Error details:', {
-        data: error.data,
-        message: error.message,
-        status: error.status,
-        error: error.error
-      });
-
       let errorMessage = 'Failed to add group';
       if (error.data?.message) {
         errorMessage = error.data.message;
@@ -112,8 +99,6 @@ export const updateGroup = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Updating group:', command);
-
       const result = await dispatch(projectApi.endpoints.updateGroup.initiate({
         groupId,
         updates,
@@ -133,8 +118,6 @@ export const updateGroup = createAsyncThunk(
       return { ...result, command, groupName };
 
     } catch (error) {
-      console.error('[Command] Failed to update group:', error);
-      
       let errorMessage = 'Failed to update group';
       if (error.data?.message) {
         errorMessage = error.data.message;
@@ -174,8 +157,6 @@ export const removeGroup = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Removing group from project:', command);
-
       const result = await dispatch(projectApi.endpoints.removeGroup.initiate({
         projectId,
         groupId
@@ -192,8 +173,6 @@ export const removeGroup = createAsyncThunk(
       return { ...result, command };
 
     } catch (error) {
-      console.error('[Command] Failed to remove group:', error);
-      
       const errorMessage = error.data?.message || 'Failed to remove group';
       dispatch(openSnackbar({
         open: true,
@@ -225,8 +204,6 @@ export const addParticipantToGroup = createAsyncThunk(
         participantId,
         timestamp: new Date().toISOString()
       };
-
-      console.log('[Command] Adding participant to group:', command);
 
       const result = await dispatch(projectApi.endpoints.addParticipantToGroup.initiate({
         groupId,
@@ -301,8 +278,6 @@ export const removeParticipantFromGroup = createAsyncThunk(
         participantId,
         timestamp: new Date().toISOString()
       };
-
-      console.log('[Command] Removing participant from group:', command);
 
       const result = await dispatch(projectApi.endpoints.removeParticipantFromGroup.initiate({
         groupId,
@@ -398,8 +373,6 @@ export const moveParticipantBetweenGroups = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Moving participant between groups:', command);
-
       const result = await dispatch(projectApi.endpoints.moveParticipantToGroup.initiate({
         participantId,
         fromGroupId,
@@ -494,8 +467,6 @@ export const clearProgressCache = createAsyncThunk(
         projectId,
         timestamp: new Date().toISOString()
       };
-
-      console.log('[Command] Clearing progress cache:', command);
 
       const result = await dispatch(projectApi.endpoints.clearProgressCache.initiate(projectId)).unwrap();
 

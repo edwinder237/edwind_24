@@ -80,7 +80,6 @@ export default createHandler({
         membershipToUpdate.id,
         { roleSlug: role.toLowerCase() }
       );
-      console.log(`✅ Updated WorkOS role for user ${targetUser.email} to ${role}`);
     } catch (workosError) {
       console.error('WorkOS role update error:', workosError);
       return res.status(500).json({
@@ -97,7 +96,6 @@ export default createHandler({
           cached_at: new Date()
         }
       });
-      console.log(`✅ Updated local role cache for user ${targetUser.email}`);
     }
 
     return res.status(200).json({

@@ -103,7 +103,6 @@ const SubscriptionCard = () => {
           alert(`Synced successfully! Current plan: ${syncResponse.data.subscription?.plan?.name || 'Unknown'}`);
         }
       } else {
-        console.log('Sync message:', syncResponse.data.message);
         await Promise.all([fetchSubscription(), fetchPaymentMethod()]);
         if (showAlert) {
           alert(syncResponse.data.message || 'Sync completed');
@@ -131,7 +130,6 @@ const SubscriptionCard = () => {
     } catch (err) {
       // 403/401 means access issues, 404 means no subscription - don't show as error
       if (err.response?.status === 403 || err.response?.status === 401 || err.response?.status === 404) {
-        console.log('Subscription not available (may require admin access, org context, or no subscription)');
         setSubscription(null);
         setError(null);
       } else {

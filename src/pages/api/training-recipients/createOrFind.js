@@ -25,7 +25,6 @@ export default createHandler({
     address,
     website,
     industry,
-    taxId,
     notes
   } = req.body;
 
@@ -59,7 +58,6 @@ export default createHandler({
     address: address || null,
     website: website || null,
     industry: industry || null,
-    taxId: taxId || null,
     notes: notes || null,
     createdBy: orgContext.userId
   });

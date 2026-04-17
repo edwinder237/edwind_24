@@ -24,7 +24,7 @@ const R2_PRICING = {
   egressPerGB: 0 // Free egress
 };
 
-const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '923f49e1995e9f5e3f85d8b7ea48047a';
+const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const R2_TOKEN = process.env.R2_TOKEN;
 const BUCKET_NAME = 'edwindblobs';
 
@@ -156,9 +156,7 @@ export default createHandler({
           source: 's3_api'
         };
 
-        console.log(`[R2 Usage] S3 API: Found ${objectCount} objects, ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
       } catch (error) {
-        console.warn('[R2 Usage] S3 API failed:', error.message);
       }
     }
 
@@ -188,7 +186,6 @@ export default createHandler({
           }
         }
       } catch (error) {
-        console.warn('[R2 Usage] Failed to fetch Cloudflare bucket info:', error.message);
       }
     }
 

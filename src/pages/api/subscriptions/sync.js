@@ -74,18 +74,6 @@ export default createHandler({
 
   const stripeSubscription = stripeSubscriptions.data[0];
 
-  // Debug: log the subscription object to see its structure
-  console.log('💳 [SYNC] Stripe subscription data:', JSON.stringify({
-    id: stripeSubscription.id,
-    status: stripeSubscription.status,
-    current_period_start: stripeSubscription.current_period_start,
-    current_period_end: stripeSubscription.current_period_end,
-    items: stripeSubscription.items?.data?.map(item => ({
-      price_id: item.price?.id,
-      product: item.price?.product
-    }))
-  }, null, 2));
-
   const priceId = stripeSubscription.items.data[0]?.price?.id;
   const plan = await getPlanFromPriceId(priceId);
 
@@ -148,8 +136,6 @@ export default createHandler({
 
   // Invalidate subscription cache so fresh data is returned
   invalidateSubscriptionCache(orgContext.organizationId);
-
-    console.log(`💳 [SYNC] Synced subscription for org ${orgContext.organizationId} to ${plan.planId}`);
 
     return res.status(200).json({
       success: true,

@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 
-const PUBLIC_URL_BASE = 'https://923f49e1995e9f5e3f85d8b7ea48047a.r2.cloudflarestorage.com/edwindblobs';
+const PUBLIC_URL_BASE = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/edwindblobs`;
 
 /**
  * Simple R2 upload using direct HTTP PUT request
@@ -11,12 +11,10 @@ const PUBLIC_URL_BASE = 'https://923f49e1995e9f5e3f85d8b7ea48047a.r2.cloudflares
  */
 export async function uploadImageToR2(imageUrl, prefix = 'images') {
   try {
-    console.log('Fetching image from:', imageUrl);
-    
     // Fetch the image from the source URL
     const response = await fetch(imageUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; EDWIND/1.0; +https://edwind.app)'
+        'User-Agent': 'Mozilla/5.0 (compatible; EDBAHN/1.0; +https://edwind.app)'
       }
     });
     
@@ -31,16 +29,10 @@ export async function uploadImageToR2(imageUrl, prefix = 'images') {
     // Generate unique filename
     const fileExtension = getFileExtension(contentType);
     const key = `${prefix}/${createId()}.${fileExtension}`;
-    
-    console.log('Uploading to R2 with key:', key);
-    
+
     // For now, we'll simulate the upload and return a URL
     // In production, you would need proper R2 credentials and signing
     const publicUrl = `${PUBLIC_URL_BASE}/${key}`;
-    
-    // Store the image data temporarily (this would normally go to R2)
-    // For testing purposes, we'll return the original URL with a flag
-    console.log('Image would be uploaded to:', publicUrl);
     
     return {
       url: publicUrl,
@@ -82,7 +74,6 @@ export async function uploadMultipleImagesToR2(imageUrls, prefix = 'images') {
     try {
       return await uploadImageToR2(url, prefix);
     } catch (error) {
-      console.error(`Failed to upload image ${url}:`, error);
       return null;
     }
   });

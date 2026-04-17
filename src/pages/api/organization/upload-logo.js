@@ -4,8 +4,8 @@ import prisma from '../../../lib/prisma';
 import { logUsage, PROVIDERS } from '../../../lib/usage/usageLogger';
 
 // Cloudflare R2 Configuration
-const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '923f49e1995e9f5e3f85d8b7ea48047a';
-const R2_TOKEN = process.env.R2_TOKEN || 'UQEAEo20xjkvrBnDpWzfVXZ_KQGHoYpf1XgKTA7p';
+const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+const R2_TOKEN = process.env.R2_TOKEN;
 const BUCKET_NAME = 'edwindblobs';
 const PUBLIC_URL_BASE = `https://pub-34f9e757e51b451ea7060249e757957c.r2.dev`;
 
@@ -54,7 +54,6 @@ export default createHandler({
     }
 
     const logoUrl = `${PUBLIC_URL_BASE}/${fileName}`;
-    console.log('Logo uploaded successfully:', logoUrl);
 
     logUsage({
       provider: PROVIDERS.R2,
@@ -86,7 +85,6 @@ export default createHandler({
               }
             }
           );
-          console.log('Old logo deleted:', oldKey);
         } catch (error) {
           console.error('Failed to delete old logo:', error);
         }

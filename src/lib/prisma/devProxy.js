@@ -101,21 +101,11 @@ function getRelevantStackTrace() {
  */
 function logUnscopedQueryWarning(model, operation, where) {
   const stack = getRelevantStackTrace();
-
-  console.warn('');
-  console.warn('⚠️  POTENTIALLY UNSCOPED QUERY DETECTED');
-  console.warn('━'.repeat(60));
-  console.warn(`Model:      ${model}`);
-  console.warn(`Operation:  ${operation}`);
-  console.warn(`Where:      ${JSON.stringify(where || {}, null, 2)}`);
-  console.warn('');
-  console.warn('This query might leak cross-organization data.');
-  console.warn('Consider using scopedQueries helpers or add sub_organizationId filter.');
-  console.warn('');
-  console.warn('Call stack:');
-  console.warn(stack);
-  console.warn('━'.repeat(60));
-  console.warn('');
+  console.warn(
+    `\x1b[33m[UNSCOPED QUERY WARNING]\x1b[0m ${model}.${operation}() called without sub_organizationId filter.\n` +
+    `  Where: ${JSON.stringify(where || {})}\n` +
+    `  Stack:\n${stack}\n`
+  );
 }
 
 /**
@@ -176,7 +166,6 @@ function createDevProxy(prismaClient) {
 let prisma;
 
 if (isDevelopment) {
-  console.log('🔍 Development mode: Prisma proxy enabled (will warn about unscoped queries)');
   prisma = createDevProxy(basePrisma);
 } else {
   // Production: use standard client

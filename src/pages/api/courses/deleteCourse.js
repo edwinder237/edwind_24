@@ -42,9 +42,14 @@ export default createHandler({
       });
     }
 
-    // Delete the course (this will cascade delete modules and activities due to DB constraints)
-    await prisma.courses.delete({
-      where: { id: courseId }
+    // Soft delete the course (data retained for audit trail)
+    await prisma.courses.update({
+      where: { id: courseId },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: req.orgContext?.userId || 'unknown',
+        isActive: false,
+      }
     });
 
     res.status(200).json({

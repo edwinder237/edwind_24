@@ -129,7 +129,6 @@ export default createHandler({
               }
             }
           } catch (err) {
-            console.warn(`Could not fetch WorkOS data for user ${user.id}:`, err.message);
           }
         }
 

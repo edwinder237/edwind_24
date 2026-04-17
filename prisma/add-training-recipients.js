@@ -24,7 +24,7 @@ async function addTrainingRecipients() {
         industry: 'Technology',
         address: '123 Tech Street, Silicon Valley, CA',
         website: 'https://techcorp.com',
-        taxId: 'TC-12345',
+
         notes: 'Preferred client for advanced technical training',
         sub_organizationId: subOrg.id,
         createdBy: 'system'
@@ -38,7 +38,7 @@ async function addTrainingRecipients() {
         industry: 'Healthcare',
         address: '456 Medical Center Dr, Boston, MA',
         website: 'https://healthinnovations.com',
-        taxId: 'HI-67890',
+
         notes: 'Specializes in medical device training',
         sub_organizationId: subOrg.id,
         createdBy: 'system'
@@ -52,7 +52,7 @@ async function addTrainingRecipients() {
         industry: 'Finance',
         address: '789 Wall Street, New York, NY',
         website: 'https://globalfinance.com',
-        taxId: 'GF-11111',
+
         notes: 'Regular quarterly compliance training sessions',
         sub_organizationId: subOrg.id,
         createdBy: 'system'
@@ -66,7 +66,7 @@ async function addTrainingRecipients() {
         industry: 'Manufacturing',
         address: '321 Industrial Blvd, Detroit, MI',
         website: 'https://mexcellence.com',
-        taxId: 'ME-22222',
+
         notes: 'Safety and quality training focus',
         sub_organizationId: subOrg.id,
         createdBy: 'system'
@@ -80,7 +80,7 @@ async function addTrainingRecipients() {
         industry: 'Education',
         address: '654 University Ave, Chicago, IL',
         website: 'https://edunetwork.org',
-        taxId: 'EP-33333',
+
         notes: 'Focus on educator professional development',
         sub_organizationId: subOrg.id,
         createdBy: 'system'

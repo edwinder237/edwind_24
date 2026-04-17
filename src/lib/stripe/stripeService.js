@@ -46,8 +46,6 @@ export async function createCustomer({ organizationId, email, name }) {
       }
     });
 
-    console.log(`💳 [STRIPE] Created customer ${customer.id} for org ${organizationId}`);
-
     // Update subscription with Stripe customer ID
     await prisma.subscriptions.update({
       where: { organizationId },
@@ -84,7 +82,6 @@ export async function getOrCreateCustomer(organizationId) {
       }
     } catch (error) {
       // Customer doesn't exist in Stripe, create new one
-      console.log(`💳 [STRIPE] Customer ${subscription.stripeCustomerId} not found, creating new`);
     }
   }
 
@@ -120,8 +117,6 @@ export async function getOrCreateCustomer(organizationId) {
       source: 'edwind'
     }
   });
-
-  console.log(`💳 [STRIPE] Created customer ${customer.id} for org ${organizationId}`);
 
   // Update subscription record if it exists
   if (subscription) {
@@ -208,8 +203,6 @@ export async function createCheckoutSession({
     // Create checkout session
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
-    console.log(`💳 [STRIPE] Created checkout session ${session.id} for org ${organizationId}`);
-
     return session;
   } catch (error) {
     console.error('💳 [STRIPE_ERROR] Failed to create checkout session:', error.message);
@@ -252,8 +245,6 @@ export async function createBillingPortalSession({ organizationId, returnUrl, cu
       return_url: returnUrl
     });
 
-    console.log(`💳 [STRIPE] Created billing portal session for org ${organizationId}`);
-
     return session;
   } catch (error) {
     console.error('💳 [STRIPE_ERROR] Failed to create billing portal session:', error.message);
@@ -294,8 +285,6 @@ export async function updateSubscription({ stripeSubscriptionId, newPriceId, pro
       proration_behavior: prorate ? 'create_prorations' : 'none'
     });
 
-    console.log(`💳 [STRIPE] Updated subscription ${stripeSubscriptionId} to price ${newPriceId}`);
-
     return updatedSubscription;
   } catch (error) {
     console.error('💳 [STRIPE_ERROR] Failed to update subscription:', error.message);
@@ -318,13 +307,11 @@ export async function cancelSubscription({ stripeSubscriptionId, immediately = f
     if (immediately) {
       // Cancel immediately
       canceledSubscription = await stripe.subscriptions.cancel(stripeSubscriptionId);
-      console.log(`💳 [STRIPE] Canceled subscription ${stripeSubscriptionId} immediately`);
     } else {
       // Cancel at period end
       canceledSubscription = await stripe.subscriptions.update(stripeSubscriptionId, {
         cancel_at_period_end: true
       });
-      console.log(`💳 [STRIPE] Scheduled cancellation for subscription ${stripeSubscriptionId}`);
     }
 
     return canceledSubscription;
@@ -345,8 +332,6 @@ export async function reactivateSubscription(stripeSubscriptionId) {
     const subscription = await stripe.subscriptions.update(stripeSubscriptionId, {
       cancel_at_period_end: false
     });
-
-    console.log(`💳 [STRIPE] Reactivated subscription ${stripeSubscriptionId}`);
 
     return subscription;
   } catch (error) {

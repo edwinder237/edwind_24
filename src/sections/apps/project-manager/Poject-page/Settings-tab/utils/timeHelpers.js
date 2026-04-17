@@ -14,7 +14,6 @@ export const timeStringToDate = (timeString) => {
   try {
     return parse(timeString, TIME_FORMAT, new Date());
   } catch (error) {
-    console.warn('Invalid time string:', timeString);
     return parse(DEFAULT_SETTINGS.START_OF_DAY, TIME_FORMAT, new Date());
   }
 };
@@ -32,7 +31,6 @@ export const dateToTimeString = (date) => {
   try {
     return format(date, TIME_FORMAT);
   } catch (error) {
-    console.warn('Invalid date object:', date);
     return DEFAULT_SETTINGS.START_OF_DAY;
   }
 };
@@ -62,7 +60,6 @@ export const formatDisplayDate = (date, formatString = 'MMM dd, yyyy') => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     return format(dateObj, formatString);
   } catch (error) {
-    console.warn('Error formatting date:', date, error);
     return 'N/A';
   }
 };

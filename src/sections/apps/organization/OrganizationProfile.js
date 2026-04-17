@@ -72,7 +72,6 @@ const OrganizationProfile = ({ focusInput }) => {
       }
     } catch (error) {
       // Non-admin users will get 403, which is expected
-      console.log('Subscription not available (may require admin access)');
     }
   };
 

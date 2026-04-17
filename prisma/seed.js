@@ -24,7 +24,6 @@ async function main() {
         address: '123 Learning Street, Education City, EC 12345',
         industry: 'Education & Training',
         website: 'https://edwind.com',
-        tax_id: 'EIN-123456789'
       }
     }
   });

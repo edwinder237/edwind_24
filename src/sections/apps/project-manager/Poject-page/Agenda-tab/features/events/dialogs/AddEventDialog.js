@@ -156,7 +156,6 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
   const createEventWithStateUpdate = async (eventData) => {
     // CRITICAL: Check ref FIRST - it's synchronous and prevents race conditions
     if (creationInProgressRef.current) {
-      console.log('[AddEventDialog] Event creation BLOCKED by ref - operation already in progress');
       dispatch(openSnackbar({
         open: true,
         message: 'Please wait - an event is currently being created',
@@ -172,7 +171,6 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
     try {
       // Set ref IMMEDIATELY to block all subsequent creation attempts
       creationInProgressRef.current = true;
-      console.log(`[AddEventDialog] [${new Date().toISOString()}] Event creation started - ref set to TRUE`);
 
       setIsCreatingEvent(true);
 
@@ -184,7 +182,6 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
         projectId: project.id,
         eventData: eventData
       }));
-      console.log(`[AddEventDialog] [${new Date().toISOString()}] Event creation completed (${Date.now() - startTime}ms)`);
 
       // Update the next available time slot based on the event we just created
       // This ensures subsequent events don't overlap
@@ -198,7 +195,6 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       // The create command invalidates ProjectAgenda tag which triggers fetchProjectAgenda
       // We monitor isFetchingAgendaRef and wait until it becomes false
       // This works on any connection speed - fast or slow connections handled automatically!
-      console.log(`[AddEventDialog] [${new Date().toISOString()}] Waiting for agenda refetch to complete...`);
 
       if (isFetchingAgendaRef) {
         // Poll isFetchingAgendaRef until refetch completes (with timeout safety)
@@ -210,14 +206,6 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
           await new Promise(resolve => setTimeout(resolve, pollInterval));
           waited += pollInterval;
         }
-
-        if (waited >= maxWaitTime) {
-          console.warn(`[AddEventDialog] Timeout waiting for agenda refetch (${waited}ms)`);
-        } else {
-          console.log(`[AddEventDialog] [${new Date().toISOString()}] Agenda refetch completed (waited ${waited}ms)`);
-        }
-      } else {
-        console.log(`[AddEventDialog] [${new Date().toISOString()}] No refetch in progress`);
       }
 
       // Call callback if provided
@@ -235,7 +223,6 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
       setIsCreatingEvent(false);
       // Reset ref AFTER all operations complete
       creationInProgressRef.current = false;
-      console.log(`[AddEventDialog] [${new Date().toISOString()}] Operation complete - ref reset to FALSE`);
     }
   };
   const [pendingEventIds, setPendingEventIds] = useState(new Set());

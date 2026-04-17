@@ -134,7 +134,6 @@ export async function refreshAccessToken(refreshToken, account) {
 export async function createEvent(accessToken, eventData) {
   const client = getGraphClient(accessToken);
   const response = await client.api('/me/events').post(eventData);
-  console.log(`[MICROSOFT_CALENDAR] Created event ${response.id}`);
   return { id: response.id, webLink: response.webLink };
 }
 
@@ -148,7 +147,6 @@ export async function createEvent(accessToken, eventData) {
 export async function updateEvent(accessToken, externalEventId, eventData) {
   const client = getGraphClient(accessToken);
   const response = await client.api(`/me/events/${externalEventId}`).patch(eventData);
-  console.log(`[MICROSOFT_CALENDAR] Updated event ${externalEventId}`);
   return { id: response.id };
 }
 
@@ -161,11 +159,9 @@ export async function deleteEvent(accessToken, externalEventId) {
   const client = getGraphClient(accessToken);
   try {
     await client.api(`/me/events/${externalEventId}`).delete();
-    console.log(`[MICROSOFT_CALENDAR] Deleted event ${externalEventId}`);
   } catch (error) {
     // 404 = already deleted, which is fine
     if (error.statusCode === 404) {
-      console.log(`[MICROSOFT_CALENDAR] Event ${externalEventId} already deleted`);
       return;
     }
     throw error;

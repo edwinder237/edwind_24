@@ -29,8 +29,6 @@ export default createHandler({
 
     const removedEnrolleeIds = removedParticipants.map(p => p.id);
 
-    console.log(`Found ${removedEnrolleeIds.length} removed participants in project ${projectId}`);
-
     if (removedEnrolleeIds.length === 0) {
       return res.status(200).json({
         message: 'No orphaned event attendees found',
@@ -46,8 +44,6 @@ export default createHandler({
         }
       }
     });
-
-    console.log(`Cleaned up ${deletedAttendees.count} orphaned event_attendee records for project ${projectId}`);
 
     res.status(200).json({
       message: `Successfully cleaned up orphaned event attendees`,

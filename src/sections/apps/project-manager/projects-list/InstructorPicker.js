@@ -82,11 +82,10 @@ export default function InstructorPicker({
 
       if (response.data.success) {
         const newInstructor = response.data.data;
-        console.log('New instructor created:', newInstructor);
-        
+
         // Add to the list
         setInstructors(prev => [...prev, newInstructor]);
-        
+
         return newInstructor;
       } else {
         console.error('Failed to create instructor:', response.data.message);

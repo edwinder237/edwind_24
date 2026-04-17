@@ -23,9 +23,8 @@ const AttendeeCard = ({ attendees }) => {
   const attendee = attendees.enrollee.participant;
 
   const handleClick = () => {
-    console.info("You clicked the Chip.");
   };
- 
+
 if (attendees.id) {
     return (
       <CardContent>

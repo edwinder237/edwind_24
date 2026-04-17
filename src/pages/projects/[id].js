@@ -24,7 +24,8 @@ import {
   useGetProjectSettingsQuery,
   // useGetProjectDashboardQuery removed - using derived selectors
   useGetProjectAgendaQuery,
-  useGetProjectParticipantsQuery
+  useGetProjectParticipantsQuery,
+  useGetNeedsAnalysisQuery
 } from "store/api/projectApi";
 
 // project imports
@@ -147,6 +148,9 @@ function ProjectDefault() {
     isLoading: agendaLoading,
     error: agendaError
   } = useGetProjectAgendaQuery(projectId, { skip: !projectId });
+
+  // Needs analysis - auto-creates empty record on first access
+  useGetNeedsAnalysisQuery(projectId, { skip: !projectId });
 
   // Clear global loading state when all queries are done
   useEffect(() => {

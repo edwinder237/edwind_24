@@ -26,14 +26,6 @@ export default createHandler({
   GET: async (req, res) => {
     const { orgContext } = req;
 
-    console.log('📋 orgContext:', {
-      organizationId: orgContext.organizationId,
-      subOrganizationIds: orgContext.subOrganizationIds,
-      userId: orgContext.userId,
-      permissions: orgContext.permissions,
-      appRole: orgContext.appRole
-    });
-
     // Get user from database
     const dbUser = await prisma.user.findUnique({
       where: { workos_user_id: orgContext.userId },
@@ -48,8 +40,6 @@ export default createHandler({
     // - isAdmin (WorkOS admin)
     // - canViewAll checks for 'projects:read' or legacy 'accessallprojects' permission
     const hasAccessAllProjects = orgContext.isAdmin || canViewAll(orgContext.permissions, 'projects');
-
-    console.log(`🔐 User ${orgContext.userId} - accessAllProjects: ${hasAccessAllProjects}, isAdmin: ${orgContext.isAdmin}, permissions: ${orgContext.permissions?.join(', ')}`);
 
     // Build where clause based on permissions
     // Note: scopedFindMany will automatically add sub_organizationId filter

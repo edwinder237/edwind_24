@@ -109,8 +109,6 @@ async function handleUpdate(req, res) {
     }
   });
 
-  console.log(`✅ Updated sub-organization ${subOrgId}: "${title}"`);
-
   return res.status(200).json({
     success: true,
     subOrganization
@@ -169,14 +167,11 @@ async function handleDelete(req, res) {
     where: { id: subOrgId }
   });
 
-  console.log(`✅ Deleted sub-organization ${subOrgId}: "${subOrg.title}"`);
-
   // Invalidate and warm claims cache so the deleted sub-org is removed from switcher
   if (workosUserId) {
     try {
       await invalidateClaimsCache(workosUserId);
       await warmClaimsCache(req, workos);
-      console.log(`✅ Claims cache refreshed for user ${workosUserId}`);
     } catch (cacheError) {
       console.error('Error refreshing claims cache:', cacheError);
       // Don't fail the request if cache refresh fails

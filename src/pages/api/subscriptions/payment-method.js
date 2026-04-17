@@ -43,7 +43,6 @@ export default createHandler({
         const stripeSubscription = await stripe.subscriptions.retrieve(dbSubscription.stripeSubscriptionId);
         paymentMethodId = stripeSubscription.default_payment_method;
       } catch (subErr) {
-        console.log('Could not retrieve subscription:', subErr.message);
       }
     }
 
@@ -79,7 +78,6 @@ export default createHandler({
         }
       } catch (pmErr) {
         // If paymentMethods.retrieve fails, it might be an old-style source
-        console.log('Trying to retrieve as source:', pmErr.message);
         try {
           const source = await stripe.customers.retrieveSource(
             dbSubscription.stripeCustomerId,
@@ -98,7 +96,6 @@ export default createHandler({
             };
           }
         } catch (srcErr) {
-          console.log('Could not retrieve source:', srcErr.message);
         }
       }
     }

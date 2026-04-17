@@ -11,7 +11,6 @@ async function calculateIndividualParticipantProgress(participantId, projectPart
   try {
     // Ensure we have valid parameters
     if (!groupId || !participantId) {
-      console.warn('Missing required parameters for progress calculation');
       return { totalActivities: 0, completedActivities: 0, overallProgress: 0 };
     }
 
@@ -202,11 +201,8 @@ export default createHandler({
     const cached = progressCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log('Returning cached progress for group:', groupId);
       return res.status(200).json(cached.data);
     }
-
-    console.log('Calculating fresh progress for group:', groupId);
 
     // Get group with participants
     const group = await prisma.groups.findUnique({
@@ -250,7 +246,6 @@ export default createHandler({
             progress: individualProgress || 0
           };
         } catch (error) {
-          console.error(`Error calculating progress for participant:`, error);
           return {
             participantId: participantRelation.participant.id,
             progress: 0

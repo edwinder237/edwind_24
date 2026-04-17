@@ -71,14 +71,11 @@ export default createHandler({
     }
   });
 
-  console.log(`✅ Created sub-organization "${title}" for organization ${orgContext.organizationId}`);
-
   // Invalidate and warm claims cache so the new sub-org appears in switcher
   if (workosUserId) {
     try {
       await invalidateClaimsCache(workosUserId);
       await warmClaimsCache(req, workos);
-      console.log(`✅ Claims cache refreshed for user ${workosUserId}`);
     } catch (cacheError) {
       console.error('Error refreshing claims cache:', cacheError);
       // Don't fail the request if cache refresh fails

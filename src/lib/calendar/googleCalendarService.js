@@ -80,7 +80,6 @@ export async function createEvent(accessToken, eventData, calendarId = 'primary'
     calendarId,
     resource: eventData,
   });
-  console.log(`[GOOGLE_CALENDAR] Created event ${response.data.id}`);
   return { id: response.data.id, htmlLink: response.data.htmlLink };
 }
 
@@ -99,7 +98,6 @@ export async function updateEvent(accessToken, externalEventId, eventData, calen
     eventId: externalEventId,
     resource: eventData,
   });
-  console.log(`[GOOGLE_CALENDAR] Updated event ${externalEventId}`);
   return { id: response.data.id };
 }
 
@@ -116,11 +114,9 @@ export async function deleteEvent(accessToken, externalEventId, calendarId = 'pr
       calendarId,
       eventId: externalEventId,
     });
-    console.log(`[GOOGLE_CALENDAR] Deleted event ${externalEventId}`);
   } catch (error) {
     // 404/410 = already deleted, which is fine
     if (error.code === 404 || error.code === 410) {
-      console.log(`[GOOGLE_CALENDAR] Event ${externalEventId} already deleted`);
       return;
     }
     throw error;

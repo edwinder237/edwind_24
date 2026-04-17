@@ -133,7 +133,7 @@ export default createHandler({
       timezone: eventTimezone
     };
 
-    const organizerName = instructorName || project?.sub_organization?.title || 'EDWIND Training';
+    const organizerName = instructorName || project?.sub_organization?.title || 'EDBAHN Training';
     const finalProjectTitle = projectTitle || project?.title || 'Training Project';
 
     // Filter attendees if participantIds is provided

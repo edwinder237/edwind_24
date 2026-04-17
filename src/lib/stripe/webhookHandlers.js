@@ -23,11 +23,8 @@ export async function handleCheckoutCompleted(session) {
   const stripeCustomerId = session.customer;
 
   if (!organizationId || !stripeSubscriptionId) {
-    console.error('💳 [WEBHOOK] Missing organizationId or subscriptionId in checkout session');
     return;
   }
-
-  console.log(`💳 [WEBHOOK] Checkout completed for org ${organizationId}`);
 
   // Get subscription details from Stripe
   const Stripe = (await import('stripe')).default;
@@ -39,7 +36,6 @@ export async function handleCheckoutCompleted(session) {
   const plan = await getPlanFromPriceId(priceId);
 
   if (!plan) {
-    console.error(`💳 [WEBHOOK] Unknown price ID: ${priceId}`);
     return;
   }
 
@@ -96,8 +92,6 @@ export async function handleCheckoutCompleted(session) {
 
   // Invalidate subscription cache so next request gets fresh data
   invalidateSubscriptionCache(organizationId);
-
-  console.log(`💳 [WEBHOOK] Updated subscription for org ${organizationId} to ${plan.planId}`);
 }
 
 /**
@@ -122,7 +116,6 @@ export async function handleSubscriptionUpdated(subscription) {
   }
 
   if (!dbSubscription) {
-    console.log(`💳 [WEBHOOK] No matching subscription found for ${subscription.id}`);
     return;
   }
 
@@ -174,8 +167,6 @@ export async function handleSubscriptionUpdated(subscription) {
 
   // Invalidate subscription cache
   invalidateSubscriptionCache(dbSubscription.organizationId);
-
-  console.log(`💳 [WEBHOOK] Updated subscription ${subscription.id}`);
 }
 
 /**
@@ -190,7 +181,6 @@ export async function handleSubscriptionDeleted(subscription) {
   });
 
   if (!dbSubscription) {
-    console.log(`💳 [WEBHOOK] No matching subscription found for ${subscription.id}`);
     return;
   }
 
@@ -228,8 +218,6 @@ export async function handleSubscriptionDeleted(subscription) {
 
   // Invalidate subscription cache
   invalidateSubscriptionCache(dbSubscription.organizationId);
-
-  console.log(`💳 [WEBHOOK] Subscription ${subscription.id} canceled`);
 }
 
 /**
@@ -276,7 +264,6 @@ export async function handleInvoicePaid(invoice) {
       }
     });
 
-    console.log(`💳 [WEBHOOK] Subscription ${stripeSubscriptionId} reactivated after payment`);
   }
 }
 
@@ -327,7 +314,6 @@ export async function handleInvoicePaymentFailed(invoice) {
     }
   });
 
-  console.log(`💳 [WEBHOOK] Payment failed for subscription ${stripeSubscriptionId}`);
 }
 
 /**
@@ -359,8 +345,6 @@ export async function handleTrialWillEnd(subscription) {
     }
   });
 
-  console.log(`💳 [WEBHOOK] Trial ending soon for subscription ${subscription.id}`);
-
   // TODO: Send email notification to organization admin
 }
 
@@ -370,8 +354,6 @@ export async function handleTrialWillEnd(subscription) {
  * @param {Object} event - Stripe Event object
  */
 export async function handleWebhookEvent(event) {
-  console.log(`💳 [WEBHOOK] Processing event: ${event.type}`);
-
   switch (event.type) {
     case 'checkout.session.completed':
       await handleCheckoutCompleted(event.data.object);
@@ -399,7 +381,7 @@ export async function handleWebhookEvent(event) {
       break;
 
     default:
-      console.log(`💳 [WEBHOOK] Unhandled event type: ${event.type}`);
+      break;
   }
 }
 

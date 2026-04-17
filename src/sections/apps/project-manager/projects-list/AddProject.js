@@ -409,7 +409,7 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
         setProjectTitle(event.target.value);
         break;
       default:
-        console.log("Unhandled event type:", event.target.id);
+        break;
     }
   };
 
@@ -418,11 +418,6 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
     initialValues: getInitialValues(project),
     validationSchema: ProjectSchema,
     onSubmit: async (values, { setSubmitting }) => {
-      console.log('Form values:', values);
-      console.log('Selected instructor state:', selectedInstructor);
-      console.log('Selected training recipient state:', selectedTrainingRecipient);
-      console.log('Selected curriculum state:', selectedCurriculum);
-      console.log('Project topics state:', projectTopics, typeof projectTopics);
       try {
         // If user is creating a new training recipient, create it first
         let trainingRecipientId = selectedTrainingRecipient ? selectedTrainingRecipient.id : null;

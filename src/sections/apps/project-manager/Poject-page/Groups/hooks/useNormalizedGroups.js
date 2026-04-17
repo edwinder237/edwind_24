@@ -110,7 +110,6 @@ export const useNormalizedGroups = (projectId) => {
   // Force refresh implementation
   const forceRefresh = useCallback(async () => {
     try {
-      console.log('[useNormalizedGroups] Refreshing groups and participants...');
       await Promise.all([
         refreshData(),
         refreshParticipants()

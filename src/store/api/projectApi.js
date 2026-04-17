@@ -25,6 +25,7 @@ import {
   eventUpdated,
   eventRemoved
 } from '../entities/eventsSlice';
+import { needsAnalysisReceived } from '../entities/needsAnalysisSlice';
 
 /**
  * RTK Query API for Project Management
@@ -62,7 +63,8 @@ export const projectApi = createApi({
     'ProjectAssessments',
     'DailyNotes',
     'CurriculumSurvey',
-    'Curriculum'
+    'Curriculum',
+    'NeedsAnalysis'
   ],
   
   endpoints: (builder) => ({
@@ -292,31 +294,23 @@ export const projectApi = createApi({
      * Filters out participants already enrolled if projectId is provided
      */
     getTrainingRecipientParticipants: builder.query({
-      query: ({ trainingRecipientId, projectId }) => {
-        console.log('[RTK Query] Building query with:', { trainingRecipientId, projectId });
-        return {
-          url: 'training-recipients/fetch-participants',
-          method: 'GET',
-          params: { trainingRecipientId, projectId }
-        };
-      },
+      query: ({ trainingRecipientId, projectId }) => ({
+        url: 'training-recipients/fetch-participants',
+        method: 'GET',
+        params: { trainingRecipientId, projectId }
+      }),
       providesTags: (_, __, { trainingRecipientId, projectId }) => [
         { type: 'Project', id: projectId },
         'Participant'
       ],
       // Transform response to ensure consistent format
       transformResponse: (response) => {
-        console.log('[RTK Query] getTrainingRecipientParticipants response:', response);
         if (response.success) {
-          const enrolledCount = response.participants?.filter(p => p.isEnrolled).length || 0;
-          console.log('[RTK Query] Returning participants:', response.participants?.length || 0, `(${enrolledCount} enrolled, ${(response.participants?.length || 0) - enrolledCount} available)`);
           return response.participants || [];
         }
-        console.warn('[RTK Query] Response was not successful:', response);
         return [];
       },
       transformErrorResponse: (error) => {
-        console.error('[RTK Query] getTrainingRecipientParticipants error:', error);
         return error;
       },
       // Cache for 5 minutes - available participants may change
@@ -564,14 +558,6 @@ export const projectApi = createApi({
             }]));
           }
 
-          // Cascade to events
-          if (data?.eventsToAddTo && data.eventsToAddTo.length > 0) {
-            console.log(`[Cascade] Participant ${args.participantId} added to ${data.eventsToAddTo.length} events via new group`);
-          }
-          if (data?.eventsToRemoveFrom && data.eventsToRemoveFrom.length > 0) {
-            console.log(`[Cascade] Participant ${args.participantId} removed from ${data.eventsToRemoveFrom.length} events due to group change`);
-          }
-
           // Update events in normalized store if returned
           if (data?.affectedEvents && data.affectedEvents.length > 0) {
             dispatch(eventsUpserted(data.affectedEvents));
@@ -615,8 +601,6 @@ export const projectApi = createApi({
 
           // If group is assigned to events, participant was cascaded to those events
           if (data?.affectedEvents && data.affectedEvents.length > 0) {
-            console.log(`[Cascade] Participant ${participantId} added to ${data.affectedEvents.length} events via group ${groupId}`);
-
             // Update events in normalized store
             if (data.affectedEvents.length > 0) {
               dispatch(eventsUpserted(data.affectedEvents));
@@ -658,8 +642,6 @@ export const projectApi = createApi({
 
           // If participant was removed from events, cascade
           if (data?.eventsToRemoveFrom && data.eventsToRemoveFrom.length > 0) {
-            console.log(`[Cascade] Participant ${participantId} removed from ${data.eventsToRemoveFrom.length} events via group ${groupId}`);
-
             // Update events in normalized store
             if (data.affectedEvents && data.affectedEvents.length > 0) {
               dispatch(eventsUpserted(data.affectedEvents));
@@ -857,37 +839,28 @@ export const projectApi = createApi({
      * Add new group to project
      */
     addGroup: builder.mutation({
-      query: ({ projectId, groupData }) => {
-        console.log('[RTK Query] addGroup query:', { projectId, groupData });
-        return {
-          url: 'projects/add-group',
-          method: 'POST',
-          body: { projectId, newGroup: groupData }
-        };
-      },
+      query: ({ projectId, groupData }) => ({
+        url: 'projects/add-group',
+        method: 'POST',
+        body: { projectId, newGroup: groupData }
+      }),
       invalidatesTags: (_, __, { projectId }) => [
         { type: 'Project', id: projectId },
         'ProjectAgenda',
         'Group'
       ],
       onQueryStarted: async ({ projectId, groupData }, { dispatch, queryFulfilled, getState }) => {
-        console.log('[RTK Query] addGroup started:', { projectId, groupData });
         try {
           const { data } = await queryFulfilled;
-          console.log('[RTK Query] addGroup success:', data);
 
           // Add group to normalized store
           if (data?.group) {
             dispatch(groupAdded(data.group));
-            console.log('[RTK Query] Group added to normalized store');
-          } else {
-            console.warn('[RTK Query] No group in response data:', data);
           }
 
           // RTK Query will automatically refetch due to invalidatesTags
         } catch (error) {
           console.error('[RTK Query] addGroup failed:', error);
-          console.error('[RTK Query] Error details:', error.data || error.message);
         }
       },
     }),
@@ -994,7 +967,6 @@ export const projectApi = createApi({
             }]));
           }
 
-          console.log(`[Cascade] Curriculum ${curriculumId} assigned to group ${groupId}, events updated`);
         } catch (error) {
           console.error('Failed to assign curriculum to group:', error);
         }
@@ -1028,7 +1000,6 @@ export const projectApi = createApi({
             curriculums: [] // Will be refreshed by invalidation
           }]));
 
-          console.log(`[Cascade] Curriculum ${curriculumId} removed from group ${groupId}, events updated`);
         } catch (error) {
           console.error('Failed to remove curriculum from group:', error);
         }
@@ -1802,6 +1773,65 @@ export const projectApi = createApi({
       ]
     }),
 
+    // ==============================|| NEEDS ANALYSIS ||============================== //
+
+    getNeedsAnalysis: builder.query({
+      query: (projectId) => ({
+        url: 'needs-analysis',
+        params: { projectId }
+      }),
+      providesTags: (_, __, projectId) => [
+        { type: 'NeedsAnalysis', id: projectId },
+        { type: 'Project', id: projectId }
+      ],
+      transformResponse: (response) => {
+        if (response.success) return response.data;
+        throw new Error(response.message || 'Failed to fetch needs analysis');
+      },
+      async onQueryStarted(projectId, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          if (data) {
+            dispatch(needsAnalysisReceived(data));
+          }
+        } catch (error) {
+          console.error('Failed to fetch needs analysis:', error);
+        }
+      },
+      keepUnusedDataFor: 600,
+    }),
+
+    updateNeedsAnalysis: builder.mutation({
+      query: ({ projectId, ...updates }) => ({
+        url: 'needs-analysis',
+        method: 'POST',
+        params: { projectId },
+        body: updates
+      }),
+      invalidatesTags: (_, __, { projectId }) => [
+        { type: 'NeedsAnalysis', id: projectId }
+      ],
+      transformResponse: (response) => {
+        if (response.success) return response.data;
+        throw new Error(response.message || 'Failed to update needs analysis');
+      },
+      async onQueryStarted({ projectId, ...updates }, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          projectApi.util.updateQueryData('getNeedsAnalysis', projectId, (draft) => {
+            Object.assign(draft, updates);
+          })
+        );
+        try {
+          const { data } = await queryFulfilled;
+          if (data) {
+            dispatch(needsAnalysisReceived(data));
+          }
+        } catch {
+          patchResult.undo();
+        }
+      }
+    }),
+
     // ==============================|| CURRICULUMS ||============================== //
 
     /**
@@ -2025,6 +2055,10 @@ export const {
   useDeleteCurriculumSurveyMutation,
   useGetSurveyResultsQuery,
   useLazyGetSurveyResultsQuery,
+
+  // Needs Analysis
+  useGetNeedsAnalysisQuery,
+  useUpdateNeedsAnalysisMutation,
 
   // Utilities
   useLazyGetProjectAgendaQuery,

@@ -31,22 +31,13 @@ export default createHandler({
       throw new NotFoundError('Participant not found');
     }
 
-    // Use transaction for atomicity
-    await prisma.$transaction(async (tx) => {
-      // Delete all related project_participants records first
-      await tx.project_participants.deleteMany({
-        where: { participantId: participantId }
-      });
-
-      // Delete any tool access records
-      await tx.toolAccesses.deleteMany({
-        where: { participantId: participantId }
-      });
-
-      // Delete the participant
-      await tx.participants.delete({
-        where: { id: participantId }
-      });
+    // Soft delete the participant (data retained for audit trail)
+    await prisma.participants.update({
+      where: { id: participantId },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: orgContext.userId,
+      }
     });
 
     return res.status(200).json({

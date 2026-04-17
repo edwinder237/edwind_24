@@ -9,7 +9,6 @@ export default createHandler({
     if (!sub_organizationId) {
       return res.status(400).json({ error: 'sub_organizationId is required' });
     }
-console.log("SUB ID",sub_organizationId)
     // Fetch all events for projects belonging to the sub-organization
     const events = await prisma.events.findMany({
       where: {

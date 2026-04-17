@@ -20,7 +20,6 @@ import { openSnackbar } from '../reducers/snackbar';
  * Must be called after store is created
  */
 export const initializeCrossDomainHandlers = (store) => {
-  console.log('[Cross-Domain] Initializing event handlers...');
 
   // ========== GROUPS → AGENDA EVENTS ========== //
 
@@ -31,12 +30,8 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.PARTICIPANT_ADDED_TO_GROUP, (event) => {
     const { cascadeInfo, participant, group } = event.payload;
 
-    console.log(`[Cross-Domain] Participant ${participant?.id} added to group ${group?.id}`);
-
     // Check if cascade occurred
     if (cascadeInfo?.affectedEvents && cascadeInfo.affectedEvents.length > 0) {
-      console.log(`[Cross-Domain] Cascaded to ${cascadeInfo.addedToEventCount} events, invalidating Agenda cache`);
-
       // Invalidate Agenda cache to force refresh with new participant in events
       store.dispatch(projectApi.util.invalidateTags([
         'ProjectAgenda',
@@ -65,8 +60,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.PARTICIPANT_REMOVED_FROM_GROUP, (event) => {
     const { participant, group } = event.payload;
 
-    console.log(`[Cross-Domain] Participant ${participant?.id} removed from group ${group?.id}`);
-
     // Always invalidate both Groups and Agenda (backend determines cascade logic)
     store.dispatch(projectApi.util.invalidateTags([
       'Group',
@@ -82,8 +75,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.PARTICIPANT_MOVED_BETWEEN_GROUPS, (event) => {
     const { participant, previousGroup, newGroup } = event.payload;
-
-    console.log(`[Cross-Domain] Participant ${participant?.id} moved from group ${previousGroup?.id} to ${newGroup?.id}`);
 
     // Invalidate all affected caches
     store.dispatch(projectApi.util.invalidateTags([
@@ -120,8 +111,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.GROUP_DELETED, (event) => {
     const { group } = event.payload;
 
-    console.log(`[Cross-Domain] Group ${group.id} deleted, updating events`);
-
     // Invalidate everything - group deletion affects many entities
     store.dispatch(projectApi.util.invalidateTags([
       'Group',
@@ -138,8 +127,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.CURRICULUM_ASSIGNED_TO_GROUP, (event) => {
     const { group, curriculum } = event.payload;
-
-    console.log(`[Cross-Domain] Curriculum ${curriculum?.id} assigned to group ${group.id}, updating event expectations`);
 
     // Invalidate Agenda and Progress caches
     store.dispatch(projectApi.util.invalidateTags([
@@ -165,8 +152,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.CURRICULUM_REMOVED_FROM_GROUP, (event) => {
     const { group, curriculum } = event.payload;
 
-    console.log(`[Cross-Domain] Curriculum ${curriculum?.id} removed from group ${group.id}`);
-
     store.dispatch(projectApi.util.invalidateTags([
       'GroupCurriculum',
       'GroupProgress',
@@ -183,8 +168,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.GROUP_ENROLLED_IN_EVENT, (event) => {
     const { group, event: agendaEvent } = event.payload;
-
-    console.log(`[Cross-Domain] Group ${group.id} enrolled in event ${agendaEvent.id}`);
 
     // Invalidate Groups to reflect new event assignments
     store.dispatch(projectApi.util.invalidateTags([
@@ -213,8 +196,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.GROUP_REMOVED_FROM_EVENT, (event) => {
     const { group, event: agendaEvent } = event.payload;
 
-    console.log(`[Cross-Domain] Group ${group.id} removed from event ${agendaEvent.id}`);
-
     // Invalidate caches
     store.dispatch(projectApi.util.invalidateTags([
       'Group',
@@ -230,8 +211,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.ATTENDANCE_STATUS_CHANGED, (event) => {
     const { participant, status, event: agendaEvent } = event.payload;
 
-    console.log(`[Cross-Domain] Attendance changed for participant ${participant.id}, invalidating group progress`);
-
     // Invalidate group progress cache (attendance affects completion rates)
     store.dispatch(projectApi.util.invalidateTags([
       'GroupProgress',
@@ -246,8 +225,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.PARTICIPANT_ENROLLED_IN_EVENT, (event) => {
     const { participant, event: agendaEvent } = event.payload;
 
-    console.log(`[Cross-Domain] Participant ${participant.id} enrolled in event ${agendaEvent.id}`);
-
     // Refresh Groups to show updated event enrollments
     store.dispatch(projectApi.util.invalidateTags(['Group']));
   });
@@ -257,8 +234,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.PARTICIPANT_REMOVED_FROM_EVENT, (event) => {
     const { participant, event: agendaEvent } = event.payload;
-
-    console.log(`[Cross-Domain] Participant ${participant.id} removed from event ${agendaEvent.id}`);
 
     // Refresh Groups
     store.dispatch(projectApi.util.invalidateTags(['Group']));
@@ -271,12 +246,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.PARTICIPANT_ROLE_UPDATED, (event) => {
     const { participant, newRole, previousRole, participantIds, roleId, roleName, bulkUpdate } = event.payload;
-
-    if (bulkUpdate) {
-      console.log(`[Cross-Domain] Bulk role update: ${participantIds?.length || 0} participants assigned to "${roleName || 'No Role'}"`);
-    } else if (participant) {
-      console.log(`[Cross-Domain] Participant ${participant.id} role updated from ${previousRole} to ${newRole}`);
-    }
 
     // Refresh Groups to reflect role changes
     store.dispatch(projectApi.util.invalidateTags([
@@ -303,8 +272,6 @@ export const initializeCrossDomainHandlers = (store) => {
 
   progressRecalcTriggers.forEach(eventType => {
     eventBus.subscribe(eventType, (event) => {
-      console.log(`[Cross-Domain] Progress trigger: ${eventType}, recalculating group progress`);
-
       // Debounced invalidation (avoid multiple recalcs in quick succession)
       // Using setTimeout to debounce - production should use proper debounce utility
       if (window.__groupProgressDebounce) {
@@ -328,8 +295,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.PROJECT_SCHEDULE_UPDATED, (event) => {
     const { projectId, scheduleChanges, affectedEvents } = event.payload;
-
-    console.log(`[Cross-Domain] Project ${projectId} schedule updated, affecting ${affectedEvents?.length || 0} events`);
 
     // Invalidate all affected caches
     store.dispatch(projectApi.util.invalidateTags([
@@ -358,8 +323,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.INSTRUCTOR_ADDED_TO_PROJECT, (event) => {
     const { projectId, instructor } = event.payload;
 
-    console.log(`[Cross-Domain] Instructor ${instructor?.id} added to project ${projectId}`);
-
     // Invalidate Agenda to show new instructor in available list
     store.dispatch(projectApi.util.invalidateTags([
       'ProjectAgenda',
@@ -382,8 +345,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.INSTRUCTOR_REMOVED_FROM_PROJECT, (event) => {
     const { projectId, instructor, affectedEvents } = event.payload;
-
-    console.log(`[Cross-Domain] Instructor ${instructor?.id} removed from project ${projectId}`);
 
     // Invalidate all affected caches
     store.dispatch(projectApi.util.invalidateTags([
@@ -411,8 +372,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.PROJECT_TOPICS_UPDATED, (event) => {
     const { projectId, topics } = event.payload;
 
-    console.log(`[Cross-Domain] Topics updated for project ${projectId}`);
-
     // Invalidate related caches
     store.dispatch(projectApi.util.invalidateTags([
       'ProjectSettings',
@@ -426,8 +385,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.PROJECT_CURRICULUMS_UPDATED, (event) => {
     const { projectId, curriculums } = event.payload;
-
-    console.log(`[Cross-Domain] Curriculums updated for project ${projectId}`);
 
     // Invalidate related caches
     store.dispatch(projectApi.util.invalidateTags([
@@ -452,8 +409,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.TRAINING_RECIPIENT_UPDATED, (event) => {
     const { projectId, trainingRecipient } = event.payload;
 
-    console.log(`[Cross-Domain] Training recipient updated for project ${projectId}`);
-
     // Invalidate related caches
     store.dispatch(projectApi.util.invalidateTags([
       'Project',
@@ -468,8 +423,6 @@ export const initializeCrossDomainHandlers = (store) => {
    */
   eventBus.subscribe(DomainEvents.PROJECT_INFO_UPDATED, (event) => {
     const { projectId, updates } = event.payload;
-
-    console.log(`[Cross-Domain] Project ${projectId} info updated:`, Object.keys(updates));
 
     // Invalidate all project-related caches
     store.dispatch(projectApi.util.invalidateTags([
@@ -501,12 +454,10 @@ export const initializeCrossDomainHandlers = (store) => {
     const { entities, ids } = event.payload;
 
     if (entities.includes('group')) {
-      console.log('[Cross-Domain] Group cache invalidated');
       store.dispatch(projectApi.util.invalidateTags(['Group', 'GroupParticipants']));
     }
 
     if (entities.includes('event')) {
-      console.log('[Cross-Domain] Event cache invalidated');
       store.dispatch(projectApi.util.invalidateTags(['Event', 'ProjectAgenda']));
     }
   });
@@ -518,8 +469,6 @@ export const initializeCrossDomainHandlers = (store) => {
   eventBus.subscribe(DomainEvents.DATA_SYNC_COMPLETED, (event) => {
     const { entities } = event.payload;
 
-    console.log('[Cross-Domain] Data sync completed for:', entities);
-
     // Invalidate all affected caches
     if (entities.includes('groups') || entities.includes('participants')) {
       store.dispatch(projectApi.util.invalidateTags([
@@ -530,7 +479,6 @@ export const initializeCrossDomainHandlers = (store) => {
     }
   });
 
-  console.log('[Cross-Domain] Event handlers initialized successfully');
 };
 
 /**
@@ -540,7 +488,6 @@ export const initializeCrossDomainHandlers = (store) => {
 export const shouldCascadeToEvents = (group, action) => {
   // If group has events assigned, cascade will occur
   if (group?.event_groups && group.event_groups.length > 0) {
-    console.log(`[Cross-Domain] Cascade will occur: group ${group.id} is assigned to ${group.event_groups.length} events`);
     return true;
   }
   return false;

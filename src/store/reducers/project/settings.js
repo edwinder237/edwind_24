@@ -302,7 +302,6 @@ export function fetchProjectSettings(projectId, forceRefresh = false) {
         const lastFetched = new Date(projectSettings.lastFetched);
         
         if (lastFetched > fiveMinutesAgo) {
-          console.log('Using cached project settings');
           return;
         }
       }

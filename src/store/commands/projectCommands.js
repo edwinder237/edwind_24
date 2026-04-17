@@ -108,8 +108,6 @@ export const deleteProject = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Deleting project:', command);
-
       const result = await dispatch(projectApi.endpoints.deleteProject.initiate({
         projectId
       })).unwrap();

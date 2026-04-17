@@ -27,9 +27,6 @@ export const useSendParticipantCredentials = () => {
         timestamp: new Date().toISOString()
       });
 
-      console.log('Sending email to participants:', emailParticipants.length);
-      console.log('Selected credentials:', credentials);
-
       const response = await fetch('/api/email/send-credentials-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,8 +79,6 @@ export const useSendParticipantCredentials = () => {
         emailsSkipped: summary.emailsSkipped,
         timestamp: new Date().toISOString()
       });
-
-      console.log('Email sending result:', result);
 
     } catch (error) {
       console.error('Failed to send email:', error);

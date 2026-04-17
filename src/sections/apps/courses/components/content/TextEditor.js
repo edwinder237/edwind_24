@@ -7,7 +7,6 @@ import { ThemeMode } from "config";
 import { Button, Box, CircularProgress, Typography, TextField } from "@mui/material";
 
 const TextEditor = forwardRef(({ selectedModuleId, courseId }, ref) => {
-  console.log('TextEditor component rendering with:', { selectedModuleId, courseId, hasRef: !!ref });
   const theme = useTheme();
   const dispatch = useDispatch();
   const [content, setContent] = useState('');

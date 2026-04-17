@@ -7,7 +7,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  ListItemIcon,
   ListItemText,
   Typography
 } from '@mui/material';
@@ -15,13 +14,10 @@ import {
 // project import
 import useConfig from 'hooks/useConfig';
 
-// assets
-import { GlobalOutlined } from '@ant-design/icons';
-
 // Language options with flag emojis
 const languages = [
-  { code: 'en', label: 'landing.language.english', flag: '🇺🇸' },
-  { code: 'fr', label: 'landing.language.french', flag: '🇫🇷' }
+  { code: 'en', label: 'landing.language.english' },
+  { code: 'fr', label: 'landing.language.french' }
 ];
 
 // ==============================|| LANGUAGE SELECTOR ||============================== //
@@ -54,6 +50,9 @@ const LanguageSelector = ({ variant = 'icon', sx = {} }) => {
         size="medium"
         sx={{
           color: variant === 'landing' ? 'rgba(255,255,255,0.8)' : 'text.primary',
+          gap: 0.5,
+          borderRadius: '20px',
+          px: 1.5,
           '&:hover': {
             color: variant === 'landing' ? 'white' : 'primary.main',
             bgcolor: variant === 'landing' ? 'rgba(255,255,255,0.1)' : 'action.hover'
@@ -63,7 +62,9 @@ const LanguageSelector = ({ variant = 'icon', sx = {} }) => {
         aria-haspopup="true"
         aria-expanded={open ? 'true' : undefined}
       >
-        <GlobalOutlined style={{ fontSize: '20px' }} />
+        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '13px', textTransform: 'uppercase' }}>
+          {currentLanguage.code}
+        </Typography>
       </IconButton>
       <Menu
         id="language-menu"
@@ -88,9 +89,6 @@ const LanguageSelector = ({ variant = 'icon', sx = {} }) => {
             onClick={() => handleLanguageChange(language.code)}
             selected={i18n === language.code}
           >
-            <ListItemIcon sx={{ minWidth: 32 }}>
-              <Typography variant="body1">{language.flag}</Typography>
-            </ListItemIcon>
             <ListItemText>
               {intl.formatMessage({ id: language.label })}
             </ListItemText>

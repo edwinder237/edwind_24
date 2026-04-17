@@ -143,7 +143,7 @@ function getAllTimezones() {
       return Intl.supportedValuesOf('timeZone');
     }
   } catch (e) {
-    console.warn('Intl.supportedValuesOf not supported, using fallback timezone list');
+    // fall through to return FALLBACK_TIMEZONES
   }
   return FALLBACK_TIMEZONES;
 }

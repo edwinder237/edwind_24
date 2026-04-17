@@ -7,7 +7,8 @@ import {
   Stack,
   IconButton,
   Tooltip,
-  TextField
+  TextField,
+  Skeleton
 } from "@mui/material";
 import { SaveOutlined } from "@ant-design/icons";
 
@@ -73,6 +74,17 @@ const SessionNotes = React.memo(({ notes, selectedEvent, events }) => {
     if (!lastSaved) return "";
     return `Last saved: ${lastSaved.toLocaleTimeString()}`;
   };
+
+  if (isSaving) {
+    return (
+      <MainCard title="Session Notes">
+        <Stack spacing={1}>
+          <Skeleton variant="rounded" height={180} />
+          <Skeleton variant="text" width={140} />
+        </Stack>
+      </MainCard>
+    );
+  }
 
   return (
     <MainCard

@@ -339,9 +339,6 @@ const EntityMonitor = ({ position = 'top-left', defaultOpen = false }) => {
                 size="small"
                 variant="outlined"
                 onClick={() => {
-                  console.log('Participants:', participantStats);
-                  console.log('Events:', eventStats);
-                  console.log('Groups:', groupStats);
                 }}
               >
                 Log Stats

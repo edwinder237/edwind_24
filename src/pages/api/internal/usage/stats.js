@@ -185,23 +185,34 @@ export default createHandler({
       // Daily trend (last 30 days)
       (async () => {
         try {
-          const baseQuery = `
+          const { Prisma } = await import('@prisma/client');
+          if (provider) {
+            return await prisma.$queryRaw(Prisma.sql`
+              SELECT
+                DATE("createdAt") as date,
+                provider,
+                COUNT(*)::int as count,
+                COALESCE(SUM("estimatedCostUsd"), 0)::float as cost
+              FROM usage_logs
+              WHERE "createdAt" >= ${dateFilter.createdAt.gte}
+                AND "createdAt" <= ${dateFilter.createdAt.lte}
+                AND provider = ${provider}
+              GROUP BY DATE("createdAt"), provider
+              ORDER BY date DESC
+            `);
+          }
+          return await prisma.$queryRaw(Prisma.sql`
             SELECT
               DATE("createdAt") as date,
               provider,
               COUNT(*)::int as count,
               COALESCE(SUM("estimatedCostUsd"), 0)::float as cost
             FROM usage_logs
-            WHERE "createdAt" >= $1
-              AND "createdAt" <= $2
-              ${provider ? 'AND provider = $3' : ''}
+            WHERE "createdAt" >= ${dateFilter.createdAt.gte}
+              AND "createdAt" <= ${dateFilter.createdAt.lte}
             GROUP BY DATE("createdAt"), provider
             ORDER BY date DESC
-          `;
-          const params = provider
-            ? [dateFilter.createdAt.gte, dateFilter.createdAt.lte, provider]
-            : [dateFilter.createdAt.gte, dateFilter.createdAt.lte];
-          return await prisma.$queryRawUnsafe(baseQuery, ...params);
+          `);
         } catch {
           return [];
         }

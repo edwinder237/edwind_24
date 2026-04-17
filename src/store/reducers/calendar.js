@@ -36,7 +36,6 @@ const calendar = createSlice({
     },
     // IS ADDING?
     isAdding(state, action) {
-      console.log('from slice')
       state.isAdding = action.payload;
     },
 
@@ -171,8 +170,7 @@ export function createEvent(newEvent, events, isAdding) {
         events,
         projectId: newEvent.projectId
       });
-      console.log(serverResponse.data);
-      
+
       // Reload events from database to get the complete event data
       if (newEvent.projectId) {
         await dispatch(getEvents(newEvent.projectId));
@@ -218,20 +216,11 @@ export function updateEvent(eventId, event, events) {
 
     dispatch(calendar.actions.loading());
     try {
-      console.log('Updating event:', { eventId, event });
-      console.log('Event colors being sent:', { 
-        color: event.color, 
-        backgroundColor: event.backgroundColor, 
-        textColor: event.textColor 
-      });
-      
       // Update database first (most important operation)
       const serverResponse = await axios.post("/api/calendar/db-update-event", {
         event,
         eventId,
       });
-      
-      console.log('Database update response:', serverResponse.data);
       
       if (!serverResponse.data.success) {
         throw new Error(serverResponse.data.error || 'Failed to update event in database');
@@ -317,7 +306,6 @@ export function deleteEvent(eventId, events) {
         eventId,
       });
       //dispatch(calendar.actions.hasError(serverResponse.data));
-      console.log(serverResponse.data);
     } catch (error) {
       dispatch(calendar.actions.hasError(error));
       const errData = error.response?.data || {};

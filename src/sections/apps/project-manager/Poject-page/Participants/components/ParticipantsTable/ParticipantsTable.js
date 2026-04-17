@@ -76,7 +76,6 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
   // Refresh function that invalidates RTK Query cache to trigger refetch
   const refreshData = useCallback(() => {
     if (projectId) {
-      console.log('[ParticipantsTable] Refresh requested, invalidating cache for projectId:', projectId);
       dispatch(projectApi.util.invalidateTags([
         { type: 'ProjectParticipants', id: parseInt(projectId) },
         'Participant'
@@ -338,7 +337,6 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
   const handleRemoveMultipleParticipants = useCallback(async (participantIds) => {
     // Validate input
     if (!participantIds || participantIds.length === 0) {
-      console.warn('[ParticipantsTable] No participants selected for deletion');
       return;
     }
 
@@ -352,7 +350,6 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
   const handleBulkAssignRole = useCallback(async (roleId, participantIds) => {
     // Validate input
     if (!participantIds || participantIds.length === 0) {
-      console.warn('[ParticipantsTable] No participants selected for role assignment');
       return;
     }
 
@@ -366,7 +363,6 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
       .filter(Boolean);
 
     if (participantUuids.length === 0) {
-      console.warn('[ParticipantsTable] Could not find participant UUIDs');
       return;
     }
 
@@ -385,7 +381,6 @@ const ParticipantsTable = React.memo(({ index, initialAction = null }) => {
   const handleBulkAssignGroup = useCallback(async (groupId, participantIds) => {
     // Validate input
     if (!participantIds || participantIds.length === 0) {
-      console.warn('[ParticipantsTable] No participants selected for group assignment');
       return;
     }
 

@@ -82,8 +82,6 @@ export default createHandler({
       }
     });
 
-    console.log(`💳 [CANCEL] Subscription for org ${orgContext.organizationId} scheduled for cancellation`);
-
     return res.status(200).json({
       success: true,
       message: 'Subscription will be cancelled at the end of the billing period',

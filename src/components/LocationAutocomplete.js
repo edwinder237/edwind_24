@@ -82,7 +82,6 @@ const LocationAutocomplete = ({
         } else if (data.status === 'ZERO_RESULTS') {
           setOptions([]);
         } else {
-          console.warn('[LocationAutocomplete] API error:', data.status);
           setOptions([]);
         }
       } catch (err) {

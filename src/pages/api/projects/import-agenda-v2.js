@@ -250,9 +250,6 @@ async function processImportAgenda(options) {
     // Ensure we start on a working day
     currentScheduleTime = ensureWorkingDayHelper(currentScheduleTime, workingHours.workingDays);
 
-    console.log('Starting schedule at:', currentScheduleTime.toISOString(),
-                'Working hours:', projectSettings.startOfDayTime, '-', projectSettings.endOfDayTime);
-
     const createdEvents = [];
     const warnings = [];
 
@@ -311,17 +308,6 @@ async function processImportAgenda(options) {
         }
       }
 
-      console.log('Grouped courses for day', planDay.dayNumber, ':', {
-        courseCount: courseGroups.size,
-        supportActivities: supportActivities.length,
-        customActivities: customActivities.length,
-        courses: Array.from(courseGroups.entries()).map(([id, info]) => ({
-          id,
-          title: info.course?.title,
-          moduleCount: info.modules.length
-        }))
-      });
-
       // Process each course - ALL GROUPS FOR EACH COURSE BACK-TO-BACK
       for (const [courseId, courseInfo] of courseGroups) {
         try {
@@ -337,8 +323,6 @@ async function processImportAgenda(options) {
 
           const duration = resolveDuration(itemInfo);
 
-          console.log(`Scheduling ${itemInfo.title} for all ${targetGroups.length} groups back-to-back`);
-
           // Get required roles for this course
           const requiredRoles = getRequiredRoles(itemInfo, assignByRole, selectedRoles);
 
@@ -352,8 +336,6 @@ async function processImportAgenda(options) {
             if (eligibleParticipants.length === 0 && requiredRoles.length > 0) {
               warnings.push(`No participants in group "${assignedGroup.groupName}" match required roles for "${itemInfo.title}"`);
             }
-
-            console.log(`Scheduling ${itemInfo.title} for ${assignedGroup.groupName} at ${currentScheduleTime.toISOString()}`);
 
             // Schedule the event(s) - may split across days
             const eventDates = await scheduleEvent({
@@ -420,12 +402,6 @@ async function processImportAgenda(options) {
           };
 
           const duration = resolveDuration(itemInfo);
-
-          console.log('Processing support activity:', {
-            title: itemInfo.title,
-            duration,
-            day: planDay.dayNumber
-          });
 
           // Schedule the support activity
           const eventDates = await scheduleEvent({

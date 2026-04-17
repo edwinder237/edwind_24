@@ -75,9 +75,6 @@ const DraggableEventCard = ({ event, isSelected, isConflicting = false, onSelect
   const dispatch = useDispatch();
   const matchDownSM = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // DEBUG: Log project_instructors to see what's being passed
-  console.log('[DraggableEventCard] project_instructors:', project?.project_instructors);
-
   // Use new Redux architecture - get data from projectAgenda store
   // IMPORTANT: Use shallow equality to prevent unnecessary re-renders
   const { events, groups, participants, loading: agendaLoading } = useSelector(

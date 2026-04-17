@@ -9,7 +9,14 @@ const axiosServices = axios.create({
 
 // ==============================|| AXIOS - FOR MOCK SERVICES ||============================== //
 
-// Request interceptor to add retry logic and AbortController support
+// Helper to read a cookie by name
+function getCookie(name) {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// Request interceptor to add retry logic, CSRF token, and AbortController support
 axiosServices.interceptors.request.use(
   (config) => {
     // Add retry configuration
@@ -18,6 +25,15 @@ axiosServices.interceptors.request.use(
 
     // Add request timestamp for debugging
     config.requestStartTime = Date.now();
+
+    // Attach CSRF token for state-changing requests
+    const method = (config.method || 'get').toUpperCase();
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+      const csrfToken = getCookie('__csrf');
+      if (csrfToken) {
+        config.headers['x-csrf-token'] = csrfToken;
+      }
+    }
 
     return config;
   },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Typography,
   Button,
@@ -11,26 +11,21 @@ import {
   ListItemIcon,
   ListItemText,
   Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  OutlinedInput,
   CircularProgress,
   Alert,
-  Card,
-  CardContent,
   Avatar,
-  Divider
+  Divider,
+  Autocomplete,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import {
   MenuBook as MenuBookIcon,
   Add as AddIcon,
   MoreVert as MoreVertIcon,
   Delete as DeleteIcon,
-  School as SchoolIcon
+  School as SchoolIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'store';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -39,30 +34,29 @@ import MainCard from 'components/MainCard';
 
 const ProjectCurriculumCard = ({ projectId }) => {
   const dispatch = useDispatch();
-  
-  // Get data from settings store instead of separate API calls
+
   const projectCurriculums = useSelector(selectProjectCurriculums);
   const availableCurriculums = useSelector(selectAvailableCurriculums);
-  
-  const [loading, setLoading] = useState(false);
+
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [selectedCurriculumId, setSelectedCurriculumId] = useState('');
+  const [selectedCurriculum, setSelectedCurriculum] = useState(null);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
-  const [selectedCurriculum, setSelectedCurriculum] = useState(null);
+  const [menuCurriculum, setMenuCurriculum] = useState(null);
 
-  // Project curriculums and available curriculums now come from settings store
+  // Filter out already-assigned curriculums
+  const availableForAdd = useMemo(() => {
+    const assignedIds = new Set(projectCurriculums.map(pc => pc.curriculum?.id || pc.curriculumId));
+    return availableCurriculums.filter(c => !assignedIds.has(c.id));
+  }, [projectCurriculums, availableCurriculums]);
 
-  // Add curriculum to project
   const handleAddCurriculum = async () => {
-    if (!selectedCurriculumId) return;
+    if (!selectedCurriculum) return;
 
     try {
       setAdding(true);
-
-      // Use CQRS command to add curriculum (no full refetch)
-      await dispatch(addCurriculumToProject(projectId, selectedCurriculumId));
+      await dispatch(addCurriculumToProject(projectId, selectedCurriculum.id));
 
       dispatch(openSnackbar({
         open: true,
@@ -72,7 +66,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
       }));
 
       setAddDialogOpen(false);
-      setSelectedCurriculumId('');
+      setSelectedCurriculum(null);
     } catch (error) {
       dispatch(openSnackbar({
         open: true,
@@ -85,16 +79,13 @@ const ProjectCurriculumCard = ({ projectId }) => {
     }
   };
 
-  // Remove curriculum from project
   const handleRemoveCurriculum = async (projectCurriculum) => {
     if (!projectCurriculum) return;
 
     try {
       setRemoving(true);
-      setMenuAnchor(null); // Close menu immediately
+      setMenuAnchor(null);
 
-      // Use CQRS command to remove curriculum (no full refetch)
-      // Pass: projectId, curriculumId (for API), and projectCurriculumId (for store update)
       await dispatch(removeCurriculumFromProject(
         projectId,
         projectCurriculum.curriculumId,
@@ -109,7 +100,6 @@ const ProjectCurriculumCard = ({ projectId }) => {
       }));
     } catch (error) {
       console.error('Error removing curriculum:', error);
-
       dispatch(openSnackbar({
         open: true,
         message: error.message || 'Failed to remove curriculum',
@@ -123,34 +113,13 @@ const ProjectCurriculumCard = ({ projectId }) => {
 
   const handleMenuClick = (event, projectCurriculum) => {
     setMenuAnchor(event.currentTarget);
-    setSelectedCurriculum(projectCurriculum);
+    setMenuCurriculum(projectCurriculum);
   };
 
   const handleMenuClose = () => {
     setMenuAnchor(null);
-    setSelectedCurriculum(null);
+    setMenuCurriculum(null);
   };
-
-  // Data now comes from settings store - no need for useEffect to fetch
-
-  // Get curriculums not already assigned to project
-  const getAvailableForAdd = () => {
-    const assignedIds = projectCurriculums.map(pc => pc.curriculum.id);
-    return availableCurriculums.filter(c => !assignedIds.includes(c.id));
-  };
-
-  if (loading) {
-    return (
-      <Card>
-        <CardContent>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <CircularProgress size={24} />
-            <Typography>Loading project curriculums...</Typography>
-          </Stack>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <>
@@ -162,55 +131,55 @@ const ProjectCurriculumCard = ({ projectId }) => {
             size="small"
             startIcon={<AddIcon />}
             onClick={() => setAddDialogOpen(true)}
-            disabled={getAvailableForAdd().length === 0}
+            disabled={availableForAdd.length === 0}
           >
             Add Curriculum
           </Button>
         </Box>
 
-            {projectCurriculums.length === 0 ? (
-              <Alert severity="info">
-                No curriculums assigned to this project yet. Click "Add Curriculum" to get started.
-              </Alert>
-            ) : (
-              <Stack spacing={2}>
-                {projectCurriculums.map((pc) => (
-                  <Stack
-                    key={pc.curriculum.id}
-                    direction="row"
-                    spacing={2}
-                    alignItems="center"
-                    justifyContent="space-between"
-                    sx={{
-                      p: 2,
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      bgcolor: 'background.paper'
-                    }}
-                  >
-                    <Stack direction="row" spacing={2} alignItems="center" flex={1}>
-                      <Typography variant="subtitle1" fontWeight="medium">
-                        {pc.curriculum.title}
-                      </Typography>
-                      <Chip
-                        icon={<SchoolIcon />}
-                        label={`${pc.curriculum.curriculum_courses?.length || 0} courses`}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Stack>
-                    
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuClick(e, pc)}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Stack>
-                ))}
+        {projectCurriculums.length === 0 ? (
+          <Alert severity="info">
+            No curriculums assigned to this project yet. Click &quot;Add Curriculum&quot; to get started.
+          </Alert>
+        ) : (
+          <Stack spacing={2}>
+            {projectCurriculums.map((pc) => (
+              <Stack
+                key={pc.curriculum.id}
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{
+                  p: 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  bgcolor: 'background.paper'
+                }}
+              >
+                <Stack direction="row" spacing={2} alignItems="center" flex={1}>
+                  <Typography variant="subtitle1" fontWeight="medium">
+                    {pc.curriculum.title}
+                  </Typography>
+                  <Chip
+                    icon={<SchoolIcon />}
+                    label={`${pc.curriculum.curriculum_courses?.length || 0} courses`}
+                    size="small"
+                    variant="outlined"
+                  />
+                </Stack>
+
+                <IconButton
+                  size="small"
+                  onClick={(e) => handleMenuClick(e, pc)}
+                >
+                  <MoreVertIcon />
+                </IconButton>
               </Stack>
-            )}
+            ))}
+          </Stack>
+        )}
       </Box>
 
       {/* Context Menu */}
@@ -221,7 +190,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
       >
         <MenuItem
           onClick={() => {
-            handleRemoveCurriculum(selectedCurriculum);
+            handleRemoveCurriculum(menuCurriculum);
           }}
           disabled={removing}
           sx={{ color: 'error.main' }}
@@ -242,7 +211,10 @@ const ProjectCurriculumCard = ({ projectId }) => {
       {/* Add Curriculum Dialog */}
       <Dialog
         open={addDialogOpen}
-        onClose={() => setAddDialogOpen(false)}
+        onClose={() => {
+          setAddDialogOpen(false);
+          setSelectedCurriculum(null);
+        }}
         maxWidth="xs"
         fullWidth
         PaperProps={{
@@ -263,64 +235,123 @@ const ProjectCurriculumCard = ({ projectId }) => {
                   Add Curriculum to Project
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Select a curriculum to add to this project
+                  Search by name or code
                 </Typography>
               </Box>
             </Stack>
           }
           content={false}
-          sx={{ 
-            m: 0, 
-            height: '100%', 
-            '& .MuiCardHeader-root': { 
-              pb: 2 
+          sx={{
+            m: 0,
+            height: '100%',
+            '& .MuiCardHeader-root': {
+              pb: 2
             }
           }}
         >
           <Divider />
-          
+
           <Box sx={{ p: 3 }}>
             <Stack spacing={3}>
-              {getAvailableForAdd().length === 0 ? (
+              {availableForAdd.length === 0 ? (
                 <Alert severity="info">
                   All available curriculums are already assigned to this project.
                 </Alert>
               ) : (
-                <FormControl fullWidth>
-                  <InputLabel>Choose Curriculum</InputLabel>
-                  <Select
-                    value={selectedCurriculumId}
-                    onChange={(e) => setSelectedCurriculumId(e.target.value)}
-                    input={<OutlinedInput label="Choose Curriculum" />}
-                  >
-                    <MenuItem disabled value="">
-                      <em>Select a curriculum from your organization</em>
-                    </MenuItem>
-                    {getAvailableForAdd().map((curriculum) => (
-                      <MenuItem key={curriculum.id} value={curriculum.id}>
-                        <Stack spacing={0.5} sx={{ py: 1 }}>
-                          <Typography variant="body1" fontWeight="medium">
-                            {curriculum.title}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {curriculum.courseCount} courses • Used in {curriculum.projectCount} projects
-                          </Typography>
-                        </Stack>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  options={availableForAdd}
+                  value={selectedCurriculum}
+                  onChange={(_, value) => setSelectedCurriculum(value)}
+                  getOptionLabel={(option) => option?.title || ''}
+                  isOptionEqualToValue={(option, value) => option?.id === value?.id}
+                  filterOptions={(options, { inputValue }) => {
+                    const query = inputValue.toLowerCase().trim();
+                    if (!query) return options;
+                    return options.filter(option =>
+                      option.title?.toLowerCase().includes(query) ||
+                      option.cuid?.toLowerCase().includes(query) ||
+                      option.description?.toLowerCase().includes(query)
+                    );
+                  }}
+                  ListboxProps={{
+                    sx: {
+                      maxHeight: 280,
+                      '&::-webkit-scrollbar': { width: 6 },
+                      '&::-webkit-scrollbar-track': { bgcolor: 'action.hover', borderRadius: 1 },
+                      '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 1 }
+                    }
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <li key={key} {...otherProps}>
+                        <Box sx={{ width: '100%', py: 0.5 }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="body2" fontWeight={500}>
+                              {option.title}
+                            </Typography>
+                            <Stack direction="row" spacing={0.5}>
+                              {option.courseCount > 0 && (
+                                <Chip
+                                  label={`${option.courseCount} courses`}
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  sx={{ height: 22, fontSize: '0.7rem' }}
+                                />
+                              )}
+                              {option.projectCount > 0 && (
+                                <Chip
+                                  label={`${option.projectCount} projects`}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ height: 22, fontSize: '0.7rem' }}
+                                />
+                              )}
+                            </Stack>
+                          </Stack>
+                          {option.description && (
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {option.description}
+                            </Typography>
+                          )}
+                        </Box>
+                      </li>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Search curriculums..."
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <>
+                            <InputAdornment position="start">
+                              <SearchIcon color="action" fontSize="small" />
+                            </InputAdornment>
+                            {params.InputProps.startAdornment}
+                          </>
+                        )
+                      }}
+                    />
+                  )}
+                  noOptionsText="No matching curriculums"
+                />
               )}
             </Stack>
           </Box>
 
           <Divider />
-          
+
           <Box sx={{ p: 3, pt: 2, bgcolor: 'background.paper' }}>
             <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button 
-                color="error" 
-                onClick={() => setAddDialogOpen(false)}
+              <Button
+                color="error"
+                onClick={() => {
+                  setAddDialogOpen(false);
+                  setSelectedCurriculum(null);
+                }}
                 disabled={adding}
               >
                 Cancel
@@ -328,7 +359,7 @@ const ProjectCurriculumCard = ({ projectId }) => {
               <Button
                 variant="contained"
                 onClick={handleAddCurriculum}
-                disabled={!selectedCurriculumId || adding || getAvailableForAdd().length === 0}
+                disabled={!selectedCurriculum || adding || availableForAdd.length === 0}
                 startIcon={adding ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
               >
                 {adding ? 'Adding...' : 'Add Curriculum'}

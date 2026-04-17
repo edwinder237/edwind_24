@@ -402,7 +402,7 @@ const OnboardingPage = () => {
       >
         <Container maxWidth="md">
           <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Image src={headerlogo} alt="EDWIND" width={200} height={84} />
+            <Image src={headerlogo} alt="EDBAHN" width={200} height={84} />
           </Box>
 
           <Card sx={{ borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
@@ -877,7 +877,7 @@ const OnboardingPage = () => {
       <Container maxWidth="md">
         {/* Logo */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Image src={headerlogo} alt="EDWIND" width={200} height={84} />
+          <Image src={headerlogo} alt="EDBAHN" width={200} height={84} />
         </Box>
 
         {/* Main Card */}
@@ -885,7 +885,7 @@ const OnboardingPage = () => {
           <CardContent sx={{ p: { xs: 3, md: 5 } }}>
             {/* Header */}
             <Typography variant="h4" textAlign="center" gutterBottom>
-              Get Started with EDWIND
+              Get Started with EDBAHN
             </Typography>
             <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 4 }}>
               Set up your training platform in just a few steps.

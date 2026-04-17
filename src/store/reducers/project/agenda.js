@@ -167,7 +167,6 @@ export function fetchProjectAgenda(projectId, forceRefresh = false) {
         !forceRefresh;
       
       if (hasCachedData) {
-        console.log('[Agenda] Using cached data for project:', projectId);
         return;
       }
       
@@ -177,7 +176,6 @@ export function fetchProjectAgenda(projectId, forceRefresh = false) {
       dispatch(agendaSlice.actions.setProjectId(projectId));
       
       // Fetch data from API
-      console.log('[Agenda] Fetching data for project:', projectId);
       const response = await axios.post(API_ENDPOINTS.fetchProjectAgenda, {
         projectId: projectId
       });
@@ -185,7 +183,6 @@ export function fetchProjectAgenda(projectId, forceRefresh = false) {
       // Handle response
       if (response.data.success) {
         dispatch(agendaSlice.actions.setAgendaData(response.data.data));
-        console.log('[Agenda] Data fetched successfully');
       } else {
         throw new Error(response.data.error || 'Failed to fetch agenda data');
       }
@@ -208,7 +205,6 @@ export function fetchProjectAgenda(projectId, forceRefresh = false) {
  */
 export function clearProjectAgenda() {
   return async (dispatch) => {
-    console.log('[Agenda] Clearing agenda data');
     dispatch(agendaSlice.actions.clearAgenda());
   };
 }
@@ -282,7 +278,6 @@ export function saveModuleProgress(eventId, moduleId, activityIds) {
           }));
         });
         
-        console.log('[Agenda] Module progress saved successfully');
       }
     } catch (error) {
       console.error('[Agenda] Error saving module progress:', error);
@@ -315,7 +310,6 @@ export function resetModuleProgress(eventId, moduleId, activities) {
           eventId,
           moduleId
         }));
-        console.log('[Agenda] Module progress reset successfully');
       }
     } catch (error) {
       console.error('[Agenda] Error resetting module progress:', error);

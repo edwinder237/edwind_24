@@ -50,32 +50,27 @@ const dailyNotesSlice = createSlice({
     dailyNotesReceived: (state, action) => {
       dailyNotesAdapter.setAll(state, action.payload);
       state.lastUpdated = new Date().toISOString();
-      console.log('[DailyNotesSlice] Notes received:', action.payload.length);
     },
 
     dailyNoteUpserted: (state, action) => {
       dailyNotesAdapter.upsertOne(state, action.payload);
       state.lastUpdated = new Date().toISOString();
-      console.log('[DailyNotesSlice] Note upserted:', action.payload);
     },
 
     dailyNotesUpserted: (state, action) => {
       dailyNotesAdapter.upsertMany(state, action.payload);
       state.lastUpdated = new Date().toISOString();
-      console.log('[DailyNotesSlice] Multiple notes upserted:', action.payload.length);
     },
 
     dailyNoteUpdated: (state, action) => {
       const { id, changes } = action.payload;
       dailyNotesAdapter.updateOne(state, { id, changes });
       state.lastUpdated = new Date().toISOString();
-      console.log('[DailyNotesSlice] Note updated:', { id, changes });
     },
 
     dailyNoteRemoved: (state, action) => {
       dailyNotesAdapter.removeOne(state, action.payload);
       state.lastUpdated = new Date().toISOString();
-      console.log('[DailyNotesSlice] Note removed:', action.payload);
     },
 
     // ===== Partial Updates (for inline editing) =====
@@ -88,7 +83,6 @@ const dailyNotesSlice = createSlice({
       if (note) {
         note.keyHighlights = [...note.keyHighlights, highlight];
         note.updatedAt = new Date().toISOString();
-        console.log('[DailyNotesSlice] Key highlight added:', { id, highlight });
       }
     },
 
@@ -100,7 +94,6 @@ const dailyNotesSlice = createSlice({
       if (note && note.keyHighlights[index] !== undefined) {
         note.keyHighlights = note.keyHighlights.filter((_, i) => i !== index);
         note.updatedAt = new Date().toISOString();
-        console.log('[DailyNotesSlice] Key highlight removed:', { id, index });
       }
     },
 
@@ -112,7 +105,6 @@ const dailyNotesSlice = createSlice({
       if (note) {
         note.challenges = [...note.challenges, challenge];
         note.updatedAt = new Date().toISOString();
-        console.log('[DailyNotesSlice] Challenge added:', { id, challenge });
       }
     },
 
@@ -124,7 +116,6 @@ const dailyNotesSlice = createSlice({
       if (note && note.challenges[index] !== undefined) {
         note.challenges = note.challenges.filter((_, i) => i !== index);
         note.updatedAt = new Date().toISOString();
-        console.log('[DailyNotesSlice] Challenge removed:', { id, index });
       }
     },
 
@@ -136,7 +127,6 @@ const dailyNotesSlice = createSlice({
       if (note) {
         note.sessionNotes = sessionNotes;
         note.updatedAt = new Date().toISOString();
-        console.log('[DailyNotesSlice] Session notes updated:', { id });
       }
     },
 
@@ -170,7 +160,6 @@ const dailyNotesSlice = createSlice({
             dailyNotesAdapter.upsertOne(state, action.payload);
           }
           state.lastUpdated = new Date().toISOString();
-          console.log('[DailyNotesSlice] RTK Query fulfilled - notes loaded');
         }
       )
       .addMatcher(
@@ -179,7 +168,6 @@ const dailyNotesSlice = createSlice({
           if (action.payload) {
             dailyNotesAdapter.upsertOne(state, action.payload);
             state.lastUpdated = new Date().toISOString();
-            console.log('[DailyNotesSlice] RTK Query fulfilled - note updated');
           }
         }
       );

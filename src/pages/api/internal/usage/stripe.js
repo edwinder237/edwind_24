@@ -185,7 +185,6 @@ export default createHandler({
           annualSubscriptions: annualCount
         };
       } catch (error) {
-        console.warn('[Stripe Usage] Failed to fetch Stripe data:', error.message);
       }
     }
 

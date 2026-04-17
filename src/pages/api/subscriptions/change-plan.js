@@ -108,8 +108,6 @@ export default createHandler({
 
     // Check if already on this price
     const currentPriceId = stripeSubscription.items.data[0]?.price?.id;
-    console.log(`💳 [CHANGE-PLAN] Current price: ${currentPriceId}, New price: ${newPriceId}`);
-
     if (currentPriceId === newPriceId) {
       // Find what plan this price belongs to for better messaging
       const actualPlan = await prisma.subscription_plans.findFirst({
@@ -202,8 +200,6 @@ export default createHandler({
 
     // Invalidate subscription cache so fresh data is returned
     invalidateSubscriptionCache(orgContext.organizationId);
-
-    console.log(`💳 [CHANGE-PLAN] Org ${orgContext.organizationId} changed to ${planId} (${billingInterval})`);
 
     return res.status(200).json({
       success: true,

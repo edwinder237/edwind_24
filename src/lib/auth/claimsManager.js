@@ -41,20 +41,15 @@ export async function getUserClaims(workosUserId, workosClient, forceRefresh = f
         const claims = deserializeClaims(cachedClaims);
 
         if (claims && !areClaimsExpired(claims)) {
-          console.log(`✅ Claims cache hit for user: ${workosUserId}`);
           return claims;
         }
-
-        console.log(`⚠️  Claims expired for user: ${workosUserId}`);
       }
     }
 
     // Cache miss or expired - rebuild from WorkOS
-    console.log(`🔄 Building fresh claims for user: ${workosUserId}`);
     const freshClaims = await rebuildClaimsFromWorkOS(workosUserId, workosClient, req);
 
     if (!freshClaims) {
-      console.warn(`⚠️  Could not build claims for user: ${workosUserId}`);
       return null;
     }
 
@@ -85,8 +80,6 @@ export async function cacheClaims(claims) {
     const serialized = serializeClaims(claims);
 
     await cache.set(cacheKey, serialized, CLAIMS_CONFIG.TTL_SECONDS);
-
-    console.log(`✅ Cached claims for user: ${claims.workos_user_id} (TTL: ${CLAIMS_CONFIG.TTL_SECONDS}s)`);
   } catch (error) {
     console.error('Error caching claims:', error);
     throw error;
@@ -104,8 +97,6 @@ export async function invalidateClaims(workosUserId) {
   try {
     const cacheKey = getClaimsKey(workosUserId);
     await cache.del(cacheKey);
-
-    console.log(`✅ Invalidated claims for user: ${workosUserId}`);
   } catch (error) {
     console.error('Error invalidating claims:', error);
     throw error;
@@ -122,8 +113,6 @@ export async function invalidateAllClaims() {
   try {
     const pattern = `${CLAIMS_CONFIG.KEY_PREFIX}*`;
     const deletedCount = await cache.deletePattern(pattern);
-
-    console.log(`✅ Invalidated ${deletedCount} cached claims`);
     return deletedCount;
   } catch (error) {
     console.error('Error invalidating all claims:', error);
@@ -144,7 +133,6 @@ export async function refreshClaimsIfNeeded(claims, workosClient) {
   }
 
   if (shouldRefreshClaims(claims)) {
-    console.log(`🔄 Proactively refreshing claims for user: ${claims.workos_user_id}`);
     return await getUserClaims(claims.workos_user_id, workosClient, true);
   }
 
@@ -203,7 +191,6 @@ export async function buildAndCacheClaims(workosUserId, workOSMemberships, jwtPe
     const claims = await buildUserClaims(workosUserId, workOSMemberships, jwtPermissions);
 
     if (!claims) {
-      console.warn(`Could not build claims for user: ${workosUserId}`);
       return null;
     }
 
@@ -241,9 +228,7 @@ export function getCacheStatus() {
  * @returns {Promise<void>}
  */
 export async function shutdown() {
-  console.log('🔄 Shutting down claims manager...');
   await cache.disconnect();
-  console.log('✅ Claims manager shutdown complete');
 }
 
 /**

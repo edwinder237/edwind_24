@@ -25,49 +25,24 @@ export default createHandler({
       throw new NotFoundError('Project not found');
     }
 
-    // Use a transaction to delete all related records and then the project
+    // Soft delete: mark project and child records as deleted (data retained for audit)
+    const now = new Date();
+    const deletedBy = req.orgContext.userId;
+
     await prisma.$transaction(async (tx) => {
-      await tx.group_participants.deleteMany({
-        where: { group: { projectId: projectCUID } }
+      // Soft-delete child events
+      await tx.events.updateMany({
+        where: { projectId: projectCUID, deletedAt: null },
+        data: { deletedAt: now, deletedBy },
       });
 
-      await tx.event_groups.deleteMany({
-        where: { event: { projectId: projectCUID } }
-      });
-
-      await tx.event_attendees.deleteMany({
-        where: { event: { projectId: projectCUID } }
-      });
-
-      await tx.groups.deleteMany({
-        where: { projectId: projectCUID }
-      });
-
-      await tx.courses_enrollee_progress.deleteMany({
-        where: { enrollee: { projectId: projectCUID } }
-      });
-
-      await tx.project_participants.deleteMany({
-        where: { projectId: projectCUID }
-      });
-
-      await tx.project_curriculums.deleteMany({
-        where: { projectId: projectCUID }
-      });
-
-      await tx.events.deleteMany({
-        where: { projectId: projectCUID }
-      });
-
-      await tx.daily_focus.deleteMany({
-        where: { projectId: projectCUID }
-      });
-
-      await tx.projects.delete({
+      // Mark project as deleted
+      await tx.projects.update({
         where: { id: projectCUID },
+        data: { deletedAt: now, deletedBy, projectStatus: 'deleted' },
       });
     });
 
-    res.status(200).json({ success: true, message: 'Project and all related data removed from database' });
+    res.status(200).json({ success: true, message: 'Project archived successfully' });
   }
 });

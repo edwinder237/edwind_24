@@ -152,11 +152,6 @@ export default createHandler({
       });
     }
 
-    // Log invalid emails for debugging
-    if (invalidEmailRecipients.length > 0) {
-      console.warn('[send-calendar-invites] Skipped recipients with invalid emails:', invalidEmailRecipients);
-    }
-
     if (allParticipants.length === 0) {
       const invalidList = invalidEmailRecipients.map(r => `${r.name} (${r.email})`).join(', ');
       return res.status(400).json({
@@ -241,7 +236,7 @@ export default createHandler({
       // Send separate invitation for each event
       for (const event of calendarEvents) {
         try {
-          const organizerName = event.instructorName || project.sub_organization?.title || 'EDWIND Training';
+          const organizerName = event.instructorName || project.sub_organization?.title || 'EDBAHN Training';
           const eventIcal = generateSingleEventICS(event, participant, organizerName);
 
           // Send individual event invitation with retry logic for rate limits

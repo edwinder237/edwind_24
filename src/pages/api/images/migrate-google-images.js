@@ -45,8 +45,6 @@ export default createHandler({
       }
     });
 
-    console.log(`Found ${projectsWithGoogleImages.length} projects with Google Maps images`);
-
     const results = [];
     let successCount = 0;
     let failureCount = 0;
@@ -79,12 +77,10 @@ export default createHandler({
           
           result.success = true;
           successCount++;
-          console.log(`✓ Migrated project ${project.id}: ${project.title}`);
         } else {
           result.newUrl = '[DRY RUN - Would upload to R2]';
           result.success = true;
           successCount++;
-          console.log(`[DRY RUN] Would migrate project ${project.id}: ${project.title}`);
         }
       } catch (error) {
         result.error = error.message;
@@ -101,8 +97,6 @@ export default createHandler({
       failed: failureCount,
       dryRun
     };
-
-    console.log('Migration summary:', summary);
 
     res.status(200).json({
       success: true,

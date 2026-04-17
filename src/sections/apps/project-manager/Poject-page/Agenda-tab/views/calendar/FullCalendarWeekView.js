@@ -174,7 +174,6 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
 
     // If already refetching, queue this refetch for later
     if (isRefetching) {
-      console.log('[FullCalendarWeekView] Refetch already in progress, queuing...');
       refetchTimeoutRef.current = setTimeout(() => {
         safeRefetch();
       }, 1000);
@@ -183,9 +182,7 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
 
     setIsRefetching(true);
     try {
-      console.log('[FullCalendarWeekView] Safe refetch starting...');
       await refetchAgenda();
-      console.log('[FullCalendarWeekView] Safe refetch completed');
     } catch (error) {
       console.error('[FullCalendarWeekView] Refetch error:', error);
     } finally {
@@ -300,7 +297,6 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const handleDateSelect = useCallback((selectInfo) => {
     // CRITICAL: Check ref FIRST - blocks if operation in progress
     if (operationInProgressRef.current) {
-      console.log('[FullCalendarWeekView] Dialog open BLOCKED by ref');
       dispatch(openSnackbar({
         open: true,
         message: 'Please wait - an operation is currently in progress',
@@ -329,7 +325,6 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
   const handleDateClick = useCallback((clickInfo) => {
     // CRITICAL: Check ref FIRST - blocks if operation in progress
     if (operationInProgressRef.current) {
-      console.log('[FullCalendarWeekView] Dialog open BLOCKED by ref');
       dispatch(openSnackbar({
         open: true,
         message: 'Please wait - an operation is currently in progress',
@@ -508,8 +503,6 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
 
     // Check ref FIRST - it's synchronous and won't have stale closure issues
     if (operationInProgressRef.current) {
-      console.log('[FullCalendarWeekView] handleEventDelete BLOCKED by ref - operation already in progress');
-
       dispatch(
         openSnackbar({
           open: true,
@@ -527,7 +520,6 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     // Set ref IMMEDIATELY to block all subsequent clicks
     operationInProgressRef.current = true;
     const event = events?.find(evt => evt.id == eventId);
-    console.log(`[FullCalendarWeekView] Delete initiated for event: "${event?.title}" (ID: ${eventId})`);
 
     setEventToDelete({ id: eventId, title: event?.title || 'Event' });
     setDeleteDialogOpen(true);
@@ -538,24 +530,19 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
     if (!eventToDelete || isDeleting) return;
 
     const startTime = Date.now();
-    console.log(`[FullCalendarWeekView] Confirm delete clicked for "${eventToDelete.title}"`);
 
     setIsDeleting(true);
     try {
-      console.log(`[FullCalendarWeekView] Dispatching delete command...`);
       await dispatch(eventCommands.deleteEvent({
         eventId: parseInt(eventToDelete.id),
         eventTitle: eventToDelete.title,
         projectId: project?.id
       }));
-      console.log(`[FullCalendarWeekView] Delete command completed`);
 
       setDeleteDialogOpen(false);
       setEventToDelete(null);
 
       // CRITICAL: Wait for RTK Query agenda refetch to complete
-      console.log(`[FullCalendarWeekView] Waiting for agenda refetch...`);
-
       const maxWaitTime = 30000;
       const pollInterval = 100;
       let waited = 0;
@@ -564,18 +551,11 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
         waited += pollInterval;
       }
-
-      if (waited >= maxWaitTime) {
-        console.warn(`[FullCalendarWeekView] Timeout waiting for agenda refetch`);
-      } else {
-        console.log(`[FullCalendarWeekView] Agenda refetch completed (waited ${waited}ms)`);
-      }
     } catch (error) {
       console.error('[FullCalendarWeekView] Error deleting event:', error);
     } finally {
       setIsDeleting(false);
       operationInProgressRef.current = false;
-      console.log(`[FullCalendarWeekView] Operation complete (total time: ${Date.now() - startTime}ms)`);
     }
   }, [dispatch, project?.id, eventToDelete, isDeleting]);
 
@@ -767,13 +747,11 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
 
             // CRITICAL: Check ref FIRST
             if (operationInProgressRef.current) {
-              console.log('[FullCalendarWeekView] Delete button BLOCKED by ref');
               return;
             }
 
             const isBlocked = isDeleting || deleteDialogOpen || isRefetching;
             if (isBlocked) {
-              console.log('[FullCalendarWeekView] Delete button BLOCKED by state');
               return;
             }
 
@@ -1562,10 +1540,8 @@ const FullCalendarWeekView = ({ project, events, onEventSelect }) => {
         open={deleteDialogOpen}
         onClose={() => {
           if (isDeleting) {
-            console.log('[FullCalendarWeekView] Cannot close dialog - delete in progress');
             return;
           }
-          console.log('[FullCalendarWeekView] Dialog canceled - ref reset');
           setDeleteDialogOpen(false);
           setEventToDelete(null);
           operationInProgressRef.current = false;

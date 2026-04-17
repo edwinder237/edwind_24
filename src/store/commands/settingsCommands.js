@@ -36,8 +36,6 @@ export const updateSchedule = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Updating project schedule:', command);
-
       const result = await dispatch(projectApi.endpoints.updateProjectSettings.initiate({
         projectId,
         ...scheduleData,
@@ -100,8 +98,6 @@ export const updateProjectInfo = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Updating project info:', command);
-
       // Use updateProject mutation for title and training recipient
       const result = await dispatch(projectApi.endpoints.updateProject.initiate({
         projectId,
@@ -161,8 +157,6 @@ export const addInstructor = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Adding instructor to project:', command);
-
       // TODO: Call appropriate API endpoint when available
       // For now, using a placeholder that will need to be implemented
       const result = { success: true, instructorId };
@@ -219,8 +213,6 @@ export const removeInstructor = createAsyncThunk(
         instructorId,
         timestamp: new Date().toISOString()
       };
-
-      console.log('[Command] Removing instructor from project:', command);
 
       // TODO: Call appropriate API endpoint when available
       const result = { success: true, instructorId };
@@ -279,8 +271,6 @@ export const updateProjectTopics = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Updating project topics:', command);
-
       // TODO: Call appropriate API endpoint when available
       const result = { success: true, topicIds };
 
@@ -336,8 +326,6 @@ export const updateProjectCurriculums = createAsyncThunk(
         curriculumIds,
         timestamp: new Date().toISOString()
       };
-
-      console.log('[Command] Updating project curriculums:', command);
 
       // TODO: Call appropriate API endpoint when available
       const result = { success: true, curriculumIds };

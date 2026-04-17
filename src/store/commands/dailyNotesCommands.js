@@ -38,8 +38,6 @@ export const updateDailyNotes = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Updating daily notes:', command);
-
       const response = await axios.post(`/api/projects/daily-training-notes?projectId=${projectId}&date=${date}`, {
         keyHighlights,
         challenges,
@@ -61,7 +59,6 @@ export const updateDailyNotes = createAsyncThunk(
         close: false
       }));
 
-      console.log('[Command] Daily notes updated successfully:', response.data);
       return { ...response.data, command };
 
     } catch (error) {
@@ -100,8 +97,6 @@ export const addKeyHighlight = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Adding key highlight:', command);
-
       // Get current state
       const noteId = `${projectId}-${date}`;
       const currentNote = getState().dailyNotes.entities[noteId];
@@ -128,7 +123,6 @@ export const addKeyHighlight = createAsyncThunk(
         close: false
       }));
 
-      console.log('[Command] Key highlight added successfully');
       return { ...response.data, command };
 
     } catch (error) {
@@ -163,8 +157,6 @@ export const removeKeyHighlight = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Removing key highlight:', command);
-
       // Get current state
       const noteId = `${projectId}-${date}`;
       const currentNote = getState().dailyNotes.entities[noteId];
@@ -195,7 +187,6 @@ export const removeKeyHighlight = createAsyncThunk(
         close: false
       }));
 
-      console.log('[Command] Key highlight removed successfully');
       return { ...response.data, command };
 
     } catch (error) {
@@ -230,8 +221,6 @@ export const addChallenge = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Adding challenge:', command);
-
       // Get current state
       const noteId = `${projectId}-${date}`;
       const currentNote = getState().dailyNotes.entities[noteId];
@@ -258,7 +247,6 @@ export const addChallenge = createAsyncThunk(
         close: false
       }));
 
-      console.log('[Command] Challenge added successfully');
       return { ...response.data, command };
 
     } catch (error) {
@@ -293,8 +281,6 @@ export const removeChallenge = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Removing challenge:', command);
-
       // Get current state
       const noteId = `${projectId}-${date}`;
       const currentNote = getState().dailyNotes.entities[noteId];
@@ -325,7 +311,6 @@ export const removeChallenge = createAsyncThunk(
         close: false
       }));
 
-      console.log('[Command] Challenge removed successfully');
       return { ...response.data, command };
 
     } catch (error) {
@@ -361,8 +346,6 @@ export const updateKeyHighlight = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Updating key highlight:', command);
-
       // Get current state
       const noteId = `${projectId}-${date}`;
       const currentNote = getState().dailyNotes.entities[noteId];
@@ -394,7 +377,6 @@ export const updateKeyHighlight = createAsyncThunk(
         close: false
       }));
 
-      console.log('[Command] Key highlight updated successfully');
       return { ...response.data, command };
 
     } catch (error) {
@@ -430,8 +412,6 @@ export const updateChallenge = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Updating challenge:', command);
-
       // Get current state
       const noteId = `${projectId}-${date}`;
       const currentNote = getState().dailyNotes.entities[noteId];
@@ -463,7 +443,6 @@ export const updateChallenge = createAsyncThunk(
         close: false
       }));
 
-      console.log('[Command] Challenge updated successfully');
       return { ...response.data, command };
 
     } catch (error) {
@@ -504,7 +483,6 @@ export const fetchDailyNotes = createAsyncThunk(
 
       dispatch(loadingCompleted());
 
-      console.log('[Command] Daily notes fetched successfully');
       return response.data;
 
     } catch (error) {
@@ -554,8 +532,6 @@ export const summarizeWithAI = createAsyncThunk(
         timestamp: new Date().toISOString()
       };
 
-      console.log('[Command] Summarizing session notes with AI:', command);
-
       dispatch(loadingStarted());
 
       // Call AI summarization API with optional attendance, parking lot data, and AI settings
@@ -581,7 +557,6 @@ export const summarizeWithAI = createAsyncThunk(
 
       // Replace existing highlights/challenges with AI-generated ones
       // User expectation: Re-clicking should generate fresh content
-      console.log('[Command] Replacing existing items with AI-generated content');
 
       // Save to database
       const saveResponse = await axios.post(`/api/projects/daily-training-notes?projectId=${projectId}&date=${date}`, {
@@ -608,7 +583,6 @@ export const summarizeWithAI = createAsyncThunk(
         close: false
       }));
 
-      console.log('[Command] AI summarization completed successfully');
       return {
         ...saveResponse.data,
         aiGenerated: { keyHighlights, challenges },

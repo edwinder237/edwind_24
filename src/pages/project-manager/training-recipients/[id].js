@@ -201,7 +201,6 @@ const TrainingRecipientDetail = () => {
             address: recipient.address || '',
             website: recipient.website || '',
             industry: recipient.industry || '',
-            taxId: recipient.taxId || '',
             notes: recipient.notes || '',
             location: recipient.location,
             img: imageUrl
@@ -426,17 +425,11 @@ const TrainingRecipientDetail = () => {
   };
 
   const handleLocationChange = (locationData) => {
-    console.log('Location changed:', locationData);
     // Set the location data immediately when selected
     if (locationData) {
       // The GoogleMaps component already handles R2 upload and provides imageUrl
       setEditedLocation(locationData);
       setSelectedLocationValue(locationData);
-      console.log('Location with R2 image:', {
-        address: locationData.description,
-        r2ImageUrl: locationData.imageUrl,
-        originalGoogleImageUrl: locationData.originalGoogleImageUrl
-      });
     }
   };
 
@@ -490,18 +483,10 @@ const TrainingRecipientDetail = () => {
         address: addressValue,
         website: recipient.website || '',
         industry: recipient.industry || '',
-        taxId: recipient.taxId || '',
         notes: recipient.notes || '',
         location: locationObject,
         img: editedLocation.imageUrl || null // Add the R2 image URL to the img field
       };
-
-      console.log('Update data being sent:', updateData);
-      console.log('Required fields check:', {
-        id: updateData.id,
-        name: updateData.name,
-        contactPerson: updateData.contactPerson
-      });
 
       await dispatch(updateTrainingRecipient(updateData));
       
@@ -942,15 +927,6 @@ const TrainingRecipientDetail = () => {
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {recipient.description || 'No description provided'}
-                  </Typography>
-                </Box>
-                
-                <Box>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Tax ID
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" fontFamily="monospace">
-                    {recipient.taxId || 'Not provided'}
                   </Typography>
                 </Box>
                 

@@ -19,7 +19,7 @@ const TestimonialBlock = () => (
         <Card>
           <CardContent>
             <Typography variant="body1" sx={{ mb: 2 }}>
-              "EDWIND has transformed how we manage our training programs. The intuitive interface and comprehensive features make it easy to track participant progress and manage multiple training projects simultaneously."
+              "EDBAHN has transformed how we manage our training programs. The intuitive interface and comprehensive features make it easy to track participant progress and manage multiple training projects simultaneously."
             </Typography>
             <Typography variant="subtitle2" color="primary">
               - Training Manager

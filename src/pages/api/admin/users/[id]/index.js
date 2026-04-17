@@ -13,18 +13,15 @@ async function revokeUserSessions(workosUserId) {
     });
 
     const sessions = sessionsResponse.data || [];
-    console.log(`🔐 Found ${sessions.length} sessions for user ${workosUserId}`);
 
     for (const session of sessions) {
       try {
         await workos.userManagement.revokeSession(session.id);
-        console.log(`   ✅ Revoked session ${session.id}`);
       } catch (revokeError) {
         console.error(`   ⚠️ Failed to revoke session ${session.id}:`, revokeError.message);
       }
     }
 
-    console.log(`🔐 Completed session revocation for user ${workosUserId}`);
   } catch (error) {
     console.error('Error revoking user sessions:', error.message);
   }
@@ -142,8 +139,6 @@ export default createHandler({
       }
     });
 
-    console.log(`✅ Updated user ${id}:`, updateData);
-
     return res.status(200).json({
       success: true,
       user: {
@@ -181,8 +176,6 @@ export default createHandler({
       where: { id },
       data: { isActive: false }
     });
-
-    console.log(`✅ Deactivated user ${id}: ${deactivatedUser.email}`);
 
     return res.status(200).json({
       success: true,

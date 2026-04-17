@@ -177,12 +177,19 @@ export default createHandler({
       return updatedEvent;
     });
 
+    // Only trigger calendar sync when calendar-relevant fields changed
+    const calendarRelevantFields = ['title', 'description', 'start', 'end', 'allDay', 'timezone', 'deliveryMode', 'meetingLink'];
+    const hasCalendarRelevantChanges = calendarRelevantFields.some(field => updateData[field] !== undefined)
+      || (updateData.extendedProps && 'location' in updateData.extendedProps);
+
     // Single query: resolve user and check for active calendar integrations
-    const dbUser = await prisma.user.findUnique({
-      where: { workos_user_id: req.orgContext.userId },
-      select: { id: true, calendar_integrations: { where: { isActive: true }, select: { id: true }, take: 1 } },
-    });
-    const calendarSyncTriggered = dbUser?.calendar_integrations?.length > 0;
+    const dbUser = hasCalendarRelevantChanges
+      ? await prisma.user.findUnique({
+          where: { workos_user_id: req.orgContext.userId },
+          select: { id: true, calendar_integrations: { where: { isActive: true }, select: { id: true }, take: 1 } },
+        })
+      : null;
+    const calendarSyncTriggered = hasCalendarRelevantChanges && dbUser?.calendar_integrations?.length > 0;
 
     res.status(200).json({
       success: true,

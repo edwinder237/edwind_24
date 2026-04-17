@@ -311,18 +311,6 @@ async function handleDelete(req, res, membership) {
     });
   }
 
-  // Audit log — record all external IDs before deletion
-  console.log(`[AUDIT] Hard-deleting organization "${org.title}"`, {
-    dbOrgId: orgId,
-    workosOrgId: org.workos_org_id || null,
-    stripeCustomerId: org.subscription?.stripeCustomerId || null,
-    stripeSubscriptionId: org.subscription?.stripeSubscriptionId || null,
-    members: org._count.organization_memberships,
-    subOrganizations: org._count.sub_organizations,
-    deletedBy: membership.userId,
-    deletedByWorkosId: req.cookies.workos_user_id
-  });
-
   // 1. Cancel Stripe subscription
   if (org.subscription?.stripeSubscriptionId && org.subscription.status !== 'canceled') {
     try {
@@ -363,7 +351,6 @@ async function handleDelete(req, res, membership) {
         const match = workosUsers.data?.[0];
         if (match) {
           workosUserId = match.id;
-          console.log(`[AUDIT] Resolved WorkOS user by email: ${m.user.email} → ${workosUserId}`);
         }
       } catch (lookupError) {
         console.error('WorkOS user lookup by email failed:', lookupError.message);

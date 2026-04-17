@@ -57,14 +57,6 @@ export default createHandler({
       });
     }
 
-    console.log('[AI Summarization] Processing session notes, length:', sessionNotes.length);
-    if (attendanceData) {
-      console.log('[AI Summarization] Including attendance data:', attendanceData);
-    }
-    if (parkingLotItems && parkingLotItems.length > 0) {
-      console.log('[AI Summarization] Including parking lot items:', parkingLotItems.length);
-    }
-
     // Call Gemini AI to summarize with optional attendance, parking lot data, and AI settings
     try {
       const startTime = Date.now();
@@ -87,11 +79,6 @@ export default createHandler({
         inputTokens: summary.tokenUsage?.inputTokens,
         outputTokens: summary.tokenUsage?.outputTokens,
         totalTokens: summary.tokenUsage?.totalTokens
-      });
-
-      console.log('[AI Summarization] Generated:', {
-        highlights: summary.keyHighlights.length,
-        challenges: summary.challenges.length
       });
 
       // Get SmartPulse remaining count for the user

@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 
 // R2 Bucket configuration
-const R2_BUCKET_URL = 'https://923f49e1995e9f5e3f85d8b7ea48047a.r2.cloudflarestorage.com/edwindblobs';
+const R2_BUCKET_URL = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/edwindblobs`;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_REGION = process.env.R2_REGION || 'auto';

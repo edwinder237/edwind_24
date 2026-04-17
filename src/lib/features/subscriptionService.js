@@ -27,7 +27,6 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
   if (!forceRefresh) {
     const cached = subscriptionCache.get(organizationId);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log(`✅ Subscription cache hit for org: ${organizationId}`);
       return cached.data;
     }
   }
@@ -56,7 +55,6 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
     ) {
       try {
         const stripe = getStripe();
-        console.log(`🔄 [AUTO-SYNC] Missing stripeSubscriptionId for org ${organizationId}, syncing from Stripe...`);
 
         // Look up active or trialing subscriptions for this customer
         let stripeSubscriptions = await stripe.subscriptions.list({
@@ -113,13 +111,9 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
             }
           });
 
-          console.log(`✅ [AUTO-SYNC] Synced subscription for org ${organizationId}: ${stripeSub.status} (${plan?.planId || subscription.planId})`);
-
           // Invalidate cache and re-fetch with fresh data
           subscriptionCache.delete(organizationId);
           return getOrgSubscription(organizationId, true);
-        } else {
-          console.log(`🔄 [AUTO-SYNC] No active Stripe subscription found for customer ${subscription.stripeCustomerId}`);
         }
       } catch (syncError) {
         console.error(`⚠️ [AUTO-SYNC] Failed to sync from Stripe:`, syncError.message);
@@ -137,7 +131,6 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
     ) {
       if (!subscription.stripeSubscriptionId) {
         // Non-Stripe trial (user skipped checkout): auto-downgrade to Essential
-        console.log(`⏰ Trial expired for org ${organizationId} — auto-downgrading to Essential`);
 
         await prisma.subscriptions.update({
           where: { id: subscription.id },
@@ -168,7 +161,6 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
         // Stripe-backed trial expired but webhook didn't update status yet.
         // Assume active (Stripe will charge the card on file).
         // If payment fails, the next webhook will set status to past_due.
-        console.log(`⏰ Stripe trial ended for org ${organizationId} — updating local status to active (webhook fallback)`);
 
         await prisma.subscriptions.update({
           where: { id: subscription.id },
@@ -201,7 +193,6 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
         data: subscription,
         timestamp: Date.now()
       });
-      console.log(`💾 Cached subscription for org: ${organizationId}`);
     }
 
     return subscription;
@@ -271,8 +262,6 @@ export async function createSubscription({
 
     // Invalidate cache
     subscriptionCache.delete(organizationId);
-
-    console.log(`✅ Created subscription for org ${organizationId}: ${planId}`);
 
     return subscription;
   } catch (error) {
@@ -354,8 +343,6 @@ export async function updateSubscription({
 
     // Invalidate cache
     subscriptionCache.delete(currentSub.organizationId);
-
-    console.log(`✅ Updated subscription ${subscriptionId}: ${eventType}`);
 
     return subscription;
   } catch (error) {
@@ -759,7 +746,6 @@ export async function getAllSubscriptions(filters = {}) {
  */
 export function invalidateSubscriptionCache(organizationId) {
   subscriptionCache.delete(organizationId);
-  console.log(`🗑️  Invalidated subscription cache for org: ${organizationId}`);
 }
 
 /**
@@ -767,7 +753,6 @@ export function invalidateSubscriptionCache(organizationId) {
  */
 export function clearAllSubscriptionCaches() {
   subscriptionCache.clear();
-  console.log('🗑️  Cleared all subscription caches');
 }
 
 /**
@@ -836,8 +821,6 @@ export async function updateStripeData({ organizationId, stripeData }) {
     // Invalidate cache
     subscriptionCache.delete(organizationId);
 
-    console.log(`✅ Updated Stripe data for org ${organizationId}`);
-
     return subscription;
   } catch (error) {
     console.error('Error updating Stripe data:', error);
@@ -882,8 +865,6 @@ export async function handlePaymentFailure({ organizationId, reason }) {
 
     // Invalidate cache
     subscriptionCache.delete(organizationId);
-
-    console.log(`⚠️ Payment failure recorded for org ${organizationId}`);
 
     return subscription;
   } catch (error) {
@@ -933,8 +914,6 @@ export async function handlePaymentSuccess({ organizationId }) {
 
     // Invalidate cache
     subscriptionCache.delete(organizationId);
-
-    console.log(`✅ Payment success - org ${organizationId} reactivated`);
 
     return subscription;
   } catch (error) {

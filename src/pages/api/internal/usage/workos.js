@@ -123,7 +123,6 @@ export default createHandler({
       };
     } catch (workosError) {
       workosData.error = workosError.message;
-      console.warn('[WorkOS Usage] Failed to fetch from WorkOS API:', workosError.message);
     }
 
     // Calculate estimated costs

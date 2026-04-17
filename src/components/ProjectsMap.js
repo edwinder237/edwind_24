@@ -570,7 +570,7 @@ const ProjectsMap = ({ projects = [], height = 500, showDirections = false, goog
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ page: 'timeline' })
-    }).catch(err => console.warn('[ProjectsMap] Failed to track map load:', err));
+    }).catch(() => {});
   }, []);
 
   // Memoized callbacks

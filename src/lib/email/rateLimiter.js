@@ -50,7 +50,6 @@ export async function sendWithRetry(emailData, options = {}) {
         if (retryCount < maxRetries) {
           // Exponential backoff: 1s, 2s, 4s
           const backoffDelay = initialDelay * Math.pow(2, retryCount);
-          console.log(`[email-service] Rate limited, retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/${maxRetries})`);
           await delay(backoffDelay);
           return sendWithRetry(emailData, {
             ...options,
@@ -80,7 +79,6 @@ export async function sendWithRetry(emailData, options = {}) {
     if (statusCode === 429 || error.code === 'rate_limit_exceeded') {
       if (retryCount < maxRetries) {
         const backoffDelay = initialDelay * Math.pow(2, retryCount);
-        console.log(`[email-service] Rate limited (exception), retrying in ${backoffDelay}ms (attempt ${retryCount + 1}/${maxRetries})`);
         await delay(backoffDelay);
         return sendWithRetry(emailData, {
           ...options,

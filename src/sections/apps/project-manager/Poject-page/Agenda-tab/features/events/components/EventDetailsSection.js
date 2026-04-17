@@ -233,7 +233,6 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project, available
   // Memoized event details calculation
   const getSelectedEventDetails = useCallback((event) => {
     if (!agendaEvents) {
-      console.log('Agenda events not yet loaded');
       return;
     }
     
@@ -244,7 +243,6 @@ const EventDetailsSection = ({ selectedDate, selectedEventId, project, available
     const selectedEvent = agendaEvents?.find(e => e.id === eventId);
     
     if (!selectedEvent) {
-      console.warn('Event not found in project data');
       return;
     }
 

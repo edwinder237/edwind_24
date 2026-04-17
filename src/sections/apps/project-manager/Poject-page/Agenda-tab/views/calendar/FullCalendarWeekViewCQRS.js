@@ -101,7 +101,6 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
 
     // If already refetching, queue this refetch for later
     if (isRefetching) {
-      console.log('[FullCalendarWeekViewCQRS] Refetch already in progress, queuing...');
       refetchTimeoutRef.current = setTimeout(() => {
         safeRefetch();
       }, 1000);
@@ -110,9 +109,7 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
 
     setIsRefetching(true);
     try {
-      console.log('[FullCalendarWeekViewCQRS] Safe refetch starting...');
       await refetchAgenda();
-      console.log('[FullCalendarWeekViewCQRS] Safe refetch completed');
     } catch (error) {
       console.error('[FullCalendarWeekViewCQRS] Refetch error:', error);
     } finally {
@@ -265,7 +262,6 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
     // CRITICAL: Check ref FIRST - it's synchronous and prevents race conditions
     // Block opening dialog if event creation or deletion is in progress
     if (operationInProgressRef.current) {
-      console.log('[FullCalendarWeekViewCQRS] Dialog open BLOCKED by ref - operation in progress');
       dispatch(openSnackbar({
         open: true,
         message: 'Please wait - an operation is currently in progress',
@@ -444,8 +440,6 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
 
     // Check ref FIRST - it's synchronous and won't have stale closure issues
     if (operationInProgressRef.current) {
-      console.log('[FullCalendarWeekViewCQRS] handleEventDelete BLOCKED by ref - operation already in progress');
-
       // Show user feedback
       dispatch(
         openSnackbar({
@@ -464,7 +458,6 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
     // Set ref IMMEDIATELY to block all subsequent clicks
     operationInProgressRef.current = true;
     const event = events?.find(evt => evt.id == eventId);
-    console.log(`[FullCalendarWeekViewCQRS] Delete initiated for event: "${event?.title}" (ID: ${eventId}) - ref set to TRUE`);
 
     // Find the event to get its title
     setEventToDelete({ id: eventId, title: event?.title || 'Event' });
@@ -476,18 +469,15 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
     if (!eventToDelete || isDeleting) return;
 
     const startTime = Date.now();
-    console.log(`[FullCalendarWeekViewCQRS] [${new Date().toISOString()}] Confirm delete clicked for "${eventToDelete.title}"`);
 
     setIsDeleting(true);
     try {
       // Use semantic command for delete with proper state management
-      console.log(`[FullCalendarWeekViewCQRS] [${new Date().toISOString()}] Dispatching delete command...`);
       await dispatch(eventCommands.deleteEvent({
         eventId: parseInt(eventToDelete.id),
         eventTitle: eventToDelete.title,
         projectId: project?.id
       }));
-      console.log(`[FullCalendarWeekViewCQRS] [${new Date().toISOString()}] Delete command completed (${Date.now() - startTime}ms)`);
 
       setDeleteDialogOpen(false);
       setEventToDelete(null);
@@ -496,7 +486,6 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
       // The delete command invalidates ProjectAgenda tag which triggers fetchProjectAgenda
       // We monitor isFetchingAgendaRef and wait until it becomes false
       // This works on any connection speed - fast or slow connections handled automatically!
-      console.log(`[FullCalendarWeekViewCQRS] [${new Date().toISOString()}] Waiting for agenda refetch to complete...`);
 
       // Poll isFetchingAgendaRef until refetch completes (with timeout safety)
       const maxWaitTime = 30000; // 30 second timeout for very slow connections
@@ -507,12 +496,6 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
         waited += pollInterval;
       }
-
-      if (waited >= maxWaitTime) {
-        console.warn(`[FullCalendarWeekViewCQRS] Timeout waiting for agenda refetch (${waited}ms)`);
-      } else {
-        console.log(`[FullCalendarWeekViewCQRS] [${new Date().toISOString()}] Agenda refetch completed (waited ${waited}ms)`);
-      }
     } catch (error) {
       console.error('[FullCalendarWeekViewCQRS] Error deleting event:', error);
       // Error notification is handled by the semantic command
@@ -520,7 +503,6 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
       setIsDeleting(false);
       // Reset ref AFTER all cache invalidations settle - this prevents rapid deletes
       operationInProgressRef.current = false;
-      console.log(`[FullCalendarWeekViewCQRS] [${new Date().toISOString()}] Operation complete - ref reset to FALSE (total time: ${Date.now() - startTime}ms)`);
     }
   }, [dispatch, project?.id, eventToDelete, isDeleting, safeRefetch]);
 
@@ -712,14 +694,12 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
 
             // CRITICAL: Check ref FIRST - it's synchronous and prevents race conditions
             if (operationInProgressRef.current) {
-              console.log('[FullCalendarWeekViewCQRS] Delete button click BLOCKED by ref - operation in progress');
               return;
             }
 
             // Also block if already deleting or refetching (backup check)
             const isBlocked = isDeleting || deleteDialogOpen || isRefetching;
             if (isBlocked) {
-              console.log('[FullCalendarWeekViewCQRS] Delete button click BLOCKED by state - operation in progress');
               return;
             }
 
@@ -732,14 +712,12 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
 
             // CRITICAL: Check ref FIRST - it's synchronous and prevents race conditions
             if (operationInProgressRef.current) {
-              console.log('[FullCalendarWeekViewCQRS] Delete button touch BLOCKED by ref - operation in progress');
               return;
             }
 
             // Also block if already deleting or refetching (backup check)
             const isBlocked = isDeleting || deleteDialogOpen || isRefetching;
             if (isBlocked) {
-              console.log('[FullCalendarWeekViewCQRS] Delete button touch BLOCKED by state - operation in progress');
               return;
             }
 
@@ -1601,10 +1579,8 @@ const FullCalendarWeekViewCQRS = ({ project, events, onEventSelect }) => {
         onClose={() => {
           // Prevent closing while deleting
           if (isDeleting) {
-            console.log('[FullCalendarWeekViewCQRS] Cannot close dialog - delete in progress');
             return;
           }
-          console.log(`[FullCalendarWeekViewCQRS] [${new Date().toISOString()}] Dialog canceled - ref reset to FALSE`);
           setDeleteDialogOpen(false);
           setEventToDelete(null);
           // Reset ref when dialog is canceled

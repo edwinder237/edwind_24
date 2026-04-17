@@ -1,15 +1,15 @@
 /**
  * Event Mapper
  *
- * Transforms EDWIND event data into Google Calendar and Microsoft Graph API formats.
+ * Transforms EDBAHN event data into Google Calendar and Microsoft Graph API formats.
  * Reuses description generation logic from the ICS generator.
  */
 
 import { createEventDescription } from '../email/icsGenerator';
 
 /**
- * Map an EDWIND event to a Google Calendar API event payload
- * @param {Object} event - EDWIND event with relations (course, room, project)
+ * Map an EDBAHN event to a Google Calendar API event payload
+ * @param {Object} event - EDBAHN event with relations (course, room, project)
  * @returns {Object} Google Calendar event resource
  */
 export function mapToGoogleEvent(event) {
@@ -35,8 +35,8 @@ export function mapToGoogleEvent(event) {
 }
 
 /**
- * Map an EDWIND event to a Microsoft Graph Calendar event payload
- * @param {Object} event - EDWIND event with relations (course, room, project)
+ * Map an EDBAHN event to a Microsoft Graph Calendar event payload
+ * @param {Object} event - EDBAHN event with relations (course, room, project)
  * @returns {Object} Microsoft Graph event resource
  */
 export function mapToMicrosoftEvent(event) {
@@ -91,9 +91,9 @@ function buildGoogleDateTime(date, timezone) {
 }
 
 /**
- * Build event description from EDWIND event data
+ * Build event description from EDBAHN event data
  * Reuses createEventDescription from ICS generator where possible
- * @param {Object} event - EDWIND event with relations
+ * @param {Object} event - EDBAHN event with relations
  * @returns {string} Plain text description
  */
 function buildDescription(event) {
@@ -130,7 +130,7 @@ function buildDescription(event) {
 
 /**
  * Build location string from event data
- * @param {Object} event - EDWIND event with relations
+ * @param {Object} event - EDBAHN event with relations
  * @returns {string|null} Location string
  */
 function buildLocation(event) {

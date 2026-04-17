@@ -172,7 +172,7 @@ export default createHandler({
     if (firstName !== undefined || lastName !== undefined) {
       try {
         if (!userId || userId === 'undefined' || userId === 'null') {
-          console.warn('Skipping WorkOS update - invalid userId:', userId);
+          // skip - invalid userId
         } else {
           const updateOptions = { userId: userId };
           if (firstName !== undefined) updateOptions.firstName = firstName;

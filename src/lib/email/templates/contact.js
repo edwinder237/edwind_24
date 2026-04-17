@@ -155,7 +155,7 @@ export function generateContactAdminTemplate(formData) {
           </div>
 
           <div class="footer">
-            <p>This email was sent from the EDWIND contact form.</p>
+            <p>This email was sent from the EDBAHN contact form.</p>
             <p>
               <strong>Reply directly to this email</strong> to respond to ${formData.name} at
               <a href="mailto:${formData.email}" style="color: #1976d2;">${formData.email}</a>
@@ -184,7 +184,7 @@ export function generateContactAutoReplyTemplate(formData) {
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Thank you for contacting EDWIND</title>
+        <title>Thank you for contacting EDBAHN</title>
         <style>
           body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -262,7 +262,7 @@ export function generateContactAutoReplyTemplate(formData) {
             <p>Hi ${firstName},</p>
 
             <p>
-              Thank you for reaching out to EDWIND! We've successfully received your message
+              Thank you for reaching out to EDBAHN! We've successfully received your message
               regarding "<strong>${formData.subject}</strong>" and truly appreciate your interest
               in our training management platform.
             </p>
@@ -278,7 +278,7 @@ export function generateContactAutoReplyTemplate(formData) {
 
             <p>
               In the meantime, feel free to explore our platform features or check out our
-              resources to learn more about how EDWIND can transform your training programs.
+              resources to learn more about how EDBAHN can transform your training programs.
             </p>
 
             <div class="contact-info">
@@ -288,12 +288,12 @@ export function generateContactAutoReplyTemplate(formData) {
 
             <p>
               We're excited about the opportunity to help your organization achieve better
-              learning outcomes with EDWIND.
+              learning outcomes with EDBAHN.
             </p>
 
             <p>
               Best regards,<br>
-              <strong>The EDWIND Team</strong>
+              <strong>The EDBAHN Team</strong>
             </p>
           </div>
 
@@ -303,7 +303,7 @@ export function generateContactAutoReplyTemplate(formData) {
               If you need to reach us, please email ${ADMIN_EMAIL}
             </p>
             <p>
-              &copy; ${currentYear} EDWIND by Lumeve. All rights reserved.
+              &copy; ${currentYear} EDBAHN by Lumeve. All rights reserved.
             </p>
           </div>
         </div>

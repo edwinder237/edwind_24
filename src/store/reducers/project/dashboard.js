@@ -89,7 +89,6 @@ export function fetchProjectDashboard(projectId, forceRefresh = false) {
                      projectDashboard.projectId === projectId;
       
       if (hasData && !forceRefresh) {
-        console.log('Using cached dashboard data');
         return;
       }
       

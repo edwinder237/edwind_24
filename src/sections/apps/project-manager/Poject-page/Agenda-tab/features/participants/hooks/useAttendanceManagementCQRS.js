@@ -55,7 +55,6 @@ export const useAttendanceManagementCQRS = (eventParticipants, selectedEvent, si
   const handleStatusChange = useCallback(async (participantId, newStatus) => {
     // Prevent concurrent updates
     if (updatingParticipant) {
-      console.warn('[useAttendanceManagementCQRS] Update already in progress');
       return;
     }
 
@@ -121,12 +120,6 @@ export const useAttendanceManagementCQRS = (eventParticipants, selectedEvent, si
         }
       }));
 
-      console.log(`[useAttendanceManagementCQRS] Attendance updated:`, {
-        participantId,
-        eventId: selectedEvent.id,
-        status: newStatus
-      });
-
     } catch (error) {
       console.error('[useAttendanceManagementCQRS] Error updating attendance:', error);
       // Commands handle error notifications, so we don't need to dispatch snackbar here
@@ -141,7 +134,6 @@ export const useAttendanceManagementCQRS = (eventParticipants, selectedEvent, si
    */
   const handleRemoveFromEvent = useCallback(async (participantId, participant) => {
     if (!selectedEvent?.id) {
-      console.error('[useAttendanceManagementCQRS] No event ID for removal');
       return;
     }
 
@@ -163,11 +155,6 @@ export const useAttendanceManagementCQRS = (eventParticipants, selectedEvent, si
         reason: 'Removed by instructor'
       })).unwrap();
 
-      console.log(`[useAttendanceManagementCQRS] Participant removed:`, {
-        participantId,
-        eventId: selectedEvent.id
-      });
-
     } catch (error) {
       console.error('[useAttendanceManagementCQRS] Error removing participant:', error);
       // Command handles error notification
@@ -180,7 +167,6 @@ export const useAttendanceManagementCQRS = (eventParticipants, selectedEvent, si
    */
   const handleMoveToGroup = useCallback(async (participantId, participant, targetGroup) => {
     if (!targetGroup?.id || !singleProject?.id) {
-      console.error('[useAttendanceManagementCQRS] Missing target group or project');
       return;
     }
 
@@ -206,12 +192,6 @@ export const useAttendanceManagementCQRS = (eventParticipants, selectedEvent, si
           groupName: targetGroup.groupName
         }
       })).unwrap();
-
-      console.log(`[useAttendanceManagementCQRS] Participant moved:`, {
-        participantId,
-        fromGroup: currentGroup?.groupName,
-        toGroup: targetGroup.groupName
-      });
 
     } catch (error) {
       console.error('[useAttendanceManagementCQRS] Error moving participant:', error);

@@ -338,7 +338,7 @@ const TabPersonal = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Stack spacing={1.25}>
-                    <InputLabel htmlFor="personal-designation">Designation</InputLabel>
+                    <InputLabel htmlFor="personal-designation">Job Title</InputLabel>
                     <TextField
                       fullWidth
                       id="personal-designation"
@@ -346,7 +346,7 @@ const TabPersonal = () => {
                       name="designation"
                       onBlur={handleBlur}
                       onChange={handleChange}
-                      placeholder="Designation"
+                      placeholder="Job Title"
                     />
                     {touched.designation && errors.designation && (
                       <FormHelperText error id="personal-designation-helper">

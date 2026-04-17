@@ -101,7 +101,6 @@ const TrainingRecipients = () => {
     address: '',
     website: '',
     industry: '',
-    taxId: '',
     notes: '',
     location: null,
   });
@@ -415,7 +414,6 @@ const TrainingRecipients = () => {
       address: '',
       website: '',
       industry: '',
-      taxId: '',
       notes: '',
       location: null,
     });
@@ -601,7 +599,8 @@ const TrainingRecipients = () => {
     },
     {
       Header: "Projects & Participants",
-      accessor: "projects",
+      id: "projects",
+      accessor: row => row._count?.projects || 0,
       Cell: ({ row }) => {
         // Use _count from API data for accurate counts
         const projectCount = row.original._count?.projects || 0;
@@ -1003,22 +1002,13 @@ const TrainingRecipients = () => {
                 placeholder="Search for your company address"
                 fullWidth
               />
-              <Stack direction="row" spacing={2}>
-                <TextField
-                  name="website"
-                  label="Website"
-                  fullWidth
-                  value={formData.website}
-                  onChange={handleChange}
-                />
-                <TextField
-                  name="taxId"
-                  label="Tax ID"
-                  fullWidth
-                  value={formData.taxId}
-                  onChange={handleChange}
-                />
-              </Stack>
+              <TextField
+                name="website"
+                label="Website"
+                fullWidth
+                value={formData.website}
+                onChange={handleChange}
+              />
               <TextField
                 name="description"
                 label="Description"

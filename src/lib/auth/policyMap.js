@@ -232,7 +232,6 @@ export function mapRoleToPermissions(workosRole) {
     return ROLE_PERMISSIONS[matchKey];
   }
 
-  console.warn(`Unknown WorkOS role: ${workosRole}, defaulting to Member permissions`);
   return ROLE_PERMISSIONS['Member'] || [];
 }
 

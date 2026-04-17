@@ -196,22 +196,6 @@ const CourseEditPage = ({ courseId }) => {
     if (validModules.length === 0) return 0;
     
     const duration = calculateCourseDurationFromModules(validModules);
-    console.log('Calculating course duration:', {
-      modulesCount: validModules.length,
-      modules: validModules.map(m => ({
-        title: m?.title || 'Untitled Module',
-        activities: m?.activities?.length || 0,
-        activityDurations: m?.activities?.map(a => ({ 
-          title: a?.title || 'Untitled Activity', 
-          duration: a?.duration || 0, 
-          type: typeof a?.duration 
-        })) || [],
-        customDuration: m?.customDuration || 0
-      })),
-      totalDuration: duration,
-      courseDuration: course?.duration,
-      courseTitle: course?.title
-    });
     return duration;
   }, [modules, course]);
   
@@ -223,15 +207,12 @@ const CourseEditPage = ({ courseId }) => {
 
   // Move Editor component outside to prevent recreation on every render
   const Editor = React.memo(forwardRef(({ ...props }, ref) => {
-    console.log('Editor component rendering with props:', props);
-    console.log('Editor ref:', ref);
     return <TextEditor {...props} ref={ref} />;
   }));
   
   Editor.displayName = 'Editor';
 
   const getSelectedModuleId = (selectedCardId) => {
-    console.log('Setting selected module ID:', selectedCardId);
     setSelectedModuleId(selectedCardId);
   };
 
@@ -786,31 +767,21 @@ const CourseEditPage = ({ courseId }) => {
     setJSON(JSON);
   }
   const handleSave = async () => {
-    console.log('=== SAVE BUTTON CLICKED ===');
-    console.log('selectedModuleId:', selectedModuleId);
-    console.log('textEditorRef.current:', textEditorRef.current);
-    console.log('textEditorRef.current?.save:', textEditorRef.current?.save);
-    
     if (!selectedModuleId) {
-      console.warn('No module selected');
       return;
     }
-    
+
     if (!textEditorRef.current) {
-      console.warn('Text editor ref not available');
       return;
     }
-    
+
     if (!textEditorRef.current.save) {
-      console.warn('Save method not available on ref');
       return;
     }
-    
+
     setIsSaving(true);
     try {
-      console.log('Calling save function...');
       await textEditorRef.current.save();
-      console.log('Save completed successfully');
     } catch (error) {
       console.error('Error saving content:', error);
     } finally {

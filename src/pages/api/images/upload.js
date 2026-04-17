@@ -23,8 +23,6 @@ export default createHandler({
 
     // Upload base64 image to R2
     const result = await uploadBase64ImageToR2(image, prefix, fileName);
-    
-    console.log(`✅ Image uploaded to R2: ${result.key}`);
 
     res.status(200).json({
       success: true,

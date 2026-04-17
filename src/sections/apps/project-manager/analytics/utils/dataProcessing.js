@@ -344,7 +344,6 @@ export const generateSignOffSheetData = (filteredResults, courseId) => {
 // Export data to CSV
 export const exportToCSV = (data, filename = 'training-report') => {
   if (!data || data.length === 0) {
-    console.warn('No data to export');
     return;
   }
 

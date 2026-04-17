@@ -737,7 +737,8 @@ function RoomsPage() {
       },
       {
         Header: 'Training Recipient',
-        accessor: 'training_recipient.name',
+        id: 'training_recipient_name',
+        accessor: row => row.training_recipient?.name ?? '',
         Cell: ({ value }) => value || '-'
       },
       {

@@ -690,6 +690,14 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
   const handleStatusChange = async (newStatus) => {
     if (!participant?.id) return;
 
+    // Confirm before termination — this removes from groups, events, and the project
+    if (newStatus === 'terminated') {
+      const confirmed = window.confirm(
+        'Terminating this participant will remove them from all groups and events in this project. Continue?'
+      );
+      if (!confirmed) return;
+    }
+
     setStatusUpdating(true);
     setStatusMenuAnchor(null);
 
@@ -708,6 +716,36 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
       const result = await response.json();
 
       if (response.ok) {
+        // If terminated, cascade: remove from groups, events, and the project
+        if (newStatus === 'terminated') {
+          try {
+            await dispatch(projectApi.endpoints.removeParticipant.initiate({
+              participantId: participant.projectParticipantId,
+              projectId: parseInt(projectId)
+            })).unwrap();
+
+            dispatch(openSnackbar({
+              open: true,
+              message: 'Participant terminated and removed from project',
+              variant: 'alert',
+              alert: { color: 'success' }
+            }));
+
+            onClose();
+            return;
+          } catch (cascadeError) {
+            console.error('Failed to cascade termination:', cascadeError);
+            dispatch(openSnackbar({
+              open: true,
+              message: 'Status updated but failed to remove from project. Please remove manually.',
+              variant: 'alert',
+              alert: { color: 'warning' }
+            }));
+            setStatusUpdating(false);
+            return;
+          }
+        }
+
         setCurrentStatus(newStatus);
 
         // Update RTK Query cache to reflect the new status
@@ -1185,9 +1223,7 @@ const ParticipantDrawer = ({ open, onClose, participant, projectId }) => {
                             <Tooltip title="Move to another event">
                               <IconButton
                                 size="small"
-                                onClick={() => {
-                                  console.log('Available events to move to:', availableEvents);
-                                }}
+                                onClick={() => {}}
                                 disabled={availableEvents.length === 0}
                               >
                                 <SwapHoriz sx={{ fontSize: 18 }} />

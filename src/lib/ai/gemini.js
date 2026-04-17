@@ -169,7 +169,6 @@ ${hasParkingLot ? '- Include parking lot insights when relevant (e.g., "Several 
     try {
       parsed = JSON.parse(jsonText);
     } catch (parseError) {
-      console.warn('[Gemini AI] Failed to parse JSON, using fallback. Raw text:', jsonText.slice(0, 200));
       // Gemini sometimes returns conversational text instead of JSON
       // (e.g. when notes are too short). Return a helpful fallback.
       parsed = {

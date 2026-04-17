@@ -410,20 +410,16 @@ const Groups = React.memo(({ index }) => {
 
     // Subscribe to group-related events
     const handleGroupAdded = (event) => {
-      console.log('[Groups] Group added:', event);
       // RTK Query will automatically refetch due to cache invalidation
     };
 
     const handleGroupUpdated = (event) => {
-      console.log('[Groups] Group updated:', event);
     };
 
     const handleGroupRemoved = (event) => {
-      console.log('[Groups] Group removed:', event);
     };
 
     const handleRefreshNeeded = (event) => {
-      console.log('[Groups] Refresh requested:', event);
       // Trigger refresh when child components request it
       forceRefresh?.();
     };
