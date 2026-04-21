@@ -123,6 +123,7 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
 
     // Verify active subscriptions against Stripe: if we have a stripeSubscriptionId
     // but the subscription was hard-canceled in Stripe (webhook missed), update locally.
+    // Only runs on cache miss (~every 15 min) to avoid excessive Stripe API calls.
     if (
       subscription &&
       subscription.stripeSubscriptionId &&
@@ -134,14 +135,15 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
 
         if (stripeSub.status === 'canceled' || stripeSub.status === 'incomplete_expired') {
           // Stripe subscription was canceled/expired — update local DB
-          await prisma.subscriptions.update({
+          const updated = await prisma.subscriptions.update({
             where: { id: subscription.id },
             data: {
               status: 'canceled',
               canceledAt: new Date(),
               stripeSubscriptionId: null,
               stripePriceId: null
-            }
+            },
+            include: { plan: true, organization: { select: { id: true, title: true, workos_org_id: true } } }
           });
 
           await prisma.subscription_history.create({
@@ -156,30 +158,30 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
           });
 
           subscriptionCache.delete(organizationId);
-          return getOrgSubscription(organizationId, true);
-        }
-
-        // Sync status if it changed (e.g. active → past_due)
-        if (stripeSub.status !== subscription.status) {
-          await prisma.subscriptions.update({
+          subscription = updated;
+        } else if (stripeSub.status !== subscription.status) {
+          // Sync status if it changed (e.g. active → past_due)
+          const updated = await prisma.subscriptions.update({
             where: { id: subscription.id },
-            data: { status: stripeSub.status }
+            data: { status: stripeSub.status },
+            include: { plan: true, organization: { select: { id: true, title: true, workos_org_id: true } } }
           });
 
           subscriptionCache.delete(organizationId);
-          return getOrgSubscription(organizationId, true);
+          subscription = updated;
         }
       } catch (verifyError) {
         // If subscription not found in Stripe (deleted), mark as canceled
         if (verifyError.code === 'resource_missing') {
-          await prisma.subscriptions.update({
+          const updated = await prisma.subscriptions.update({
             where: { id: subscription.id },
             data: {
               status: 'canceled',
               canceledAt: new Date(),
               stripeSubscriptionId: null,
               stripePriceId: null
-            }
+            },
+            include: { plan: true, organization: { select: { id: true, title: true, workos_org_id: true } } }
           });
 
           await prisma.subscription_history.create({
@@ -194,10 +196,11 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
           });
 
           subscriptionCache.delete(organizationId);
-          return getOrgSubscription(organizationId, true);
+          subscription = updated;
+        } else {
+          console.error(`⚠️ [VERIFY] Failed to verify Stripe subscription:`, verifyError.message);
+          // Continue with local data — don't block the request
         }
-        console.error(`⚠️ [VERIFY] Failed to verify Stripe subscription:`, verifyError.message);
-        // Continue with local data — don't block the request
       }
     }
 
