@@ -259,7 +259,7 @@ export function withAdminScopeSkipSubCheck(handler) {
  * @returns {Function} Wrapped handler with optional org
  */
 export function withOptionalOrgScope(handler) {
-  return withOrgScope(handler, { requireOrg: false });
+  return withOrgScope(handler, { requireOrg: false, skipSubscriptionCheck: true });
 }
 
 /**
