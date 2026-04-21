@@ -121,6 +121,86 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
       }
     }
 
+    // Verify active subscriptions against Stripe: if we have a stripeSubscriptionId
+    // but the subscription was hard-canceled in Stripe (webhook missed), update locally.
+    if (
+      subscription &&
+      subscription.stripeSubscriptionId &&
+      ['active', 'trialing'].includes(subscription.status)
+    ) {
+      try {
+        const stripe = getStripe();
+        const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+
+        if (stripeSub.status === 'canceled' || stripeSub.status === 'incomplete_expired') {
+          // Stripe subscription was canceled/expired — update local DB
+          await prisma.subscriptions.update({
+            where: { id: subscription.id },
+            data: {
+              status: 'canceled',
+              canceledAt: new Date(),
+              stripeSubscriptionId: null,
+              stripePriceId: null
+            }
+          });
+
+          await prisma.subscription_history.create({
+            data: {
+              subscriptionId: subscription.id,
+              eventType: 'canceled',
+              fromPlanId: subscription.planId,
+              fromStatus: subscription.status,
+              toStatus: 'canceled',
+              reason: `Stripe subscription ${stripeSub.status} — auto-synced (missed webhook recovery)`
+            }
+          });
+
+          subscriptionCache.delete(organizationId);
+          return getOrgSubscription(organizationId, true);
+        }
+
+        // Sync status if it changed (e.g. active → past_due)
+        if (stripeSub.status !== subscription.status) {
+          await prisma.subscriptions.update({
+            where: { id: subscription.id },
+            data: { status: stripeSub.status }
+          });
+
+          subscriptionCache.delete(organizationId);
+          return getOrgSubscription(organizationId, true);
+        }
+      } catch (verifyError) {
+        // If subscription not found in Stripe (deleted), mark as canceled
+        if (verifyError.code === 'resource_missing') {
+          await prisma.subscriptions.update({
+            where: { id: subscription.id },
+            data: {
+              status: 'canceled',
+              canceledAt: new Date(),
+              stripeSubscriptionId: null,
+              stripePriceId: null
+            }
+          });
+
+          await prisma.subscription_history.create({
+            data: {
+              subscriptionId: subscription.id,
+              eventType: 'canceled',
+              fromPlanId: subscription.planId,
+              fromStatus: subscription.status,
+              toStatus: 'canceled',
+              reason: 'Stripe subscription not found — marked as canceled'
+            }
+          });
+
+          subscriptionCache.delete(organizationId);
+          return getOrgSubscription(organizationId, true);
+        }
+        console.error(`⚠️ [VERIFY] Failed to verify Stripe subscription:`, verifyError.message);
+        // Continue with local data — don't block the request
+      }
+    }
+
     // Fallback: handle expired trials
     // Covers both Stripe-backed and non-Stripe trials when webhooks are missed.
     if (

@@ -63,9 +63,41 @@ export default createHandler({
     });
 
     if (trialingSubscriptions.data.length === 0) {
+      // No active or trialing subscription in Stripe — mark local subscription as canceled
+      const localSub = await prisma.subscriptions.findUnique({
+        where: { organizationId: orgContext.organizationId },
+        select: { id: true, status: true, planId: true }
+      });
+
+      if (localSub && localSub.status !== 'canceled') {
+        await prisma.subscriptions.update({
+          where: { id: localSub.id },
+          data: {
+            status: 'canceled',
+            canceledAt: new Date(),
+            stripeSubscriptionId: null,
+            stripePriceId: null
+          }
+        });
+
+        await prisma.subscription_history.create({
+          data: {
+            subscriptionId: localSub.id,
+            eventType: 'canceled',
+            fromPlanId: localSub.planId,
+            fromStatus: localSub.status,
+            toStatus: 'canceled',
+            reason: 'No active subscription found in Stripe during sync — marked as canceled'
+          }
+        });
+
+        invalidateSubscriptionCache(orgContext.organizationId);
+      }
+
       return res.status(200).json({
         success: false,
-        message: 'No active subscription found in Stripe'
+        message: 'No active subscription found in Stripe',
+        canceled: true
       });
     }
 

@@ -576,53 +576,98 @@ const SubscriptionCard = () => {
         {/* Payment & Billing — compact combined row */}
         <Card>
           <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} divider={<Divider orientation="vertical" flexItem />}>
-              {/* Payment method */}
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                <CreditCardOutlined style={{ fontSize: '1.25rem', color: theme.palette.text.secondary, flexShrink: 0 }} />
-                {paymentMethodLoading ? (
-                  <LinearProgress sx={{ flex: 1 }} />
-                ) : paymentMethod ? (
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="body2" noWrap>
-                      {getCardBrandIcon(paymentMethod.brand)} ····{paymentMethod.last4}
-                      <Typography component="span" variant="caption" color="textSecondary" sx={{ ml: 1 }}>
-                        exp {paymentMethod.expMonth}/{paymentMethod.expYear}
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} divider={<Divider orientation="vertical" flexItem />}>
+                {/* Payment method */}
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                  <CreditCardOutlined style={{ fontSize: '1.25rem', color: theme.palette.text.secondary, flexShrink: 0 }} />
+                  {paymentMethodLoading ? (
+                    <LinearProgress sx={{ flex: 1 }} />
+                  ) : paymentMethod ? (
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" noWrap>
+                        {getCardBrandIcon(paymentMethod.brand)} ····{paymentMethod.last4}
+                        <Typography component="span" variant="caption" color="textSecondary" sx={{ ml: 1 }}>
+                          exp {paymentMethod.expMonth}/{paymentMethod.expYear}
+                        </Typography>
                       </Typography>
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="warning.main">No payment method</Typography>
-                )}
-                <Button size="small" variant="text" onClick={handleManagePaymentMethod} sx={{ flexShrink: 0 }}>
-                  {paymentMethod ? 'Update' : 'Add'}
-                </Button>
-              </Stack>
-
-              {/* Billing info */}
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                <CalendarOutlined style={{ fontSize: '1.25rem', color: theme.palette.text.secondary, flexShrink: 0 }} />
-                <Typography variant="body2" sx={{ flex: 1 }}>
-                  <Typography component="span" sx={{ textTransform: 'capitalize' }}>
-                    {subscription.plan.billingInterval || 'Monthly'}
-                  </Typography>
-                  <Typography component="span" variant="caption" color="textSecondary" sx={{ ml: 1 }}>
-                    since {new Date(subscription.currentPeriodStart).toLocaleDateString()}
-                  </Typography>
-                </Typography>
-                <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
-                  <Tooltip title="Sync from Stripe">
-                    <IconButton size="small" onClick={() => syncSubscription(true)} disabled={syncing}>
-                      <ReloadOutlined style={{ fontSize: '0.9rem' }} />
-                    </IconButton>
-                  </Tooltip>
-                  {!subscription.cancelAtPeriodEnd && (
-                    <Button size="small" color="error" variant="text" onClick={() => setCancelDialogOpen(true)}>
-                      Cancel
-                    </Button>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="warning.main">No payment method</Typography>
                   )}
+                  <Button size="small" variant="text" onClick={handleManagePaymentMethod} sx={{ flexShrink: 0 }}>
+                    {paymentMethod ? 'Update' : 'Add'}
+                  </Button>
+                </Stack>
+
+                {/* Billing info */}
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                  <CalendarOutlined style={{ fontSize: '1.25rem', color: theme.palette.text.secondary, flexShrink: 0 }} />
+                  <Typography variant="body2" sx={{ flex: 1 }}>
+                    <Typography component="span" sx={{ textTransform: 'capitalize' }}>
+                      {subscription.plan.billingInterval || 'Monthly'}
+                    </Typography>
+                    <Typography component="span" variant="caption" color="textSecondary" sx={{ ml: 1 }}>
+                      since {new Date(subscription.currentPeriodStart).toLocaleDateString()}
+                    </Typography>
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                    <Tooltip title="Sync from Stripe">
+                      <IconButton size="small" onClick={() => syncSubscription(true)} disabled={syncing}>
+                        <ReloadOutlined style={{ fontSize: '0.9rem' }} />
+                      </IconButton>
+                    </Tooltip>
+                    {!subscription.cancelAtPeriodEnd && (
+                      <Button size="small" color="error" variant="text" onClick={() => setCancelDialogOpen(true)}>
+                        Cancel
+                      </Button>
+                    )}
+                  </Stack>
                 </Stack>
               </Stack>
+
+              {/* Payment dates */}
+              {(subscription.latestPaymentDate || subscription.nextPaymentDate) && (
+                <>
+                  <Divider />
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} divider={<Divider orientation="vertical" flexItem />}>
+                    {subscription.latestPaymentDate && (
+                      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                        <CheckCircleOutlined style={{ fontSize: '1.25rem', color: theme.palette.success.main, flexShrink: 0 }} />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="caption" color="textSecondary">Last payment</Typography>
+                          <Typography variant="body2">
+                            {new Date(subscription.latestPaymentDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    )}
+                    {subscription.nextPaymentDate && (
+                      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                        <CalendarOutlined style={{ fontSize: '1.25rem', color: theme.palette.primary.main, flexShrink: 0 }} />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="caption" color="textSecondary">Next payment</Typography>
+                          <Typography variant="body2">
+                            {subscription.cancelAtPeriodEnd ? (
+                              <Typography component="span" color="text.disabled" variant="body2">Cancelled — no future charges</Typography>
+                            ) : (
+                              <>
+                                {subscription.plan.price > 0 && (
+                                  <Typography component="span" color="primary" fontWeight={600} variant="body2">
+                                    ${subscription.plan.price.toFixed(2)}
+                                  </Typography>
+                                )}
+                                {subscription.plan.price > 0 && ' on '}
+                                {new Date(subscription.nextPaymentDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </>
+                            )}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    )}
+                  </Stack>
+                </>
+              )}
             </Stack>
           </CardContent>
         </Card>

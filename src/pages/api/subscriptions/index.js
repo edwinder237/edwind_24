@@ -41,10 +41,15 @@ export default createHandler({
   let currency = 'USD';
   let billingInterval = 'monthly';
 
+  let latestPaymentDate = null;
+  let nextPaymentDate = null;
+
   if (subscription.stripeSubscriptionId) {
     try {
       const stripe = getStripe();
-      const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+      const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId, {
+        expand: ['latest_invoice']
+      });
       const stripePriceId = stripeSubscription.items.data[0]?.price?.id;
 
       if (stripePriceId) {
@@ -53,8 +58,26 @@ export default createHandler({
         currency = stripePrice.currency.toUpperCase();
         billingInterval = stripePrice.recurring?.interval === 'year' ? 'annual' : 'monthly';
       }
+
+      // Extract payment dates from Stripe subscription
+      if (stripeSubscription.current_period_end) {
+        nextPaymentDate = new Date(stripeSubscription.current_period_end * 1000).toISOString();
+      }
+      // Get latest payment date from the latest invoice
+      if (stripeSubscription.latest_invoice?.status_transitions?.paid_at) {
+        latestPaymentDate = new Date(stripeSubscription.latest_invoice.status_transitions.paid_at * 1000).toISOString();
+      } else if (stripeSubscription.current_period_start) {
+        latestPaymentDate = new Date(stripeSubscription.current_period_start * 1000).toISOString();
+      }
     } catch (err) {
       console.error('Failed to fetch billing details from Stripe:', err.message);
+      // Fall back to database values for payment dates
+      if (subscription.currentPeriodStart) {
+        latestPaymentDate = new Date(subscription.currentPeriodStart).toISOString();
+      }
+      if (subscription.currentPeriodEnd) {
+        nextPaymentDate = new Date(subscription.currentPeriodEnd).toISOString();
+      }
       // Fall back to plan's Stripe price if subscription fetch fails
       if (subscription.plan?.stripePriceId) {
         try {
@@ -96,7 +119,9 @@ export default createHandler({
           resourceLimits: resourceLimits
         },
         customFeatures: subscription.customFeatures,
-        customLimits: subscription.customLimits
+        customLimits: subscription.customLimits,
+        latestPaymentDate,
+        nextPaymentDate
       },
       usage: usage
     });
