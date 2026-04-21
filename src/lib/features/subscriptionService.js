@@ -124,82 +124,64 @@ export async function getOrgSubscription(organizationId, forceRefresh = false) {
     // Verify active subscriptions against Stripe: if we have a stripeSubscriptionId
     // but the subscription was hard-canceled in Stripe (webhook missed), update locally.
     // Only runs on cache miss (~every 15 min) to avoid excessive Stripe API calls.
+    // Uses a 5-second timeout to never block the critical path.
     if (
       subscription &&
       subscription.stripeSubscriptionId &&
       ['active', 'trialing'].includes(subscription.status)
     ) {
+      const subInclude = { plan: true, organization: { select: { id: true, title: true, workos_org_id: true } } };
       try {
         const stripe = getStripe();
-        const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+        // Timeout: don't let Stripe verification block page load
+        const stripeSub = await Promise.race([
+          stripe.subscriptions.retrieve(subscription.stripeSubscriptionId),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('STRIPE_TIMEOUT')), 5000))
+        ]);
 
         if (stripeSub.status === 'canceled' || stripeSub.status === 'incomplete_expired') {
-          // Stripe subscription was canceled/expired — update local DB
           const updated = await prisma.subscriptions.update({
             where: { id: subscription.id },
-            data: {
-              status: 'canceled',
-              canceledAt: new Date(),
-              stripeSubscriptionId: null,
-              stripePriceId: null
-            },
-            include: { plan: true, organization: { select: { id: true, title: true, workos_org_id: true } } }
+            data: { status: 'canceled', canceledAt: new Date(), stripeSubscriptionId: null, stripePriceId: null },
+            include: subInclude
           });
-
           await prisma.subscription_history.create({
             data: {
-              subscriptionId: subscription.id,
-              eventType: 'canceled',
-              fromPlanId: subscription.planId,
-              fromStatus: subscription.status,
-              toStatus: 'canceled',
+              subscriptionId: subscription.id, eventType: 'canceled',
+              fromPlanId: subscription.planId, fromStatus: subscription.status, toStatus: 'canceled',
               reason: `Stripe subscription ${stripeSub.status} — auto-synced (missed webhook recovery)`
             }
           });
-
           subscriptionCache.delete(organizationId);
           subscription = updated;
         } else if (stripeSub.status !== subscription.status) {
-          // Sync status if it changed (e.g. active → past_due)
           const updated = await prisma.subscriptions.update({
             where: { id: subscription.id },
             data: { status: stripeSub.status },
-            include: { plan: true, organization: { select: { id: true, title: true, workos_org_id: true } } }
+            include: subInclude
           });
-
           subscriptionCache.delete(organizationId);
           subscription = updated;
         }
       } catch (verifyError) {
-        // If subscription not found in Stripe (deleted), mark as canceled
         if (verifyError.code === 'resource_missing') {
           const updated = await prisma.subscriptions.update({
             where: { id: subscription.id },
-            data: {
-              status: 'canceled',
-              canceledAt: new Date(),
-              stripeSubscriptionId: null,
-              stripePriceId: null
-            },
-            include: { plan: true, organization: { select: { id: true, title: true, workos_org_id: true } } }
+            data: { status: 'canceled', canceledAt: new Date(), stripeSubscriptionId: null, stripePriceId: null },
+            include: subInclude
           });
-
           await prisma.subscription_history.create({
             data: {
-              subscriptionId: subscription.id,
-              eventType: 'canceled',
-              fromPlanId: subscription.planId,
-              fromStatus: subscription.status,
-              toStatus: 'canceled',
+              subscriptionId: subscription.id, eventType: 'canceled',
+              fromPlanId: subscription.planId, fromStatus: subscription.status, toStatus: 'canceled',
               reason: 'Stripe subscription not found — marked as canceled'
             }
           });
-
           subscriptionCache.delete(organizationId);
           subscription = updated;
         } else {
-          console.error(`⚠️ [VERIFY] Failed to verify Stripe subscription:`, verifyError.message);
-          // Continue with local data — don't block the request
+          // Timeout or network error — continue with local data, don't block
+          console.error(`⚠️ [VERIFY] Stripe verification failed (${verifyError.message}) — using local data`);
         }
       }
     }
