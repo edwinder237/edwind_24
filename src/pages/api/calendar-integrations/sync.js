@@ -30,6 +30,12 @@ export default createHandler({
       const futureOnly = syncScope !== 'all';
 
       const result = await syncAllProjectEvents(user.id, projectId, { futureOnly });
+
+      // If all integrations were skipped due to auth errors, return early with their message
+      if (result.message) {
+        return res.status(200).json({ success: false, ...result });
+      }
+
       const scopeLabel = futureOnly ? 'upcoming' : '';
       res.status(200).json({
         success: true,

@@ -7,6 +7,7 @@
 
 import prisma from '../../../lib/prisma';
 import { createHandler } from '../../../lib/api/createHandler';
+import { generateLearningSummary } from '../../../lib/ai/gemini';
 import { WorkOS } from '@workos-inc/node';
 const workos = new WorkOS(process.env.WORKOS_API_KEY);
 
@@ -69,6 +70,11 @@ export default createHandler({
         },
         course: { select: { title: true } }
       }
+    });
+
+    // Fetch needs analysis
+    const needsAnalysis = await prisma.project_needs_analysis.findUnique({
+      where: { projectId: id }
     });
 
     // Fetch parking lot items
@@ -140,6 +146,57 @@ export default createHandler({
       }
     }
 
+    // Generate AI learning summary from daily notes + session notes
+    let learningSummary = [];
+    const reportLanguage = req.query.language || project.language || 'en';
+    try {
+      // Merge DB daily notes with event session notes for the AI
+      const notesForAI = dailyNotes.map(n => {
+        const dateKey = new Date(n.date).toISOString().split('T')[0];
+        return {
+          date: dateKey,
+          sessionNotes: n.sessionNotes || '',
+          keyHighlights: n.keyHighlights || [],
+          challenges: n.challenges || [],
+          eventSessionNotes: sessionNotesByDate[dateKey] || []
+        };
+      });
+
+      // Also include dates that only have event session notes (no DB daily note)
+      const dbDates = new Set(notesForAI.map(n => n.date));
+      Object.entries(sessionNotesByDate).forEach(([date, notes]) => {
+        if (!dbDates.has(date) && notes.length > 0) {
+          notesForAI.push({
+            date,
+            sessionNotes: notes.join('\n\n'),
+            keyHighlights: [],
+            challenges: [],
+            eventSessionNotes: notes
+          });
+        }
+      });
+
+      // Combine sessionNotes with eventSessionNotes for each day
+      const combinedNotes = notesForAI.map(n => ({
+        date: n.date,
+        sessionNotes: [n.sessionNotes, ...n.eventSessionNotes].filter(Boolean).join('\n\n'),
+        keyHighlights: n.keyHighlights,
+        challenges: n.challenges
+      })).filter(n => n.sessionNotes || n.keyHighlights.length > 0 || n.challenges.length > 0);
+
+      if (combinedNotes.length > 0) {
+        const result = await generateLearningSummary(combinedNotes, {
+          tone: 'executive',
+          language: reportLanguage,
+          projectTitle: project.title
+        });
+        learningSummary = result.learningSummary || [];
+      }
+    } catch (e) {
+      console.error('[Training Report] Learning summary generation failed:', e.message);
+      // Non-fatal: report will render without AI summary
+    }
+
     return res.status(200).json({
       success: true,
       data: {
@@ -170,6 +227,7 @@ export default createHandler({
           author: n.author,
           authorRole: n.authorRole
         })),
+        learningSummary,
         sessionNotesByDate,
         attendance: {
           byDate: Object.entries(attendanceByDate)
@@ -182,6 +240,12 @@ export default createHandler({
             scheduled: totalScheduled
           }
         },
+        needsAnalysis: needsAnalysis ? {
+          problemStatement: needsAnalysis.problemStatement,
+          rootCauses: needsAnalysis.rootCauses || [],
+          desiredOutcome: needsAnalysis.desiredOutcome,
+          successMetrics: needsAnalysis.successMetrics || []
+        } : null,
         parkingLotItems: parkingLotItems.map(item => ({
           id: item.id,
           type: item.type,

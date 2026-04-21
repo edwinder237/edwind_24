@@ -253,7 +253,7 @@ const TabIntegrations = () => {
 
       {/* Sync Result Banner */}
       {syncResult && (
-        <Alert severity={syncResult.errors > 0 ? 'warning' : 'success'}>
+        <Alert severity={syncResult.success === false ? 'error' : syncResult.errors > 0 ? 'warning' : 'success'}>
           {syncResult.message}
         </Alert>
       )}

@@ -11,6 +11,7 @@ import { encrypt, decrypt } from './encryption.js';
 import { mapToGoogleEvent, mapToMicrosoftEvent } from './eventMapper.js';
 import * as googleService from './googleCalendarService.js';
 import * as microsoftService from './microsoftCalendarService.js';
+import { PROJECT_STATUS } from '../../constants/index.js';
 
 /**
  * Sync a single event to all of a user's connected external calendars.
@@ -31,7 +32,7 @@ export async function syncEventToCalendars(eventId, action, userId, preDeleteMap
     if (integrations.length === 0) return;
 
     // Fetch event data (not needed for delete if we have pre-captured mappings)
-    const SYNCABLE_STATUSES = ['Planning', 'Scheduled', 'In Progress'];
+    const SYNCABLE_STATUSES = [PROJECT_STATUS.PLANNING, PROJECT_STATUS.SCHEDULED, PROJECT_STATUS.IN_PROGRESS];
     let event = null;
     if (action !== 'delete') {
       event = await prisma.events.findUnique({
@@ -56,6 +57,11 @@ export async function syncEventToCalendars(eventId, action, userId, preDeleteMap
 
     // Process each integration
     for (const integration of integrations) {
+      // Skip integrations with known auth errors — requires user to reconnect
+      if (hasAuthError(integration)) {
+        console.log(`[CALENDAR_SYNC] Skipping ${integration.provider} — requires reconnection (${integration.lastSyncError})`);
+        continue;
+      }
       try {
         await syncToProvider(integration, event, eventId, action, preDeleteMappings);
       } catch (error) {
@@ -199,6 +205,17 @@ async function handleDelete(integration, eventId, accessToken, provider, calenda
   }).catch(() => {}); // May already be deleted via cascade
 }
 
+/** Auth errors that mean the integration needs to be reconnected */
+const AUTH_ERRORS = ['invalid_grant', 'invalid_client', 'unauthorized_client', 'access_denied', 'interaction_required'];
+
+/**
+ * Check if an integration has a known auth error that requires reconnection
+ */
+function hasAuthError(integration) {
+  if (!integration.lastSyncError) return false;
+  return AUTH_ERRORS.some(err => integration.lastSyncError.includes(err));
+}
+
 /**
  * Get a valid access token for an integration, refreshing if expired
  * @param {Object} integration - calendar_integrations record
@@ -221,10 +238,24 @@ async function getValidAccessToken(integration) {
 
   // Refresh the token
   let newTokens;
-  if (integration.provider === 'google') {
-    newTokens = await googleService.refreshAccessToken(refreshToken);
-  } else {
-    newTokens = await microsoftService.refreshAccessToken(refreshToken);
+  try {
+    if (integration.provider === 'google') {
+      newTokens = await googleService.refreshAccessToken(refreshToken);
+    } else {
+      newTokens = await microsoftService.refreshAccessToken(refreshToken);
+    }
+  } catch (error) {
+    const errorMsg = error.message || String(error);
+    const isAuthError = AUTH_ERRORS.some(err => errorMsg.includes(err));
+    if (isAuthError) {
+      // Mark integration with the auth error so future syncs skip it
+      await prisma.calendar_integrations.update({
+        where: { id: integration.id },
+        data: { lastSyncError: errorMsg },
+      }).catch(() => {});
+      throw new Error(`${integration.provider} authorization expired. Please reconnect your calendar.`);
+    }
+    throw error;
   }
 
   // Update stored tokens
@@ -259,7 +290,7 @@ export async function syncAllProjectEvents(userId, projectId, { futureOnly = tru
   }
 
   // Find events to sync — only from active project statuses
-  const SYNCABLE_STATUSES = ['Planning', 'Scheduled', 'In Progress'];
+  const SYNCABLE_STATUSES = [PROJECT_STATUS.PLANNING, PROJECT_STATUS.SCHEDULED, PROJECT_STATUS.IN_PROGRESS];
   const whereClause = {
     ...(projectId ? { projectId: parseInt(projectId) } : {}),
     ...(futureOnly ? { end: { gte: new Date() } } : {}),
@@ -275,11 +306,26 @@ export async function syncAllProjectEvents(userId, projectId, { futureOnly = tru
     },
   });
 
+  // Check for integrations with auth errors — skip them entirely
+  const validIntegrations = integrations.filter(i => !hasAuthError(i));
+  const skippedIntegrations = integrations.filter(i => hasAuthError(i));
+
+  if (validIntegrations.length === 0 && skippedIntegrations.length > 0) {
+    const providers = skippedIntegrations.map(i => i.provider).join(', ');
+    return {
+      synced: 0,
+      errors: 0,
+      total: 0,
+      skipped: skippedIntegrations.length,
+      message: `Sync was not completed. Your ${providers} calendar connection has expired — please reconnect.`,
+    };
+  }
+
   let synced = 0;
   let errors = 0;
 
   for (const event of events) {
-    for (const integration of integrations) {
+    for (const integration of validIntegrations) {
       try {
         const existingMapping = event.calendar_event_mappings.find(
           m => m.integrationId === integration.id
@@ -304,13 +350,23 @@ export async function syncAllProjectEvents(userId, projectId, { futureOnly = tru
     }
   }
 
-  // Update last sync time on all integrations
-  await prisma.calendar_integrations.updateMany({
-    where: { userId, isActive: true },
-    data: { lastSyncAt: new Date() },
-  });
+  // Update last sync time only on valid integrations
+  if (validIntegrations.length > 0) {
+    await prisma.calendar_integrations.updateMany({
+      where: { id: { in: validIntegrations.map(i => i.id) } },
+      data: { lastSyncAt: new Date() },
+    });
+  }
 
-  return { synced, errors, total: events.length };
+  return {
+    synced,
+    errors,
+    total: events.length,
+    ...(skippedIntegrations.length > 0 && {
+      skipped: skippedIntegrations.length,
+      skippedProviders: skippedIntegrations.map(i => i.provider),
+    }),
+  };
 }
 
 /**

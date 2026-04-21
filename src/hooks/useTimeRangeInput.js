@@ -140,12 +140,22 @@ export const useDateTimeRangeInput = ({
   const [endDateTime, setEndDateTimeState] = useState(initialEnd);
 
   const setStartDateTime = useCallback((newStart) => {
-    setStartDateTimeState(newStart);
-    setEndDateTimeState((currentEnd) => {
-      if (currentEnd && newStart >= currentEnd) {
-        return addMinutesToDateTime(newStart, minDurationMinutes);
-      }
-      return currentEnd;
+    setStartDateTimeState((prevStart) => {
+      // Calculate duration from previous start to current end, then apply to new start
+      setEndDateTimeState((currentEnd) => {
+        if (!currentEnd || !prevStart || !newStart) {
+          return currentEnd;
+        }
+        const prevStartMs = new Date(prevStart).getTime();
+        const endMs = new Date(currentEnd).getTime();
+        const durationMs = endMs - prevStartMs;
+        // Ensure at least minimum duration
+        const minDurationMs = minDurationMinutes * 60 * 1000;
+        const effectiveDuration = Math.max(durationMs, minDurationMs);
+        const newEnd = new Date(new Date(newStart).getTime() + effectiveDuration);
+        return formatDateTimeLocal(newEnd);
+      });
+      return newStart;
     });
   }, [minDurationMinutes]);
 

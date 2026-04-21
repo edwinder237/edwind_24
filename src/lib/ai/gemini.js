@@ -226,6 +226,140 @@ ${hasParkingLot ? '- Include parking lot insights when relevant (e.g., "Several 
 };
 
 /**
+ * Generate a structured learning summary for a training report
+ *
+ * Takes all daily session notes across the project and produces a day-by-day
+ * narrative organized by themes (e.g., "Day 1: Visibility & Data Integrity").
+ *
+ * @param {object[]} dailyNotes - Array of daily notes with date, sessionNotes, keyHighlights, challenges
+ * @param {object} options - Optional settings
+ * @param {string} options.tone - Tone preset
+ * @param {string} options.language - Output language code
+ * @param {string} options.projectTitle - Project title for context
+ * @returns {Promise<{learningSummary: object[], tokenUsage: object}>}
+ */
+export const generateLearningSummary = async (dailyNotes, options = {}) => {
+  try {
+    const genAI = initGemini();
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+
+    const { tone = 'executive', language = 'auto', projectTitle = '' } = options;
+
+    // Build tone instruction
+    let toneInstruction = '';
+    switch (tone) {
+      case 'executive':
+        toneInstruction = '\nTone: Use an executive briefing tone — concise, high-level, action-oriented, suitable for C-suite stakeholders.';
+        break;
+      case 'formal':
+        toneInstruction = '\nTone: Use a formal, professional tone suitable for official reports and documentation.';
+        break;
+      case 'natural':
+        toneInstruction = '\nTone: Use a natural, conversational yet professional tone.';
+        break;
+      default:
+        toneInstruction = '\nTone: Use an executive briefing tone — concise, high-level, action-oriented.';
+        break;
+    }
+
+    // Build language instruction
+    const languageNames = { fr: 'French', es: 'Spanish', pt: 'Portuguese', de: 'German' };
+    let languageInstruction = '';
+    if (language && language !== 'auto' && language !== 'en' && languageNames[language]) {
+      languageInstruction = `\nIMPORTANT: Write your entire response in ${languageNames[language]}.`;
+    }
+
+    // Build the daily notes content
+    const notesContent = dailyNotes
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .map((note, idx) => {
+        let content = `--- Day ${idx + 1} (${note.date}) ---\n`;
+        if (note.sessionNotes) content += `Session Notes:\n${note.sessionNotes}\n`;
+        if (note.keyHighlights?.length > 0) content += `Key Highlights:\n${note.keyHighlights.map(h => `- ${h}`).join('\n')}\n`;
+        if (note.challenges?.length > 0) content += `Challenges:\n${note.challenges.map(c => `- ${c}`).join('\n')}\n`;
+        return content;
+      })
+      .join('\n');
+
+    const prompt = `You are an expert training analyst writing a learning summary for a training report.${toneInstruction}${languageInstruction}
+
+${projectTitle ? `Project: ${projectTitle}\n` : ''}
+Below are the daily training notes from each day of the program. Analyze them and produce a structured learning summary organized by day, with each day having a theme title and key topics covered.
+
+${notesContent}
+
+Please respond in JSON format with this exact structure:
+{
+  "days": [
+    {
+      "dayNumber": 1,
+      "theme": "Short theme title (e.g., 'Visibility & Data Integrity')",
+      "topics": [
+        {
+          "title": "Topic Name (e.g., 'Standing', 'Pipeline Optimization')",
+          "description": "1-2 sentence description of what was covered and the outcome"
+        }
+      ]
+    }
+  ]
+}
+
+Guidelines:
+- Each day must have a concise, descriptive theme that captures the main focus
+- Extract 2-5 key topics per day based on what was actually covered
+- Topic titles should be short (1-3 words)
+- Descriptions should be action-oriented and highlight outcomes, not just activities
+- Follow the chronological order of the training
+- Be specific — reference actual activities, tools, and outcomes mentioned in the notes
+- Do NOT invent content that isn't in the notes`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    const usageMetadata = response.usageMetadata || {};
+    const tokenUsage = {
+      inputTokens: usageMetadata.promptTokenCount || null,
+      outputTokens: usageMetadata.candidatesTokenCount || null,
+      totalTokens: usageMetadata.totalTokenCount || null
+    };
+
+    // Parse JSON response
+    let jsonText = text.trim();
+    if (jsonText.startsWith('```json')) {
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
+    } else if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```\n?/g, '');
+    }
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonText = jsonMatch[0];
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch (parseError) {
+      parsed = { days: [] };
+    }
+
+    if (!parsed.days || !Array.isArray(parsed.days)) {
+      parsed = { days: [] };
+    }
+
+    return {
+      learningSummary: parsed.days,
+      tokenUsage
+    };
+
+  } catch (error) {
+    console.error('[Gemini AI] Learning summary error:', error);
+    throw error;
+  }
+};
+
+/**
  * Test Gemini AI connection
  *
  * @returns {Promise<boolean>}
@@ -248,5 +382,6 @@ export const testGeminiConnection = async () => {
 
 export default {
   summarizeSessionNotes,
+  generateLearningSummary,
   testGeminiConnection
 };

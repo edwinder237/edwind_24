@@ -48,6 +48,17 @@ const labels = {
     issue: 'Issue',
     question: 'Question',
     confidential: 'Confidential',
+    needsAnalysis: 'Needs Analysis',
+    problemStatement: 'Problem Statement',
+    identifiedRootCauses: 'Identified Root Causes',
+    desiredOutcome: 'Desired Outcome',
+    successMetrics: 'Success Metrics',
+    noNeedsAnalysis: 'No needs analysis recorded for this project.',
+    noProblemStatement: 'No problem statement defined.',
+    noRootCauses: 'No root causes identified.',
+    noDesiredOutcome: 'No desired outcome defined.',
+    noSuccessMetrics: 'No success metrics defined.',
+    target: 'Target',
   },
   fr: {
     trainingReport: 'Rapport de formation',
@@ -93,6 +104,17 @@ const labels = {
     issue: 'Problème',
     question: 'Question',
     confidential: 'Confidentiel',
+    needsAnalysis: 'Analyse des besoins',
+    problemStatement: 'Énoncé du problème',
+    identifiedRootCauses: 'Causes profondes identifiées',
+    desiredOutcome: 'Résultat souhaité',
+    successMetrics: 'Indicateurs de réussite',
+    noNeedsAnalysis: 'Aucune analyse des besoins enregistrée pour ce projet.',
+    noProblemStatement: 'Aucun énoncé de problème défini.',
+    noRootCauses: 'Aucune cause profonde identifiée.',
+    noDesiredOutcome: 'Aucun résultat souhaité défini.',
+    noSuccessMetrics: 'Aucun indicateur de réussite défini.',
+    target: 'Cible',
   },
   es: {
     trainingReport: 'Informe de capacitación',
@@ -138,6 +160,17 @@ const labels = {
     issue: 'Problema',
     question: 'Pregunta',
     confidential: 'Confidencial',
+    needsAnalysis: 'Análisis de necesidades',
+    problemStatement: 'Planteamiento del problema',
+    identifiedRootCauses: 'Causas raíz identificadas',
+    desiredOutcome: 'Resultado deseado',
+    successMetrics: 'Métricas de éxito',
+    noNeedsAnalysis: 'No se registró análisis de necesidades para este proyecto.',
+    noProblemStatement: 'No se definió planteamiento del problema.',
+    noRootCauses: 'No se identificaron causas raíz.',
+    noDesiredOutcome: 'No se definió resultado deseado.',
+    noSuccessMetrics: 'No se definieron métricas de éxito.',
+    target: 'Objetivo',
   },
   pt: {
     trainingReport: 'Relatório de treinamento',
@@ -183,6 +216,17 @@ const labels = {
     issue: 'Problema',
     question: 'Pergunta',
     confidential: 'Confidencial',
+    needsAnalysis: 'Análise de necessidades',
+    problemStatement: 'Declaração do problema',
+    identifiedRootCauses: 'Causas raízes identificadas',
+    desiredOutcome: 'Resultado desejado',
+    successMetrics: 'Métricas de sucesso',
+    noNeedsAnalysis: 'Nenhuma análise de necessidades registrada para este projeto.',
+    noProblemStatement: 'Nenhuma declaração de problema definida.',
+    noRootCauses: 'Nenhuma causa raiz identificada.',
+    noDesiredOutcome: 'Nenhum resultado desejado definido.',
+    noSuccessMetrics: 'Nenhuma métrica de sucesso definida.',
+    target: 'Meta',
   },
   de: {
     trainingReport: 'Schulungsbericht',
@@ -228,6 +272,17 @@ const labels = {
     issue: 'Problem',
     question: 'Frage',
     confidential: 'Vertraulich',
+    needsAnalysis: 'Bedarfsanalyse',
+    problemStatement: 'Problemstellung',
+    identifiedRootCauses: 'Identifizierte Ursachen',
+    desiredOutcome: 'Gewünschtes Ergebnis',
+    successMetrics: 'Erfolgskennzahlen',
+    noNeedsAnalysis: 'Keine Bedarfsanalyse für dieses Projekt aufgezeichnet.',
+    noProblemStatement: 'Keine Problemstellung definiert.',
+    noRootCauses: 'Keine Ursachen identifiziert.',
+    noDesiredOutcome: 'Kein gewünschtes Ergebnis definiert.',
+    noSuccessMetrics: 'Keine Erfolgskennzahlen definiert.',
+    target: 'Ziel',
   }
 };
 
@@ -519,36 +574,71 @@ const ExecutiveSummaryPage = ({ data, l, language }) => {
 // ==============================|| LEARNING SUMMARY PAGE ||============================== //
 
 const LearningSummaryPage = ({ data, l }) => {
-  const allHighlights = data.dailyNotes.flatMap(n => n.keyHighlights || []);
-  const allChallenges = data.dailyNotes.flatMap(n => n.challenges || []);
+  const learningSummary = data.learningSummary || [];
 
+  // Fallback to old highlights/challenges if AI summary not available
+  if (learningSummary.length === 0) {
+    const allHighlights = data.dailyNotes.flatMap(n => n.keyHighlights || []);
+    const allChallenges = data.dailyNotes.flatMap(n => n.challenges || []);
+
+    return (
+      <Page size="A4" style={s.page}>
+        <Text style={s.sectionTitle}>{l.learningSummary}</Text>
+
+        <Text style={s.subSectionTitle}>{l.keyHighlights} ({allHighlights.length})</Text>
+        {allHighlights.length === 0 ? (
+          <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginBottom: 8 }}>{l.noHighlights}</Text>
+        ) : (
+          allHighlights.map((h, i) => (
+            <View key={i} style={s.bulletRow}>
+              <View style={s.bulletDot} />
+              <Text style={s.bulletText}>{h}</Text>
+            </View>
+          ))
+        )}
+
+        <Text style={[s.subSectionTitle, { marginTop: 16 }]}>{l.challenges} ({allChallenges.length})</Text>
+        {allChallenges.length === 0 ? (
+          <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginBottom: 8 }}>{l.noChallenges}</Text>
+        ) : (
+          allChallenges.map((c, i) => (
+            <View key={i} style={s.bulletRow}>
+              <View style={s.challengeDot} />
+              <Text style={s.bulletText}>{c}</Text>
+            </View>
+          ))
+        )}
+
+        <PageFooter l={l} projectTitle={data.project.title} />
+      </Page>
+    );
+  }
+
+  // AI-generated structured learning summary
   return (
-    <Page size="A4" style={s.page}>
-      <Text style={s.sectionTitle}>{l.learningSummary}</Text>
+    <Page size="A4" style={s.page} wrap>
+      <Text style={s.sectionTitle} fixed>{l.learningSummary}</Text>
 
-      <Text style={s.subSectionTitle}>{l.keyHighlights} ({allHighlights.length})</Text>
-      {allHighlights.length === 0 ? (
-        <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginBottom: 8 }}>{l.noHighlights}</Text>
-      ) : (
-        allHighlights.map((h, i) => (
-          <View key={i} style={s.bulletRow}>
-            <View style={s.bulletDot} />
-            <Text style={s.bulletText}>{h}</Text>
-          </View>
-        ))
-      )}
+      {learningSummary.map((day, idx) => (
+        <View key={idx} style={[s.dayCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]} wrap={false}>
+          <Text style={[s.dayDate, { marginBottom: 8 }]}>
+            {`Day ${day.dayNumber || idx + 1}: ${day.theme || ''}`}
+          </Text>
 
-      <Text style={[s.subSectionTitle, { marginTop: 16 }]}>{l.challenges} ({allChallenges.length})</Text>
-      {allChallenges.length === 0 ? (
-        <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginBottom: 8 }}>{l.noChallenges}</Text>
-      ) : (
-        allChallenges.map((c, i) => (
-          <View key={i} style={s.bulletRow}>
-            <View style={s.challengeDot} />
-            <Text style={s.bulletText}>{c}</Text>
-          </View>
-        ))
-      )}
+          {(day.topics || []).map((topic, tIdx) => (
+            <View key={tIdx} style={{ marginBottom: 6, paddingLeft: 4 }}>
+              <View style={{ flexDirection: 'row', marginBottom: 2 }}>
+                <Text style={{ fontSize: 10, fontFamily: 'Helvetica-Bold', color: COLORS.darkGrey }}>
+                  {topic.title}:
+                </Text>
+              </View>
+              <Text style={{ fontSize: 9, color: COLORS.text, lineHeight: 1.5, paddingLeft: 4 }}>
+                {topic.description}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ))}
 
       <PageFooter l={l} projectTitle={data.project.title} />
     </Page>
@@ -711,6 +801,83 @@ const DailyBreakdownPages = ({ data, l, language }) => {
   );
 };
 
+// ==============================|| NEEDS ANALYSIS PAGE ||============================== //
+
+const NeedsAnalysisPage = ({ data, l }) => {
+  const na = data.needsAnalysis;
+  if (!na) {
+    return (
+      <Page size="A4" style={s.page}>
+        <Text style={s.sectionTitle}>{l.needsAnalysis}</Text>
+        <Text style={{ fontSize: 9, color: COLORS.textSecondary }}>{l.noNeedsAnalysis}</Text>
+        <PageFooter l={l} projectTitle={data.project.title} />
+      </Page>
+    );
+  }
+
+  const rootCauses = Array.isArray(na.rootCauses) ? na.rootCauses : [];
+  const successMetrics = Array.isArray(na.successMetrics) ? na.successMetrics : [];
+
+  return (
+    <Page size="A4" style={s.page}>
+      <Text style={s.sectionTitle}>{l.needsAnalysis}</Text>
+
+      {/* Problem Statement */}
+      <Text style={s.subSectionTitle}>{l.problemStatement}</Text>
+      {na.problemStatement ? (
+        <View style={s.sessionNotesBox}>
+          <Text style={[s.sessionNotesText, { fontSize: 10, color: COLORS.text }]}>{na.problemStatement}</Text>
+        </View>
+      ) : (
+        <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginBottom: 8 }}>{l.noProblemStatement}</Text>
+      )}
+
+      {/* Root Causes */}
+      <Text style={[s.subSectionTitle, { marginTop: 16 }]}>{l.identifiedRootCauses} ({rootCauses.length})</Text>
+      {rootCauses.length === 0 ? (
+        <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginBottom: 8 }}>{l.noRootCauses}</Text>
+      ) : (
+        rootCauses.map((cause, i) => (
+          <View key={i} style={s.bulletRow}>
+            <View style={s.challengeDot} />
+            <Text style={s.bulletText}>{typeof cause === 'string' ? cause : cause.text || cause.description || JSON.stringify(cause)}</Text>
+          </View>
+        ))
+      )}
+
+      {/* Desired Outcome */}
+      <Text style={[s.subSectionTitle, { marginTop: 16 }]}>{l.desiredOutcome}</Text>
+      {na.desiredOutcome ? (
+        <View style={s.sessionNotesBox}>
+          <Text style={[s.sessionNotesText, { fontSize: 10, color: COLORS.text }]}>{na.desiredOutcome}</Text>
+        </View>
+      ) : (
+        <Text style={{ fontSize: 9, color: COLORS.textSecondary, marginBottom: 8 }}>{l.noDesiredOutcome}</Text>
+      )}
+
+      {/* Success Metrics */}
+      <Text style={[s.subSectionTitle, { marginTop: 16 }]}>{l.successMetrics} ({successMetrics.length})</Text>
+      {successMetrics.length === 0 ? (
+        <Text style={{ fontSize: 9, color: COLORS.textSecondary }}>{l.noSuccessMetrics}</Text>
+      ) : (
+        <View style={s.metricsRow}>
+          {successMetrics.map((metric, i) => (
+            <View key={i} style={s.metricBox}>
+              <Text style={s.metricValue}>{metric.value || '—'}</Text>
+              <Text style={s.metricLabel}>{metric.label || ''}</Text>
+              {metric.description && (
+                <Text style={[s.metricLabel, { marginTop: 2, fontSize: 7 }]}>{metric.description}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
+      <PageFooter l={l} projectTitle={data.project.title} />
+    </Page>
+  );
+};
+
 // ==============================|| MAIN DOCUMENT ||============================== //
 
 const TrainingReportPDF = ({ data, language = 'en' }) => {
@@ -719,6 +886,7 @@ const TrainingReportPDF = ({ data, language = 'en' }) => {
   return (
     <Document title={`${data.project.title} - ${l.trainingReport}`} author={data.organization?.title || 'EDBAHN'}>
       <CoverPage data={data} l={l} language={language} />
+      <NeedsAnalysisPage data={data} l={l} />
       <ExecutiveSummaryPage data={data} l={l} language={language} />
       <LearningSummaryPage data={data} l={l} />
       <ParkingLotPage data={data} l={l} />

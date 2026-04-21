@@ -186,7 +186,7 @@ export default createHandler({
     const dbUser = hasCalendarRelevantChanges
       ? await prisma.user.findUnique({
           where: { workos_user_id: req.orgContext.userId },
-          select: { id: true, calendar_integrations: { where: { isActive: true }, select: { id: true }, take: 1 } },
+          select: { id: true, calendar_integrations: { where: { isActive: true, OR: [{ lastSyncError: null }, { lastSyncError: { not: { contains: 'invalid_grant' } } }] }, select: { id: true }, take: 1 } },
         })
       : null;
     const calendarSyncTriggered = hasCalendarRelevantChanges && dbUser?.calendar_integrations?.length > 0;
