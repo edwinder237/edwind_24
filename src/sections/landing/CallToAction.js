@@ -13,7 +13,7 @@ import AnimateButton from 'components/@extended/AnimateButton';
 import { ThemeMode } from 'config';
 
 // assets
-import { LoginOutlined } from '@ant-design/icons';
+import { LoginOutlined, PhoneOutlined } from '@ant-design/icons';
 
 // ==============================|| LANDING - CALL TO ACTION PAGE ||============================== //
 
@@ -42,74 +42,142 @@ const CallToActionPage = () => {
       <Container>
         <Grid
           container
-          alignItems="center"
-          justifyContent="space-between"
-          spacing={2}
+          alignItems="stretch"
+          justifyContent="center"
+          spacing={4}
           sx={{
             position: 'relative',
             zIndex: 1,
-            pt: { md: 18.75, xs: 7.5 },
-            pb: { md: 10, xs: 3.75 }
+            pt: { md: 12, xs: 7.5 },
+            pb: { md: 10, xs: 5 }
           }}
         >
-          <Grid item xs={12} md={7} sx={{ position: 'relative', zIndex: 1 }}>
-            <Grid container spacing={2} sx={{ [theme.breakpoints.down('md')]: { pr: 0, textAlign: 'center' } }}>
-              <Grid item xs={12}>
-                <motion.div
-                  initial={{ opacity: 0, translateY: 550 }}
-                  animate={{ opacity: 1, translateY: 0 }}
-                  transition={{
-                    type: 'spring',
-                    stiffness: 150,
-                    damping: 30
+          {/* For Training Managers & Consultants */}
+          <Grid item xs={12} md={6}>
+            <motion.div
+              initial={{ opacity: 0, translateY: 50 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{
+                type: 'spring',
+                stiffness: 150,
+                damping: 30
+              }}
+              style={{ height: '100%' }}
+            >
+              <Box
+                sx={{
+                  height: '100%',
+                  p: { xs: 3, md: 4 },
+                  borderRadius: 3,
+                  border: `1px solid rgba(255,255,255,0.15)`,
+                  bgcolor: 'rgba(255,255,255,0.05)',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+              >
+                <Typography
+                  variant="h3"
+                  sx={{
+                    color: theme.palette.common.white,
+                    fontWeight: 700,
+                    mb: 2
                   }}
                 >
-                  <Typography
-                    variant="h2"
-                    sx={{
-                      color: theme.palette.common.white,
-                      fontSize: { xs: '1.25rem', sm: '1.56rem', md: '1.875rem' },
-                      fontWeight: 700,
-                      lineHeight: { xs: 1.4, sm: 1.4, md: 1.4 }
+                  <FormattedMessage id="landing.cta.trainersTitle" />
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    mb: 3,
+                    flex: 1
+                  }}
+                >
+                  <FormattedMessage id="landing.cta.trainersDesc" />
+                </Typography>
+                <AnimateButton>
+                  <Button
+                    size="large"
+                    color="primary"
+                    variant="contained"
+                    startIcon={<LoginOutlined />}
+                    onClick={() => {
+                      window.location.href = '/signup';
                     }}
                   >
-                    <Box component="span" sx={{ mx: 0 }}>
-                      <FormattedMessage id="landing.cta.title1" />
-                    </Box>
-                    <Box component="span" sx={{ mx: 0, color: theme.palette.primary.main }}>
-                      &nbsp;<FormattedMessage id="landing.cta.title2" />&nbsp;
-                    </Box>
-                    <FormattedMessage id="landing.cta.title3" />
-                  </Typography>
-                </motion.div>
-              </Grid>
-              <Grid item xs={12} sx={{ my: 3.25 }}>
-                <motion.div
-                  initial={{ display: 'inline-block', opacity: 0, translateY: 550 }}
-                  animate={{ opacity: 1, translateY: 0 }}
-                  transition={{
-                    type: 'spring',
-                    stiffness: 150,
-                    damping: 30,
-                    delay: 0.2
+                    <FormattedMessage id="landing.cta.trainersButton" />
+                  </Button>
+                </AnimateButton>
+              </Box>
+            </motion.div>
+          </Grid>
+
+          {/* For Corporate L&D & Academies */}
+          <Grid item xs={12} md={6}>
+            <motion.div
+              initial={{ opacity: 0, translateY: 50 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{
+                type: 'spring',
+                stiffness: 150,
+                damping: 30,
+                delay: 0.2
+              }}
+              style={{ height: '100%' }}
+            >
+              <Box
+                sx={{
+                  height: '100%',
+                  p: { xs: 3, md: 4 },
+                  borderRadius: 3,
+                  border: `1px solid rgba(255,255,255,0.15)`,
+                  bgcolor: 'rgba(255,255,255,0.05)',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+              >
+                <Typography
+                  variant="h3"
+                  sx={{
+                    color: theme.palette.common.white,
+                    fontWeight: 700,
+                    mb: 2
                   }}
                 >
-                  <AnimateButton>
-                    <Button
-                      size="large"
-                      color="primary"
-                      variant="contained"
-                      startIcon={<LoginOutlined />}
-                      onClick={() => {
-                        document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      <FormattedMessage id="landing.cta.button" />
-                    </Button>
-                  </AnimateButton>
-                </motion.div>
-              </Grid>
-            </Grid>
+                  <FormattedMessage id="landing.cta.corporateTitle" />
+                </Typography>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    mb: 3,
+                    flex: 1
+                  }}
+                >
+                  <FormattedMessage id="landing.cta.corporateDesc" />
+                </Typography>
+                <AnimateButton>
+                  <Button
+                    size="large"
+                    variant="outlined"
+                    startIcon={<PhoneOutlined />}
+                    onClick={() => {
+                      document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    sx={{
+                      borderColor: 'rgba(255,255,255,0.5)',
+                      color: 'white',
+                      '&:hover': {
+                        borderColor: 'white',
+                        bgcolor: 'rgba(255,255,255,0.1)'
+                      }
+                    }}
+                  >
+                    <FormattedMessage id="landing.cta.corporateButton" />
+                  </Button>
+                </AnimateButton>
+              </Box>
+            </motion.div>
           </Grid>
         </Grid>
       </Container>

@@ -125,6 +125,16 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                 spacing={0.5}
               >
                 <Link
+                  href="#why-edbahn"
+                  className="header-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('why-edbahn')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <FormattedMessage id="landing.nav.whyEdbahn" />
+                </Link>
+                <Link
                   href="#features"
                   className="header-link"
                   onClick={(e) => {
@@ -143,16 +153,6 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                   }}
                 >
                   <FormattedMessage id="landing.nav.pricing" />
-                </Link>
-                <Link
-                  href="#demo"
-                  className="header-link"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <FormattedMessage id="landing.nav.demo" />
                 </Link>
                 <Link
                   href="#contact"
@@ -178,7 +178,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                           window.location.href = requiresCheckout ? '/checkout-required' : '/projects';
                         }}
                         sx={{
-                          backgroundColor: requiresCheckout ? '#ed6c02' : '#1976d2',
+                          backgroundColor: requiresCheckout ? '#ed6c02' : theme.palette.primary.main,
                           color: 'white',
                           fontWeight: 500,
                           minWidth: '140px',
@@ -186,7 +186,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                           borderRadius: 2,
                           textTransform: 'none',
                           '&:hover': {
-                            backgroundColor: requiresCheckout ? '#e65100' : '#1565c0'
+                            backgroundColor: requiresCheckout ? '#e65100' : theme.palette.primary.dark
                           }
                         }}
                       >
@@ -211,16 +211,16 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                             }
                           }}
                           sx={{
-                            borderColor: '#1976d2',
-                            color: '#1976d2',
+                            borderColor: theme.palette.primary.main,
+                            color: theme.palette.primary.main,
                             fontWeight: 500,
                             minWidth: '100px',
                             height: '40px',
                             borderRadius: 2,
                             textTransform: 'none',
                             '&:hover': {
-                              borderColor: '#1565c0',
-                              backgroundColor: 'rgba(25, 118, 210, 0.04)'
+                              borderColor: theme.palette.primary.dark,
+                              backgroundColor: `${theme.palette.primary.main}0A`
                             }
                           }}
                         >
@@ -235,7 +235,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                             window.location.href = '/signup';
                           }}
                           sx={{
-                            backgroundColor: '#1976d2',
+                            backgroundColor: theme.palette.primary.main,
                             color: 'white',
                             fontWeight: 500,
                             minWidth: '100px',
@@ -243,7 +243,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                             borderRadius: 2,
                             textTransform: 'none',
                             '&:hover': {
-                              backgroundColor: '#1565c0'
+                              backgroundColor: theme.palette.primary.dark
                             }
                           }}
                         >
@@ -272,10 +272,10 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                     height: 32,
                     minWidth: '80px',
                     fontSize: '0.75rem',
-                    backgroundColor: requiresCheckout ? '#ed6c02' : '#1976d2',
+                    backgroundColor: requiresCheckout ? '#ed6c02' : theme.palette.primary.main,
                     color: 'white',
                     px: 1,
-                    '&:hover': { backgroundColor: requiresCheckout ? '#e65100' : '#1565c0' }
+                    '&:hover': { backgroundColor: requiresCheckout ? '#e65100' : theme.palette.primary.dark }
                   }}
                 >
                   {requiresCheckout ? 'Complete Setup' : 'Dashboard'}
@@ -300,8 +300,8 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       height: 32,
                       minWidth: '55px',
                       fontSize: '0.75rem',
-                      borderColor: '#1976d2',
-                      color: '#1976d2',
+                      borderColor: theme.palette.primary.main,
+                      color: theme.palette.primary.main,
                       px: 1
                     }}
                   >
@@ -317,10 +317,10 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       height: 32,
                       minWidth: '55px',
                       fontSize: '0.75rem',
-                      backgroundColor: '#1976d2',
+                      backgroundColor: theme.palette.primary.main,
                       color: 'white',
                       px: 1,
-                      '&:hover': { backgroundColor: '#1565c0' }
+                      '&:hover': { backgroundColor: theme.palette.primary.dark }
                     }}
                   >
                     <FormattedMessage id="landing.nav.getStarted" />
@@ -362,6 +362,21 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                     <ListItemButton
                       component="span"
                       onClick={() => {
+                        document.getElementById('why-edbahn')?.scrollIntoView({ behavior: 'smooth' });
+                        setDrawerToggle(false);
+                      }}
+                    >
+                      <ListItemIcon>
+                        <LineOutlined />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={<FormattedMessage id="landing.nav.whyEdbahn" />}
+                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
+                      />
+                    </ListItemButton>
+                    <ListItemButton
+                      component="span"
+                      onClick={() => {
                         document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
                         setDrawerToggle(false);
                       }}
@@ -386,21 +401,6 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                       </ListItemIcon>
                       <ListItemText
                         primary={<FormattedMessage id="landing.nav.pricing" />}
-                        primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
-                      />
-                    </ListItemButton>
-                    <ListItemButton
-                      component="span"
-                      onClick={() => {
-                        document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' });
-                        setDrawerToggle(false);
-                      }}
-                    >
-                      <ListItemIcon>
-                        <LineOutlined />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={<FormattedMessage id="landing.nav.demo" />}
                         primaryTypographyProps={{ variant: 'h6', color: 'text.primary' }}
                       />
                     </ListItemButton>

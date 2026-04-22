@@ -43,6 +43,7 @@ const ContactBlock = () => {
     { value: 'Technical Support', labelId: 'landing.contact.technicalSupport' },
     { value: 'Partnership', labelId: 'landing.contact.partnership' },
     { value: 'Enterprise Solutions', labelId: 'landing.contact.enterpriseSolutions' },
+    { value: 'Enterprise Inquiry', labelId: 'landing.contact.enterpriseInquiry' },
     { value: 'Other', labelId: 'landing.contact.other' }
   ];
 

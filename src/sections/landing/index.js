@@ -8,15 +8,15 @@ import { Box, CircularProgress } from '@mui/material';
 
 // project import - critical components loaded immediately
 import Hero from 'sections/landing/Header';
+import PainPointBlock from 'sections/landing/PainPointBlock';
 import FeatureBlock from 'sections/landing/FeatureBlock';
 import ErrorBoundary from 'components/ErrorBoundary';
 
 // lazy load non-critical components
+const SMARTBlock = lazy(() => import('sections/landing/SMARTBlock'));
 const PricingBlock = lazy(() => import('sections/landing/PricingBlock'));
-const DemoBlock = lazy(() => import('sections/landing/DemoBlock'));
-const ContactBlock = lazy(() => import('sections/landing/ContactBlock'));
 const CallToAction = lazy(() => import('sections/landing/CallToAction'));
-const NumberBlock = lazy(() => import('sections/landing/NumberBlock'));
+const ContactBlock = lazy(() => import('sections/landing/ContactBlock'));
 
 import { ThemeMode, ThemeDirection, HEADER_HEIGHT } from 'config';
 
@@ -70,6 +70,14 @@ const Landing = () => {
         </ErrorBoundary>
       </Box>
       <ErrorBoundary>
+        <PainPointBlock />
+      </ErrorBoundary>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingFallback />}>
+          <SMARTBlock />
+        </Suspense>
+      </ErrorBoundary>
+      <ErrorBoundary>
         <FeatureBlock />
       </ErrorBoundary>
       <ErrorBoundary>
@@ -79,22 +87,12 @@ const Landing = () => {
       </ErrorBoundary>
       <ErrorBoundary>
         <Suspense fallback={<LoadingFallback />}>
-          <DemoBlock />
-        </Suspense>
-      </ErrorBoundary>
-      <ErrorBoundary>
-        <Suspense fallback={<LoadingFallback />}>
-          <ContactBlock />
-        </Suspense>
-      </ErrorBoundary>
-      <ErrorBoundary>
-        <Suspense fallback={<LoadingFallback />}>
           <CallToAction />
         </Suspense>
       </ErrorBoundary>
       <ErrorBoundary>
         <Suspense fallback={<LoadingFallback />}>
-          <NumberBlock />
+          <ContactBlock />
         </Suspense>
       </ErrorBoundary>
     </ErrorBoundary>

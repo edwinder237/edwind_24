@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 // material-ui
 import { styled, useTheme } from '@mui/material/styles';
-import { Box, Button, Container, CardMedia, Divider, Grid, Link, Stack, Typography } from '@mui/material';
+import { Box, Button, Container, Divider, Grid, Link, Stack, Typography } from '@mui/material';
 
 // third party
 import { motion } from 'framer-motion';
@@ -13,11 +13,10 @@ import useConfig from 'hooks/useConfig';
 import AnimateButton from 'components/@extended/AnimateButton';
 import { useCookieConsent } from 'contexts/CookieConsentContext';
 import LegalModal from 'components/LegalModal';
+import Logo from 'components/logo';
 
 // assets
 import { SendOutlined } from '@ant-design/icons';
-
-const imgfooterlogo = 'assets/images/logos/edbahn-white-logo.png';
 
 // link - custom style
 const FooterLink = styled(Link)(({ theme }) => ({
@@ -144,12 +143,12 @@ const FooterBlock = ({ isFull }) => {
               >
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <CardMedia component="img" image={imgfooterlogo} sx={{ width: '180px', height: 'auto' }} />
+                    <Logo reverse sx={{ width: '180px', height: 'auto' }} />
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 400, color: theme.palette.common.white }}>
-                      edbahn is a comprehensive training management platform designed to empower organizations with
-                      advanced educational development and participant tracking solutions.
+                      EDBAHN is a Training Management Application (TMA) that automates the high-complexity aspects of
+                      running training sessions, centralizes critical data, and ensures compliance for L&D professionals.
                     </Typography>
                   </Grid>
                 </Grid>
@@ -157,59 +156,36 @@ const FooterBlock = ({ isFull }) => {
             </Grid>
             <Grid item xs={12} md={8}>
               <Grid container spacing={{ xs: 5, md: 2 }}>
-                <Grid item xs={6} sm={3}>
+                <Grid item xs={6} sm={4}>
                   <Stack spacing={{ xs: 3, md: 5 }}>
                     <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
                       Company
                     </Typography>
                     <Stack spacing={{ xs: 1.5, md: 2.5 }}>
-                      <FooterLink href="#about" underline="none">
-                        About Us
-                      </FooterLink>
-                      <FooterLink href="#contact" underline="none">
+                      <FooterLink
+                        href="#contact"
+                        underline="none"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
                         Contact Us
                       </FooterLink>
-                      <FooterLink href="#careers" underline="none">
-                        Careers
-                      </FooterLink>
-                      <FooterLink href="#blog" underline="none">
-                        Blog
-                      </FooterLink>
                     </Stack>
                   </Stack>
                 </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Stack spacing={{ xs: 3, md: 5 }}>
-                    <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
-                      Support
-                    </Typography>
-                    <Stack spacing={{ xs: 1.5, md: 2.5 }}>
-                      <FooterLink href="#help" underline="none">
-                        Help Center
-                      </FooterLink>
-                      <FooterLink href="#documentation" underline="none">
-                        Documentation
-                      </FooterLink>
-                      <FooterLink href="#support" underline="none">
-                        Technical Support
-                      </FooterLink>
-                      <FooterLink href="#training" underline="none">
-                        Training Resources
-                      </FooterLink>
-                    </Stack>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid item xs={6} sm={4}>
                   <Stack spacing={{ xs: 3, md: 5 }}>
                     <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
                       Legal
                     </Typography>
                     <Stack spacing={{ xs: 1.5, md: 2.5 }}>
-                      <FooterLink 
+                      <FooterLink
                         component="button"
                         underline="none"
                         onClick={() => handleLegalClick('privacy')}
-                        sx={{ 
+                        sx={{
                           border: 'none',
                           background: 'none',
                           padding: 0,
@@ -219,11 +195,11 @@ const FooterBlock = ({ isFull }) => {
                       >
                         Privacy Policy
                       </FooterLink>
-                      <FooterLink 
+                      <FooterLink
                         component="button"
                         underline="none"
                         onClick={() => handleLegalClick('terms')}
-                        sx={{ 
+                        sx={{
                           border: 'none',
                           background: 'none',
                           padding: 0,
@@ -233,11 +209,11 @@ const FooterBlock = ({ isFull }) => {
                       >
                         Terms of Service
                       </FooterLink>
-                      <FooterLink 
+                      <FooterLink
                         component="button"
                         underline="none"
                         onClick={() => handleLegalClick('license')}
-                        sx={{ 
+                        sx={{
                           border: 'none',
                           background: 'none',
                           padding: 0,
@@ -246,27 +222,6 @@ const FooterBlock = ({ isFull }) => {
                         }}
                       >
                         License Agreement
-                      </FooterLink>
-                    </Stack>
-                  </Stack>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <Stack spacing={{ xs: 3, md: 5 }}>
-                    <Typography variant="h5" color={textColor} sx={{ fontWeight: 500 }}>
-                      Resources
-                    </Typography>
-                    <Stack spacing={{ xs: 1.5, md: 2.5 }}>
-                      <FooterLink href="#tutorials" underline="none">
-                        Tutorials
-                      </FooterLink>
-                      <FooterLink href="#webinars" underline="none">
-                        Webinars
-                      </FooterLink>
-                      <FooterLink href="#case-studies" underline="none">
-                        Case Studies
-                      </FooterLink>
-                      <FooterLink href="#community" underline="none">
-                        Community
                       </FooterLink>
                     </Stack>
                   </Stack>
