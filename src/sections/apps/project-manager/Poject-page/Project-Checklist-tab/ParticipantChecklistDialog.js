@@ -121,13 +121,12 @@ const ParticipantChecklistDialog = ({
           borderRadius: 1,
           boxShadow: theme.customShadows.z24,
           bgcolor: theme.palette.background.paper,
-          maxHeight: '90vh',
-          display: 'flex',
-          flexDirection: 'column'
+          maxHeight: '90vh'
         }
       }}
     >
       <MainCard
+        modal
         title={
           <Box>
             <Typography variant="h4" component="div" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
@@ -142,9 +141,9 @@ const ParticipantChecklistDialog = ({
           <IconButton
             aria-label="close"
             onClick={onClose}
-            sx={{ 
+            sx={{
               color: theme.palette.text.secondary,
-              '&:hover': { 
+              '&:hover': {
                 bgcolor: theme.palette.action.hover,
                 color: theme.palette.text.primary
               }
@@ -154,7 +153,7 @@ const ParticipantChecklistDialog = ({
           </IconButton>
         }
         content={false}
-        sx={{ 
+        sx={{
           borderRadius: 1,
           bgcolor: theme.palette.background.paper,
           '& .MuiCardHeader-root': {
@@ -430,8 +429,9 @@ const ParticipantChecklistDialog = ({
         ) : null}
         
         {/* Footer Actions */}
-        <Box sx={{ 
-          p: 3, 
+        <Box sx={{
+          p: 3,
+          flexShrink: 0,
           borderTop: `1px solid ${theme.palette.divider}`,
           bgcolor: theme.palette.background.paper,
           textAlign: 'right'

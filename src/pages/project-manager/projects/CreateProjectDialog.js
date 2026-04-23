@@ -219,6 +219,7 @@ const CreateProjectDialog = ({
       }}
     >
       <MainCard
+        modal
         title="Create New Project"
         secondary={
           <IconButton onClick={onClose} size="small">
@@ -232,7 +233,7 @@ const CreateProjectDialog = ({
           }
         }}
       >
-        <Box sx={{ px: 3, py: 2, maxHeight: 'calc(90vh - 140px)', overflowY: 'auto' }}>
+        <Box sx={{ px: 3, py: 2, flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <Grid container spacing={3}>
           {/* Project Name */}
           <Grid item xs={12}>
@@ -612,6 +613,7 @@ const CreateProjectDialog = ({
             display: 'flex',
             justifyContent: 'flex-end',
             gap: 1,
+            flexShrink: 0,
             px: 3,
             py: 2,
             borderTop: '1px solid',

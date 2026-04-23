@@ -184,6 +184,14 @@ export default function CurriculumPicker({
                       variant="outlined"
                     />
                   )}
+                  {option.topicCount > 0 && (
+                    <Chip
+                      label={`${option.topicCount} topics`}
+                      size="small"
+                      color="info"
+                      variant="outlined"
+                    />
+                  )}
                 </Box>
               </Box>
               {option.description && (

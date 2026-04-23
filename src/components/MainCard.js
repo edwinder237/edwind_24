@@ -73,15 +73,16 @@ const MainCard = forwardRef(
             }
           }),
           ...(modal && {
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: { xs: `calc( 100% - 50px)`, sm: 'auto' },
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: { xs: 'calc(100vh - 32px)', sm: 'calc(100vh - 64px)' },
+            overflow: 'hidden',
             '& .MuiCardContent-root': {
+              flex: 1,
               overflowY: 'auto',
-              minHeight: 'auto',
-              maxHeight: `calc(100vh - 200px)`,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
             }
           }),
           ...sx

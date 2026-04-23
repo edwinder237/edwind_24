@@ -16,6 +16,9 @@ const DrawerContent = () => (
         '& .simplebar-content': {
           display: 'flex',
           flexDirection: 'column'
+        },
+        '& .simplebar-track': {
+          visibility: 'hidden'
         }
       }}
     >

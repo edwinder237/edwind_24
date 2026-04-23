@@ -71,6 +71,7 @@ import {
 const getInitialValues = (course) => {
   const newCourse = {
     title: '',
+    translatedTitle: '',
     summary: '',
     description: '',
     language: 'english',
@@ -155,6 +156,7 @@ const AddCourseMultiStep = ({ course, onCancel }) => {
     validationSchema: Yup.object().shape({
       // Combined validation for all steps
       title: Yup.string().max(255).required('Course title is required'),
+      translatedTitle: Yup.string().max(255),
       summary: Yup.string().max(500, 'Summary must be less than 500 characters'),
       code: Yup.string().max(20, 'Course code must be less than 20 characters').required('Course code is required'),
       level: Yup.string().required('Course level is required'),
@@ -407,6 +409,20 @@ const AddCourseMultiStep = ({ course, onCancel }) => {
                         {...getFieldProps('title')}
                         error={Boolean(touched.title && errors.title)}
                         helperText={touched.title && errors.title}
+                      />
+                    </Stack>
+                  </Grid>
+
+                  <Grid item xs={12} md={8}>
+                    <Stack spacing={1.25}>
+                      <InputLabel htmlFor="course-translated-title">Translated Title</InputLabel>
+                      <TextField
+                        fullWidth
+                        id="course-translated-title"
+                        placeholder="Enter translated course title"
+                        {...getFieldProps('translatedTitle')}
+                        error={Boolean(touched.translatedTitle && errors.translatedTitle)}
+                        helperText={touched.translatedTitle && errors.translatedTitle}
                       />
                     </Stack>
                   </Grid>

@@ -413,6 +413,7 @@ model courses {
   lastUpdated               DateTime?                   @updatedAt
   published                 Boolean?
   title                     String
+  translatedTitle           String?
   summary                   String?
   language                  String?
   deliveryMethod            String?
@@ -529,6 +530,7 @@ model curriculums {
   curriculum_checklist_items curriculum_checklist_items[]
   curriculum_courses       curriculum_courses[]
   curriculum_surveys       curriculum_surveys[]
+  curriculum_topics        curriculum_topics[]
   group_curriculums        group_curriculums[]
   project_curriculums      project_curriculums[]
   supportActivities        supportActivities[]
@@ -547,6 +549,20 @@ model curriculum_courses {
 
   @@index([curriculumId])
   @@index([courseId])
+}
+
+model curriculum_topics {
+  id           Int         @id @default(autoincrement())
+  curriculumId Int
+  topicId      Int
+  createdAt    DateTime    @default(now())
+  createdBy    String?
+  curriculum   curriculums @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  topic        topics      @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([curriculumId, topicId])
+  @@index([curriculumId])
+  @@index([topicId])
 }
 
 model activities {
@@ -855,6 +871,7 @@ model topics {
   updatedBy          String?
   sub_organizationId Int
   course_topics      course_topics[]
+  curriculum_topics  curriculum_topics[]
   project_topics     project_topics[]
   sub_organization   sub_organizations @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
 

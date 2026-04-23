@@ -440,8 +440,8 @@ const AddParticipantOptionsDialog = ({
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: Participant Template
-    const templateHeaders = ['firstName', 'lastName', 'email', 'middleName', 'derpartement', 'roleId', 'notes'];
-    const sampleRow = ['John', 'Doe', 'john.doe@example.com', 'Michael', 'Engineering', availableRoles[0]?.title || 'participant', 'Sample participant'];
+    const templateHeaders = ['firstName', 'lastName', 'email', 'externalId', 'tag', 'roleId', 'notes'];
+    const sampleRow = ['John', 'Doe', 'john.doe@example.com', 'EMP-001', 'Engineering', availableRoles[0]?.title || 'participant', 'Sample participant'];
     const templateData = [templateHeaders, sampleRow];
     const templateSheet = XLSX.utils.aoa_to_sheet(templateData);
 
@@ -450,8 +450,8 @@ const AddParticipantOptionsDialog = ({
       { wch: 12 }, // firstName
       { wch: 12 }, // lastName
       { wch: 25 }, // email
-      { wch: 12 }, // middleName
-      { wch: 15 }, // derpartement
+      { wch: 15 }, // externalId
+      { wch: 15 }, // tag
       { wch: 20 }, // roleId
       { wch: 30 }, // notes
     ];
@@ -492,7 +492,7 @@ const AddParticipantOptionsDialog = ({
         lastName: row.lastName,
         email: row.email,
         middleName: row.middleName || '',
-        derpartement: row.derpartement || '',
+        tag: row.tag ? row.tag.trim().toUpperCase() : '',
         roleId: row.roleId || 'participant',
         participantType: row.participantType || 'student',
         participantStatus: row.participantStatus || 'active',

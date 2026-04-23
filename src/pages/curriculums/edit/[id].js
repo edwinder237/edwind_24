@@ -83,7 +83,8 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   CheckBox as CheckBoxIcon,
-  Poll as PollIcon
+  Poll as PollIcon,
+  LocalOffer as LocalOfferIcon
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { openSnackbar } from 'store/reducers/snackbar';
@@ -103,6 +104,7 @@ import CurriculumChecklistManager from 'components/curriculum/CurriculumChecklis
 import { CurriculumSurveyManager } from 'components/curriculum/surveys';
 import MainCard from 'components/MainCard';
 import CourseTransferList from 'components/CourseTransferList';
+import TagsPicker from 'sections/apps/project-manager/projects-list/tagsPicker';
 import Layout from 'layout';
 
 // Tab panel component
@@ -166,6 +168,10 @@ const CurriculumEditPage = () => {
   // Search/filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all', 'course', 'module', 'activity'
+
+  // Topics management state
+  const [curriculumTopics, setCurriculumTopics] = useState([]);
+  const [savingTopics, setSavingTopics] = useState(false);
 
   // Assessment management state
   const [assessmentsByCourse, setAssessmentsByCourse] = useState({});
@@ -246,6 +252,10 @@ const CurriculumEditPage = () => {
       
       if (result.success) {
         setCurriculum(result.curriculum);
+        // Initialize curriculum topics from fetched data
+        if (result.curriculum.curriculum_topics) {
+          setCurriculumTopics(result.curriculum.curriculum_topics.map(ct => ct.topic.title));
+        }
       } else {
         throw new Error(result.message || 'Failed to fetch curriculum');
       }
@@ -739,6 +749,12 @@ const CurriculumEditPage = () => {
                     variant="outlined"
                   />
                   <Chip
+                    icon={<LocalOfferIcon />}
+                    label={`${curriculum.curriculum_topics?.length || 0} Topics`}
+                    color="info"
+                    variant="outlined"
+                  />
+                  <Chip
                     label={`Created ${new Date(curriculum.createdAt).toLocaleDateString()}`}
                     variant="outlined"
                   />
@@ -858,6 +874,83 @@ const CurriculumEditPage = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={4}>
+                  {/* Topics Management Card */}
+                  <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                        <Typography variant="h6">
+                          Topics
+                        </Typography>
+                      </Stack>
+
+                      <TagsPicker
+                        handleTagsChange={(topics) => {
+                          setCurriculumTopics(topics);
+                        }}
+                        initialValue={JSON.stringify(curriculumTopics)}
+                      />
+
+                      <Button
+                        variant="contained"
+                        size="small"
+                        sx={{ mt: 2 }}
+                        disabled={savingTopics}
+                        startIcon={savingTopics ? <CircularProgress size={16} /> : <SaveIcon />}
+                        onClick={async () => {
+                          setSavingTopics(true);
+                          try {
+                            // Fetch all topics to resolve titles to IDs
+                            const topicsResponse = await fetch('/api/topics');
+                            const allTopics = topicsResponse.ok ? await topicsResponse.json() : [];
+
+                            const topicIds = curriculumTopics.map(title => {
+                              const found = allTopics.find(t => t.title === title);
+                              return found?.id;
+                            }).filter(Boolean);
+
+                            // Save to curriculum
+                            const existingCourseIds = curriculum.curriculum_courses?.map(cc => cc.courseId) || [];
+                            const response = await fetch('/api/curriculums/updateCurriculum', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                id: curriculum.id,
+                                name: curriculum.title,
+                                description: curriculum.description,
+                                selectedCourses: existingCourseIds,
+                                selectedTopicIds: topicIds
+                              })
+                            });
+
+                            if (response.ok) {
+                              dispatch(openSnackbar({
+                                open: true,
+                                message: 'Topics saved successfully',
+                                variant: 'alert',
+                                alert: { color: 'success' }
+                              }));
+                              fetchCurriculum();
+                            } else {
+                              throw new Error('Failed to save');
+                            }
+                          } catch (error) {
+                            console.error('Error saving topics:', error);
+                            dispatch(openSnackbar({
+                              open: true,
+                              message: 'Failed to save topics',
+                              variant: 'alert',
+                              alert: { color: 'error' }
+                            }));
+                          } finally {
+                            setSavingTopics(false);
+                          }
+                        }}
+                      >
+                        {savingTopics ? 'Saving...' : 'Save Topics'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
                   <Card>
                     <CardContent>
                       <Typography variant="h6" gutterBottom>

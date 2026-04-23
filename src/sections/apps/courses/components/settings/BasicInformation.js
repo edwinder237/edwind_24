@@ -66,6 +66,18 @@ const BasicInformation = ({ formData, onInputChange }) => {
             />
           </Grid>
 
+          {/* Translated Title */}
+          <Grid item xs={12} sm={4}>
+            <TextField
+              fullWidth
+              label="Translated Title"
+              value={formData.translatedTitle}
+              onChange={(e) => onInputChange('translatedTitle', e.target.value)}
+              placeholder="Enter translated course title"
+              helperText="Alternative title for translated documents"
+            />
+          </Grid>
+
           {/* Course Identifiers */}
           <Grid item xs={12} sm={8}>
             <Grid container spacing={2}>

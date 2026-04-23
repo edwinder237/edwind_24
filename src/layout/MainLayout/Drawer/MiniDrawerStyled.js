@@ -13,6 +13,8 @@ const openedMixin = (theme) => ({
     duration: theme.transitions.duration.enteringScreen
   }),
   overflowX: 'hidden',
+  scrollbarWidth: 'none',
+  '&::-webkit-scrollbar': { display: 'none' },
   boxShadow: theme.palette.mode === 'dark' ? theme.customShadows.z1 : 'none'
 });
 
@@ -22,6 +24,8 @@ const closedMixin = (theme) => ({
     duration: theme.transitions.duration.leavingScreen
   }),
   overflowX: 'hidden',
+  scrollbarWidth: 'none',
+  '&::-webkit-scrollbar': { display: 'none' },
   width: theme.spacing(7.5),
   borderRight: 'none',
   boxShadow: theme.customShadows.z1

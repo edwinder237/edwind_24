@@ -46,6 +46,7 @@ const features = [
     titleId: 'landing.features.timeline',
     descId: 'landing.features.timelineDesc',
     chipId: 'landing.features.timelineChip',
+    comingSoon: true,
     gradient: 'info'
   },
   {
@@ -158,7 +159,7 @@ const FeatureBlock = () => {
                               position: 'absolute',
                               top: 10,
                               right: 10,
-                              bgcolor: 'rgba(255,255,255,0.2)',
+                              bgcolor: feature.comingSoon ? 'rgba(255,152,0,0.85)' : 'rgba(255,255,255,0.2)',
                               color: 'white',
                               fontWeight: 600,
                               fontSize: '0.7rem',

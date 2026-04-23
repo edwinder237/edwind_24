@@ -103,7 +103,7 @@ const FooterBlock = ({ isFull }) => {
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="body1" sx={{ color: theme.palette.common.white }}>
-                      Stay updated with the latest features and improvements coming to edbahn platform.
+                      Timeline visualization and Kirkpatrick evaluation model — coming soon to all Professional and Enterprise plans.
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sx={{ my: 2 }}>

@@ -15,6 +15,7 @@ export default createHandler({
 
     const {
       title,
+      translatedTitle,
       summary,
       language = 'english',
       deliveryMethod,
@@ -63,6 +64,7 @@ export default createHandler({
     const course = await prisma.courses.create({
       data: {
         title,
+        translatedTitle: translatedTitle || null,
         summary: summary || null,
         language,
         deliveryMethod: deliveryMethod || null,

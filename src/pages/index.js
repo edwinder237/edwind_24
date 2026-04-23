@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
-import useUser from 'hooks/useUser';
 
 // material-ui
-import { Box, CircularProgress, Alert, IconButton } from '@mui/material';
+import { Alert, IconButton } from '@mui/material';
 import CloseIcon from '@ant-design/icons/CloseOutlined';
 
 // project import
@@ -15,7 +14,6 @@ import Landing from 'sections/landing';
 const HomePage = () => {
   const router = useRouter();
   const { error } = router.query;
-  const { user, isLoading, isAuthenticated } = useUser();
   const [showError, setShowError] = useState(true);
 
   // Handle dismissing the error alert
@@ -25,48 +23,7 @@ const HomePage = () => {
     router.replace('/', undefined, { shallow: true });
   };
 
-  useEffect(() => {
-    // Only redirect authenticated users to projects
-    if (isLoading) return;
-
-    if (isAuthenticated && !user?.subscription?.requiresCheckout) {
-      router.push('/projects');
-    }
-  }, [isLoading, isAuthenticated, user, router]);
-
-  // Show loading spinner while determining auth status
-  if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh'
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  // If authenticated and will be redirected to /projects, show loading spinner
-  if (isAuthenticated && !user?.subscription?.requiresCheckout) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh'
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  // Show landing page for unauthenticated users
+  // Show landing page for all users — authenticated users see "Go to App" in nav
   return (
     <>
       {error === 'account_inactive' && showError && (

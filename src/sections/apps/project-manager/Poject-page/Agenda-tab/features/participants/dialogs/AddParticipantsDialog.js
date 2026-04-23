@@ -585,6 +585,7 @@ const AddParticipantsDialog = ({
             )}
           </Stack>
         }
+        modal
         content={false}
         sx={{ m: 0, boxShadow: 'none' }}
       >
@@ -611,8 +612,9 @@ const AddParticipantsDialog = ({
           </Tabs>
 
           {/* Tab Content */}
-          <Box sx={{ 
-            maxHeight: 'calc(90vh - 220px)', 
+          <Box sx={{
+            flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             p: 3,
             pb: 1
@@ -676,13 +678,10 @@ const AddParticipantsDialog = ({
             sx={{
               p: 3,
               pt: 2,
+              flexShrink: 0,
               borderTop: 1,
               borderColor: 'divider',
-              backgroundColor: 'background.paper',
-              position: 'sticky',
-              bottom: 0,
-              zIndex: 1,
-              boxShadow: '0 -2px 8px rgba(0,0,0,0.1)'
+              backgroundColor: 'background.paper'
             }}
           >
             <Button

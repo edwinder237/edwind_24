@@ -24,6 +24,12 @@ const SOFT_DELETE_MODELS = new Set([
   'instructors',
 ]);
 
+// Subset of soft-delete models that also have an `isActive` column
+const MODELS_WITH_IS_ACTIVE = new Set([
+  'User',
+  'courses',
+]);
+
 /**
  * Middleware that converts delete → soft delete for enabled models.
  *
@@ -44,20 +50,18 @@ export function softDeleteMiddleware(params, next) {
   // --- Convert deletes to soft deletes ---
   if (params.action === 'delete') {
     params.action = 'update';
-    params.args.data = {
-      deletedAt: new Date(),
-      isActive: false,
-    };
+    const data = { deletedAt: new Date() };
+    if (MODELS_WITH_IS_ACTIVE.has(model)) data.isActive = false;
+    params.args.data = data;
     return next(params);
   }
 
   if (params.action === 'deleteMany') {
     params.action = 'updateMany';
     if (!params.args) params.args = {};
-    params.args.data = {
-      deletedAt: new Date(),
-      isActive: false,
-    };
+    const data = { deletedAt: new Date() };
+    if (MODELS_WITH_IS_ACTIVE.has(model)) data.isActive = false;
+    params.args.data = data;
     return next(params);
   }
 

@@ -6,7 +6,8 @@
     "dev": "next dev -p 8081",
     "build": "prisma generate && next build",
     "start": "next start",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "seed:corporate": "node prisma/seed-corporate.js"
   },
   "dependencies": {
     "@ant-design/colors": "^6.0.0",

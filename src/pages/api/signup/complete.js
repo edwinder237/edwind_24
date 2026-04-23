@@ -34,8 +34,14 @@ export default createHandler({
     if (!email || !email.trim()) {
       return res.status(400).json({ error: 'Email is required' });
     }
-    if (!password || password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (!password || password.length < 10) {
+      return res.status(400).json({ error: 'Password must be at least 10 characters' });
+    }
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one uppercase letter' });
+    }
+    if (!/[0-9]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one number' });
     }
     if (!firstName || !firstName.trim()) {
       return res.status(400).json({ error: 'First name is required' });

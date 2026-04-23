@@ -130,6 +130,20 @@ export default createHandler({
               }
             }
           }
+        },
+        curriculum_topics: {
+          include: {
+            topic: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                color: true,
+                icon: true,
+                isActive: true
+              }
+            }
+          }
         }
       }
     });
@@ -145,6 +159,7 @@ export default createHandler({
     const courseCount = curriculum.curriculum_courses?.length || 0;
     const supportActivitiesCount = curriculum.supportActivities?.length || 0;
     const projectCount = curriculum.project_curriculums?.length || 0;
+    const topicCount = curriculum.curriculum_topics?.length || 0;
 
     // Calculate total estimated duration from support activities
     const totalSupportDuration = curriculum.supportActivities?.reduce((total, activity) => {
@@ -159,6 +174,7 @@ export default createHandler({
           courseCount,
           supportActivitiesCount,
           projectCount,
+          topicCount,
           totalSupportDuration
         }
       }

@@ -290,11 +290,14 @@ export default createHandler({
               }
             }
           },
+          where: {
+            deletedAt: null
+          },
           orderBy: {
             start: 'asc'
           }
         },
-        
+
         // Groups data for agenda operations
         groups: {
           select: {

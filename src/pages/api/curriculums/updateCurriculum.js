@@ -30,7 +30,7 @@ export default createHandler({
   PUT: async (req, res) => {
     const { orgContext } = req;
 
-    const { id, name, description, difficulty, estimatedDuration, selectedCourses } = req.body;
+    const { id, name, description, difficulty, estimatedDuration, selectedCourses, selectedTopicIds } = req.body;
 
     if (!id || !name || !selectedCourses || selectedCourses.length === 0) {
       throw new ValidationError('ID, name and at least one course are required');
@@ -74,6 +74,26 @@ export default createHandler({
       )
     );
 
+    // Update topic relationships if provided
+    if (selectedTopicIds !== undefined) {
+      await prisma.curriculum_topics.deleteMany({
+        where: { curriculumId }
+      });
+
+      if (selectedTopicIds.length > 0) {
+        await Promise.all(
+          selectedTopicIds.map(topicId =>
+            prisma.curriculum_topics.create({
+              data: {
+                curriculumId,
+                topicId: parseInt(topicId)
+              }
+            })
+          )
+        );
+      }
+    }
+
     // Fetch the complete updated curriculum with courses
     const fullCurriculum = await prisma.curriculums.findUnique({
       where: { id: curriculumId },
@@ -99,6 +119,18 @@ export default createHandler({
               }
             }
           }
+        },
+        curriculum_topics: {
+          include: {
+            topic: {
+              select: {
+                id: true,
+                title: true,
+                color: true,
+                icon: true
+              }
+            }
+          }
         }
       }
     });
@@ -108,6 +140,8 @@ export default createHandler({
       difficulty,
       estimatedDuration: parseInt(estimatedDuration) || null,
       courses: fullCurriculum.curriculum_courses.map(cc => cc.course),
+      topics: fullCurriculum.curriculum_topics.map(ct => ct.topic),
+      topicCount: fullCurriculum.curriculum_topics.length,
       courseCount: fullCurriculum.curriculum_courses.length,
       totalDuration: fullCurriculum.curriculum_courses.reduce((sum, cc) => {
         return sum + calculateCourseDurationFromModules(cc.course.modules);

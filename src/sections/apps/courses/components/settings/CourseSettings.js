@@ -41,6 +41,7 @@ const CourseSettings = ({ course, courseId }) => {
   const [expanded, setExpanded] = useState('basic'); // Default to basic info expanded
   const [formData, setFormData] = useState({
     title: '',
+    translatedTitle: '',
     summary: '',
     code: '',
     version: '',
@@ -63,6 +64,7 @@ const CourseSettings = ({ course, courseId }) => {
     if (course) {
       setFormData({
         title: course.title || '',
+        translatedTitle: course.translatedTitle || '',
         summary: course.summary || '',
         code: course.code || '',
         version: course.version || '',

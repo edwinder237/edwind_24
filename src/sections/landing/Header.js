@@ -10,7 +10,6 @@ import { motion } from 'framer-motion';
 
 // project import
 import AnimateButton from 'components/@extended/AnimateButton';
-import Logo from 'components/logo';
 import useUser from 'hooks/useUser';
 
 // assets
@@ -134,7 +133,7 @@ const HeaderPage = () => {
                             }
                           }}
                         >
-                          {requiresCheckout ? 'Complete Setup' : 'Go to Dashboard'}
+                          {requiresCheckout ? 'Complete Setup' : 'Go to App'}
                         </Button>
                       </AnimateButton>
                     </Grid>
@@ -189,7 +188,7 @@ const HeaderPage = () => {
             </Grid>
           </Grid>
         </Grid>
-        <Grid item xs={12} lg={5} md={5} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <Grid item xs={12} lg={5} md={5} sx={{ display: { xs: 'none', md: 'flex' }, justifyContent: 'center', alignItems: 'center' }}>
           <motion.div
             initial={{ opacity: 0, translateX: 550 }}
             animate={{ opacity: 1, translateX: 0 }}
@@ -200,31 +199,24 @@ const HeaderPage = () => {
               delay: 0.6
             }}
           >
-            <Box sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              width: '100%',
-              height: '100%',
-              gap: 2,
-              [theme.breakpoints.down('md')]: { mt: 4 }
-            }}>
-              <Logo sx={{ width: 280, height: 'auto' }} />
-              <Typography
-                variant="h5"
-                sx={{
-                  color: 'rgba(255,255,255,0.6)',
-                  fontWeight: 400,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  fontSize: { xs: '0.7rem', md: '0.8rem' },
-                  textAlign: 'center'
-                }}
-              >
-                <FormattedMessage id="landing.hero.tagline" />
-              </Typography>
-            </Box>
+            <Box
+              component="img"
+              src="/assets/images/landing/dashboard-preview.png"
+              alt="EDBAHN Dashboard - Schedule Planning & Attendance Tracking"
+              sx={{
+                width: '100%',
+                maxWidth: 520,
+                height: 'auto',
+                borderRadius: 3,
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                transform: 'perspective(1200px) rotateY(-5deg)',
+                transition: 'transform 0.4s ease',
+                '&:hover': {
+                  transform: 'perspective(1200px) rotateY(0deg)'
+                }
+              }}
+            />
           </motion.div>
         </Grid>
       </Grid>

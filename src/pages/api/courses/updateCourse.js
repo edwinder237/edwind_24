@@ -1,6 +1,5 @@
 import { createHandler } from '../../../lib/api/createHandler';
 import prisma from '../../../lib/prisma';
-import { isVersionLocked } from '../../../lib/utils/versionProtection';
 import { createAuditLog, calculateFieldChanges, TRACKED_FIELDS } from '../../../lib/utils/auditLog';
 
 export default createHandler({
@@ -9,6 +8,7 @@ export default createHandler({
     const {
       id,
       title,
+      translatedTitle,
       summary,
       language,
       deliveryMethod,
@@ -54,25 +54,12 @@ export default createHandler({
       });
     }
 
-    // Check if the course's current version is locked
-    if (existingCourse.currentVersionId) {
-      const locked = await isVersionLocked(prisma, existingCourse.currentVersionId);
-      if (locked) {
-        return res.status(403).json({
-          success: false,
-          error: 'Version locked',
-          message: `This course version (${existingCourse.version}) has participants who have started. Create a new draft version to make changes.`,
-          requiresNewVersion: true,
-          courseId
-        });
-      }
-    }
-
     // Update the course
     const course = await prisma.courses.update({
       where: { id: courseId },
       data: {
         title,
+        translatedTitle: translatedTitle !== undefined ? (translatedTitle || null) : existingCourse.translatedTitle,
         summary: summary || null,
         language: language || 'english',
         deliveryMethod: deliveryMethod || null,

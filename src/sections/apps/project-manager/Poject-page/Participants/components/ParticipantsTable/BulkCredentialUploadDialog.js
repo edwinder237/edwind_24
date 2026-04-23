@@ -53,12 +53,18 @@ const BulkCredentialUploadDialog = ({
 
   // Organization tools
   const [orgTools, setOrgTools] = useState([]);
+  const [toolsLoading, setToolsLoading] = useState(false);
 
   React.useEffect(() => {
     if (open) {
+      setToolsLoading(true);
       axios.get('/api/organization-tools')
         .then(res => setOrgTools(res.data || []))
-        .catch(() => setOrgTools([]));
+        .catch((err) => {
+          console.error('Failed to fetch organization tools:', err);
+          setOrgTools([]);
+        })
+        .finally(() => setToolsLoading(false));
     }
   }, [open]);
 
@@ -267,26 +273,26 @@ const BulkCredentialUploadDialog = ({
     XLSX.utils.book_append_sheet(wb, instrSheet, 'Instructions');
 
     // Sheet 3: Tool Templates - saved org tools with IDs for reference
-    if (orgTools.length > 0) {
-      const toolHeaders = ['id', 'name', 'toolType', 'toolUrl', 'toolDescription'];
-      const toolRows = orgTools.map(t => [
-        t.id,
-        t.name || '',
-        t.toolType || '',
-        t.toolUrl || '',
-        t.toolDescription || ''
-      ]);
-      const toolSheetData = [toolHeaders, ...toolRows];
-      const toolSheet = XLSX.utils.aoa_to_sheet(toolSheetData);
-      toolSheet['!cols'] = [
-        { wch: 8 },  // id
-        { wch: 25 }, // name
-        { wch: 15 }, // toolType
-        { wch: 35 }, // toolUrl
-        { wch: 35 }, // toolDescription
-      ];
-      XLSX.utils.book_append_sheet(wb, toolSheet, 'Tool Templates');
-    }
+    const toolHeaders = ['id', 'name', 'toolType', 'toolUrl', 'toolDescription'];
+    const toolRows = orgTools.length > 0
+      ? orgTools.map(t => [
+          t.id,
+          t.name || '',
+          t.toolType || '',
+          t.toolUrl || '',
+          t.toolDescription || ''
+        ])
+      : [['No tools configured. Add tools in Resources > Tool Templates first.']];
+    const toolSheetData = [toolHeaders, ...toolRows];
+    const toolSheet = XLSX.utils.aoa_to_sheet(toolSheetData);
+    toolSheet['!cols'] = [
+      { wch: 8 },  // id
+      { wch: 25 }, // name
+      { wch: 15 }, // toolType
+      { wch: 35 }, // toolUrl
+      { wch: 35 }, // toolDescription
+    ];
+    XLSX.utils.book_append_sheet(wb, toolSheet, 'Tool Templates');
 
     const safeName = (projectTitle || 'project').replace(/[^a-zA-Z0-9]/g, '_');
     XLSX.writeFile(wb, `${safeName}_credentials_template.xlsx`);
@@ -344,6 +350,7 @@ const BulkCredentialUploadDialog = ({
       sx={{ '& .MuiDialog-paper': { p: 0 } }}
     >
       <MainCard
+        modal
         title="Bulk Upload Credentials"
         secondary={
           <IconButton onClick={handleCloseDialog} size="large">
@@ -351,7 +358,7 @@ const BulkCredentialUploadDialog = ({
           </IconButton>
         }
       >
-        <Box sx={{ px: 1, py: 2 }}>
+        <Box sx={{ px: 1, py: 2, flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <Stack spacing={3}>
             {/* Instructions */}
             {!showResults && (
@@ -390,11 +397,12 @@ const BulkCredentialUploadDialog = ({
               <Stack direction="row" spacing={2} alignItems="center">
                 <Button
                   variant="outlined"
-                  startIcon={<FileTextOutlined />}
+                  startIcon={toolsLoading ? <CircularProgress size={16} /> : <FileTextOutlined />}
                   onClick={downloadTemplate}
                   size="small"
+                  disabled={toolsLoading}
                 >
-                  Download Template
+                  {toolsLoading ? 'Loading Tools...' : 'Download Template'}
                 </Button>
 
                 <Divider orientation="vertical" flexItem />
@@ -567,7 +575,7 @@ const BulkCredentialUploadDialog = ({
 
         {/* Footer Actions */}
         <Divider />
-        <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2, flexShrink: 0 }}>
           <Button onClick={handleCloseDialog} color="secondary">
             {showResults ? 'Close' : 'Cancel'}
           </Button>

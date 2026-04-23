@@ -31,7 +31,7 @@ export default createHandler({
   POST: async (req, res) => {
     const { orgContext } = req;
 
-    const { name, description, difficulty, estimatedDuration, selectedCourses } = req.body;
+    const { name, description, difficulty, estimatedDuration, selectedCourses, selectedTopicIds } = req.body;
 
     if (!name || !selectedCourses || selectedCourses.length === 0) {
       throw new ValidationError('Name and at least one course are required');
@@ -58,6 +58,20 @@ export default createHandler({
       )
     );
 
+    // Create topic relationships if provided
+    if (selectedTopicIds && selectedTopicIds.length > 0) {
+      await Promise.all(
+        selectedTopicIds.map(topicId =>
+          prisma.curriculum_topics.create({
+            data: {
+              curriculumId: curriculum.id,
+              topicId: parseInt(topicId)
+            }
+          })
+        )
+      );
+    }
+
     const fullCurriculum = await prisma.curriculums.findUnique({
       where: { id: curriculum.id },
       include: {
@@ -81,6 +95,18 @@ export default createHandler({
               }
             }
           }
+        },
+        curriculum_topics: {
+          include: {
+            topic: {
+              select: {
+                id: true,
+                title: true,
+                color: true,
+                icon: true
+              }
+            }
+          }
         }
       }
     });
@@ -92,7 +118,9 @@ export default createHandler({
         ...fullCurriculum,
         difficulty,
         estimatedDuration: parseInt(estimatedDuration) || null,
-        courses: fullCurriculum.curriculum_courses.map(cc => cc.course)
+        courses: fullCurriculum.curriculum_courses.map(cc => cc.course),
+        topics: fullCurriculum.curriculum_topics.map(ct => ct.topic),
+        topicCount: fullCurriculum.curriculum_topics.length
       }
     });
   }

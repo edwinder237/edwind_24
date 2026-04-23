@@ -74,6 +74,18 @@ export default createHandler({
               }
             }
           }
+        },
+        curriculum_topics: {
+          include: {
+            topic: {
+              select: {
+                id: true,
+                title: true,
+                color: true,
+                icon: true
+              }
+            }
+          }
         }
       },
       orderBy: [
@@ -88,6 +100,8 @@ export default createHandler({
         ...cc.course,
         calculatedDuration: calculateCourseDurationFromModules(cc.course.modules)
       })),
+      topics: curriculum.curriculum_topics.map(ct => ct.topic),
+      topicCount: curriculum.curriculum_topics.length,
       courseCount: curriculum.curriculum_courses.length,
       supportActivitiesCount: curriculum.supportActivities.length,
       projectCount: curriculum.project_curriculums.length,

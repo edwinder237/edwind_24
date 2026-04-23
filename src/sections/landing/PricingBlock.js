@@ -31,7 +31,7 @@ import Animation from './Animation';
 import { ThemeMode } from 'config';
 
 // assets
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, ClockCircleOutlined } from '@ant-design/icons';
 
 // ==============================|| LANDING - PRICING PAGE ||============================== //
 
@@ -54,7 +54,7 @@ const PricingBlock = () => {
         { text: 'Calendar & Survey Integration', included: true },
         { text: 'Analytics & Attendance', included: true },
         { text: '100 Mass Emails/month', included: true },
-        { text: 'Timeline & Kirkpatrick', included: false },
+        { text: 'Timeline & Kirkpatrick — Coming Soon', included: 'soon' },
         { text: 'Group Management', included: false }
       ],
       buttonText: intl.formatMessage({ id: 'landing.pricing.startFreeTrial' }),
@@ -73,7 +73,7 @@ const PricingBlock = () => {
         { text: '30 Projects', included: true },
         { text: '50 Courses', included: true },
         { text: '25 Curriculums', included: true },
-        { text: 'Timeline & Kirkpatrick', included: true },
+        { text: 'Timeline & Kirkpatrick — Coming Soon', included: 'soon' },
         { text: 'Group Management', included: true },
         { text: '1,000 Mass Emails/month', included: true },
         { text: 'All Integrations & Analytics', included: true },
@@ -95,7 +95,7 @@ const PricingBlock = () => {
         { text: 'Unlimited Projects', included: true },
         { text: 'Unlimited Courses', included: true },
         { text: 'Unlimited Curriculums', included: true },
-        { text: 'Timeline & Kirkpatrick', included: true },
+        { text: 'Timeline & Kirkpatrick — Coming Soon', included: 'soon' },
         { text: 'Group Management', included: true },
         { text: 'Unlimited Mass Emails', included: true },
         { text: 'Sub-organizations', included: true },
@@ -128,8 +128,8 @@ const PricingBlock = () => {
     {
       category: 'landing.pricing.table.advancedFeatures',
       rows: [
-        { feature: 'landing.pricing.table.timeline', essential: false, professional: true, enterprise: true },
-        { feature: 'landing.pricing.table.kirkpatrick', essential: false, professional: true, enterprise: true },
+        { feature: 'landing.pricing.table.timeline', essential: 'coming_soon', professional: 'coming_soon', enterprise: 'coming_soon' },
+        { feature: 'landing.pricing.table.kirkpatrick', essential: 'coming_soon', professional: 'coming_soon', enterprise: 'coming_soon' },
         { feature: 'landing.pricing.table.groupManagement', essential: false, professional: true, enterprise: true },
         { feature: 'landing.pricing.table.massEmails', essential: '100/mo', professional: '1,000/mo', enterprise: 'unlimited' },
         { feature: 'landing.pricing.table.subOrganizations', essential: false, professional: false, enterprise: true }
@@ -161,6 +161,15 @@ const PricingBlock = () => {
   ];
 
   const renderCellValue = (value) => {
+    if (value === 'coming_soon') {
+      return (
+        <Chip
+          label={<FormattedMessage id="landing.pricing.table.comingSoon" />}
+          size="small"
+          sx={{ bgcolor: 'rgba(255,152,0,0.85)', color: 'white', fontWeight: 600, fontSize: '0.65rem', height: 22 }}
+        />
+      );
+    }
     if (value === true) {
       return <CheckOutlined style={{ fontSize: '16px', color: theme.palette.success.main }} />;
     }
@@ -266,7 +275,9 @@ const PricingBlock = () => {
                           {plan.features.map((feature, idx) => (
                             <ListItem key={idx} sx={{ px: 0, py: 0.5 }}>
                               <ListItemIcon sx={{ minWidth: 28 }}>
-                                {feature.included ? (
+                                {feature.included === 'soon' ? (
+                                  <ClockCircleOutlined style={{ fontSize: '16px', color: '#ff9800' }} />
+                                ) : feature.included ? (
                                   <CheckOutlined style={{ fontSize: '16px', color: theme.palette.success.main }} />
                                 ) : (
                                   <CloseOutlined style={{ fontSize: '16px', color: theme.palette.grey[500] }} />
@@ -276,8 +287,8 @@ const PricingBlock = () => {
                                 primary={feature.text}
                                 primaryTypographyProps={{
                                   variant: 'body2',
-                                  color: feature.included ? 'textPrimary' : 'textSecondary',
-                                  sx: { textDecoration: feature.included ? 'none' : 'line-through' }
+                                  color: feature.included === 'soon' ? 'warning.main' : feature.included ? 'textPrimary' : 'textSecondary',
+                                  sx: { textDecoration: feature.included && feature.included !== 'soon' ? 'none' : feature.included === 'soon' ? 'none' : 'line-through', fontStyle: feature.included === 'soon' ? 'italic' : 'normal' }
                                 }}
                               />
                             </ListItem>

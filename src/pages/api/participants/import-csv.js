@@ -70,8 +70,15 @@ export default createHandler({
               let participant;
               
               if (existingParticipant) {
-                // Use existing participant
+                // Use existing participant, but update tag if provided
                 participant = existingParticipant;
+                if (participantData.tag) {
+                  await tx.participants.update({
+                    where: { id: participant.id },
+                    data: { tag: participantData.tag }
+                  });
+                  participant.tag = participantData.tag;
+                }
               } else {
                 // Handle role mapping - try to find role by title (case-insensitive) or by ID
                 let roleId = null;
@@ -117,6 +124,7 @@ export default createHandler({
                     middleName: participantData.middleName || null,
                     email: participantData.email.toLowerCase().trim(),
                     derpartement: participantData.derpartement || null,
+                    tag: participantData.tag || null,
                     roleId: roleId, // Now properly mapped to role ID
                     participantType: participantData.participantType || 'student',
                     participantStatus: participantData.participantStatus || 'active',

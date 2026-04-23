@@ -787,6 +787,12 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
     setSelectedCurriculum(curriculum);
     // Update the form value with the curriculum ID (convert to string for validation)
     setFieldValue("curriculum", curriculum && curriculum.id ? curriculum.id.toString() : "");
+
+    // Auto-populate topics from curriculum if available
+    if (curriculum?.topics && curriculum.topics.length > 0) {
+      const topicTitles = curriculum.topics.map(t => t.title);
+      setProjectTopics(JSON.stringify(topicTitles));
+    }
   }
 
   // Step navigation functions
@@ -1482,6 +1488,16 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
               <Typography variant="h6" gutterBottom>
                 Project Summary
               </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    {...getFieldProps("shared")}
+                    checked={formik.values.shared}
+                  />
+                }
+                label="Make this project available to everyone in the organization"
+                sx={{ mb: 2 }}
+              />
               <Grid container spacing={2}>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">Title:</Typography>
@@ -1527,18 +1543,6 @@ const AddProject = ({ project, onCancel, getStateChange, triggerCloseConfirmatio
                 </Grid>
               </Grid>
             </Paper>
-          </Grid>
-
-          <Grid item xs={12}>
-            <FormControlLabel
-              control={
-                <Switch
-                  {...getFieldProps("shared")}
-                  checked={formik.values.shared}
-                />
-              }
-              label="Make this project available to everyone in the organization"
-            />
           </Grid>
         </Grid>
       </Box>

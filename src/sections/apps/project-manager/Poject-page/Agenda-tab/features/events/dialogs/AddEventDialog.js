@@ -1348,16 +1348,12 @@ const AddEventDialog = ({ open, onClose, selectedTime, selectedDate, project, on
             </IconButton>
           </Stack>
         }
+        modal
         sx={{
           m: 0,
           flex: 1,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
           '& .MuiCardContent-root': {
             p: 0,
-            flex: 1,
-            overflowY: 'auto'
           }
         }}
       >

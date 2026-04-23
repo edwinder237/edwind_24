@@ -190,7 +190,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                           }
                         }}
                       >
-                        {requiresCheckout ? 'Complete Setup' : 'Go to Dashboard'}
+                        {requiresCheckout ? 'Complete Setup' : 'Go to App'}
                       </Button>
                     </AnimateButton>
                   ) : (
@@ -431,7 +431,7 @@ const Header = ({ handleDrawerOpen, layout = 'landing', ...others }) => {
                           <LineOutlined />
                         </ListItemIcon>
                         <ListItemText
-                          primary={requiresCheckout ? 'Complete Setup' : 'Go to Dashboard'}
+                          primary={requiresCheckout ? 'Complete Setup' : 'Go to App'}
                           primaryTypographyProps={{ variant: 'h6', color: requiresCheckout ? 'warning.main' : 'primary.main' }}
                         />
                       </ListItemButton>

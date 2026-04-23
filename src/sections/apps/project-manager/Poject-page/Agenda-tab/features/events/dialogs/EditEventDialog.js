@@ -556,18 +556,11 @@ const EditEventDialog = ({ open, onClose, event, project }) => {
             <Close />
           </IconButton>
         }
+        modal
         sx={{
           m: 0,
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
           '& .MuiCardContent-root': {
             p: 0,
-            flex: 1,
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
           }
         }}
       >

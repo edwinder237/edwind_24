@@ -185,8 +185,16 @@ const SignupPage = () => {
         setError('Please enter a valid email address');
         return;
       }
-      if (!formData.password || formData.password.length < 8) {
-        setError('Password must be at least 8 characters');
+      if (!formData.password || formData.password.length < 10) {
+        setError('Password must be at least 10 characters');
+        return;
+      }
+      if (!/[A-Z]/.test(formData.password)) {
+        setError('Password must contain at least one uppercase letter');
+        return;
+      }
+      if (!/[0-9]/.test(formData.password)) {
+        setError('Password must contain at least one number');
         return;
       }
       // Pre-fill contact email
@@ -377,8 +385,7 @@ const SignupPage = () => {
           type={showPassword ? 'text' : 'password'}
           value={formData.password}
           onChange={handleChange('password')}
-          placeholder="Minimum 8 characters"
-          helperText="At least 8 characters"
+          placeholder="Minimum 10 characters"
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -394,6 +401,26 @@ const SignupPage = () => {
             )
           }}
         />
+        {formData.password && (
+          <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {[
+              { label: 'At least 10 characters', met: formData.password.length >= 10 },
+              { label: 'At least one uppercase letter', met: /[A-Z]/.test(formData.password) },
+              { label: 'At least one number', met: /[0-9]/.test(formData.password) }
+            ].map((rule) => (
+              <Box key={rule.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {rule.met ? (
+                  <CheckOutlined style={{ fontSize: 14, color: '#4caf50' }} />
+                ) : (
+                  <CloseOutlined style={{ fontSize: 14, color: '#f44336' }} />
+                )}
+                <Typography variant="caption" sx={{ color: rule.met ? 'success.main' : 'error.main' }}>
+                  {rule.label}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
       </Grid>
       <Grid item xs={12}>
         <TextField
