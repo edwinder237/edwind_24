@@ -589,7 +589,7 @@ const AddParticipantsDialog = ({
         content={false}
         sx={{ m: 0, boxShadow: 'none' }}
       >
-        <Stack spacing={0}>
+        <Stack spacing={0} sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           {/* Tab Navigation */}
           <Tabs
             value={activeTab}

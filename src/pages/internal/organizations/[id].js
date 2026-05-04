@@ -700,13 +700,14 @@ const OrganizationDetailPage = () => {
                         <TableCell>Sub-Organization</TableCell>
                         <TableCell>WorkOS User ID</TableCell>
                         <TableCell>Joined</TableCell>
+                        <TableCell>Last Login</TableCell>
                         <TableCell align="center">Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {!org.members?.length ? (
                         <TableRow>
-                          <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                          <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                             <Typography color="text.secondary">No members found</Typography>
                           </TableCell>
                         </TableRow>
@@ -761,6 +762,11 @@ const OrganizationDetailPage = () => {
                             <TableCell>
                               <Typography variant="body2" color="text.secondary">
                                 {member.createdAt ? new Date(member.createdAt).toLocaleDateString() : '—'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" color="text.secondary">
+                                {member.lastSignInAt ? new Date(member.lastSignInAt).toLocaleDateString() : '—'}
                               </Typography>
                             </TableCell>
                             <TableCell align="center">

@@ -146,6 +146,28 @@ async function handleGet(req, res, membership) {
       })
     : [];
 
+  // Collect all WorkOS user IDs to fetch lastSignInAt in parallel
+  const allWorkosUserIds = new Set();
+  for (const m of org.organization_memberships) {
+    if (m.user?.workos_user_id) allWorkosUserIds.add(m.user.workos_user_id);
+  }
+  for (const u of subOrgUsers) {
+    if (u.workos_user_id) allWorkosUserIds.add(u.workos_user_id);
+  }
+
+  // Fetch lastSignInAt from WorkOS for all users in parallel
+  const lastSignInMap = {};
+  await Promise.all(
+    [...allWorkosUserIds].map(async (wuid) => {
+      try {
+        const wUser = await workos.userManagement.getUser(wuid);
+        lastSignInMap[wuid] = wUser.lastSignInAt || null;
+      } catch {
+        lastSignInMap[wuid] = null;
+      }
+    })
+  );
+
   // Build members from org_memberships
   const membershipUserIds = new Set();
   const members = org.organization_memberships.map(m => {
@@ -161,6 +183,7 @@ async function handleGet(req, res, membership) {
       role: m.workos_role,
       status: m.status,
       createdAt: m.user?.createdAt,
+      lastSignInAt: m.user?.workos_user_id ? lastSignInMap[m.user.workos_user_id] : null,
       subOrganization: m.user?.sub_organization
         ? { id: m.user.sub_organization.id, title: m.user.sub_organization.title }
         : null
@@ -181,6 +204,7 @@ async function handleGet(req, res, membership) {
         role: null,
         status: 'no_membership',
         createdAt: u.createdAt,
+        lastSignInAt: u.workos_user_id ? lastSignInMap[u.workos_user_id] : null,
         subOrganization: u.sub_organization
           ? { id: u.sub_organization.id, title: u.sub_organization.title }
           : null

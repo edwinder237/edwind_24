@@ -41,6 +41,7 @@ const SCOPED_MODELS = new Set([
   'topics',
   'sub_organization_participant_role',
   'email_logs',
+  'notifications',
 ]);
 
 /**

@@ -31,6 +31,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   Tooltip,
   Typography,
@@ -180,6 +181,8 @@ const InternalOrganizationsPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
   const [stats, setStats] = useState({
     totalOrganizations: 0,
     activeSubscriptions: 0,
@@ -208,7 +211,9 @@ const InternalOrganizationsPage = () => {
     try {
       const params = new URLSearchParams({
         page: (page + 1).toString(),
-        limit: rowsPerPage.toString()
+        limit: rowsPerPage.toString(),
+        sortBy,
+        sortOrder
       });
 
       if (search) {
@@ -229,13 +234,24 @@ const InternalOrganizationsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search]);
+  }, [page, rowsPerPage, search, sortBy, sortOrder]);
 
   useEffect(() => {
     if (isAuthenticated && isOwner) {
       fetchOrganizations();
     }
   }, [isAuthenticated, isOwner, fetchOrganizations]);
+
+  // Handle sort
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+    setPage(0);
+  };
 
   // Handle search
   const handleSearchChange = (event) => {
@@ -444,14 +460,51 @@ const InternalOrganizationsPage = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Organization</TableCell>
-                  <TableCell>Plan</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="center">Sub-Orgs</TableCell>
-                  <TableCell align="center">Members</TableCell>
-                  <TableCell align="center">Projects</TableCell>
-                  <TableCell align="center">Courses</TableCell>
-                  <TableCell>Created</TableCell>
+                  <TableCell sortDirection={sortBy === 'title' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'title'} direction={sortBy === 'title' ? sortOrder : 'asc'} onClick={() => handleSort('title')}>
+                      Organization
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sortDirection={sortBy === 'plan' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'plan'} direction={sortBy === 'plan' ? sortOrder : 'asc'} onClick={() => handleSort('plan')}>
+                      Plan
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sortDirection={sortBy === 'status' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'status'} direction={sortBy === 'status' ? sortOrder : 'asc'} onClick={() => handleSort('status')}>
+                      Status
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell align="center" sortDirection={sortBy === 'subOrganizations' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'subOrganizations'} direction={sortBy === 'subOrganizations' ? sortOrder : 'asc'} onClick={() => handleSort('subOrganizations')}>
+                      Sub-Orgs
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell align="center" sortDirection={sortBy === 'members' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'members'} direction={sortBy === 'members' ? sortOrder : 'asc'} onClick={() => handleSort('members')}>
+                      Members
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell align="center" sortDirection={sortBy === 'projects' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'projects'} direction={sortBy === 'projects' ? sortOrder : 'asc'} onClick={() => handleSort('projects')}>
+                      Projects
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell align="center" sortDirection={sortBy === 'courses' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'courses'} direction={sortBy === 'courses' ? sortOrder : 'asc'} onClick={() => handleSort('courses')}>
+                      Courses
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sortDirection={sortBy === 'createdAt' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'createdAt'} direction={sortBy === 'createdAt' ? sortOrder : 'asc'} onClick={() => handleSort('createdAt')}>
+                      Created
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sortDirection={sortBy === 'lastActiveAt' ? sortOrder : false}>
+                    <TableSortLabel active={sortBy === 'lastActiveAt'} direction={sortBy === 'lastActiveAt' ? sortOrder : 'asc'} onClick={() => handleSort('lastActiveAt')}>
+                      Last Login
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell align="center">Active</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -459,13 +512,13 @@ const InternalOrganizationsPage = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                       <CircularProgress size={32} />
                     </TableCell>
                   </TableRow>
                 ) : organizations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">
                         No organizations found
                       </Typography>
@@ -583,6 +636,13 @@ const InternalOrganizationsPage = () => {
                         <TableCell>
                           <Typography variant="body2" color="text.secondary">
                             {new Date(org.createdAt).toLocaleDateString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {org.lastActiveAt
+                              ? new Date(org.lastActiveAt).toLocaleDateString()
+                              : '—'}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">

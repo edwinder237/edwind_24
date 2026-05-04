@@ -705,21 +705,19 @@ export function canAccessFeature({ subscription, userClaims, featureKey, organiz
   }
 
   // Check if feature is available in the current plan
-  // Priority: DB plan features (admin-managed) > code FEATURES catalog (fallback)
-  // FEATURE_CONFIG_MARKER in DB means admin has explicitly configured toggleable features.
+  // Non-toggleable features always use the code catalog (PLAN_DEFINITIONS).
+  // Toggleable features (dashboard, timeline, kirkpatrick) use DB when admin-configured.
   const planId = subscription.planId;
   const dbPlanFeatures = subscription.plan?.features;
   let isFeatureInPlan;
-  if (Array.isArray(dbPlanFeatures) && dbPlanFeatures.length > 0) {
+  if (Array.isArray(dbPlanFeatures) && dbPlanFeatures.length > 0 && TOGGLEABLE_FEATURE_KEYS.includes(featureKey)) {
+    // Toggleable feature: DB authoritative if admin configured, else code catalog
     const featuresConfigured = dbPlanFeatures.includes(FEATURE_CONFIG_MARKER);
-    if (featuresConfigured || !TOGGLEABLE_FEATURE_KEYS.includes(featureKey)) {
-      // DB authoritative: admin configured features, or checking a non-toggleable feature
-      isFeatureInPlan = dbPlanFeatures.includes(featureKey);
-    } else {
-      // Toggleable feature not yet configured by admin — fall back to code catalog
-      isFeatureInPlan = feature.plans.includes(planId);
-    }
+    isFeatureInPlan = featuresConfigured
+      ? dbPlanFeatures.includes(featureKey)
+      : feature.plans.includes(planId);
   } else {
+    // Non-toggleable feature or no DB features: plan definition is source of truth
     isFeatureInPlan = feature.plans.includes(planId);
   }
 

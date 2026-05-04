@@ -6,7 +6,7 @@ import { useRouter } from 'next/router';
 import { Box, Chip, useMediaQuery } from '@mui/material';
 
 // project import
-import Message from './Message';
+import Notification from './Notification';
 import Profile from './Profile';
 import OrganizationSwitcher from './OrganizationSwitcher';
 import MegaMenuSection from './MegaMenuSection';
@@ -53,6 +53,7 @@ const HeaderContent = ({ onSearchClick }) => {
 
       <Search onClick={onSearchClick} />
       <OrganizationSwitcher />
+      <Notification />
       <Profile />
     </>
   );

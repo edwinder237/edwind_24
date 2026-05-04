@@ -4,8 +4,9 @@ import { persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// RTK Query API
+// RTK Query APIs
 import { projectApi } from '../api/projectApi';
+import { notificationApi } from '../api/notificationApi';
 
 // Normalized entities
 import { entityReducers } from '../entities';
@@ -41,8 +42,9 @@ const reducers = combineReducers({
   eventsLegacy: events, // Rename legacy events to avoid conflict
   topics,
   loading,
-  // RTK Query API slice
+  // RTK Query API slices
   [projectApi.reducerPath]: projectApi.reducer,
+  [notificationApi.reducerPath]: notificationApi.reducer,
   // Normalized entities (these now get the clean names)
   ...entityReducers
 });

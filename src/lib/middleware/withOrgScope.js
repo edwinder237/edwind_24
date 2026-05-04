@@ -105,16 +105,38 @@ export function withOrgScope(handler, options = {}) {
         throw new AccountInactiveError('Your account has been deactivated');
       }
 
+      // For public routes, if user was deleted (stale cookie), clear cookies and proceed
+      if (allowPublic && !dbUser) {
+        res.setHeader('Set-Cookie', [
+          'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+          'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+          'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+        ]);
+        return await handler(req, res);
+      }
+
       // ============================================
       // 2. Get User Claims (Two-Tier Cache)
       // ============================================
       const claims = await getCachedClaims(req, workos);
 
       if (!claims) {
+        if (allowPublic) {
+          // Public route with stale/invalid session — clear cookies and proceed
+          res.setHeader('Set-Cookie', [
+            'workos_user_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+            'workos_access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+            'workos_session_id=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict',
+          ]);
+          return await handler(req, res);
+        }
         throw new UnauthorizedError('Invalid or expired session');
       }
 
       if (!claims.organizations || claims.organizations.length === 0) {
+        if (allowPublic) {
+          return await handler(req, res);
+        }
         throw new OrganizationAccessDeniedError('No organization membership found');
       }
 

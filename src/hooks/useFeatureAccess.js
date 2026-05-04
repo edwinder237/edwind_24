@@ -39,17 +39,15 @@ export default function useFeatureAccess(featureKey) {
       .filter(p => TIER_ORDER[p] !== undefined)
       .sort((a, b) => TIER_ORDER[a] - TIER_ORDER[b])[0];
 
-    // DB plan features are authoritative when the config marker is present (admin saved).
-    // Otherwise fall back to code catalog for toggleable features (handles stale DB seed data).
+    // Non-toggleable features always use the code catalog (PLAN_DEFINITIONS).
+    // Toggleable features (dashboard, timeline, kirkpatrick) use DB when admin-configured.
     const dbPlanFeatures = user.subscription?.planFeatures;
     let hasPlanAccess;
-    if (Array.isArray(dbPlanFeatures) && dbPlanFeatures.length > 0) {
+    if (Array.isArray(dbPlanFeatures) && dbPlanFeatures.length > 0 && TOGGLEABLE_FEATURE_KEYS.includes(featureKey)) {
       const featuresConfigured = dbPlanFeatures.includes(FEATURE_CONFIG_MARKER);
-      if (featuresConfigured || !TOGGLEABLE_FEATURE_KEYS.includes(featureKey)) {
-        hasPlanAccess = dbPlanFeatures.includes(featureKey);
-      } else {
-        hasPlanAccess = feature.plans.includes(currentPlan);
-      }
+      hasPlanAccess = featuresConfigured
+        ? dbPlanFeatures.includes(featureKey)
+        : feature.plans.includes(currentPlan);
     } else {
       hasPlanAccess = feature.plans.includes(currentPlan);
     }

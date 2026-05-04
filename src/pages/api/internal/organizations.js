@@ -41,12 +41,20 @@ export default createHandler({
     const {
       search,
       page = '1',
-      limit = '25'
+      limit = '25',
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
     } = req.query;
 
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
+
+    // Validate sort params - only allow DB-level sortable fields
+    const dbSortableFields = ['title', 'status', 'createdAt'];
+    const validSortOrder = sortOrder === 'asc' ? 'asc' : 'desc';
+    const useDbSort = dbSortableFields.includes(sortBy);
+    const clientSortField = !useDbSort ? sortBy : null;
 
     // Build where clause
     const where = {};
@@ -88,14 +96,67 @@ export default createHandler({
             }
           }
         },
-        orderBy: {
-          createdAt: 'desc'
-        },
+        orderBy: useDbSort ? { [sortBy]: validSortOrder } : { createdAt: 'desc' },
         skip,
         take: limitNum
       }),
       prisma.organizations.count({ where })
     ]);
+
+    // Get last active dates from WorkOS for each org's members
+    const orgLastActive = {};
+    await Promise.all(
+      organizations.map(async (org) => {
+        try {
+          const memberships = await prisma.organization_memberships.findMany({
+            where: { organizationId: org.id },
+            select: { userId: true }
+          });
+
+          if (memberships.length === 0) {
+            orgLastActive[org.id] = null;
+            return;
+          }
+
+          // Get WorkOS user IDs for these members
+          const memberUsers = await prisma.user.findMany({
+            where: { id: { in: memberships.map(m => m.userId) } },
+            select: { workos_user_id: true }
+          });
+
+          const workosUserIds = memberUsers
+            .map(u => u.workos_user_id)
+            .filter(Boolean);
+
+          if (workosUserIds.length === 0) {
+            orgLastActive[org.id] = null;
+            return;
+          }
+
+          // Check each user's lastActiveAt in WorkOS
+          const lastActiveDates = await Promise.all(
+            workosUserIds.map(async (wuid) => {
+              try {
+                const wUser = await workos.userManagement.getUser(wuid);
+                return wUser.lastSignInAt || null;
+              } catch {
+                return null;
+              }
+            })
+          );
+
+          // Get the most recent date
+          const validDates = lastActiveDates.filter(Boolean);
+          if (validDates.length > 0) {
+            orgLastActive[org.id] = validDates.sort((a, b) => new Date(b) - new Date(a))[0];
+          } else {
+            orgLastActive[org.id] = null;
+          }
+        } catch {
+          orgLastActive[org.id] = null;
+        }
+      })
+    );
 
     // Format response
     const formattedOrganizations = organizations.map(org => {
@@ -122,6 +183,7 @@ export default createHandler({
         type: org.type,
         logoUrl: org.logo_url,
         createdAt: org.createdAt,
+        lastActiveAt: orgLastActive[org.id] || null,
         subscription: org.subscription ? {
           planId: org.subscription.planId,
           planName: org.subscription.plan?.name,
@@ -137,6 +199,29 @@ export default createHandler({
         }
       };
     });
+
+    // Client-side sort for computed fields
+    if (clientSortField) {
+      const sortAccessors = {
+        plan: (o) => o.subscription?.planName || '',
+        subOrganizations: (o) => o.stats?.subOrganizations || 0,
+        members: (o) => o.stats?.members || 0,
+        projects: (o) => o.stats?.projects || 0,
+        courses: (o) => o.stats?.courses || 0,
+        lastActiveAt: (o) => o.lastActiveAt ? new Date(o.lastActiveAt).getTime() : 0
+      };
+      const accessor = sortAccessors[clientSortField];
+      if (accessor) {
+        formattedOrganizations.sort((a, b) => {
+          const aVal = accessor(a);
+          const bVal = accessor(b);
+          if (typeof aVal === 'string') {
+            return validSortOrder === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+          }
+          return validSortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+        });
+      }
+    }
 
     // Calculate aggregate stats
     const [totalOrgs, activeSubscriptions, deactivatedOrgs] = await Promise.all([

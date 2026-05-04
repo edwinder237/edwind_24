@@ -5,6 +5,7 @@ import { useDispatch as useAppDispatch, useSelector as useAppSelector } from 're
 // project import
 import reducers from './reducers';
 import { projectApi } from './api/projectApi';
+import { notificationApi } from './api/notificationApi';
 import { createEventMiddleware, initializeEventHandlers } from './events/eventIntegration';
 import { initializeCrossDomainHandlers } from './events/crossDomainEventHandlers';
 
@@ -24,6 +25,7 @@ const store = configureStore({
       },
     }).concat(
       projectApi.middleware,
+      notificationApi.middleware,
       createEventMiddleware() // Add domain events middleware
     ),
 });

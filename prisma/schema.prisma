@@ -85,6 +85,7 @@ model sub_organizations {
   training_recipients training_recipients[]
   users               User[]
   organization_tools  organization_tools[]
+  notifications       notifications[]
 
   @@index([organizationId])
 }
@@ -1828,4 +1829,24 @@ model email_logs {
   @@index([recipientEmail])
   @@index([projectId])
   @@index([resendEmailId])
+}
+
+model notifications {
+  id                 Int               @id @default(autoincrement())
+  type               String            // PROJECT_OVERDUE, PROJECT_ASSIGNED, etc.
+  title              String
+  message            String
+  referenceId        String?           // Generic FK: project ID, course ID, etc.
+  referenceType      String?           // "project", "course", etc.
+  isRead             Boolean           @default(false)
+  sub_organizationId Int
+  createdAt          DateTime          @default(now())
+  readAt             DateTime?
+  dedupeKey          String?           @unique
+
+  sub_organization   sub_organizations @relation(fields: [sub_organizationId], references: [id], onDelete: Cascade)
+
+  @@index([sub_organizationId, isRead])
+  @@index([sub_organizationId, createdAt])
+  @@index([type])
 }
